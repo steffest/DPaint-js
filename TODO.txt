@@ -1,0 +1,8 @@
+- Undo/redo
+- export to png and Amiga Icon
+- animation frames, at least 2
+- dithering/color reduction with palettes
+- layers ?
+- brush sizes/shapes
+
+- close menu on canvas click

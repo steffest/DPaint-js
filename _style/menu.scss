@@ -1,0 +1,56 @@
+@import "var";
+
+.menu{
+  position: absolute;
+  left: 0;
+  right: 0;
+  border: 1px solid black;
+  height: 25px;
+  background-color: $panel-background-color;
+  color: $menu-text-color;
+  z-index: 10;
+  user-select: none;
+
+  a.main{
+    position: relative;
+    display: inline-block;
+    padding: 0 10px;
+    line-height: 23px;
+    font-size: 13px;
+
+    .sub{
+      left: 0;
+      margin-top: 0px;
+      position: absolute;
+      background-color: $panel-background-color;
+      color: $menu-text-color;
+      border: 1px solid black;
+      display: none;
+
+      a{
+        display: block;
+        padding: 0px 10px;
+        font-size: 13px;
+        line-height: 23px;
+        white-space: nowrap;
+
+        &:hover{
+          background-color: $panel-background-active;
+          cursor: pointer;
+        }
+      }
+    }
+
+    &:hover,
+    &.active{
+      background-color: $panel-background-active;
+      cursor: pointer;
+    }
+
+    &.active{
+      .sub{
+        display: block;
+      }
+    }
+  }
+}

@@ -1,0 +1,34 @@
+.cursor {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  left: 0;
+  top: 0;
+  margin-top: -18px;
+  margin-left: -2px;
+  pointer-events: none;
+  background-image: url("../_img/pipette.svg");
+  background-size: contain;
+  display: none2;
+}
+
+body.hovericonEditorCanvas.shift .cursor {
+  display: block;
+}
+
+body.hovericonEditorCanvas.shift .cursor .mark {
+  position: absolute;
+  pointer-events: none;
+  display: none;
+  width: 60px;
+  height: 60px;
+  margin: -14px 0 0 -26px;
+  border: 8px solid green;
+  border-radius: 50%;
+}
+
+body.hovericonEditorCanvas.shift.mousedown .cursor .mark {
+  display: block;
+}
+
+/*# sourceMappingURL=cursor.css.map */

@@ -1,0 +1,128 @@
+@import "var";
+
+.toolbar{
+  position: absolute;
+  left: 0;
+  top: 27px;
+  border: 1px solid black;
+  width: 64px;
+  height: 200px;
+  background-color: $panel-background-color;
+  display: flex;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  justify-content: space-around;
+  user-select: none;
+
+  .button{
+    display: block;
+    width: 30px;
+    height: 30px;
+    border: 1px solid rgba(0, 0, 0, 0);
+    line-height: 30px;
+    text-align: center;
+
+
+    &:hover,
+    &.active{
+      background-color: $panel-background-active;
+      cursor: pointer;
+    }
+
+    &.icon{
+      background-repeat: no-repeat;
+      background-position: center center;
+      opacity: 0.5;
+      image-rendering: -moz-crisp-edges;
+      image-rendering: -webkit-crisp-edges;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+
+      &:hover{
+        opacity: 0.7;
+      }
+
+      &.active{
+        opacity: 1;
+        background-color: $button-background-dark;
+      }
+    }
+
+    &.select{
+      background-image: url("../_img/select.svg");
+      background-size: 80% 80%;
+    }
+
+    &.split{
+      background-image: url("../_img/split.svg");
+      background-size: 80% 80%;
+    }
+  }
+
+  .brushes{
+    width: 55px;
+    height: 22px;
+    margin: 5px auto;
+    display: flex;
+    flex-wrap: wrap;
+
+    .brush{
+      width: 11px;
+      height: 11px;
+      background-image: url("../_img/brushes.png");
+      opacity: 0.3;
+      display: block;
+      image-rendering: optimizeSpeed;
+      image-rendering: optimize-contrast;
+      image-rendering: -webkit-optimize-contrast;
+      image-rendering: crisp-edges;
+      image-rendering: -moz-crisp-edges;
+      image-rendering: -o-crisp-edges;
+      image-rendering: pixelated;
+      -ms-interpolation-mode: nearest-neighbor;
+
+      &.active{
+        opacity: 1;
+        background-color: black;
+      }
+
+      &:hover{
+        opacity: 1;
+        background-color: black;
+        box-shadow: 0 0 2px black;
+      }
+    }
+  }
+
+  .palette{
+    width: 60px;
+    text-align: center;
+
+    .display{
+      height: 34px;
+      position: relative;
+
+      div{
+        position: absolute;
+        width: 18px;
+        height: 18px;
+        border: 1px solid black;
+        left: 28px;
+        top: 10px;
+        background-color: black;
+
+        &.front{
+          z-index: 2;
+          left: 16px;
+          top: 5px;
+        }
+      }
+    }
+
+    .color{
+      width: 14px;
+      height: 14px;
+      display: inline-block;
+    }
+  }
+}

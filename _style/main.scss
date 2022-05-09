@@ -1,0 +1,29 @@
+@import "var";
+
+html {
+  box-sizing: border-box;
+}
+*, *:before, *:after {
+  box-sizing: inherit;
+}
+
+body{
+  background-color: $background-color;
+  font-family: sans-serif;
+  font-size: 14px;
+  height: 100%;
+  margin: 0;
+  padding: 10px;
+}
+
+.container{
+  position: relative;
+  height: 100%;
+}
+
+@import "scrollbar.css";
+@import "menu";
+@import "toolbar";
+@import "sidepanel";
+@import "editor";
+@import "cursor";

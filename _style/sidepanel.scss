@@ -1,0 +1,18 @@
+.sidepanel{
+  position: absolute;
+  left: 70px;
+  top: 27px;
+  bottom: 0;
+  border: 1px solid black;
+  width: 175px;
+  background-color: $panel-background-color;
+  display: none;
+}
+
+
+body.withsidepanel{
+  .sidepanel{
+    display: block;
+  }
+ 
+}

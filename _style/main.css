@@ -1,0 +1,373 @@
+@import "scrollbar.css";
+html {
+  box-sizing: border-box;
+}
+
+*, *:before, *:after {
+  box-sizing: inherit;
+}
+
+body {
+  background-color: #2B2B2B;
+  font-family: sans-serif;
+  font-size: 14px;
+  height: 100%;
+  margin: 0;
+  padding: 10px;
+}
+
+.container {
+  position: relative;
+  height: 100%;
+}
+
+.menu {
+  position: absolute;
+  left: 0;
+  right: 0;
+  border: 1px solid black;
+  height: 25px;
+  background-color: #313335;
+  color: #BBBBBB;
+  z-index: 10;
+  user-select: none;
+}
+.menu a.main {
+  position: relative;
+  display: inline-block;
+  padding: 0 10px;
+  line-height: 23px;
+  font-size: 13px;
+}
+.menu a.main .sub {
+  left: 0;
+  margin-top: 0px;
+  position: absolute;
+  background-color: #313335;
+  color: #BBBBBB;
+  border: 1px solid black;
+  display: none;
+}
+.menu a.main .sub a {
+  display: block;
+  padding: 0px 10px;
+  font-size: 13px;
+  line-height: 23px;
+  white-space: nowrap;
+}
+.menu a.main .sub a:hover {
+  background-color: #3C3F41;
+  cursor: pointer;
+}
+.menu a.main:hover, .menu a.main.active {
+  background-color: #3C3F41;
+  cursor: pointer;
+}
+.menu a.main.active .sub {
+  display: block;
+}
+
+.toolbar {
+  position: absolute;
+  left: 0;
+  top: 27px;
+  border: 1px solid black;
+  width: 64px;
+  height: 200px;
+  background-color: #313335;
+  display: flex;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  justify-content: space-around;
+  user-select: none;
+}
+.toolbar .button {
+  display: block;
+  width: 30px;
+  height: 30px;
+  border: 1px solid rgba(0, 0, 0, 0);
+  line-height: 30px;
+  text-align: center;
+}
+.toolbar .button:hover, .toolbar .button.active {
+  background-color: #3C3F41;
+  cursor: pointer;
+}
+.toolbar .button.icon {
+  background-repeat: no-repeat;
+  background-position: center center;
+  opacity: 0.5;
+  image-rendering: -moz-crisp-edges;
+  image-rendering: -webkit-crisp-edges;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+.toolbar .button.icon:hover {
+  opacity: 0.7;
+}
+.toolbar .button.icon.active {
+  opacity: 1;
+  background-color: #282A2C;
+}
+.toolbar .button.select {
+  background-image: url("../_img/select.svg");
+  background-size: 80% 80%;
+}
+.toolbar .button.split {
+  background-image: url("../_img/split.svg");
+  background-size: 80% 80%;
+}
+.toolbar .brushes {
+  width: 55px;
+  height: 22px;
+  margin: 5px auto;
+  display: flex;
+  flex-wrap: wrap;
+}
+.toolbar .brushes .brush {
+  width: 11px;
+  height: 11px;
+  background-image: url("../_img/brushes.png");
+  opacity: 0.3;
+  display: block;
+  image-rendering: optimizeSpeed;
+  image-rendering: optimize-contrast;
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: crisp-edges;
+  image-rendering: -moz-crisp-edges;
+  image-rendering: -o-crisp-edges;
+  image-rendering: pixelated;
+  -ms-interpolation-mode: nearest-neighbor;
+}
+.toolbar .brushes .brush.active {
+  opacity: 1;
+  background-color: black;
+}
+.toolbar .brushes .brush:hover {
+  opacity: 1;
+  background-color: black;
+  box-shadow: 0 0 2px black;
+}
+.toolbar .palette {
+  width: 60px;
+  text-align: center;
+}
+.toolbar .palette .display {
+  height: 34px;
+  position: relative;
+}
+.toolbar .palette .display div {
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  border: 1px solid black;
+  left: 28px;
+  top: 10px;
+  background-color: black;
+}
+.toolbar .palette .display div.front {
+  z-index: 2;
+  left: 16px;
+  top: 5px;
+}
+.toolbar .palette .color {
+  width: 14px;
+  height: 14px;
+  display: inline-block;
+}
+
+.sidepanel {
+  position: absolute;
+  left: 70px;
+  top: 27px;
+  bottom: 0;
+  border: 1px solid black;
+  width: 175px;
+  background-color: #313335;
+  display: none;
+}
+
+body.withsidepanel .sidepanel {
+  display: block;
+}
+
+.splitpanel {
+  position: absolute;
+  top: 27px;
+  left: 70px;
+  right: 0;
+  bottom: 0;
+}
+.splitpanel .panel {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: calc(50% - 4px);
+  border: 1px solid black;
+}
+.splitpanel .panel:first-of-type {
+  left: 0;
+  width: 100%;
+}
+.splitpanel .panel:last-of-type {
+  right: 0;
+  display: none;
+}
+.splitpanel .panel .toolbar {
+  top: 0;
+  right: 0;
+  width: unset;
+  height: 21px;
+  border: none;
+  border-bottom: 1px solid black;
+  justify-content: flex-start;
+}
+.splitpanel .panel .toolbar .button {
+  height: 20px;
+  width: 20px;
+  color: #BBBBBB;
+  font-size: 12px;
+  line-height: 20px;
+  border: none;
+  border-right: 1px solid black;
+  background-color: #282A2C;
+}
+.splitpanel .panel .toolbar .button.auto {
+  width: auto;
+  padding: 0 5px;
+}
+.splitpanel .panel .toolbar .button.expand {
+  background-image: url("../_img/fullscreen.svg");
+  background-size: 60% 60%;
+  background-position: center center;
+  background-repeat: no-repeat;
+}
+.splitpanel .panel .viewport {
+  position: absolute;
+  top: 21px;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  overflow: auto;
+  display: flex;
+}
+.splitpanel .splitter {
+  position: absolute;
+  left: calc(50% - 4px);
+  margin-left: 1px;
+  top: 0;
+  bottom: 0;
+  width: 6px;
+  cursor: col-resize;
+  z-index: 10;
+  display: none;
+}
+.splitpanel .splitter:hover {
+  background-color: rgba(0, 0, 0, 0.2);
+}
+.splitpanel .canvascontainer {
+  display: block;
+  margin: auto;
+  position: relative;
+}
+.splitpanel canvas {
+  image-rendering: optimizeSpeed;
+  image-rendering: optimize-contrast;
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: crisp-edges;
+  image-rendering: -moz-crisp-edges;
+  image-rendering: -o-crisp-edges;
+  image-rendering: pixelated;
+  -ms-interpolation-mode: nearest-neighbor;
+  display: block;
+  position: relative;
+  z-index: 1;
+}
+.splitpanel canvas.overlaycanvas {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+.splitpanel .selectbox {
+  position: absolute;
+  border: 1px solid black;
+  display: none;
+  z-index: 4;
+  pointer-events: none;
+}
+.splitpanel .selectbox:after {
+  content: "";
+  position: absolute;
+  border: 1px dashed white;
+  left: -1px;
+  right: -1px;
+  top: -1px;
+  bottom: -1px;
+}
+.splitpanel .selectbox.active {
+  display: block;
+}
+
+body.space .splitpanel .panel,
+body.space.select .splitpanel .panel {
+  cursor: grab;
+}
+body.space .splitpanel .overlaycanvas,
+body.space.select .splitpanel .overlaycanvas {
+  display: none;
+}
+
+body.shift .splitpanel .overlaycanvas,
+body.select .splitpanel .overlaycanvas {
+  display: none;
+}
+
+body.select .splitpanel .panel {
+  cursor: crosshair;
+}
+
+body.withsidepanel .splitpanel {
+  left: 250px;
+}
+
+.cursor {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  left: 0;
+  top: 0;
+  margin-top: -18px;
+  margin-left: -2px;
+  pointer-events: none;
+  background-image: url("../_img/pipette.svg");
+  background-size: contain;
+  z-index: 100;
+  display: none;
+}
+
+body.hovericonEditorCanvas.shift canvas.mainCanvas {
+  cursor: none;
+}
+
+body.hovericonEditorCanvas.shift .cursor {
+  display: block;
+}
+
+body.hovericonEditorCanvas.shift .cursor .mark {
+  position: absolute;
+  pointer-events: none;
+  display: none;
+  width: 60px;
+  height: 60px;
+  margin: -14px 0 0 -26px;
+  border: 8px solid green;
+  border-radius: 50%;
+}
+
+body.hovericonEditorCanvas.shift.mousedown .cursor .mark {
+  display: block;
+}
+
+/*# sourceMappingURL=main.css.map */

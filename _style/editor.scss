@@ -1,0 +1,171 @@
+.splitpanel{
+  position: absolute;
+  top: 27px;
+  left: 70px;
+  right: 0;
+  bottom: 0;
+
+  .panel{
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: calc(50% - 4px);
+    border: 1px solid black;
+
+    &:first-of-type{
+      left: 0;
+      width: 100%;
+    }
+    &:last-of-type{
+      right: 0;
+      display: none;
+    }
+
+    .toolbar{
+      top: 0;
+      right: 0;
+      width: unset;
+      height: 21px;
+      border: none;
+      border-bottom: 1px solid black;
+      justify-content: flex-start;
+
+
+      .button{
+        height: 20px;
+        width: 20px;
+        color: $menu-text-color;
+        font-size: 12px;
+        line-height: 20px;
+        border: none;
+        border-right: 1px solid black;
+        background-color: $button-background-dark;
+
+        &.auto{
+          width: auto;
+          padding: 0 5px;
+        }
+
+        &.expand{
+          background-image: url("../_img/fullscreen.svg");
+          background-size: 60% 60%;
+          background-position: center center;
+          background-repeat: no-repeat;
+        }
+      }
+    }
+
+    .viewport{
+      position: absolute;
+      top: 21px;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      overflow: auto;
+      display: flex;
+    }
+  }
+
+  .splitter{
+    position: absolute;
+    left: calc(50% - 4px);
+    margin-left: 1px;
+    top: 0;
+    bottom: 0;
+    width: 6px;
+    cursor: col-resize;
+    z-index: 10;
+    display: none;
+
+    &:hover{
+      background-color: rgba(0, 0, 0, 0.2);
+    }
+  }
+  
+  .canvascontainer{
+    display: block;
+    margin: auto;
+    position: relative;
+  }
+
+  canvas{
+    image-rendering: optimizeSpeed;
+    image-rendering: optimize-contrast;
+    image-rendering: -webkit-optimize-contrast;
+    image-rendering: crisp-edges;
+    image-rendering: -moz-crisp-edges;
+    image-rendering: -o-crisp-edges;
+    image-rendering: pixelated;
+    -ms-interpolation-mode: nearest-neighbor;
+    display: block;
+    position: relative;
+    z-index: 1;
+    
+    &.overlaycanvas{
+      position: absolute;
+      left: 0;
+      top: 0;
+      z-index: 2;
+      pointer-events: none;
+    }
+
+  }
+
+  .selectbox{
+    position: absolute;
+    border: 1px solid black;
+    display: none;
+    z-index: 4;
+    pointer-events: none;
+
+    &:after{
+      content: "";
+      position: absolute;
+      border: 1px dashed white;
+      left: -1px;
+      right: -1px;
+      top: -1px;
+      bottom: -1px;
+    }
+
+    &.active{
+      display: block;
+    }
+  }
+}
+
+body.space,
+body.space.select{
+  .splitpanel{
+    .panel{
+      cursor: grab;
+    }
+
+    .overlaycanvas{
+      display: none;
+    }
+  }
+}
+
+body.shift,
+body.select{
+  .splitpanel{
+    .overlaycanvas{
+      display: none;
+    }
+  }
+}
+
+body.select{
+  .splitpanel{
+    .panel{
+      cursor: crosshair;
+    }
+  }
+}
+
+body.withsidepanel{
+  .splitpanel{
+    left: 250px;
+  }
+}
