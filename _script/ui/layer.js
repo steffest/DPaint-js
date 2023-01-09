@@ -1,5 +1,7 @@
 let Layer = function(width,height){
-    let me = {}
+    let me = {
+        visible:true
+    }
     
     let canvas = document.createElement("canvas");
     canvas.width = width;
@@ -15,9 +17,9 @@ let Layer = function(width,height){
     }
     
     me.clear = function(){
-        ctx.fillStyle = "black";
-        ctx.fillRect(0,0, canvas.width, canvas.height);
+        ctx.clearRect(0,0, canvas.width, canvas.height);
     }
+
     
     return me;
 }

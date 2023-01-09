@@ -8,6 +8,7 @@ import Editor from "./editor.js";
 import HistoryService from "../services/historyservice.js";
 import Selection from "./selection.js";
 import ImageFile from "../image.js";
+import Resizer from "./components/resizer.js";
 
 let Canvas = function(parent){
 	let me = {};
@@ -30,8 +31,8 @@ let Canvas = function(parent){
     canvas.height = 200;
     overlayCanvas.width = 200;
     overlayCanvas.height = 200;
-    ctx = canvas.getContext("2d");
-    overlayCtx = overlayCanvas.getContext("2d");
+    ctx = canvas.getContext("2d",{willReadFrequently: true, antialias: false, desynchronized: true});
+    overlayCtx = overlayCanvas.getContext("2d",{willReadFrequently: true});
 
     let c = $div("canvascontainer");
 
@@ -40,11 +41,11 @@ let Canvas = function(parent){
     c.appendChild(canvas);
     c.appendChild(overlayCanvas);
     c.appendChild(selectBox);
-
-    
     
     panelParent = parent.getViewPort();
     panelParent.appendChild(c);
+
+    panelParent.addEventListener('scroll',(e)=>{handle('scroll', e)},false);
 
     canvas.addEventListener("mousemove", function (e) {handle('move', e)}, false);
     canvas.addEventListener("mousedown", function (e) {handle('down', e)}, false);
@@ -82,13 +83,27 @@ let Canvas = function(parent){
     })
 
     EventBus.on(EVENT.imageContentChanged,()=>{
+        me.clear();
         ctx.drawImage(ImageFile.getCanvas(),0,0);
+    })
+
+    EventBus.on(EVENT.selectionChanged,()=>{
+        if (!parent.isVisible()) return;
+        if (selectBox.classList.contains("active")){
+            updateSelectBox(true);
+        }
+    })
+
+    EventBus.on(EVENT.sizerChanged,()=>{
+        if (selectBox.classList.contains("active")){
+            Selection.set(me,Resizer.get());
+            updateSelectBox(true);
+        }
     })
 
     
     me.clear = function(){
-        ctx.fillStyle = "black";
-        ctx.fillRect(0,0,canvas.width,canvas.height);
+        ctx.clearRect(0,0,canvas.width,canvas.height);
     }
 
     me.set = function(image,reset){
@@ -102,6 +117,7 @@ let Canvas = function(parent){
     }
     
     me.update = function(){
+        me.clear();
         ctx.drawImage(ImageFile.getCanvas(),0,0);
     }
 
@@ -154,6 +170,7 @@ let Canvas = function(parent){
     function draw() {
         // button=0 -> left, button=2: right
         let color = touchData.button?Palette.getBackgroundColor():Palette.getDrawColor();
+        if (Editor.getCurrentTool() === COMMAND.ERASE) color = "transparent";
         let {x,y} = touchData;
         Brush.draw(ImageFile.getActiveContext(),x,y,color,true);
         EventBus.trigger(EVENT.layerContentChanged);
@@ -164,6 +181,7 @@ let Canvas = function(parent){
         var point;
         switch (action){
             case "down":
+                console.error(Editor.getCurrentTool());
                 point = getCursorPosition(canvas,e,true);
                 touchData.isdown = true;
                 touchData.button = e.button;
@@ -179,18 +197,24 @@ let Canvas = function(parent){
                     Palette.setColor(pixel);
                     return;
                 }
-                if (Editor.getCurrentTool() === COMMAND.DRAW){
+                
+                if (touchData.isResizing){
+                    return;
+                }
+                if (Editor.getCurrentTool() === COMMAND.DRAW || Editor.getCurrentTool() === COMMAND.ERASE){
                     touchData.isDrawing = true;
                     HistoryService.start([COMMAND.DRAW,ctx,onChange]);
                     draw();
                 }
                 if (Editor.getCurrentTool() === COMMAND.SELECT){
                     touchData.isSelecting = true;
-                    selectBox.style.left = point.x*zoom + "px";
-                    selectBox.style.top = point.y*zoom + "px";
-                    selectBox.style.width = "0px";
-                    selectBox.style.height = "0px";
                     selectBox.classList.add("active");
+                    Resizer.set(point.x,point.y,0,0,true,parent.getViewPort());
+                }
+                if (Editor.getCurrentTool() === COMMAND.SQUARE){
+                    touchData.isSelecting = true;
+                    selectBox.classList.add("active");
+                    Resizer.set(point.x,point.y,0,0,true,parent.getViewPort());
                 }
                 break;
             case 'up':
@@ -202,13 +226,27 @@ let Canvas = function(parent){
 
                 if (touchData.isSelecting &&  touchData.selection){
                     Selection.set(me,touchData.selection);
+                    Resizer.commit();
+
+                    if (Editor.getCurrentTool() ===  COMMAND.SQUARE){
+                        console.error(touchData);
+
+                        let color = touchData.button?Palette.getBackgroundColor():Palette.getDrawColor();
+                        let {x,y} = touchData;
+                        let s = touchData.selection;
+                        ImageFile.getActiveContext().fillStyle = color;
+                        ImageFile.getActiveContext().fillRect(s.left,s.top,s.width,s.height);
+                        EventBus.trigger(EVENT.layerContentChanged);
+                        EventBus.trigger(COMMAND.CLEARSELECTION);
+                    }
                 }
 
                 touchData.isdown = false;
                 touchData.isDrawing = false;
                 touchData.isSelecting = false;
+                touchData.isResizing = false;
                 touchData.selection = undefined;
-                //selectBox.classList.remove("active");
+                selectBox.classList.remove("hot");
                 hideOverlay();
 
                 break;
@@ -249,8 +287,16 @@ let Canvas = function(parent){
                             y += h;
                             h=-h;
                         }
-                        touchData.selection = {x:x,y:y,width: w,height: h};
-                        updateSelectBox(touchData.selection);
+                        touchData.selection = {left:x,top:y,width: w,height: h};
+                        EventBus.trigger(EVENT.sizerChanged,touchData.selection);
+                    }
+
+                    if (touchData.isResizing){
+                        let w = point.x - touchData.x;
+                        let h = point.y - touchData.y;
+                        touchData.selection.width = touchData.startSelectWidth + w;
+                        touchData.selection.height = touchData.startSelectHeight + h;
+                        EventBus.trigger(EVENT.sizerChanged,touchData.selection);
                     }
                     
                 }else{
@@ -272,7 +318,10 @@ let Canvas = function(parent){
 
                     cursor.style.top = point.y + "px";
                     cursor.style.left = point.x + "px";*/
-               
+                break;
+            case "scroll":
+                EventBus.trigger(EVENT.sizerChanged);
+                break;
         }
     }
 
@@ -306,15 +355,17 @@ let Canvas = function(parent){
         EventBus.trigger(EVENT.drawCanvasOverlay,point);
     }
 
-    function updateSelectBox(data){
-        data = data || Selection.get();
+    function updateSelectBox(fromEvent){
+        let data = Selection.get();
+
         if (data){
-            selectBox.style.left = data.x*zoom + "px";
-            selectBox.style.top = data.y*zoom + "px";
+            selectBox.style.left = data.left*zoom + "px";
+            selectBox.style.top = data.top*zoom + "px";
             selectBox.style.width = data.width*zoom + "px";
             selectBox.style.height = data.height*zoom + "px";
         }
-
+        console.error("zoom");
+        if (!fromEvent) EventBus.trigger(EVENT.selectionChanged);
     }
 
     return me;

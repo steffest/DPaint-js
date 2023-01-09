@@ -86,6 +86,8 @@
     display: block;
     margin: auto;
     position: relative;
+    border: 1px solid black;
+    background-image: url("../_img/checkers.png");
   }
 
   canvas{
@@ -111,27 +113,6 @@
 
   }
 
-  .selectbox{
-    position: absolute;
-    border: 1px solid black;
-    display: none;
-    z-index: 4;
-    pointer-events: none;
-
-    &:after{
-      content: "";
-      position: absolute;
-      border: 1px dashed white;
-      left: -1px;
-      right: -1px;
-      top: -1px;
-      bottom: -1px;
-    }
-
-    &.active{
-      display: block;
-    }
-  }
 }
 
 body.space,

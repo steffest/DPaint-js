@@ -1,27 +1,50 @@
-import Editor from "./ui/editor.js";
 import FileDetector from "./fileformats/detect.js";
 import EventBus from "./util/eventbus.js";
 import {COMMAND, EVENT} from "./enum.js";
 import Historyservice from "./services/historyservice.js";
 import Layer from "./ui/layer.js";
-import IFF from "./fileformats/iff.js";
-import saveAs from "./util/filesaver.js";
+import Modal from "./ui/modal.js";
+import SidePanel from "./ui/sidepanel.js";
 
 let ImageFile = function(){
     let me = {};
     let activeLayer;
+    let activeLayerIndex = 0;
+    let activeFrameIndex = 0;
     let currentFile = {
         layers:[]
     }
+
+    me.getCurrentFile = function(){
+        return currentFile;
+    }
     
-    me.getCanvas = function(){
-        if (currentFile.layers.length === 1 && activeLayer){
-            return activeLayer.getCanvas();
+    me.getCanvas = function(frameIndex){
+        let frame = (typeof frameIndex === "number") ? currentFile.frames[frameIndex]: currentFrame();
+        if (frame.layers.length === 1){
+            if (typeof frameIndex === "number"){
+                return frame.layers[0].getCanvas();
+            }else{
+                if (activeLayer && activeLayer.visible){
+                    return activeLayer.getCanvas();
+                }
+            }
+        }else{
+            let canvas = document.createElement("canvas");
+            let ctx = canvas.getContext("2d");
+            canvas.width = currentFile.width;
+            canvas.height = currentFile.height;
+            frame.layers.forEach(layer=>{
+                if (layer.visible){
+                    ctx.drawImage(layer.getCanvas(),0,0);
+                }
+            });
+            return canvas;
         }
     }
     
     me.getContext = function(){
-        if (currentFile.layers.length === 1 && activeLayer){
+        if (currentFrame().layers.length === 1 && activeLayer){
             return activeLayer.getContext();
         }
     }
@@ -29,9 +52,17 @@ let ImageFile = function(){
     me.getActiveContext = function(){
         if (activeLayer) return activeLayer.getContext();
     }
+
+    me.getActiveLayerIndex = function(){
+        return activeLayerIndex;
+    }
+
+    me.getActiveFrameIndex = function(){
+        return activeFrameIndex;
+    }
     
     me.render = function(){
-        if (currentFile.layers.length>1){
+        if (currentFrame().layers.length>1){
            
         }
     }
@@ -46,11 +77,38 @@ let ImageFile = function(){
     }
 
     me.save = function(){
-        var buffer = IFF.write(activeLayer.getCanvas());
+        Modal.show();
 
-        var blob = new Blob([buffer], {type: "application/octet-stream"});
-        var fileName = 'test.iff';
-        saveAs(blob,fileName);
+        //const iconData = activeLayer.getCanvas().toDataURL('image/x-icon');
+        //console.error(iconData);
+
+        //var buffer = IFF.write(activeLayer.getCanvas());
+
+        //var blob = new Blob([buffer], {type: "application/octet-stream"});
+        //var fileName = 'test.iff';
+        //saveAs(blob,fileName);
+    }
+
+    me.activateLayer = function(index){
+        console.log("Activating layer " + index);
+        activeLayerIndex = index;
+        activeLayer = currentFrame().layers[activeLayerIndex];
+        EventBus.trigger(EVENT.layersChanged);
+    }
+
+    me.toggleLayer = function(index){
+        currentFrame().layers[index].visible = !currentFrame().layers[index].visible;
+        EventBus.trigger(EVENT.layersChanged);
+        EventBus.trigger(EVENT.imageContentChanged);
+    }
+
+    me.activateFrame = function(index){
+        console.log("Activating frame " + index);
+        activeFrameIndex = index;
+        activeLayerIndex = 0;
+        activeLayer = currentFrame().layers[activeLayerIndex];
+        EventBus.trigger(EVENT.layersChanged);
+        EventBus.trigger(EVENT.imageContentChanged);
     }
 
     function handleUpload(files){
@@ -66,7 +124,9 @@ let ImageFile = function(){
                     FileDetector.detect(file,reader.result).then(result=>{
                         console.error(result)
                         if (Array.isArray(result)){
-                            Editor.set(result[0]);
+                            //Editor.set(result[0]);
+                            newFile(result[0]);
+                            addFrame(result[1]);
                         }else{
                             //Editor.set(result);
                             newFile(result)
@@ -105,10 +165,14 @@ let ImageFile = function(){
         currentFile = {
             width:  w,
             height: h,
-            layers:[]
+            frames:[{
+                layers:[]
+            }]
         }
+        activeFrameIndex = 0;
+        activeLayerIndex = 0;
         addLayer();
-        activeLayer = currentFile.layers[0];
+        activeLayer = currentFrame().layers[0];
         activeLayer.clear();
         if (image){
             activeLayer.getContext().drawImage(image,0,0);
@@ -117,9 +181,24 @@ let ImageFile = function(){
     }
     
     function addLayer(){
-        currentFile.layers.push(Layer(currentFile.width,currentFile.height));
+        currentFrame().layers.push(Layer(currentFile.width,currentFile.height));
+        EventBus.trigger(EVENT.layersChanged);
     }
 
+    function addFrame(image){
+        let layer = Layer(currentFile.width,currentFile.height);
+        currentFile.frames.push({
+            layers:[layer ]
+        })
+        if (image){
+            layer .getContext().drawImage(image,0,0);
+        }
+        EventBus.trigger(EVENT.imageSizeChanged);
+    }
+
+    function currentFrame(){
+        return currentFile.frames[activeFrameIndex];
+    }
 
     EventBus.on(COMMAND.NEW,function(){
         console.log("new file");
@@ -132,9 +211,13 @@ let ImageFile = function(){
         me.save();
     });
 
+    EventBus.on(COMMAND.INFO,function(){
+        SidePanel.showInfo(currentFile);
+    });
+
     EventBus.on(COMMAND.NEWLAYER,function(){
+        SidePanel.show();
         addLayer();
-        document.body.classList.add("withsidepanel");
     });
 
     EventBus.on(EVENT.layerContentChanged,function(){

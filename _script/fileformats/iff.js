@@ -27,6 +27,7 @@
 
 import BinaryStream from "../util/binarystream.js";
 import image from "../image.js";
+import Palette from "../ui/palette.js";
 
 var FILETYPE = {
     IFF: {name: "IFF file"},
@@ -276,13 +277,14 @@ var IFF = function(){
     // creates an ArrayBuffer with the binary data of the Icon;
     me.write = function(canvas,palette){
 
-        var colors = [[0,0,0], [255,255,255]];
+        var colors = Palette.get();
 
         var bitplaneCount = 1;
+        while((1 << bitplaneCount) < colors.length) bitplaneCount++;
+
         var w = canvas.width;
         var h = canvas.height;
         var pixels = canvas.getContext("2d").getImageData(0,0,w,h).data;
-
 
         var bytesPerLine = Math.ceil(w/16) * 2;
         var bodySize = bytesPerLine * bitplaneCount * h;
@@ -334,13 +336,14 @@ var IFF = function(){
             for(var x=0; x<w; x++){
                 var colorIndex = 0;
                 var pixel = (x+y*w)*4;
-                var r = pixels[pixel];
-                var g =  pixels[pixel+1];
-                var b = pixels[pixel+2];
+                var color = [pixels[pixel],pixels[pixel+1],pixels[pixel+2]]
+                //var r = pixels[pixel];
+                //var g =  pixels[pixel+1];
+                //var b = pixels[pixel+2];
                 var a = pixels[pixel+3];
 
                 // get Palette index;
-                if (r)colorIndex=1;
+                colorIndex = Palette.getColorIndex(color);
 
                 for(i = 0; i < bitplaneCount; i++){
                     if (colorIndex & (1 << i)) bitplaneLines[i][x >> 3] |= 0x80 >> (x & 7);

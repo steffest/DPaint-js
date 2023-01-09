@@ -20,6 +20,14 @@ let UI = function(){
 		Sidepanel.init(container);
 		Editor.init(container);
 	}
+
+	me.fuzzy = function(value){
+		container.classList.toggle("fuzzy",value)
+	}
+
+	me.getContainer = function(){
+		return container;
+	}
 	
 	return me;
 }();

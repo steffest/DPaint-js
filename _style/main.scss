@@ -13,17 +13,26 @@ body{
   font-size: 14px;
   height: 100%;
   margin: 0;
-  padding: 10px;
+  padding: 1px;
 }
 
 .container{
   position: relative;
   height: 100%;
+
+  &.fuzzy{
+    pointer-events: none;
+    filter: blur(2px);
+  }
 }
 
-@import "scrollbar.css";
+
+
+@import "scrollbar";
 @import "menu";
 @import "toolbar";
 @import "sidepanel";
 @import "editor";
+@import "selection";
 @import "cursor";
+@import "modal";

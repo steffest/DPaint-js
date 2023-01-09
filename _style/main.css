@@ -1,4 +1,3 @@
-@import "scrollbar.css";
 html {
   box-sizing: border-box;
 }
@@ -13,12 +12,46 @@ body {
   font-size: 14px;
   height: 100%;
   margin: 0;
-  padding: 10px;
+  padding: 1px;
 }
 
 .container {
   position: relative;
   height: 100%;
+}
+.container.fuzzy {
+  pointer-events: none;
+  filter: blur(2px);
+}
+
+/* Firefox */
+* {
+  scrollbar-width: auto;
+  scrollbar-color: #8c8c8c #454545;
+}
+
+/* Chrome, Edge, and Safari */
+*::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+*::-webkit-scrollbar-track {
+  background: #000000;
+}
+
+*::-webkit-scrollbar-thumb {
+  background-color: #4d4d4d;
+  border-radius: 10px;
+  border: 0px solid #2b2b2b;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background-color: #626262;
+}
+
+::-webkit-scrollbar-corner {
+  background: #000000;
 }
 
 .menu {
@@ -101,6 +134,7 @@ body {
   image-rendering: -webkit-crisp-edges;
   image-rendering: pixelated;
   image-rendering: crisp-edges;
+  color: white;
 }
 .toolbar .button.icon:hover {
   opacity: 0.7;
@@ -109,13 +143,33 @@ body {
   opacity: 1;
   background-color: #282A2C;
 }
+.toolbar .button.pencil {
+  background-image: url("../_img/pencil.svg");
+  background-size: 70% 70%;
+}
 .toolbar .button.select {
   background-image: url("../_img/select.svg");
   background-size: 80% 80%;
 }
+.toolbar .button.zoomout {
+  background-image: url("../_img/zoomout.svg");
+  background-size: 70% 70%;
+}
+.toolbar .button.zoom {
+  background-image: url("../_img/zoom.svg");
+  background-size: 70% 70%;
+}
 .toolbar .button.split {
   background-image: url("../_img/split.svg");
   background-size: 80% 80%;
+}
+.toolbar .button.circle {
+  background-image: url("../_img/circle.svg");
+  background-size: 60% 60%;
+}
+.toolbar .button.square {
+  background-image: url("../_img/square.svg");
+  background-size: 60% 60%;
 }
 .toolbar .brushes {
   width: 55px;
@@ -185,6 +239,134 @@ body {
   width: 175px;
   background-color: #313335;
   display: none;
+}
+.sidepanel .panel {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+}
+.sidepanel .panel.info {
+  height: 100px;
+}
+.sidepanel .panel.frames {
+  top: 100px;
+  height: 100px;
+}
+.sidepanel .panel.layers {
+  top: 200px;
+  bottom: 0;
+}
+.sidepanel .panel .inner {
+  position: absolute;
+  top: 22px;
+  bottom: 0;
+  overflow: auto;
+  left: 0;
+  right: 0;
+}
+.sidepanel .panel .inner small {
+  font-size: 11px;
+  color: #adadad;
+  text-align: center;
+  margin-top: 20px;
+  display: block;
+}
+.sidepanel .panel .inner dl {
+  margin: 0;
+  padding: 0;
+  border-bottom: 1px solid #4d4d4d;
+}
+.sidepanel .panel .inner dl dt,
+.sidepanel .panel .inner dl dd {
+  display: inline-block;
+  color: #adadad;
+  font-size: 11px;
+  padding: 3px 5px;
+  margin: 0;
+  background-color: rgba(255, 255, 255, 0.05);
+  width: 60px;
+}
+.sidepanel .panel .inner dl dd {
+  opacity: 0.7;
+  width: 100px;
+}
+.sidepanel .panel .inner .layer {
+  padding: 4px;
+  color: #BBBBBB;
+  position: relative;
+  border-bottom: 1px solid #626262;
+}
+.sidepanel .panel .inner .layer.active {
+  background-color: rgba(255, 255, 255, 0.1);
+  color: white;
+}
+.sidepanel .panel .inner .layer:hover {
+  cursor: pointer;
+}
+.sidepanel .panel .inner .layer.hidden {
+  opacity: 0.4;
+}
+.sidepanel .panel .inner .layer.hidden .eye {
+  opacity: 0.4;
+}
+.sidepanel .panel .inner .layer .eye {
+  position: absolute;
+  right: 4px;
+  top: 7px;
+  width: 16px;
+  height: 16px;
+  background-image: url("../_img/eye.svg");
+  background-size: contain;
+  background-repeat: no-repeat;
+  opacity: 0.7;
+}
+.sidepanel .panel .inner .frame {
+  width: 50px;
+  height: 50px;
+  border: 1px solid #626262;
+  margin: 1px;
+  display: inline-block;
+  position: relative;
+}
+.sidepanel .panel .inner .frame:hover {
+  border: 1px solid white;
+  cursor: pointer;
+}
+.sidepanel .panel .inner .frame .label {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.4);
+  color: #BBBBBB;
+  font-size: 12px;
+  padding: 4px;
+}
+.sidepanel .caption {
+  background-color: #282A2C;
+  color: #BBBBBB;
+  padding: 3px 5px;
+  font-size: 12px;
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  width: unset;
+  height: 21px;
+  border: none;
+  border-bottom: 1px solid black;
+  justify-content: flex-start;
+  user-select: none;
+}
+.sidepanel .caption .close {
+  position: absolute;
+  height: 20px;
+  width: 20px;
+  line-height: 20px;
+  right: 0;
+  top: 0;
+  text-align: center;
+  cursor: pointer;
 }
 
 body.withsidepanel .sidepanel {
@@ -269,6 +451,8 @@ body.withsidepanel .sidepanel {
   display: block;
   margin: auto;
   position: relative;
+  border: 1px solid black;
+  background-image: url("../_img/checkers.png");
 }
 .splitpanel canvas {
   image-rendering: optimizeSpeed;
@@ -289,25 +473,6 @@ body.withsidepanel .sidepanel {
   top: 0;
   z-index: 2;
   pointer-events: none;
-}
-.splitpanel .selectbox {
-  position: absolute;
-  border: 1px solid black;
-  display: none;
-  z-index: 4;
-  pointer-events: none;
-}
-.splitpanel .selectbox:after {
-  content: "";
-  position: absolute;
-  border: 1px dashed white;
-  left: -1px;
-  right: -1px;
-  top: -1px;
-  bottom: -1px;
-}
-.splitpanel .selectbox.active {
-  display: block;
 }
 
 body.space .splitpanel .panel,
@@ -330,6 +495,78 @@ body.select .splitpanel .panel {
 
 body.withsidepanel .splitpanel {
   left: 250px;
+}
+
+.sizebox {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  background-color: rgba(255, 0, 0, 0.24);
+  z-index: 100;
+  display: none;
+  cursor: move;
+}
+.sizebox.hot {
+  pointer-events: none;
+}
+.sizebox.active {
+  display: block;
+}
+.sizebox .sizedot:nth-of-type(1) {
+  cursor: nw-resize;
+}
+.sizebox .sizedot:nth-of-type(2) {
+  cursor: n-resize;
+}
+.sizebox .sizedot:nth-of-type(3) {
+  cursor: ne-resize;
+}
+.sizebox .sizedot:nth-of-type(4) {
+  cursor: e-resize;
+}
+.sizebox .sizedot:nth-of-type(5) {
+  cursor: se-resize;
+}
+.sizebox .sizedot:nth-of-type(6) {
+  cursor: s-resize;
+}
+.sizebox .sizedot:nth-of-type(7) {
+  cursor: sw-resize;
+}
+.sizebox .sizedot:nth-of-type(8) {
+  cursor: w-resize;
+}
+
+.selectbox {
+  position: absolute;
+  display: none;
+  z-index: 4;
+  pointer-events: none;
+  border: 1px solid black;
+}
+.selectbox:after {
+  content: "";
+  position: absolute;
+  border: 1px dashed white;
+  left: -1px;
+  right: -1px;
+  top: -1px;
+  bottom: -1px;
+}
+.selectbox.active {
+  display: block;
+}
+
+.sizedot {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  margin: -5px 0 0 -5px;
+  border: 1px solid white;
+  background-color: black;
+}
+.sizedot:hover {
+  background-color: white;
 }
 
 .cursor {
@@ -368,6 +605,76 @@ body.hovericonEditorCanvas.shift .cursor .mark {
 
 body.hovericonEditorCanvas.shift.mousedown .cursor .mark {
   display: block;
+}
+
+.blanket {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.7);
+  z-index: 1000;
+  display: none;
+}
+.blanket.active {
+  display: block;
+}
+
+.modalwindow {
+  position: absolute;
+  z-index: 1000;
+  background-color: #313335;
+  width: 200px;
+  height: 200px;
+  border: 1px solid black;
+  top: calc(50vh - 100px);
+  left: 50%;
+  margin-left: -100px;
+  box-shadow: 0 0 8px 0px black;
+  display: none;
+}
+.modalwindow .caption {
+  color: #BBBBBB;
+  padding: 2px 4px;
+  border-bottom: 1px solid black;
+  position: relative;
+  height: 20px;
+  background-color: rgba(0, 0, 0, 0.2196078431);
+}
+.modalwindow .caption .button {
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  line-height: 14px;
+  text-align: center;
+  border: 1px solid black;
+  top: 2px;
+  right: 2px;
+  font-size: 12px;
+}
+.modalwindow .caption .button:hover {
+  background-color: #3C3F41;
+  cursor: pointer;
+}
+.modalwindow.active {
+  display: block;
+}
+.modalwindow .inner .button {
+  border: 1px solid #6a6a6a;
+  margin: 2px;
+  padding: 6px;
+}
+.modalwindow .inner .button .title {
+  color: #BBBBBB;
+}
+.modalwindow .inner .button .subtitle {
+  color: #797979;
+}
+.modalwindow .inner .button:hover {
+  cursor: pointer;
+  border: 1px solid #8c8c8c;
+  background-color: #232323;
 }
 
 /*# sourceMappingURL=main.css.map */

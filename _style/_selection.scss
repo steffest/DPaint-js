@@ -1,0 +1,63 @@
+.sizebox{
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  background-color: rgba(255, 0, 0, 0.24);
+  z-index: 100;
+  display: none;
+  cursor: move;
+
+  &.hot{
+    pointer-events: none;
+  }
+
+  &.active{
+    display: block;
+  }
+
+  .sizedot:nth-of-type(1){cursor: nw-resize;}
+  .sizedot:nth-of-type(2){cursor: n-resize;}
+  .sizedot:nth-of-type(3){cursor: ne-resize;}
+  .sizedot:nth-of-type(4){cursor: e-resize;}
+  .sizedot:nth-of-type(5){cursor: se-resize;}
+  .sizedot:nth-of-type(6){cursor: s-resize;}
+  .sizedot:nth-of-type(7){cursor: sw-resize;}
+  .sizedot:nth-of-type(8){cursor: w-resize;}
+}
+
+.selectbox{
+  position: absolute;
+  display: none;
+  z-index: 4;
+  pointer-events: none;
+  border: 1px solid black;
+
+  &:after{
+    content: "";
+    position: absolute;
+    border: 1px dashed white;
+    left: -1px;
+    right: -1px;
+    top: -1px;
+    bottom: -1px;
+  }
+
+
+  &.active{
+    display: block;
+  }
+
+}
+
+.sizedot{
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  margin: -5px 0 0 -5px;
+  border: 1px solid white;
+  background-color: black;
+
+  &:hover{
+    background-color: white;
+  }
+}

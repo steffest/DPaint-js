@@ -1,0 +1,80 @@
+.blanket{
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.7);
+  z-index: 1000;
+  display: none;
+
+  &.active{
+    display: block;
+  }
+}
+
+.modalwindow{
+  position: absolute;
+  z-index: 1000;
+  background-color: $panel-background-color;
+  width: 200px;
+  height: 200px;
+  border: 1px solid black;
+  top: calc(50vh - 100px);
+  left: 50%;
+  margin-left: -100px;
+  box-shadow: 0 0 8px 0px black;
+  display: none;
+
+  .caption{
+    color: $menu-text-color;
+    padding: 2px 4px;
+    border-bottom: 1px solid black;
+    position: relative;
+    height: 20px;
+    background-color: #00000038;
+
+    .button{
+      position: absolute;
+      width: 16px;
+      height: 16px;
+      line-height: 14px;
+      text-align: center;
+      border: 1px solid black;
+      top: 2px;
+      right: 2px;
+      font-size: 12px;
+
+      &:hover{
+        background-color: $panel-background-active;
+        cursor: pointer;
+      }
+    }
+  }
+
+  &.active{
+    display: block;
+  }
+
+  .inner{
+    .button{
+      border: 1px solid #6a6a6a;
+      margin: 2px;
+      padding: 6px;
+
+      .title{
+        color: $menu-text-color;
+      }
+
+      .subtitle{
+        color: #797979;
+      }
+
+      &:hover{
+        cursor: pointer;
+        border: 1px solid #8c8c8c;
+        background-color: #232323;
+      }
+    }
+  }
+}

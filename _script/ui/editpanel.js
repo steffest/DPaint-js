@@ -16,10 +16,19 @@ var EditPanel = function(parent,type){
     
     var thisPanel = type === "left" ? 0:1;
     if (thisPanel === 1) panel.style.display = "none";
+
     me.getViewPort = function(){
         return viewport;
     }
     var canvas = Canvas(me);
+
+    me.getCanvas = function(){
+        return canvas.getCanvas();
+    }
+    me.getZoom = function(){
+        return canvas.getZoom();
+    }
+
 
     viewport.addEventListener("wheel",function(e){
         let point = [e.clientX,e.clientY];

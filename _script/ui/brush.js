@@ -93,7 +93,6 @@ var Brush = function(){
 
     me.draw = function(ctx,x,y,color,useHistory){
 
-
         let w,h,cFrom;
 
         if (brushType === "canvas"){
@@ -108,12 +107,17 @@ var Brush = function(){
         if (h>1) y -= Math.floor((h-1)/2);
 
         if (useHistory) cFrom = ctx.getImageData(x,y,w,h);
-
-        if (brushType === "canvas"){
-            ctx.drawImage(brushCanvas,x,y);
+        console.error(color);
+        if (color === "transparent"){
+            console.error("ddd");
+            ctx.clearRect(x,y,w,h);
         }else{
-            ctx.fillStyle = color;
-            ctx.fillRect(x,y,w,h);
+            if (brushType === "canvas"){
+                ctx.drawImage(brushCanvas,x,y);
+            }else{
+                ctx.fillStyle = color;
+                ctx.fillRect(x,y,w,h);
+            }
         }
 
         if (useHistory){

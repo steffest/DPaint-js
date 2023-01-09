@@ -37,6 +37,7 @@
       image-rendering: -webkit-crisp-edges;
       image-rendering: pixelated;
       image-rendering: crisp-edges;
+      color: white;
 
       &:hover{
         opacity: 0.7;
@@ -48,16 +49,42 @@
       }
     }
 
+    &.pencil{
+      background-image: url("../_img/pencil.svg");
+      background-size: 70% 70%;
+    }
+
     &.select{
       background-image: url("../_img/select.svg");
       background-size: 80% 80%;
+    }
+
+    &.zoomout{
+      background-image: url("../_img/zoomout.svg");
+      background-size: 70% 70%;
+    }
+
+    &.zoom{
+      background-image: url("../_img/zoom.svg");
+      background-size: 70% 70%;
     }
 
     &.split{
       background-image: url("../_img/split.svg");
       background-size: 80% 80%;
     }
+
+    &.circle{
+      background-image: url("../_img/circle.svg");
+      background-size: 60% 60%;
+    }
+
+    &.square{
+      background-image: url("../_img/square.svg");
+      background-size: 60% 60%;
+    }
   }
+
 
   .brushes{
     width: 55px;

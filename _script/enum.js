@@ -13,8 +13,16 @@ export let COMMAND={
     STAMP: 1012,
     TOLAYER: 1013,
     CLEARSELECTION: 1014,
-    NEWLAYER: 1015,
-    SAVE: 1016
+    ERASEELECTION: 1015,
+    NEWLAYER: 1016,
+    SAVE: 1017,
+    PALETTEFROMIMAGE: 1018,
+    PALETTEREDUCE: 1019,
+    ROTATE: 1020,
+    CLEAR: 1021,
+    CROP: 1022,
+    INFO: 1023,
+    ERASE: 1024
 }
 
 export let EVENT={
@@ -25,4 +33,9 @@ export let EVENT={
     imageContentChanged: 5,
     imageSizeChanged: 6,
     layerContentChanged: 7,
+    selectionChanged: 8,
+    sizerChanged: 9,
+    toolDeActivated: 10,
+    layersChanged: 11,
+
 }

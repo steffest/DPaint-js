@@ -1,5 +1,5 @@
 import {$div, $link} from "../util/dom.js";
-import {COMMAND} from "../enum.js";
+import {COMMAND, EVENT} from "../enum.js";
 import EventBus from "../util/eventbus.js";
 import Palette from "./palette.js";
 import Brush from "./brush.js";
@@ -10,12 +10,15 @@ let Toolbar = function(){
     let container;
 
     let items=[
-        {name: "line",command: COMMAND.DRAW, isTool: true},
-        {name: "select",command: COMMAND.SELECT, isTool: true},
+        {name: "pencil",command: COMMAND.DRAW, isTool: true},
+        {name: "select",command: COMMAND.SELECT, isTool: true, handleDeActivate: true},
+        {name: "circle",label: "", command: COMMAND.ZOOMIN},
+        {name: "square",label: "", isTool: true, command: COMMAND.SQUARE},
         {name: "stamp",label: "S", command: COMMAND.STAMP},
+        {name: "erase",label: "E", isTool: true, command: COMMAND.ERASE},
         {name: "split",label: "|", command: COMMAND.SPLITSCREEN, toggleProperty: "splitPanel"},
-        {name: "zoom",label: "+", command: COMMAND.ZOOMIN},
-        {name: "zoomout",label: "-",command: COMMAND.ZOOMOUT}
+        {name: "zoom",label: "", command: COMMAND.ZOOMIN},
+        {name: "zoomout",label: "",command: COMMAND.ZOOMOUT}
     ]
 
     me.init = function(parent){
@@ -39,9 +42,14 @@ let Toolbar = function(){
             if (item.isTool && item.command){
                 EventBus.on(item.command,()=>{
                     items.forEach((itm,i)=>{
-                        if (itm.isTool) itm.element.classList.toggle("active",index === i);
+                        if (itm.isTool){
+                            if (itm.handleDeActivate && itm.command && itm.element.classList.contains("active") && index !== i){
+                                EventBus.trigger(EVENT.toolDeActivated,itm.command);
+                            }
+                            itm.element.classList.toggle("active",index === i);
+                        }
                     });
-                })
+                });
             }
 
             if (item.toggleProperty && item.command){
