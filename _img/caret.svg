@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   xmlns="http://www.w3.org/2000/svg"
+   viewBox="0 -256 1792 1792"
+   version="1.1"
+   >
+  <g
+     transform="matrix(1,0,0,-1,584.67797,1262.6441)"
+     id="g3015">
+    <path
+       d="m 576,640 q 0,-26 -19,-45 L 109,147 Q 90,128 64,128 38,128 19,147 0,166 0,192 v 896 q 0,26 19,45 19,19 45,19 26,0 45,-19 L 557,685 q 19,-19 19,-45 z"
+       id="path3017"
+       fill="#ffffff"
+        />
+  </g>
+</svg>

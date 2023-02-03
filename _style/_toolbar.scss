@@ -6,7 +6,7 @@
   top: 27px;
   border: 1px solid black;
   width: 64px;
-  height: 200px;
+  height: 250px;
   background-color: $panel-background-color;
   display: flex;
   flex-wrap: wrap;
@@ -151,5 +151,23 @@
       height: 14px;
       display: inline-block;
     }
+  }
+
+  .viewstyle{
+    display: flex;
+    margin-left: 20px;
+
+    .button{
+      opacity: 0.5;
+
+      &:hover{
+        opacity: 1;
+      }
+
+      &.active{
+        opacity: 1;
+      }
+    }
+
   }
 }

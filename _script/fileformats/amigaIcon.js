@@ -2,7 +2,7 @@
 
 	MIT License
 
-	Copyright (c) 2019-2021 Steffest - dev@stef.be
+	Copyright (c) 2019-2023 Steffest - dev@stef.be
 
 	Permission is hereby granted, free of charge, to any person obtaining a copy
 	of this software and associated documentation files (the "Software"), to deal
@@ -24,6 +24,9 @@
 
  */
 
+import BinaryStream from "../util/binarystream.js";
+import zlib_closure from "../util/zlib.js";
+zlib_closure.call(window); // meh ... is there a better way to import closure compiled code? they are designed to hook themselves as global var.
 
 var Icon = function(){
     // Detect and decode Amiga .info icon files
@@ -108,7 +111,6 @@ var Icon = function(){
                 var imageUrl = urlCreator.createObjectURL( blob );
                 var img = new Image();
                 img.onload = function(){
-                    console.error("loaded");
                     icon.width = img.width;
                     icon.height = img.height;
                     var canvas = document.createElement("canvas");
@@ -184,16 +186,27 @@ var Icon = function(){
             if (icon.hasDefaultTool) icon.defaultTool = readText(file);
 
             icon.toolTypes = [];
+            let newIconFlags = 0;
             if (icon.hasToolTypes){
                 icon.toolTypeCount =  file.readDWord();
                 if (icon.toolTypeCount){
                     icon.toolTypeCount = (icon.toolTypeCount/4) - 1; // seriously ... who invents this stuff? ...
 
                     for (var i = 0; i< icon.toolTypeCount; i++){
-                        icon.toolTypes.push(readText(file));
+                        let toolType = readText(file);
+                        if (toolType){
+                            let p = toolType.substr(0,4);
+                            if ((p === "IM1=") || (p === "IM2=")) newIconFlags++;
+                            icon.toolTypes.push(toolType);
+                        }
                     }
                 }
             }
+
+            if (newIconFlags>2){
+                icon.newIcon = decodeNewIcon(icon.toolTypes)
+            }
+
 
             if (icon.hasToolWindow) icon.hasToolWindow = readText(file);
 
@@ -250,9 +263,10 @@ var Icon = function(){
 
     me.getImage = function(icon,index){
         index = index || 0;
-
         if (icon.colorIcon) {
             return me.toCanvas(icon.colorIcon, index);
+        }else if (icon.newIcon){
+            return me.toCanvas(icon.newIcon, index);
         }else if (icon.PNGIcon){
             index = Math.min(index,icon.PNGIcon.canvas.length-1);
             return icon.PNGIcon.canvas[index];
@@ -289,7 +303,7 @@ var Icon = function(){
         var ctx = canvas.getContext("2d");
 
         if (img.states){
-            // colorIcon or ARGB
+            // colorIcon, newIcon or ARGB
             var state = img.states[index || 0];
             if (state){
                 for (var y=0;y<img.height;y++){
@@ -569,7 +583,6 @@ var Icon = function(){
 
                 // padding byte if needed
                 if (state.hasPaddingByte){
-                    console.error("paddingbyte");
                     file.writeByte(0);
                 }
 
@@ -591,6 +604,8 @@ var Icon = function(){
         }else{
             console.log("skipping Coloricon");
         }
+
+
         return file.buffer;
     };
 
@@ -689,6 +704,84 @@ var Icon = function(){
         var s = file.readString(length-1);
         file.readUbyte(); // zero byte;
         return s;
+    }
+
+    function decodeNewIcon(toolTypes){
+        let newIcon = {
+            states:[
+                {pixels:[], palette:[]},
+                {pixels:[], palette:[]}
+            ]
+        };
+
+        let decodeData = [
+            {firstLine:false,paletteBits:"",imageBits:""},
+            {firstLine:false,paletteBits:"",imageBits:""}
+        ]
+
+        let decodeBits=(data)=>{
+            let bits = "";
+            for (let i = 0;i<data.length;i++){
+                let byte = data.charCodeAt(i);
+                let _bits;
+                if (byte<160){
+                    _bits = (byte-32).toString(2);
+                }else if (byte<209){
+                    _bits = (byte-81).toString(2);
+                }else{
+                    // RLE - just used for filling with 0
+                    _bits="";
+                    for (let j=0;j<byte-208;j++)_bits+="0000000";
+                }
+                if (_bits){
+                    while(_bits.length<7){_bits = "0" + _bits}
+                    bits += _bits;
+                }
+            }
+            return bits;
+        }
+
+        toolTypes.forEach(toolType=>{
+            if (toolType.indexOf("IM1=")===0 || toolType.indexOf("IM2=")===0){
+                let data = toolType.substr(4);
+                let imageIndex = toolType.indexOf("IM1=")===0 ? 0 : 1;
+                let decoded = decodeData[imageIndex];
+                let state = newIcon.states[imageIndex];
+                if (!decoded.firstLine){
+                    decoded.firstLine=true;
+                    newIcon.transparency = data.charCodeAt(0) === 66 // B
+                    newIcon.width = data.charCodeAt(1)-33;
+                    newIcon.height = data.charCodeAt(2)-33;
+                    state.colorCount = (data.charCodeAt(3)-33 << 6) + data.charCodeAt(4)-33;
+
+                    state.bitCount = 1;
+                    while ((1 << state.bitCount) < state.colorCount){state.bitCount++}
+
+                    data = data.substr(5);
+                    decoded.paletteBits = decodeBits(data);
+                    let bitCount=8;
+                    let max = Math.floor((decoded.paletteBits.length/bitCount) / 3) ;
+                    for (let i=0;i<max;i++){
+                        let index = i*bitCount*3;
+                        let r = parseInt(decoded.paletteBits.substr(index,bitCount),2);
+                        let g = parseInt(decoded.paletteBits.substr(index + bitCount,bitCount),2);
+                        let b = parseInt(decoded.paletteBits.substr(index + bitCount*2,bitCount),2);
+                        newIcon.states[imageIndex].palette.push([r,g,b]);
+                    }
+                }else{
+                    // note: it's probably more efficient to put the pixel color in place directly, but yeah ... TODO for later
+                    let bits = decodeBits(data);
+
+                    let max = Math.floor(bits.length/state.bitCount);
+                    for (let i=0;i<max;i++){
+                        let nr = parseInt(bits.substr(i*state.bitCount,state.bitCount),2);
+                        state.pixels.push(nr);
+                    }
+                }
+            }
+        })
+
+        return newIcon;
     }
 
     function readIFFICON(file){
@@ -889,7 +982,10 @@ var Icon = function(){
     me.MUIPalette = MUIPalette;
 
     if (typeof FileType !== "undefined") FileType.register(me);
+
+
     return me;
+
 
 }();
 

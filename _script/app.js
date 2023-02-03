@@ -8,6 +8,7 @@ let App = function(){
 	
 	me.init = function(){
 		UI.init();
+		EventBus.trigger(COMMAND.NEW);
 
 		EventBus.on(COMMAND.OPEN,function(){
 			ImageFile.openLocal();

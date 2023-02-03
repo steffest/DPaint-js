@@ -29,7 +29,7 @@ var ImageProcessing = function(){
 			{ Name: "trs", label: "Two-Row Sierra", pattern: [ 0, 0, 0, 4.0 / 16.0, 3.0 / 16.0, 1.0 / 16.0, 2.0 / 16.0, 3.0 / 16.0, 2.0 / 16.0, 1.0 / 16.0, 0, 0, 0, 0, 0 ] },
 			{ Name: "sl", label: "Sierra Lite", pattern: [ 0, 0, 0, 2.0 / 4.0, 0, 0, 1.0 / 4.0, 1.0 / 4.0, 0, 0, 0, 0, 0, 0, 0 ] } 
 		];
-	var DitherPattern = null;
+	var ditherPattern = null;
 	var alphaThreshold = 44;
 	var mattingColor = "rgb(149,149,149)";
 	mattingColor = "rgb(192,192,192)";
@@ -37,30 +37,8 @@ var ImageProcessing = function(){
 	me.getDithering = function(){
 		return dithering;
 	};
-	
-	me.setDithering = function(index,ignoreChange){
-		DitherPattern = dithering[index].pattern;
 
-		if (ignoreChange) return;
-		
-		if (ImageInfos && ImageInfos.colorCount){
-			IconEditor.reduceColours(ImageInfos.colorCount);
-		}
-	};
-	
-	me.setAlphaThreshold = function(threshold,ignoreChange){
-		alphaThreshold = threshold;
 
-		if (ignoreChange) return;
-
-		if (ImageInfos && ImageInfos.colorCount){
-			IconEditor.reduceColours(ImageInfos.colorCount);
-		}else{
-			IconEditor.showIcon();
-			me.matting();
-		}
-	};
-	
 	me.matting = function(){
 		if (ImageInfos.canvas){
 			var opaqueCanvas = document.createElement("canvas");
@@ -136,8 +114,10 @@ var ImageProcessing = function(){
 		return Colors;
 	};
 	
-	me.reduce = function(canvas,colors){
-		
+	me.reduce = function(canvas,colors,_alphaThreshold,ditherIndex){
+
+		alphaThreshold = _alphaThreshold || 0;
+		ditherPattern = dithering[ditherIndex || 0].pattern;
 		var bitsPerColor = 8;
 		
 		var mode = "Palette";
@@ -146,13 +126,15 @@ var ImageProcessing = function(){
 		}else{
 			ImageInfos.palette = colors;
 		}
+
+		console.error(canvas);
 		
 		ImageInfos.canvas = canvas;
 		ImageInfos.colorCount = colors;
 		
 		me.matting();
 		
-		ProcessImage(mode, bitsPerColor, DitherPattern, "id");
+		processImage(mode, bitsPerColor, ditherPattern, "id");
 	};
 
 	function RgbToSrgb(ColorChannel) {
@@ -553,7 +535,7 @@ var ImageProcessing = function(){
 
 
 
-	function ProcessImage(colorCount, bitsPerColor, ditherPattern, Id) {
+	function processImage(colorCount, bitsPerColor, ditherPattern, Id) {
 		var Colors = [];
 		var useTransparentColor = true;
 
@@ -664,8 +646,11 @@ var ImageProcessing = function(){
 				palette.push([c.Red,c.Green,c.Blue]);
 			});
 			//console.error(palette);
-			ImageFile.getContext().drawImage(ImageInfos.canvas,0,0);
-			EventBus.trigger(EVENT.imageContentChanged);
+			let f = ImageFile.getCurrentFile();
+			let ctx = ImageFile.getActiveContext();
+			ctx.clearRect(0,0,f.width,f.height);
+			ctx.drawImage(ImageInfos.canvas,0,0);
+			EventBus.trigger(EVENT.layerContentChanged);
 			Palette.set(palette);
 			//IconEditor.setPalette(palette);
 			//IconEditor.updateIcon();
@@ -693,11 +678,69 @@ var ImageProcessing = function(){
 		newCanvas = null;
 	}
 
+	me.sharpen = function(canvas){
+		const sharpen = (ctx, w, h, mix) => {
+			var x, sx, sy, r, g, b, a, dstOff, srcOff, wt, cx, cy, scy, scx,
+				weights = [0, -1, 0, -1, 5, -1, 0, -1, 0],
+				katet = Math.round(Math.sqrt(weights.length)),
+				half = (katet * 0.5) | 0,
+				dstData = ctx.createImageData(w, h),
+				dstBuff = dstData.data,
+				srcBuff = ctx.getImageData(0, 0, w, h).data,
+				y = h;
+			while (y--) {
+				x = w;
+				while (x--) {
+					sy = y;
+					sx = x;
+					dstOff = (y * w + x) * 4;
+					r = 0;
+					g = 0;
+					b = 0;
+					a = 0;
+					if(x>0 && y>0 && x<w-1 && y<h-1) {
+						for (cy = 0; cy < katet; cy++) {
+							for (cx = 0; cx < katet; cx++) {
+								scy = sy + cy - half;
+								scx = sx + cx - half;
 
-	//EventBus.on(EVENT.backgroundColorChanged,function(){
-	//	mattingColor = IconEditor.getBackgroundColor(true);
-	//});
-	
+								if (scy >= 0 && scy < h && scx >= 0 && scx < w) {
+									srcOff = (scy * w + scx) * 4;
+									wt = weights[cy * katet + cx];
+
+									r += srcBuff[srcOff] * wt;
+									g += srcBuff[srcOff + 1] * wt;
+									b += srcBuff[srcOff + 2] * wt;
+									a += srcBuff[srcOff + 3] * wt;
+								}
+							}
+						}
+
+						dstBuff[dstOff] = r * mix + srcBuff[dstOff] * (1 - mix);
+						dstBuff[dstOff + 1] = g * mix + srcBuff[dstOff + 1] * (1 - mix);
+						dstBuff[dstOff + 2] = b * mix + srcBuff[dstOff + 2] * (1 - mix);
+						dstBuff[dstOff + 3] = srcBuff[dstOff + 3];
+					} else {
+						dstBuff[dstOff] = srcBuff[dstOff];
+						dstBuff[dstOff + 1] = srcBuff[dstOff + 1];
+						dstBuff[dstOff + 2] = srcBuff[dstOff + 2];
+						dstBuff[dstOff + 3] = srcBuff[dstOff + 3];
+					}
+				}
+			}
+
+			ctx.putImageData(dstData, 0, 0);
+		}
+
+		sharpen(canvas.getContext("2d"),canvas.width,canvas.height,0.9);
+	}
+
+	me.blur = function(canvas){
+		let ctx = canvas.getContext('2d');
+		ctx.filter = 'blur(10px)';
+		ctx.drawImage(canvas, 0, 0);
+	}
+
 	return me;
 }();
 

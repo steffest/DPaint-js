@@ -13,25 +13,34 @@
   display: none;
 }
 
-body.hovericonEditorCanvas.shift canvas.mainCanvas{
-  cursor: none;
+body.hovericonEditorCanvas.shift:not(.select){
+  canvas.mainCanvas{
+    cursor: none;
+  }
+  .cursor{
+    display: block;
+
+    .mark{
+      position: absolute;
+      pointer-events: none;
+      display: none;
+      width: 60px;
+      height: 60px;
+      margin: -14px 0 0 -26px;
+      border: 8px solid green;
+      border-radius: 50%;
+      box-shadow: 0 0 3px 1px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.5), inset 0 0 3px 1px rgba(0, 0, 0, 0.5), inset 0 0 0 1px rgba(255, 255, 255, 0.5);
+    }
+  }
+
+  &.mousedown{
+    .cursor{
+      .mark{
+        display: block;
+      }
+    }
+  }
 }
 
-body.hovericonEditorCanvas.shift .cursor{
-  display: block;
-}
 
-body.hovericonEditorCanvas.shift .cursor .mark{
-  position: absolute;
-  pointer-events: none;
-  display: none;
-  width: 60px;
-  height: 60px;
-  margin: -14px 0 0 -26px;
-  border: 8px solid green;
-  border-radius: 50%;
-}
 
-body.hovericonEditorCanvas.shift.mousedown .cursor .mark{
-  display: block;
-}

@@ -29,14 +29,27 @@
 
       a{
         display: block;
-        padding: 0px 10px;
+        padding: 0 24px 0 10px;
         font-size: 13px;
         line-height: 23px;
         white-space: nowrap;
+        position: relative;
+
+        &.wide{
+          padding: 0 70px 0 10px;
+        }
 
         &:hover{
           background-color: $panel-background-active;
           cursor: pointer;
+        }
+
+        .shortkey{
+          position: absolute;
+          right: 6px;
+          top: 1px;
+          color: $menu-text-color-dim;
+          font-size: 11px;
         }
       }
     }

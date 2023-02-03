@@ -14,20 +14,6 @@
     right: 0;
     top: 0;
 
-    &.info{
-      height: 100px;
-    }
-
-    &.frames{
-      top: 100px;
-      height: 100px;
-    }
-
-    &.layers{
-      top: 200px;
-      bottom: 0;
-    }
-
     .inner{
       position: absolute;
       top: 22px;
@@ -66,10 +52,15 @@
       }
 
       .layer{
-        padding: 4px;
+        padding: 5px;
         color: $menu-text-color;
-        position: relative;
         border-bottom: 1px solid #626262;
+        font-size: 12px;
+        user-select: none;
+        position: absolute;
+        left: 0;
+        right: 0;
+        height: 23px;
 
         &.active{
           background-color: rgba(255, 255, 255, 0.1);
@@ -124,12 +115,119 @@
         }
       }
     }
+
+    h2{
+      font-size: 14px;
+      color: $menu-text-color;
+      font-weight: 100;
+      padding: 2px;
+      margin: 0;
+    }
+
+    &.color{
+
+    }
+
+    &.collapsed{
+      .caption{
+        i{
+          transform: rotate(0deg);
+        }
+      }
+
+      .inner{
+        display: none;
+      }
+    }
+
+    .paneltools{
+      border-bottom: 1px solid rgba(0, 0, 0, 0.7);
+      background-color: $button-background-medium;
+      display: flex;
+      justify-content: flex-end;
+      font-size: 12px;
+      color: $menu-text-color;
+
+      &.multirow{
+        height: 47px;
+      }
+
+      .button{
+        height: 20px;
+        width: 20px;
+        margin-left: 2px;
+        font-size: 12px;
+        line-height: 20px;
+        border: none;
+        border-right: 1px solid black;
+        background-color: #282A2C;
+        background-image: url("../_img/add.svg");
+        background-position: center center;
+        background-repeat: no-repeat;
+        background-size: contain;
+        opacity: 0.5;
+
+        &.delete{
+          background-image: url("../_img/trashcan.svg");
+        }
+
+        &:hover{
+          cursor: pointer;
+          opacity: 1;
+        }
+      }
+
+      .rangeselect{
+        position: absolute;
+        left: 4px;
+        top: 4px;
+        font-size: 11px;
+        color: #9d9c9c;
+        display: flex;
+
+        input{
+          width: 80px;
+          margin: 4px 0 4px 4px;
+
+          &::-webkit-slider-thumb {
+            margin-top: -6px;
+            width: 8px;
+            height: 12px;
+            background: #9d9d9d;
+            border: 1px solid rgba(50, 50, 50, 0.7);
+          }
+        }
+      }
+
+      .blendselect{
+        position: absolute;
+        left: 4px;
+        top: 25px;
+        right: 0;
+        color: #9d9c9c;
+
+        .label{
+          line-height: 19px;
+        }
+
+        select{
+          position: absolute;
+          right: 4px;
+          top: 0;
+          height: 19px;
+          width: 123px;
+          background-color: #181818;
+          color: #888888;
+          border: 1px solid #7b7b7b;
+        }
+      }
+    }
   }
 
   .caption{
     background-color: $button-background-dark;
     color: $menu-text-color;
-    padding: 3px 5px;
+    padding: 3px 5px 3px 16px;
     font-size: 12px;
     position: absolute;
     top: 0;
@@ -142,6 +240,20 @@
     justify-content: flex-start;
     user-select: none;
 
+    i{
+      position: absolute;
+      left: 0;
+      top: 2px;
+      width: 16px;
+      height: 16px;
+      background-image: url("../_img/caret.svg");
+      background-size: contain;
+      background-repeat: no-repeat;
+      transform: rotate(90deg);
+      transition: transform 0.2s ease-in-out;
+      opacity: 0.7;
+    }
+
     .close{
       position: absolute;
       height: 20px;
@@ -153,6 +265,63 @@
       cursor: pointer;
     }
   }
+
+  .subpanel{
+    color: $menu-text-color;
+    padding: 4px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.5);
+    position: relative;
+
+    .label{
+      opacity: 0.7;
+      font-size: 12px;
+      margin-bottom: 4px;
+    }
+
+    .value{
+      position: absolute;
+      right: 4px;
+      top: 4px;
+    }
+
+    .button.square{
+      position: absolute;
+      right: 4px;
+      top: 4px;
+      width: 16px;
+      height: 16px;
+      border: 1px solid black;
+      text-align: center;
+      line-height: 16px;
+      font-size: 12px;
+      &:hover{
+        cursor: pointer;
+      }
+
+      &.prev{
+        right: 21px;
+      }
+    }
+
+    select{
+      color: $menu-text-color;
+      width: 100%;
+      border: 1px solid black;
+      background-color: transparent;
+      margin: 4px 0;
+
+      &:focus{
+        outline: none;
+      }
+    }
+  }
+
+
+  input[type=range] {
+    width: 100%;
+  }
+
 }
 
 

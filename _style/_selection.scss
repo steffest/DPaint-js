@@ -23,6 +23,15 @@
   .sizedot:nth-of-type(6){cursor: s-resize;}
   .sizedot:nth-of-type(7){cursor: sw-resize;}
   .sizedot:nth-of-type(8){cursor: w-resize;}
+
+  canvas{
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 0;
+  }
 }
 
 .selectbox{
@@ -51,6 +60,7 @@
 
 .sizedot{
   position: absolute;
+  z-index: 1;
   width: 10px;
   height: 10px;
   margin: -5px 0 0 -5px;

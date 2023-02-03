@@ -3,21 +3,46 @@ import {$div} from "../util/dom.js";
 import ImageProcessing from "../util/imageProcessing.js";
 import ImageFile from "../image.js";
 import EventBus from "../util/eventbus.js";
+import Palette from "./palette.js";
+import LayerPanel from "./components/layerPanel.js";
+import FramesPanel from "./components/framesPanel.js";
 
 var SidePanel = function(){
     let me = {}
     let container;
-    let infoPanel;
-    let framesPanel;
-    let layersPanel;
-    
+
+    let panels = {
+        info:{
+            label: "Info",
+            height: 100
+        },
+        frames:{
+            label: "Frames",
+            height: 100,
+            content: parent=>{
+                FramesPanel.generate(parent);
+            }
+        },
+        layers:{
+            label: "Layers",
+            height: 180,
+            content: parent=>{
+                LayerPanel.generate(parent);
+            }
+        },
+        colors:{
+            label: "Colors",
+            height: 230,
+            content: parent=>{
+                Palette.generateControlPanel(parent);
+            }
+        }
+    }
+
     me.init = parent=>{
         container = $div("sidepanel");
         parent.appendChild(container);
         generate();
-
-        EventBus.on(EVENT.layersChanged,listLayers);
-        EventBus.on(EVENT.imageSizeChanged,listFrames);
     }
 
     me.show = ()=>{
@@ -29,7 +54,7 @@ var SidePanel = function(){
     }
 
     me.showInfo = (file)=>{
-        let contentPanel = infoPanel.querySelector(".inner");
+        let contentPanel = panels.info.container.querySelector(".inner");
         if (contentPanel){
             if (file && file.width){
                 contentPanel.innerHTML = "";
@@ -41,22 +66,47 @@ var SidePanel = function(){
             }
             console.error(contentPanel,file);
         }
-        listFrames();
+        FramesPanel.list();
         me.show();
     }
 
     function generate(){
-        infoPanel = generatePanel("Info",container);
-        framesPanel = generatePanel("Frames",container);
-        layersPanel = generatePanel("Layers",container);
+        let y = 0;
+        Object.keys(panels).forEach(key=>{
+            let panel = panels[key];
+            let height = (panel.height || 100);
+            panel.container = generatePanel(panel,container);
+            panel.container.style.height = height + "px";
+            panel.container.style.top = y + "px";
+            y+= height;
+        })
     }
 
-    function generatePanel(title,parent){
-        let panel = $div("panel " + title.toLowerCase(),"",parent);
-        let caption = $div("caption",title,panel);
+    function generatePanel(panelInfo,parent){
+        let panel = $div("panel " + panelInfo.label.toLowerCase() + (panelInfo.collapsed?' collapsed':''),"",parent);
+        let caption = $div("caption","<i></i> " + panelInfo.label,panel,()=>{
+            panelInfo.collapsed = !panelInfo.collapsed;
+            setPanelsState();
+        });
         let close = $div("close","x",caption,me.hide);
-        $div("inner","",panel);
+        let inner = $div("inner","",panel);
+        if (panelInfo.content){
+            panelInfo.content(inner);
+        }
         return panel;
+    }
+
+    function setPanelsState(){
+        let y = 0;
+        Object.keys(panels).forEach(key=>{
+            let panel = panels[key];
+            let height = (panel.height || 100);
+            if (panel.collapsed) height=21;
+            panel.container.style.height = height + "px";
+            panel.container.style.top = y + "px";
+            panel.container.classList.toggle("collapsed",!!panel.collapsed);
+            y+= height;
+        })
     }
 
     function generateInfoLine(label,value,parent){
@@ -68,47 +118,6 @@ var SidePanel = function(){
         line.appendChild(dt);
         line.appendChild(dd);
         parent.appendChild(line);
-    }
-
-    function listLayers(){
-        let contentPanel = layersPanel.querySelector(".inner");
-        contentPanel.innerHTML = "";
-        let activeIndex = ImageFile.getActiveLayerIndex() || 0;
-        let imageFile = ImageFile.getCurrentFile();
-        let frame = imageFile.frames[ImageFile.getActiveFrameIndex()];
-        for (let i = frame.layers.length-1;i>=0;i--){
-            let layer = frame.layers[i];
-            let elm = $div("layer" + (activeIndex === i ? " active":"") + (layer.visible?"":" hidden"),"Layer " + i,contentPanel,()=>{
-                ImageFile.activateLayer(i);
-            });
-
-            $div("eye","",elm,()=>{
-                ImageFile.toggleLayer(i);
-            })
-        }
-    }
-
-    function listFrames(){
-        let contentPanel = framesPanel.querySelector(".inner");
-        contentPanel.innerHTML = "";
-        let activeIndex = ImageFile.getActiveFrameIndex() || 0;
-        let imageFile = ImageFile.getCurrentFile();
-        if (imageFile && imageFile.frames){
-            imageFile.frames.forEach((frame,index)=>{
-                let elm = $div("frame" + (activeIndex === index ? " active":""),"",contentPanel,()=>{
-                    ImageFile.activateFrame(index);
-                });
-
-                let canvas = document.createElement("canvas");
-                canvas.width = 50;
-                canvas.height = 50;
-                canvas.getContext("2d").drawImage(ImageFile.getCanvas(index),0,0,50,50);
-                elm.appendChild(canvas);
-
-                $div("label","" + index,elm);
-
-            });
-        }
     }
     
     return me;

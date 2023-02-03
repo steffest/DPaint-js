@@ -22,6 +22,7 @@ let Canvas = function(parent){
     let onChange;
     var panelParent;
     var selectBox;
+    let drawFunction;
 
     canvas = document.createElement("canvas");
     overlayCanvas = document.createElement("canvas");
@@ -31,7 +32,7 @@ let Canvas = function(parent){
     canvas.height = 200;
     overlayCanvas.width = 200;
     overlayCanvas.height = 200;
-    ctx = canvas.getContext("2d",{willReadFrequently: true, antialias: false, desynchronized: true});
+    ctx = canvas.getContext("2d",{willReadFrequently: true, antialias:false, desynchronized: false});
     overlayCtx = overlayCanvas.getContext("2d",{willReadFrequently: true});
 
     let c = $div("canvascontainer");
@@ -176,6 +177,14 @@ let Canvas = function(parent){
         EventBus.trigger(EVENT.layerContentChanged);
     }
 
+    let defaultDrawFunction = function(canvas){
+        let w = canvas.width;
+        let h = canvas.height;
+        let x = 0;
+        let y = 0;
+        drawFunction(canvas.getContext("2d"),x,y,w,h);
+    }
+
     function handle(action,e){
         e.preventDefault();
         var point;
@@ -192,7 +201,7 @@ let Canvas = function(parent){
                     touchData.startScrollX = panelParent.scrollLeft;
                     touchData.startScrollY = panelParent.scrollTop;
                     return;
-                }else if (Input.isShiftDown()){
+                }else if (Input.isShiftDown() && canPickColor()){
                     var pixel = ctx.getImageData(point.x, point.y, 1, 1).data;
                     Palette.setColor(pixel);
                     return;
@@ -209,12 +218,33 @@ let Canvas = function(parent){
                 if (Editor.getCurrentTool() === COMMAND.SELECT){
                     touchData.isSelecting = true;
                     selectBox.classList.add("active");
-                    Resizer.set(point.x,point.y,0,0,true,parent.getViewPort());
+                    Resizer.set(point.x,point.y,0,0,true,parent.getViewPort(),1);
                 }
                 if (Editor.getCurrentTool() === COMMAND.SQUARE){
                     touchData.isSelecting = true;
                     selectBox.classList.add("active");
-                    Resizer.set(point.x,point.y,0,0,true,parent.getViewPort());
+                    Resizer.set(point.x,point.y,0,0,true,parent.getViewPort(),1);
+                    drawFunction = function(ctx,x,y,w,h,button){
+                        ctx.fillStyle = button?Palette.getBackgroundColor():Palette.getDrawColor();
+                        ctx.fillRect(x,y,w,h);
+                    }
+                    Resizer.setOverlay(defaultDrawFunction);
+                }
+                if (Editor.getCurrentTool() === COMMAND.CIRCLE){
+                    touchData.isSelecting = true;
+                    selectBox.classList.add("active");
+                    Resizer.set(point.x,point.y,0,0,true,parent.getViewPort(),1);
+                    drawFunction = function(ctx,x,y,w,h,button){
+                        let cx = x + w/2;
+                        let cy = y + h/2;
+                        let wx = w/2;
+                        let wh = h/2;
+                        ctx.fillStyle = button?Palette.getBackgroundColor():Palette.getDrawColor();
+                        ctx.beginPath();
+                        ctx.ellipse(cx, cy, wx, wh, 0, 0, 2 * Math.PI);
+                        ctx.fill();
+                    }
+                    Resizer.setOverlay(defaultDrawFunction);
                 }
                 break;
             case 'up':
@@ -224,19 +254,18 @@ let Canvas = function(parent){
                     HistoryService.end();
                 }
 
-                if (touchData.isSelecting &&  touchData.selection){
-                    Selection.set(me,touchData.selection);
-                    Resizer.commit();
+                if (touchData.isSelecting){
+                    if (touchData.selection){
+                        Selection.set(me,touchData.selection);
+                        Resizer.commit();
 
-                    if (Editor.getCurrentTool() ===  COMMAND.SQUARE){
-                        console.error(touchData);
-
-                        let color = touchData.button?Palette.getBackgroundColor():Palette.getDrawColor();
-                        let {x,y} = touchData;
-                        let s = touchData.selection;
-                        ImageFile.getActiveContext().fillStyle = color;
-                        ImageFile.getActiveContext().fillRect(s.left,s.top,s.width,s.height);
-                        EventBus.trigger(EVENT.layerContentChanged);
+                        if (Editor.getCurrentTool() ===  COMMAND.SQUARE || Editor.getCurrentTool() ===  COMMAND.CIRCLE){
+                            let s = Resizer.get();
+                            drawFunction(ImageFile.getActiveContext(),s.left,s.top,s.width,s.height,touchData.button)
+                            EventBus.trigger(EVENT.layerContentChanged);
+                            EventBus.trigger(COMMAND.CLEARSELECTION);
+                        }
+                    }else{
                         EventBus.trigger(COMMAND.CLEARSELECTION);
                     }
                 }
@@ -262,7 +291,7 @@ let Canvas = function(parent){
                         return;
                     }
 
-                    if (Input.isShiftDown()){
+                    if (Input.isShiftDown() && canPickColor()){
                         var pixel = ctx.getImageData(point.x, point.y, 1, 1).data;
                         Palette.setColor(pixel);
                         return;
@@ -366,6 +395,11 @@ let Canvas = function(parent){
         }
         console.error("zoom");
         if (!fromEvent) EventBus.trigger(EVENT.selectionChanged);
+    }
+
+    function canPickColor(){
+        let ct = Editor.getCurrentTool();
+        return !(ct === COMMAND.SELECT || ct === COMMAND.SQUARE || ct === COMMAND.CIRCLE || ct === COMMAND.TRANSFORMLAYER);
     }
 
     return me;

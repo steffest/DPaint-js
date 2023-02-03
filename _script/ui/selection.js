@@ -1,6 +1,7 @@
 import Brush from "./brush.js";
 import EventBus from "../util/eventbus.js";
 import {COMMAND, EVENT} from "../enum.js";
+import ImageFile from "../image.js";
 
 let Selection = function(){
     let me = {};
@@ -36,7 +37,9 @@ let Selection = function(){
             let brushCanvas = document.createElement("canvas");
             brushCanvas.width = currentSelection.width;
             brushCanvas.height = currentSelection.height;
-            brushCanvas.getContext("2d").drawImage(currentSelection.canvas,currentSelection.left,currentSelection.top,brushCanvas.width,brushCanvas.height,0,0, brushCanvas.width, brushCanvas.height);
+            let brushContext = brushCanvas.getContext("2d");
+            brushContext.imageSmoothingEnabled = false;
+            brushContext.drawImage(currentSelection.canvas,currentSelection.left,currentSelection.top,brushCanvas.width,brushCanvas.height,0,0, brushCanvas.width, brushCanvas.height);
             Brush.set("canvas",brushCanvas);
             EventBus.trigger(COMMAND.DRAW);
             EventBus.trigger(COMMAND.CLEARSELECTION);
@@ -44,7 +47,13 @@ let Selection = function(){
     }
     
     me.toLayer = function(){
-        
+        if (currentSelection){
+            let index = ImageFile.addLayer();
+            ImageFile.activateLayer(index);
+            ImageFile.getActiveContext().drawImage(currentSelection.canvas,currentSelection.left,currentSelection.top,currentSelection.width,currentSelection.height,currentSelection.left,currentSelection.top, currentSelection.width, currentSelection.height);
+            EventBus.trigger(EVENT.layerContentChanged);
+            EventBus.trigger(COMMAND.CLEARSELECTION);
+        }
     }
 
     EventBus.on(COMMAND.CLEARSELECTION,()=>{
@@ -53,6 +62,10 @@ let Selection = function(){
 
     EventBus.on(COMMAND.STAMP,()=>{
         me.toStamp();
+    })
+
+    EventBus.on(COMMAND.TOLAYER,()=>{
+        me.toLayer();
     })
     
     return me;

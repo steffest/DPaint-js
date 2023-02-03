@@ -55,7 +55,9 @@
       }
     }
 
-    .viewport{
+    .viewport,
+    .windowContainer,
+    .tileContainer{
       position: absolute;
       top: 21px;
       left: 0;
@@ -63,6 +65,35 @@
       bottom: 0;
       overflow: auto;
       display: flex;
+
+      &.hidden{
+        display: none;
+      }
+    }
+
+    .windowContainer{
+      .window{
+        width: 300px;
+        height: 170px;
+        background-image: url("../_img/frame.png");
+        position: absolute;
+        top: 50px;
+        left: 10px;
+
+        &:nth-child(2){
+          top: 250px;
+        }
+
+        &:nth-child(3){
+          top: 450px;
+        }
+
+        canvas{
+          position: absolute;
+          top: 18px;
+          left: 4px;
+        }
+      }
     }
   }
 

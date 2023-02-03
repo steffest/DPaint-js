@@ -12,11 +12,11 @@ let Toolbar = function(){
     let items=[
         {name: "pencil",command: COMMAND.DRAW, isTool: true},
         {name: "select",command: COMMAND.SELECT, isTool: true, handleDeActivate: true},
-        {name: "circle",label: "", command: COMMAND.ZOOMIN},
+        {name: "circle",label: "", isTool: true, command: COMMAND.CIRCLE},
         {name: "square",label: "", isTool: true, command: COMMAND.SQUARE},
         {name: "stamp",label: "S", command: COMMAND.STAMP},
         {name: "erase",label: "E", isTool: true, command: COMMAND.ERASE},
-        {name: "split",label: "|", command: COMMAND.SPLITSCREEN, toggleProperty: "splitPanel"},
+        {name: "split", command: COMMAND.SPLITSCREEN, toggleProperty: "splitPanel"},
         {name: "zoom",label: "", command: COMMAND.ZOOMIN},
         {name: "zoomout",label: "",command: COMMAND.ZOOMOUT}
     ]

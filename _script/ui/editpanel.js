@@ -13,6 +13,11 @@ var EditPanel = function(parent,type){
 
     var toolbar = $div("toolbar","",panel);
     var viewport = $div("viewport","",panel);
+    let windowContainer;
+    let windowCanvasList = [];
+    let tileContainer;
+
+    let currentView = "editor";
     
     var thisPanel = type === "left" ? 0:1;
     if (thisPanel === 1) panel.style.display = "none";
@@ -84,6 +89,26 @@ var EditPanel = function(parent,type){
         panel.style.width = w + p;
     }
 
+    me.setView = function(type){
+        console.log("setting view to " + type);
+        currentView = type;
+        viewport.classList.toggle("hidden",type !== "editor");
+        if (windowContainer) windowContainer.classList.toggle("hidden",type !== "icons");
+        if (tileContainer) tileContainer.classList.toggle("hidden",type !== "tiles");
+
+        if (type === "icons"){
+            if (!windowContainer) generateWindows();
+            windowContainer.classList.remove("hidden");
+            updateWindows();
+        }
+
+        if (type === "tiles"){
+            if (!tileContainer) generateTiles();
+            tileContainer.classList.remove("hidden");
+            updateTiles();
+        }
+    }
+
     me.show = function(){
         panel.style.display = "block";
     }
@@ -121,8 +146,70 @@ var EditPanel = function(parent,type){
     })
     $div("button expand","",toolbar,me.zoomToFit);
 
+    if (thisPanel === 1){
+        let viewPanel = $div("viewstyle","",toolbar);
+        $div("button editor active","E",viewPanel,()=>{me.setView('editor')});
+        $div("button icons","I",viewPanel,()=>{me.setView('icons')});
+        $div("button tiles","T",viewPanel,()=>{me.setView('tiles')});
+    }
+
+    function generateWindows(){
+        windowContainer = $div("windowContainer","",panel);
+
+        for (let i = 1; i<4; i++){
+            let window = $div("window","",windowContainer);
+            let colorbar  =  $div("colorbar","",window);
+            let windowCanvas=document.createElement("canvas");
+            windowCanvas.width = 280;
+            windowCanvas.height = 142;
+            window.appendChild(windowCanvas);
+            windowCanvasList.push(windowCanvas.getContext("2d"));
+        }
+    }
+
+    function updateWindows(){
+        let icon = ImageFile.getCanvas();
+        let colors = ["#959595","#3A67A3","#000000"];
+
+        windowCanvasList.forEach((ctx,index)=>{
+            ctx.fillStyle = colors[index];
+            ctx.fillRect(0,0,280,142);
+            let x = 10;
+            let y = 10;
+            while (y<140) {
+                while (x<280) {
+                    ctx.drawImage(icon,x,y);
+                    x = x + icon.width + 10;
+                }
+                x = 10;
+                y = y+icon.height+10;
+            }
+
+
+        })
+    }
+
+    function generateTiles(){
+        tileContainer = $div("tileContainer","",panel);
+    }
+
+    function updateTiles(){
+        let tile = ImageFile.getCanvas();
+        let imageDataURL = tile.toDataURL();
+        tileContainer.style.backgroundImage = "url('"+imageDataURL+"')";
+    }
+
     EventBus.on(EVENT.imageSizeChanged,()=>{
        setTimeout(syncZoomLevel,20);
+    })
+
+    EventBus.on(EVENT.imageContentChanged,()=>{
+        if (currentView === "icons"){
+            updateWindows();
+        }
+        if (currentView === "tiles"){
+            updateTiles();
+        }
     })
     
     return me;

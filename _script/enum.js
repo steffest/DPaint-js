@@ -22,7 +22,25 @@ export let COMMAND={
     CLEAR: 1021,
     CROP: 1022,
     INFO: 1023,
-    ERASE: 1024
+    ERASE: 1024,
+    DELETELAYER: 1025,
+    CIRCLE: 1026,
+    TRIM: 1027,
+    TRANSFORMLAYER: 1028,
+    ADDFRAME: 1029,
+    DELETEFRAME: 1030,
+    IMPORTFRAME: 1031,
+    RESIZE: 1032,
+    RESAMPLE: 1033,
+    SHARPEN: 1034,
+    BLUR: 1035,
+    DUPLICATELAYER: 1036,
+    COLORMASK: 1037,
+    EDITPALETTE: 1038,
+    MERGEDOWN: 1039,
+    FLATTEN: 1040,
+    LAYERUP: 1041,
+    LAYERDOWN: 1042,
 }
 
 export let EVENT={
@@ -37,5 +55,6 @@ export let EVENT={
     sizerChanged: 9,
     toolDeActivated: 10,
     layersChanged: 11,
+    modifierKeyChanged:12
 
 }

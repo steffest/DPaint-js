@@ -1,5 +1,4 @@
 - Undo/redo
-- export to png and Amiga Icon
 - animation frames, at least 2
 - dithering/color reduction with palettes
 - layers => dragging of layers
@@ -7,4 +6,6 @@
 - info panel
 - resize/resample
 - dragging of panels?
-- close menu on canvas click
+- middle mouse drag
+- preview in grid / tiled ?
+- contrast/hue

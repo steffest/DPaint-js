@@ -3,16 +3,19 @@ import EventBus from "../../util/eventbus.js";
 import {COMMAND, EVENT} from "../../enum.js";
 import {$div} from "../../util/dom.js";
 import Editor from "../editor.js";
-import UI from "../ui.js";
+import Input from "../input.js";
 
 var Resizer = function(){
     let me = {};
     let currentSize;
     let sizeBox;
+    let overlay;
+    let overlayContent;
     let dots = [];
     let touchData = {};
+    let aspectRatio = 1;
 
-    me.set = function(x,y,w,h,hot,parent){
+    me.set = function(x,y,w,h,hot,parent,startAspectRatio){
         if (!sizeBox) createSizeBox(parent);
         currentSize = {
             left: x,
@@ -22,8 +25,26 @@ var Resizer = function(){
         }
         sizeBox.classList.add("active");
         if (hot) sizeBox.classList.add("hot");
+        if (startAspectRatio) {
+            console.log("setting AR to " + startAspectRatio)
+            aspectRatio = startAspectRatio;
+        }
 
         EventBus.trigger(EVENT.sizerChanged,currentSize);
+    }
+
+    me.setOverlay = function(content){
+        if (!sizeBox){
+            console.error("Please set Resizer before defining overlay");
+            return;
+        }
+        if (!overlay){
+            overlay = document.createElement("canvas");
+            overlay.width = 0;
+            overlay.height = 0;
+            sizeBox.appendChild(overlay);
+        }
+        overlayContent = content;
     }
 
     me.commit = function(){
@@ -47,6 +68,13 @@ var Resizer = function(){
         }
     })
 
+    EventBus.on(EVENT.modifierKeyChanged,function(){
+        if (sizeBox && sizeBox.classList.contains("active") && currentSize){
+            updateSizeBox();
+        }
+    });
+
+    // TODO should this be in resizer?
     EventBus.on(EVENT.selectionChanged,function(){
         if (sizeBox.classList.contains("active")){
             let s = Selection.get();
@@ -57,11 +85,12 @@ var Resizer = function(){
     })
 
     EventBus.on(EVENT.toolDeActivated,command=>{
-        if (command === COMMAND.SELECT){
+        if (command === COMMAND.SELECT && sizeBox){
             sizeBox.classList.remove("active");
         }
     })
 
+    // TODO should this be in resizer?
     EventBus.on(COMMAND.SELECT,()=>{
         let s = Selection.get();
         if (s && s.width && s.height){
@@ -69,18 +98,23 @@ var Resizer = function(){
         }
     })
 
+    // TODO should this be in resizer?
     EventBus.on(COMMAND.CLEARSELECTION,()=>{
-        sizeBox.classList.remove("active");
+        if (sizeBox) sizeBox.classList.remove("active");
+        if (overlay){
+            overlay.remove();
+            overlay = undefined;
+        }
     })
 
     function createSizeBox(parent){
         sizeBox = $div("sizebox","",parent,e=>{
-            resizeSelectBox(e);
+            resizeBox(e);
         });
 
         for (var i = 0; i< 8; i++){
             let dot = $div("sizedot","",sizeBox,function(e){
-                resizeSelectBox(e);
+                resizeBox(e);
             });
 
             dot.onDrag = function(x,y){
@@ -106,6 +140,22 @@ var Resizer = function(){
         var rect = parent.getBoundingClientRect();
         var rect2 =  viewport.getBoundingClientRect();
         let zoom = Editor.getActivePanel().getZoom();
+
+        if (Input.isShiftDown() && Input.isMouseDown()){
+            // aspect ratio lock
+            currentSize._width = currentSize._width||currentSize.width;
+            currentSize._height = currentSize._height||currentSize.height;
+            //let size = Math.min(currentSize._width,currentSize._height);
+            console.error(aspectRatio);
+            let w = currentSize._width;
+            let h = w / aspectRatio;
+            if (w>currentSize.width || h>currentSize.height){
+                h = currentSize.height;
+                w = h * aspectRatio;
+            }
+            currentSize.width = w;
+            currentSize.height = h;
+        }
 
         let wz = currentSize.width*zoom;
         let hz = currentSize.height*zoom;
@@ -133,16 +183,39 @@ var Resizer = function(){
         dots[6].style.top = hz + "px";
 
         dots[7].style.top = dots[3].style.top;
+
+        if (overlay){
+            overlay.width = wz;
+            overlay.height = hz;
+            updateOverlay();
+        }
     }
 
-    function resizeSelectBox(event){
+    function updateOverlay(){
+        if (overlay && overlayContent){
+            if (typeof overlayContent === "function"){
+                overlayContent(overlay);
+            }else{
+                // only type canvas?
+                let ctx = overlay.getContext("2d");
+                ctx.webkitImageSmoothingEnabled = false;
+                ctx.mozImageSmoothingEnabled = false;
+                ctx.imageSmoothingEnabled = false;
+                ctx.clearRect(0,0,overlay.width,overlay.height);
+                ctx.drawImage(overlayContent,0,0,overlay.width,overlay.height);
+            }
+        }
+    }
+
+    function resizeBox(event){
         touchData.isResizing = true;
         touchData.isdown = true;
-        touchData.selection = Selection.get();
-        touchData.startSelectWidth =  touchData.selection.width;
-        touchData.startSelectHeight =  touchData.selection.height;
-        touchData.startSelectLeft =  touchData.selection.left;
-        touchData.startSelectTop =  touchData.selection.top;
+        // TODO; why do we need "selection" data in the resizer?
+        //touchData.selection = Selection.get();
+        touchData.startSelectWidth =  currentSize.width;
+        touchData.startSelectHeight =  currentSize.height;
+        touchData.startSelectLeft =  currentSize.left;
+        touchData.startSelectTop =  currentSize.top;
         sizeBox.classList.add("hot");
     }
 
@@ -155,7 +228,6 @@ var Resizer = function(){
 
         let xz = x/zoom;
         let yz = y/zoom;
-
 
         switch (dot.index){
             case 0:

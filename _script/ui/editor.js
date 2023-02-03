@@ -7,6 +7,9 @@ import ImageProcessing from "../util/imageProcessing.js";
 import ImageFile from "../image.js";
 import Selection from "./selection.js";
 import Palette from "./palette.js";
+import Resizer from "./components/resizer.js";
+import Color from "../util/color.js";
+import Modal, {DIALOG} from "./modal.js";
 
 var Editor = function(){
     var me = {};
@@ -75,6 +78,11 @@ var Editor = function(){
             document.body.classList.add("select");
             document.body.classList.remove("draw");
         });
+        EventBus.on(COMMAND.CIRCLE,function(){
+            currentTool = COMMAND.CIRCLE;
+            document.body.classList.add("select");
+            document.body.classList.remove("draw");
+        });
         EventBus.on(COMMAND.SPLITSCREEN,function(){
             me.splitPanel();
         });
@@ -83,14 +91,27 @@ var Editor = function(){
             ImageProcessing.rotate(ImageFile.getCanvas());
             EventBus.trigger(EVENT.imageSizeChanged);
         });
+        EventBus.on(COMMAND.SHARPEN,function(){
+            EventBus.trigger(COMMAND.CLEARSELECTION);
+            ImageProcessing.sharpen(ImageFile.getCanvas());
+            EventBus.trigger(EVENT.imageSizeChanged);
+        });
+        EventBus.on(COMMAND.BLUR,function(){
+            EventBus.trigger(COMMAND.CLEARSELECTION);
+            ImageProcessing.blur(ImageFile.getCanvas());
+            EventBus.trigger(EVENT.imageSizeChanged);
+        });
         EventBus.on(COMMAND.CLEAR,function(){
             var s = Selection.get();
+            let ctx = ImageFile.getActiveContext();
+            if (ctx) ctx.fillStyle = Palette.getBackgroundColor();
             if (s){
-                let ctx = ImageFile.getActiveContext();
-                if (ctx) ctx.fillStyle = Palette.getBackgroundColor();
-                ctx.fillRect(s.x,s.y,s.width,s.height);
-                EventBus.trigger(EVENT.imageContentChanged);
+                ctx.fillRect(s.left,s.top,s.width,s.height);
+            }else{
+                s = ImageFile.getCurrentFile();
+                ctx.fillRect(0,0,s.width,s.height);
             }
+            EventBus.trigger(EVENT.imageContentChanged);
         });
         EventBus.on(COMMAND.CROP,function(){
             var s = Selection.get();
@@ -101,8 +122,7 @@ var Editor = function(){
                 canvas.width = s.width;
                 canvas.height = s.height;
 
-                canvas.getContext("2d").fillStyle = "blue";
-                canvas.getContext("2d").fillRect(0,0,s.width,s.height);
+                canvas.getContext("2d").clearRect(0,0,s.width,s.height);
                 canvas.getContext("2d").drawImage(c,s.left,s.top,s.width,s.height,0,0,s.width,s.height);
                 c.width = s.width;
                 c.height = s.height;
@@ -113,6 +133,59 @@ var Editor = function(){
 
             }
         });
+        EventBus.on(COMMAND.TRIM,()=>{
+            let ctx = ImageFile.getActiveContext();
+            let canvas = ctx.canvas;
+            let box = ImageFile.getLayerBoundingRect();
+            let cut = ctx.getImageData(box.x, box.y, box.w, box.h);
+
+            canvas.width = box.w;
+            canvas.height = box.h;
+            ctx.putImageData(cut, 0, 0);
+            EventBus.trigger(EVENT.imageSizeChanged);
+        })
+
+        EventBus.on(COMMAND.TRANSFORMLAYER,()=>{
+            currentTool = COMMAND.TRANSFORMLAYER;
+            let box = ImageFile.getLayerBoundingRect();
+            Resizer.set(box.x,box.y,box.w,box.h,false,activePanel.getViewPort(),box.w/box.h);
+            let sizeCanvas = document.createElement("canvas");
+            sizeCanvas.width = box.w;
+            sizeCanvas.height = box.h;
+            sizeCanvas.getContext("2d").drawImage(ImageFile.getActiveContext().canvas,box.x,box.y,box.w,box.h,0,0,box.w,box.h);
+            Resizer.setOverlay(sizeCanvas)
+        });
+
+        EventBus.on(COMMAND.COLORMASK,()=>{
+            let ctx = ImageFile.getActiveContext();
+            let color = Palette.getDrawColor();
+            let w = ImageFile.getCurrentFile().width;
+            let h = ImageFile.getCurrentFile().height;
+            let data = ctx.getImageData(0,0,w,h).data;
+            let layerIndex = ImageFile.addLayer();
+            let layer = ImageFile.getLayer(layerIndex);
+            layer.type = "pixelSelection";
+            let ctx2 = ImageFile.getLayer(layerIndex).getContext();
+            ctx2.fillStyle = "red";
+            for (let y = 0;y<h;y++){
+                for (let x = 0;x<w;x++){
+                    let index = (y*w + x) * 4;
+                    let r = data[index];
+                    let g = data[index+1];
+                    let b = data[index+2];
+                    let c = Color.toString([r,g,b]);
+                    if (c === color){
+                        ctx2.fillRect(x,y,1,1);
+                    }
+                }
+            }
+            EventBus.trigger(EVENT.imageContentChanged);
+            return layerIndex;
+        })
+
+        EventBus.on(COMMAND.EDITPALETTE, ()=>{
+            Modal.show(DIALOG.PALETTE);
+        })
 
     }
 
@@ -153,6 +226,31 @@ var Editor = function(){
 
     me.isStateActive = function(name){
         return !!state[name];
+    }
+
+    me.commit = function(){
+        if (currentTool === COMMAND.TRANSFORMLAYER){
+            console.error("commit layer");
+            let d = Resizer.get();
+            let box = ImageFile.getLayerBoundingRect();
+            console.error(box,d);
+
+            let sizeCanvas = document.createElement("canvas");
+            sizeCanvas.width = box.w;
+            sizeCanvas.height = box.h;
+            let sctx = sizeCanvas.getContext("2d");
+            sctx.imageSmoothingEnabled = false;
+            sctx.drawImage(ImageFile.getActiveContext().canvas,box.x,box.y,box.w,box.h,0,0,box.w,box.h);
+
+            let layer = ImageFile.getActiveLayer();
+            layer.clear();
+            let ctx = layer.getContext();
+            ctx.imageSmoothingEnabled = false;
+            ctx.drawImage(sizeCanvas,d.left,d.top,d.width,d.height);
+            EventBus.trigger(COMMAND.CLEARSELECTION);
+            EventBus.trigger(EVENT.layerContentChanged);
+
+        }
     }
 
 
