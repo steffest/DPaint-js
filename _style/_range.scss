@@ -71,16 +71,3 @@ input[type=range]:focus::-ms-fill-upper {
   background: #d5d5d5;
 }
 
-
-input[type="number"],
-input[type="text"]{
-  display: inline-block;
-  background-color: #2b2b2b;
-  border: 1px solid #6A6A6A;
-  color: #BBBBBB;
-  padding: 4px;
-
-  &:focus{
-    outline: none;
-  }
-}

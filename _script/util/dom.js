@@ -38,17 +38,14 @@ export function $checkbox(label,parent,classname,onToggle){
 	let result = document.createElement("span");
 	result.className = "checkbox";
 
+	let labelElm = document.createElement("label");
 	let checkbox = document.createElement("input");
 	checkbox.type="checkbox";
-	result.appendChild(checkbox);
-
-	if (label){
-		checkbox.id="cb" + Math.floor(Math.random()*1000000);
-		let labelElm = document.createElement("label");
-		labelElm.innerHTML=label;
-		labelElm.htmlFor = checkbox.id;
-		result.appendChild(labelElm);
-	}
+	let textElm = document.createElement("span");
+	labelElm.appendChild(checkbox);
+	labelElm.appendChild(textElm);
+	if (label) textElm.innerText = label;
+	result.appendChild(labelElm);
 
 	if (onToggle){
 		checkbox.oninput = ()=>{

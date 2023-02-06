@@ -42,5 +42,32 @@ body.hovericonEditorCanvas.shift:not(.select){
   }
 }
 
+#dragelement{
+  position: absolute;
+  z-index: 1000;
+  pointer-events: none;
+  opacity: 0;
+  top: 0;
+  left: 0;
+  transition: opacity 0.3s ease-in-out;
+
+  &.active{
+    opacity: 1;
+  }
+
+  .dragelement{
+    &.box{
+      width: 120px;
+      padding: 4px 8px;
+      color: $menu-text-color;
+      background-color: #313335;
+      border: 1px solid #000000;
+      box-shadow: 1px 1px 2px 0 rgba(0, 0, 0, 0.63);
+    }
+  }
+}
+
+
+
 
 

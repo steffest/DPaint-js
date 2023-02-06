@@ -53,6 +53,52 @@
           background-repeat: no-repeat;
         }
       }
+
+      .toolpanel{
+        .options{
+          display: flex;
+          padding: 3px 2px 0 2px;
+          color: $menu-text-color;
+          font-size: 12px;
+
+          span.tool{
+            padding: 0px 4px 0 10px;
+            color: $menu-text-color-dim;
+          }
+
+          .checkbox{
+            font-size: 12px;
+            padding-right: 10px;
+            label span{
+              padding-left: 14px;
+              &:before{
+                width: 10px;
+                height: 10px;
+              }
+            }
+          }
+
+          input[type=range] {
+            margin: 0 4px 0 4px;
+            width: 40px;
+          }
+
+          input[type=range]::-webkit-slider-thumb {
+            margin-top: -10px;
+            width: 8px;
+            height: 14px;
+          }
+
+          input[type=range]::-webkit-slider-runnable-track {
+            background: #010101;
+            height: 3px;
+            margin-top: -2px;
+            cursor: pointer;
+          }
+
+
+        }
+      }
     }
 
     .viewport,

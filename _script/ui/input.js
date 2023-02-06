@@ -50,7 +50,24 @@ var Input = function(){
 	me.setActiveKeyHandler = function(handler){
 		activeKeyHandler = handler;
 	}
-	
+
+	me.setDragElement = function(elm,event){
+		if (touchData.dragElement) me.removeDragElement();
+
+		touchData.dragElement = document.createElement("div");
+		touchData.dragElement.id="dragelement";
+		if (elm) touchData.dragElement.appendChild(elm);
+		console.error(event);
+		document.body.appendChild(touchData.dragElement);
+
+	}
+
+	me.removeDragElement = function(){
+		if (touchData.dragElement){
+			touchData.dragElement.remove();
+			touchData.dragElement = undefined;
+		}
+	}
 
 	function onMouseDown(e){
 		document.body.classList.add("mousedown");
@@ -69,6 +86,8 @@ var Input = function(){
 				touchData.isDragging = true;
 				touchData.startX = e.clientX;
 				touchData.startY = e.clientY;
+				e.preventDefault();
+				if (target.onDragStart) target.onDragStart();
 			}
 		}
 	}
@@ -77,7 +96,12 @@ var Input = function(){
 		if (touchData.isDragging && touchData.onDrag){
 			let x = e.clientX-touchData.startX;
 			let y = e.clientY-touchData.startY;
-			touchData.onDrag(x,y);
+			touchData.onDrag(x,y,touchData);
+		}
+		if (touchData.dragElement){
+			touchData.dragElement.classList.add("active");
+			touchData.dragElement.style.left =  e.clientX  + "px";
+			touchData.dragElement.style.top =  e.clientY  + "px";
 		}
 	}
 

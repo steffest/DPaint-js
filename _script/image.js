@@ -210,7 +210,7 @@ let ImageFile = function(){
 
     me.getLayerBoundingRect = function(layerIndex){
         let layer = activeLayer;
-        if (typeof layerIndex === "number") layer = currentFile.layers[layerIndex];
+        if (typeof layerIndex === "number") layer = currentFrame().layers[layerIndex];
 
         let ctx = layer.getContext();
         let canvas = ctx.canvas;
@@ -250,6 +250,7 @@ let ImageFile = function(){
 
     me.addLayer = addLayer;
     me.removeLayer = removeLayer;
+    me.moveLayer = moveLayer;
 
     function handleUpload(files,target){
         console.log("file uploaded");
@@ -339,7 +340,7 @@ let ImageFile = function(){
     }
     
     function addLayer(index){
-        currentFrame().layers.push(Layer(currentFile.width,currentFile.height));
+        currentFrame().layers.push(Layer(currentFile.width,currentFile.height,"Layer " + (currentFrame().layers.length+1)));
         EventBus.trigger(EVENT.layersChanged);
         return currentFrame().layers.length-1;
     }
@@ -400,6 +401,24 @@ let ImageFile = function(){
         return currentFile.frames[activeFrameIndex];
     }
 
+    me.mergeDown = function(index){
+        if (typeof index !== "number") index = activeLayerIndex;
+        let layer = currentFrame().layers[index];
+        let belowLayer = currentFrame().layers[index-1];
+        if (layer && belowLayer){
+            let ctx = belowLayer.getContext();
+            ctx.globalAlpha = layer.opacity;
+            let blendMode = layer.blendMode || "normal";
+            if (blendMode === "normal") blendMode = "source-over";
+            ctx.globalCompositeOperation = blendMode;
+            belowLayer.draw(layer.getCanvas(),0,0);
+            ctx.globalAlpha = 1;
+            ctx.globalCompositeOperation = "source-over";
+            currentFrame().layers.splice(index,1);
+            me.activateLayer(index-1);
+        }
+    }
+
     EventBus.on(COMMAND.NEW,function(){
         newFile();
         //panels.forEach(panel=>panel.clear());
@@ -432,7 +451,7 @@ let ImageFile = function(){
 
     EventBus.on(COMMAND.DUPLICATELAYER,function(){
         let layer = currentFrame().layers[activeLayerIndex];
-        let newLayer = Layer(currentFile.width,currentFile.height);
+        let newLayer = Layer(currentFile.width,currentFile.height,layer.name + " duplicate");
         newLayer.opacity = layer.opacity;
         newLayer.draw(layer.getCanvas());
         currentFrame().layers.splice(activeLayerIndex,0,newLayer);
@@ -454,21 +473,7 @@ let ImageFile = function(){
     });
 
     EventBus.on(COMMAND.MERGEDOWN,function(index){
-        if (typeof index !== "number") index = activeLayerIndex;
-        let layer = currentFrame().layers[index];
-        let belowLayer = currentFrame().layers[index-1];
-        if (layer && belowLayer){
-            let ctx = belowLayer.getContext();
-            ctx.globalAlpha = layer.opacity;
-            let blendMode = layer.blendMode || "normal";
-            if (blendMode === "normal") blendMode = "source-over";
-            ctx.globalCompositeOperation = blendMode;
-            belowLayer.draw(layer.getCanvas(),0,0);
-            ctx.globalAlpha = 1;
-            ctx.globalCompositeOperation = "source-over";
-            currentFrame().layers.splice(index,1);
-            me.activateLayer(index-1);
-        }
+        me.mergeDown(index);
     });
 
     EventBus.on(COMMAND.FLATTEN,function(index){

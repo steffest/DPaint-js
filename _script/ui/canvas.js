@@ -9,6 +9,8 @@ import HistoryService from "../services/historyservice.js";
 import Selection from "./selection.js";
 import ImageFile from "../image.js";
 import Resizer from "./components/resizer.js";
+import input from "./input.js";
+import ToolOptions from "./components/toolOptions.js";
 
 let Canvas = function(parent){
 	let me = {};
@@ -210,41 +212,86 @@ let Canvas = function(parent){
                 if (touchData.isResizing){
                     return;
                 }
-                if (Editor.getCurrentTool() === COMMAND.DRAW || Editor.getCurrentTool() === COMMAND.ERASE){
-                    touchData.isDrawing = true;
-                    HistoryService.start([COMMAND.DRAW,ctx,onChange]);
-                    draw();
-                }
-                if (Editor.getCurrentTool() === COMMAND.SELECT){
-                    touchData.isSelecting = true;
-                    selectBox.classList.add("active");
-                    Resizer.set(point.x,point.y,0,0,true,parent.getViewPort(),1);
-                }
-                if (Editor.getCurrentTool() === COMMAND.SQUARE){
-                    touchData.isSelecting = true;
-                    selectBox.classList.add("active");
-                    Resizer.set(point.x,point.y,0,0,true,parent.getViewPort(),1);
-                    drawFunction = function(ctx,x,y,w,h,button){
-                        ctx.fillStyle = button?Palette.getBackgroundColor():Palette.getDrawColor();
-                        ctx.fillRect(x,y,w,h);
-                    }
-                    Resizer.setOverlay(defaultDrawFunction);
-                }
-                if (Editor.getCurrentTool() === COMMAND.CIRCLE){
-                    touchData.isSelecting = true;
-                    selectBox.classList.add("active");
-                    Resizer.set(point.x,point.y,0,0,true,parent.getViewPort(),1);
-                    drawFunction = function(ctx,x,y,w,h,button){
-                        let cx = x + w/2;
-                        let cy = y + h/2;
-                        let wx = w/2;
-                        let wh = h/2;
-                        ctx.fillStyle = button?Palette.getBackgroundColor():Palette.getDrawColor();
-                        ctx.beginPath();
-                        ctx.ellipse(cx, cy, wx, wh, 0, 0, 2 * Math.PI);
-                        ctx.fill();
-                    }
-                    Resizer.setOverlay(defaultDrawFunction);
+                switch (Editor.getCurrentTool()){
+                    case COMMAND.DRAW:
+                    case COMMAND.ERASE:
+                        touchData.isDrawing = true;
+                        HistoryService.start([COMMAND.DRAW,ctx,onChange]);
+                        draw();
+                        break;
+                    case COMMAND.SELECT:
+                        touchData.isSelecting = true;
+                        selectBox.classList.add("active");
+                        Resizer.set(point.x,point.y,0,0,true,parent.getViewPort(),1);
+                        break;
+                    case COMMAND.SQUARE:
+                        touchData.isSelecting = true;
+                        selectBox.classList.add("active");
+                        Resizer.set(point.x,point.y,0,0,true,parent.getViewPort(),1);
+                        drawFunction = function(ctx,x,y,w,h,button){
+                            ctx.fillStyle = button?Palette.getBackgroundColor():Palette.getDrawColor();
+                            ctx.fillRect(x,y,w,h);
+                        }
+                        Resizer.setOverlay(defaultDrawFunction);
+                        break;
+                    case COMMAND.CIRCLE:
+                        touchData.isSelecting = true;
+                        selectBox.classList.add("active");
+                        Resizer.set(point.x,point.y,0,0,true,parent.getViewPort(),1);
+                        drawFunction = function(ctx,x,y,w,h,button){
+                            let cx = x + w/2;
+                            let cy = y + h/2;
+                            let wx = w/2;
+                            let wh = h/2;
+                            ctx.fillStyle = button?Palette.getBackgroundColor():Palette.getDrawColor();
+                            ctx.beginPath();
+                            ctx.ellipse(cx, cy, wx, wh, 0, 0, 2 * Math.PI);
+                            ctx.fill();
+                        }
+                        Resizer.setOverlay(defaultDrawFunction);
+                        break;
+                    case COMMAND.LINE:
+                        let layerIndex = ImageFile.addLayer();
+                        let drawLayer = ImageFile.getLayer(layerIndex);
+                        touchData.hotDrawFunction = function(x,y){
+                            drawLayer.clear();
+                            let ctx = drawLayer.getContext();
+                            ctx.lineWidth = ToolOptions.getLineSize();
+                            let isOdd = ctx.lineWidth%2===1;
+                            ctx.lineCap = "square";
+                            ctx.strokeStyle = Palette.getDrawColor();
+
+                            ctx.imageSmoothingEnabled = ToolOptions.isSmooth();
+                            if (Input.isShiftDown()){
+                                // snap to x or y axis
+                                let w = Math.abs(x-point.x);
+                                let h = Math.abs(y-point.y);
+                                let ratio = Math.min(w/h,h/w);
+                                if (ratio<=1 && ratio>0.5){
+                                    let d = Math.min(w,h);
+                                    x = point.x + d*(x<point.x?-1:1);
+                                    y = point.y + d*(y<point.y?-1:1);
+                                }else{
+                                    if (w<h){
+                                        x=point.x;
+                                    }else{
+                                        y=point.y;
+                                    }
+                                }
+                            }
+                            if (isOdd) ctx.translate(.5,.5);
+                            ctx.beginPath();
+                            ctx.moveTo(point.x,point.y);
+                            ctx.lineTo(x,y);
+                            ctx.closePath();
+                            ctx.stroke();
+                            if (isOdd) ctx.translate(-.5,-.5);
+                            EventBus.trigger(EVENT.layerContentChanged);
+                        }
+                        touchData.hotDrawDone = function(){
+                            ImageFile.mergeDown(layerIndex);
+                        }
+                        break;
                 }
                 break;
             case 'up':
@@ -267,6 +314,13 @@ let Canvas = function(parent){
                         }
                     }else{
                         EventBus.trigger(COMMAND.CLEARSELECTION);
+                    }
+                }
+
+                if (touchData.hotDrawFunction){
+                    touchData.hotDrawFunction = undefined;
+                    if (touchData.hotDrawDone){
+                        touchData.hotDrawDone();
                     }
                 }
 
@@ -326,6 +380,10 @@ let Canvas = function(parent){
                         touchData.selection.width = touchData.startSelectWidth + w;
                         touchData.selection.height = touchData.startSelectHeight + h;
                         EventBus.trigger(EVENT.sizerChanged,touchData.selection);
+                    }
+
+                    if (touchData.hotDrawFunction){
+                        touchData.hotDrawFunction(point.x,point.y);
                     }
                     
                 }else{
@@ -399,7 +457,7 @@ let Canvas = function(parent){
 
     function canPickColor(){
         let ct = Editor.getCurrentTool();
-        return !(ct === COMMAND.SELECT || ct === COMMAND.SQUARE || ct === COMMAND.CIRCLE || ct === COMMAND.TRANSFORMLAYER);
+        return !(ct === COMMAND.SELECT || ct === COMMAND.SQUARE || ct === COMMAND.CIRCLE || ct === COMMAND.LINE ||  ct === COMMAND.TRANSFORMLAYER);
     }
 
     return me;

@@ -55,6 +55,7 @@ export let EVENT={
     sizerChanged: 9,
     toolDeActivated: 10,
     layersChanged: 11,
-    modifierKeyChanged:12
+    modifierKeyChanged:12,
+    toolChanged: 13
 
 }

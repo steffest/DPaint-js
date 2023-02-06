@@ -71,6 +71,7 @@
           cursor: pointer;
         }
 
+        &.ghost,
         &.hidden{
           opacity: 0.4;
           .eye{

@@ -4,6 +4,7 @@ import {COMMAND, EVENT} from "../enum.js";
 import Canvas from "./canvas.js";
 import Editor from "./editor.js";
 import ImageFile from "../image.js";
+import ToolOptions from "./components/toolOptions.js";
 
 var EditPanel = function(parent,type){
     var me = {};
@@ -16,6 +17,7 @@ var EditPanel = function(parent,type){
     let windowContainer;
     let windowCanvasList = [];
     let tileContainer;
+    let toolPanel;
 
     let currentView = "editor";
     
@@ -146,6 +148,13 @@ var EditPanel = function(parent,type){
     })
     $div("button expand","",toolbar,me.zoomToFit);
 
+    if (thisPanel === 0){
+        toolPanel = $div("toolpanel","",toolbar);
+        EventBus.on(EVENT.toolChanged,(tool)=>{
+            toolPanel.innerHTML = "";
+            toolPanel.appendChild(ToolOptions.getOptions(tool));
+        })
+    }
     if (thisPanel === 1){
         let viewPanel = $div("viewstyle","",toolbar);
         $div("button editor active","E",viewPanel,()=>{me.setView('editor')});

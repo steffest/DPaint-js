@@ -3,11 +3,14 @@ import {$div, $elm} from "../../util/dom.js";
 import EventBus from "../../util/eventbus.js";
 import {COMMAND, EVENT} from "../../enum.js";
 import input from "../input.js";
+import Input from "../input.js";
 
 let LayerPanel = function(){
     let me = {};
-    let container;
     let contentPanel;
+    let dragData = {};
+    let opacityRange;
+    let blendSelect;
     
     let blendModes=[
         "normal",
@@ -31,17 +34,17 @@ let LayerPanel = function(){
         let toolbar = $div("paneltools multirow","",parent);
         let rangeSelect = $div("rangeselect","",toolbar);
         $div("label","Opacity",rangeSelect);
-        let range = document.createElement("input");
-        range.type = "range";
-        range.max=100;
-        range.min=0;
-        range.value = 100;
-        range.oninput = ()=>{
-            ImageFile.setLayerOpacity(range.value);
+        opacityRange = document.createElement("input");
+        opacityRange.type = "range";
+        opacityRange.max=100;
+        opacityRange.min=0;
+        opacityRange.value = 100;
+        opacityRange.oninput = ()=>{
+            ImageFile.setLayerOpacity(opacityRange.value);
         }
-        rangeSelect.appendChild(range);
+        rangeSelect.appendChild(opacityRange);
 
-        let blendSelect = $div("blendselect","",toolbar);
+        blendSelect = $div("blendselect","",toolbar);
         $div("label","Blend",blendSelect);
         let select = $elm("select","",blendSelect);
         blendModes.forEach(mode=>{
@@ -50,7 +53,6 @@ let LayerPanel = function(){
         select.oninput = ()=>{
             ImageFile.setLayerBlendMode(select.value);
         }
-
 
 
         $div("button delete","",toolbar,()=>{
@@ -68,25 +70,79 @@ let LayerPanel = function(){
         let activeIndex = ImageFile.getActiveLayerIndex() || 0;
         let imageFile = ImageFile.getCurrentFile();
         let frame = imageFile.frames[ImageFile.getActiveFrameIndex()];
-        for (let i = frame.layers.length-1;i>=0;i--){
+        let max = frame.layers.length-1;
+        for (let i = 0;i<=max;i++){
             let layer = frame.layers[i];
-            let elm = $div("layer" + (activeIndex === i ? " active":"") + (layer.visible?"":" hidden"),"Layer " + i,contentPanel,()=>{
+            let elm = $div("layer" + (activeIndex === i ? " active":"") + (layer.visible?"":" hidden"),layer.name,contentPanel,()=>{
                 ImageFile.activateLayer(i);
             });
-            elm.style.top = 46 + (i*23) + "px";
+            elm.style.top = 46 + ((max-i)*23) + "px";
+            elm.currentIndex = elm.targetIndex = i;
+            elm.id = "layer" + i;
 
-            elm.onDrag = (e)=>{
-                console.error("drag");
+            elm.onDragStart = (e)=>{
+                // TODO probably more performant if we postpone this to when we actually drag
+                console.error("drag start");
+                let dupe = $div("dragelement box",elm.innerText);
+                elm.classList.add("ghost");
+                Input.setDragElement(dupe,e);
+            }
 
+            elm.onDrag = (x,y)=>{
+                let distance = Math.abs(y)
+
+                if (distance>5){
+                    // Meh... did we just did a rugpull regenerating the layer list? FIXME!
+                    let currentTarget = contentPanel.querySelector("#layer" + elm.currentIndex);
+                    currentTarget.classList.add("ghost");
+
+                    let indexChange = Math.round(y/23);
+                    let newIndex = elm.currentIndex - indexChange;
+                    elm.targetIndex = newIndex;
+                    if (newIndex<0) newIndex=0;
+                    if (newIndex>=max) newIndex = max;
+                    console.error(distance,elm.currentIndex , newIndex);
+
+
+                    for (let i = 0;i<=max;i++){
+                        let el = contentPanel.querySelector("#layer" + i);
+                        if (el){
+                            if (elm.currentIndex === i){
+                                el.style.top = 46 + ((max-newIndex)*23) + "px";
+                            }else{
+                                let ci = 0;
+                                if (newIndex<elm.currentIndex && i >= newIndex && i<=elm.currentIndex){
+                                    ci=1;
+                                }
+                                if (newIndex>elm.currentIndex && i <= newIndex && i>=elm.currentIndex){
+                                    ci=-1;
+                                }
+                                el.style.top = 46 + ((max-i-ci)*23) + "px";
+                            }
+                        }
+                    }
+                }
             }
 
             elm.onDragEnd = (e)=>{
                 console.error("drop");
+                Input.removeDragElement();
+                let currentTarget = contentPanel.querySelector("#layer" + elm.currentIndex);
+                currentTarget.classList.remove("ghost");
+                if (elm.currentIndex !== elm.targetIndex){
+                    ImageFile.moveLayer(elm.currentIndex,elm.targetIndex);
+                }
             }
 
             $div("eye","",elm,()=>{
                 ImageFile.toggleLayer(i);
             })
+
+            if (activeIndex === i){
+                opacityRange.value = layer.opacity;
+                console.error(layer.blendMode);
+                blendSelect.value = layer.blendMode;
+            }
         }
     }
 

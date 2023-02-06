@@ -14,6 +14,7 @@ let Toolbar = function(){
         {name: "select",command: COMMAND.SELECT, isTool: true, handleDeActivate: true},
         {name: "circle",label: "", isTool: true, command: COMMAND.CIRCLE},
         {name: "square",label: "", isTool: true, command: COMMAND.SQUARE},
+        {name: "line",label: "L", isTool: true, command: COMMAND.LINE},
         {name: "stamp",label: "S", command: COMMAND.STAMP},
         {name: "erase",label: "E", isTool: true, command: COMMAND.ERASE},
         {name: "split", command: COMMAND.SPLITSCREEN, toggleProperty: "splitPanel"},
@@ -49,6 +50,7 @@ let Toolbar = function(){
                             itm.element.classList.toggle("active",index === i);
                         }
                     });
+                    EventBus.trigger(EVENT.toolChanged,item.command);
                 });
             }
 

@@ -83,6 +83,10 @@ var Editor = function(){
             document.body.classList.add("select");
             document.body.classList.remove("draw");
         });
+        EventBus.on(COMMAND.LINE,function(){
+            currentTool = COMMAND.LINE;
+            document.body.classList.remove("draw");
+        });
         EventBus.on(COMMAND.SPLITSCREEN,function(){
             me.splitPanel();
         });

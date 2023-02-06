@@ -1,9 +1,11 @@
 import Color from "../util/color.js";
 
-let Layer = function(width,height){
+let Layer = function(width,height,name){
     let me = {
         visible:true,
-        opacity:100
+        opacity:100,
+        name: name,
+        blendMode: "normal"
     }
     
     let canvas = document.createElement("canvas");
