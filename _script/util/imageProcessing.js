@@ -7,7 +7,10 @@ var ImageProcessing = function(){
 	var me = {};
 
 	var ImageInfos = {};
-	
+
+	// good explanation on dithering: https://tannerhelland.com/2012/12/28/dithering-eleven-algorithms-source-code.html
+    // also: implement  https://twitter.com/lorenschmidt/status/1468671174821486594?s=20 ?
+
 	var dithering = [
 			{ Name: "none", label: "None", pattern: null},
 			{ Name: "checks1", label: "Checks (very low)", pattern : [ 1 * 8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 ] },
@@ -20,14 +23,14 @@ var ImageProcessing = function(){
 			{ Name: "fs85", label: "Floyd-Steinberg (85%)", pattern: [ 0, 0, 0, 7.0 * 0.85 / 16.0, 0, 0, 3.0 * 0.85 / 16.0, 5.0 * 0.85 / 16.0, 1.0 * 0.85 / 16.0, 0, 0, 0, 0, 0, 0 ] },
 			{ Name: "fs75", label: "Floyd-Steinberg (75%)", pattern: [ 0, 0, 0, 7.0 * 0.75 / 16.0, 0, 0, 3.0 * 0.75 / 16.0, 5.0 * 0.75 / 16.0, 1.0 * 0.75 / 16.0, 0, 0, 0, 0, 0, 0 ] },
 			{ Name: "fs50", label: "Floyd-Steinberg (50%)", pattern: [ 0, 0, 0, 7.0 * 0.5 / 16.0, 0, 0, 3.0 * 0.5 / 16.0, 5.0 * 0.5 / 16.0, 1.0 * 0.5 / 16.0, 0, 0, 0, 0, 0, 0 ] },
-			{ Name: "ffs", label: "False Floyd-Steinberg", pattern:  [ 0, 0, 0, 3.0 / 8.0, 0, 0, 0, 3.0 / 8.0, 2.0 / 8.0, 0, 0, 0, 0, 0, 0 ]},
 			{ Name: "jjn", label: "Jarvis, Judice, and Ninke", pattern: [ 0, 0, 0, 7.0 / 48.0, 5.0 / 48.0, 3.0 / 48.0, 5.0 / 48.0, 7.0 / 48.0, 5.0 / 48.0, 3.0 / 48.0, 1.0 / 48.0, 3.0 / 48.0, 5.0 / 48.0, 3.0 / 48.0, 1.0 / 48.0 ] },
 			{ Name: "s", label: "Stucki", pattern: [ 0, 0, 0, 8.0 / 42.0, 4.0 / 42.0, 2.0 / 42.0, 4.0 / 42.0, 8.0 / 42.0, 4.0 / 42.0, 2.0 / 42.0, 1.0 / 42.0, 2.0 / 42.0, 4.0 / 42.0, 2.0 / 42.0, 1.0 / 42.0 ] },
 			{ Name: "a", label: "Atkinson", pattern: [ 0, 0, 0, 1.0 / 8.0, 1.0 / 8.0, 0, 1.0 / 8.0, 1.0 / 8.0, 1.0 / 8.0, 0, 0, 0, 1.0 / 8.0, 0, 0 ] },
 			{ Name: "b", label: "Burkes", pattern: [ 0, 0, 0, 8.0 / 32.0, 4.0 / 32.0, 2.0 / 32.0, 4.0 / 32.0, 8.0 / 32.0, 4.0 / 32.0, 2.0 / 32.0, 0, 0, 0, 0, 0 ] },
 			{ Name: "s", label: "Sierra", pattern: [ 0, 0, 0, 5.0 / 32.0, 3.0 / 32.0, 2.0 / 32.0, 4.0 / 32.0, 5.0 / 32.0, 4.0 / 32.0, 2.0 / 32.0, 0, 2.0 / 32.0, 3.0 / 32.0, 2.0 / 32.0, 0 ] },
 			{ Name: "trs", label: "Two-Row Sierra", pattern: [ 0, 0, 0, 4.0 / 16.0, 3.0 / 16.0, 1.0 / 16.0, 2.0 / 16.0, 3.0 / 16.0, 2.0 / 16.0, 1.0 / 16.0, 0, 0, 0, 0, 0 ] },
-			{ Name: "sl", label: "Sierra Lite", pattern: [ 0, 0, 0, 2.0 / 4.0, 0, 0, 1.0 / 4.0, 1.0 / 4.0, 0, 0, 0, 0, 0, 0, 0 ] } 
+			{ Name: "sl", label: "Sierra Lite", pattern: [ 0, 0, 0, 2.0 / 4.0, 0, 0, 1.0 / 4.0, 1.0 / 4.0, 0, 0, 0, 0, 0, 0, 0 ] } ,
+			//{ Name: "bayer", label: "Bayer", pattern: [0,15/255, 135/255, 45/255, 165/255, 195/255, 75/255, 225/255, 105/255, 60/255, 180/255, 30/255, 150/255 , 240/255, 120/255, 210/255, 90/255] }
 		];
 	var ditherPattern = null;
 	var alphaThreshold = 44;
@@ -149,8 +152,7 @@ var ImageProcessing = function(){
 		return RedDelta * RedDelta + GreenDelta * GreenDelta + BlueDelta * BlueDelta + LuminanceDelta * LuminanceDelta * 6;
 	}
 	
-	function RemapImage(canvas, Colors, ditherPattern)
-	{
+	function RemapImage(canvas, Colors, ditherPattern) {
 		var Context = canvas.getContext("2d");
 		var Data = Context.getImageData(0, 0, canvas.width, canvas.height);
 
@@ -159,12 +161,9 @@ var ImageProcessing = function(){
 		for(var Index = 0; Index < Colors.length; Index++)
 			MixedColors.push({ Red: Colors[Index].Red, Green: Colors[Index].Green, Blue: Colors[Index].Blue, TrueRed: SrgbToRgb(Colors[Index].Red), TrueGreen: SrgbToRgb(Colors[Index].Green), TrueBlue: SrgbToRgb(Colors[Index].Blue) });
 
-		if(ditherPattern && ditherPattern[0] > 0 && Colors.length <= 64)
-		{
-			for(var Index1 = 0; Index1 < Colors.length; Index1++)
-			{
-				for(var Index2 = Index1 + 1; Index2 < Colors.length; Index2++)
-				{
+		if(ditherPattern && ditherPattern[0] > 0 && Colors.length <= 64) {
+			for(var Index1 = 0; Index1 < Colors.length; Index1++){
+				for(var Index2 = Index1 + 1; Index2 < Colors.length; Index2++) {
 					var Luminance1 = SrgbToRgb(Colors[Index1].Red) * 0.21 + SrgbToRgb(Colors[Index1].Green) * 0.72 + SrgbToRgb(Colors[Index1].Blue) * 0.07;
 					var Luminance2 = SrgbToRgb(Colors[Index2].Red) * 0.21 + SrgbToRgb(Colors[Index2].Green) * 0.72 + SrgbToRgb(Colors[Index2].Blue) * 0.07;
 					var LuminanceDeltaSquare = (Luminance1 - Luminance2) * (Luminance1 - Luminance2);
@@ -541,15 +540,7 @@ var ImageProcessing = function(){
 
 		var transparentColor = useTransparentColor?Palette.getBackgroundColor():undefined;
 
-		if(colorCount === "Global") {
-			for(var Index = 0; Index < GlobalColors.length; Index++)
-				Colors.push({ Red: GlobalColors[Index].Red, Green: GlobalColors[Index].Green, Blue: GlobalColors[Index].Blue });
-
-			ImageInfos.QuantizedColors = Colors;
-
-			RemapImage(ImageInfos.canvas, Colors, ditherPattern);
-		}else if(colorCount === "Palette") {
-
+		if(colorCount === "Palette") {
 			for(var i = 0; i < ImageInfos.palette.length; i++){
 				var color = ImageInfos.palette[i];
 				Colors.push({ Red: color[0], Green: color[1], Blue: color[2], Alpha: 255 });

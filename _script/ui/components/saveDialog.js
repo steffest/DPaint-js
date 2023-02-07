@@ -5,6 +5,8 @@ import ImageFile from "../../image.js";
 import saveAs from "../../util/filesaver.js";
 import Modal from "../modal.js";
 import Palette from "../palette.js";
+import EventBus from "../../util/eventbus.js";
+import {COMMAND, EVENT} from "../../enum.js";
 
 var SaveDialog = function(){
     let me ={};
@@ -26,6 +28,18 @@ var SaveDialog = function(){
             description: 'Amiga Icon',
             accept: {
                 'application/octet-stream': ['.info'],
+            },
+        },
+        PALETTE:{
+            description: 'DPaint.js Palette',
+            accept: {
+                'application/json': ['.json'],
+            },
+        },
+        DPAINTJS:{
+            description: 'DPaint.js File',
+            accept: {
+                'application/json': ['.json'],
             },
         }
     }
@@ -325,6 +339,16 @@ var SaveDialog = function(){
         return "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
     }
 
+    EventBus.on(COMMAND.SAVEPALETTE,()=>{
+        let struct = {
+            type: "palette",
+            palette:  Palette.get()
+        }
+        let blob = new Blob([JSON.stringify(struct,null,2)], { type: 'application/json' })
+        saveFile(blob,'palette.json',filetypes.PALETTE).then(()=>{
+
+        });
+    });
 
     return me;
 }();

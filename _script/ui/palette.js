@@ -7,6 +7,7 @@ import ImageProcessing from "../util/imageProcessing.js";
 import ImageFile from "../image.js";
 import SidePanel from "./sidepanel.js";
 import Canvas from "./canvas.js";
+import FileDetector from "../fileformats/detect.js";
 
 let Palette = function(){
     let me = {};
@@ -341,6 +342,35 @@ let Palette = function(){
             me.reduce();
         }
         alpha.appendChild(arange);
+    }
+
+    me.openLocal = function(){
+        var input = document.createElement('input');
+        input.type = 'file';
+        input.onchange = function(e){
+            let files = e.target.files;
+            if (files.length){
+                var file = files[0];
+                var ext = file.name.split(".").pop().toLowerCase();
+                if (ext === "json"){
+                    var reader = new FileReader();
+                    reader.onload = function(){
+                        let data = {};
+                        try{
+                            data = JSON.parse(reader.result);
+                        }catch(error){
+                            console.error("Error parsing Palette");
+                        };
+                        if (data && data.type === "palette" && data.palette){
+                            me.set(data.palette);
+                        }
+
+                    }
+                    reader.readAsText(file);
+                }
+            }
+        };
+        input.click();
     }
 
 

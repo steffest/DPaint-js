@@ -10,6 +10,7 @@ import Palette from "./palette.js";
 import Resizer from "./components/resizer.js";
 import Color from "../util/color.js";
 import Modal, {DIALOG} from "./modal.js";
+import {releaseCanvas} from "../util/canvasUtils.js";
 
 var Editor = function(){
     var me = {};
@@ -58,6 +59,8 @@ var Editor = function(){
         EventBus.on(COMMAND.ZOOMOUT,function(center){
             activePanel.zoom(1/zoomFactor,center);
         });
+
+        //TODO: move these to ToolOptions
         EventBus.on(COMMAND.DRAW,function(){
             currentTool = COMMAND.DRAW;
             document.body.classList.remove("select");
@@ -87,12 +90,22 @@ var Editor = function(){
             currentTool = COMMAND.LINE;
             document.body.classList.remove("draw");
         });
+        EventBus.on(COMMAND.GRADIENT,function(){
+            currentTool = COMMAND.GRADIENT;
+            document.body.classList.remove("draw");
+        });
         EventBus.on(COMMAND.SPLITSCREEN,function(){
             me.splitPanel();
         });
         EventBus.on(COMMAND.ROTATE,function(){
             EventBus.trigger(COMMAND.CLEARSELECTION);
-            ImageProcessing.rotate(ImageFile.getCanvas());
+            let currentFrame = ImageFile.getActiveFrame();
+            currentFrame.layers.forEach(layer=>{
+                ImageProcessing.rotate(layer.getCanvas());
+            })
+            let w = ImageFile.getCurrentFile().width;
+            ImageFile.getCurrentFile().width = ImageFile.getCurrentFile().height;
+            ImageFile.getCurrentFile().height = w;
             EventBus.trigger(EVENT.imageSizeChanged);
         });
         EventBus.on(COMMAND.SHARPEN,function(){
@@ -120,18 +133,25 @@ var Editor = function(){
         EventBus.on(COMMAND.CROP,function(){
             var s = Selection.get();
             if (s){
-                let c = ImageFile.getCanvas();
-                let ctx = c.getContext("2d");
-                let canvas = document.createElement("canvas");
-                canvas.width = s.width;
-                canvas.height = s.height;
+                ImageFile.getCurrentFile().frames.forEach(frame=>{
+                    frame.layers.forEach(layer=>{
+                        let c = layer.getCanvas();
+                        let ctx = c.getContext("2d");
+                        let canvas = document.createElement("canvas");
+                        canvas.width = s.width;
+                        canvas.height = s.height;
+                        canvas.getContext("2d").clearRect(0,0,s.width,s.height);
+                        canvas.getContext("2d").drawImage(c,s.left,s.top,s.width,s.height,0,0,s.width,s.height);
 
-                canvas.getContext("2d").clearRect(0,0,s.width,s.height);
-                canvas.getContext("2d").drawImage(c,s.left,s.top,s.width,s.height,0,0,s.width,s.height);
-                c.width = s.width;
-                c.height = s.height;
-                ctx.clearRect(0,0,s.width,s.height);
-                ctx.drawImage(canvas,0,0);
+                        c.width = s.width;
+                        c.height = s.height;
+                        ctx.clearRect(0,0,s.width,s.height);
+                        ctx.drawImage(canvas,0,0);
+                        releaseCanvas(canvas);
+                    })
+                });
+                ImageFile.getCurrentFile().width = s.width;
+                ImageFile.getCurrentFile().height = s.height;
                 Selection.move(0,0,s.width,s.height);
                 EventBus.trigger(EVENT.imageSizeChanged);
 

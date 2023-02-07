@@ -1,11 +1,10 @@
 - Undo/redo
-- animation frames, at least 2
-- dithering/color reduction with palettes
 - layers => dragging of layers
-- brush sizes/shapes
-- info panel
-- resize/resample
 - dragging of panels?
 - middle mouse drag
-- preview in grid / tiled ?
-- contrast/hue
+- brightness/contrast/hue
+- dither gradient
+- layer mask
+
+
+- filters: e.g. https://medium.com/skylar-salernos-tech-blog/mimicking-googles-pop-filter-using-canvas-blend-modes-d7da83590d1a

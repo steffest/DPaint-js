@@ -35,6 +35,7 @@ let Menu = function(){
                 {label: "Line",command: COMMAND.LINE,shortKey: "L"},
                 {label: "Rectangle",command: COMMAND.SQUARE,shortKey: "R"},
                 {label: "Circle",command: COMMAND.CIRCLE,shortKey: "C"},
+                {label: "Gradient",command: COMMAND.GRADIENT,shortKey: "G"},
                 {label: "Erase",command: COMMAND.ERASE,shortKey: "E"}
             ]},
         {label: "Layer", items:[
@@ -55,7 +56,8 @@ let Menu = function(){
                 {label: "Edit",command: COMMAND.EDITPALETTE},
                 {label: "From Image",command: COMMAND.PALETTEFROMIMAGE},
                 {label: "Reduce",command: COMMAND.PALETTEREDUCE},
-                {label: "Highlight Selected Colour",command: COMMAND.COLORMASK}
+                {label: "Save Palette",command: COMMAND.SAVEPALETTE},
+                {label: "Load Palette",command: COMMAND.LOADPALETTE}
             ]},
         {label: "View", items:[
                 {label: "Split Screen",command: COMMAND.SPLITSCREEN,shortKey: "tab"}

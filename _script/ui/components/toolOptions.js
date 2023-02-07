@@ -4,13 +4,19 @@ import {COMMAND} from "../../enum.js";
 let ToolOptions = function(){
     let me = {}
     let smooth = false;
+    let fill = false;
     let lineSize = 1;
 
     let smoothCheckbox;
+    let fillCheckbox;
     let lineSizeRange;
 
     me.isSmooth = ()=>{
         return smooth;
+    }
+
+    me.isFill = ()=>{
+        return fill;
     }
 
     me.getLineSize = ()=>{
@@ -22,16 +28,35 @@ let ToolOptions = function(){
         switch (command){
             case COMMAND.LINE:
                 options.appendChild(label("Line:"));
-                options.appendChild(smoothSetting())
-                options.appendChild(lineSetting())
+                options.appendChild(smoothSetting());
+                options.appendChild(lineSetting());
+                break;
+            case COMMAND.SQUARE:
+                options.appendChild(label("Rectangle:"));
+                options.appendChild(fillSetting());
+                options.appendChild(lineSetting());
+                break;
+            case COMMAND.CIRCLE:
+                options.appendChild(label("Circle:"));
+                options.appendChild(fillSetting());
+                options.appendChild(lineSetting());
                 break;
         }
         return options;
     }
 
     function smoothSetting(){
-        if (!smoothCheckbox) smoothCheckbox=$checkbox("Smooth");
+        if (!smoothCheckbox) smoothCheckbox=$checkbox("Smooth","","",(checked)=>{
+            smooth = checked;
+        });
         return smoothCheckbox;
+    }
+
+    function fillSetting(){
+        if (!fillCheckbox) fillCheckbox=$checkbox("Fill","","",(checked)=>{
+            fill = checked;
+        });
+        return fillCheckbox;
     }
 
     function lineSetting(){

@@ -28,6 +28,20 @@ let LayerPanel = function(){
         "saturation",
         "color",
         "luminosity",
+
+        /*"source-in",
+    "source-out",
+    "source-atop",
+    "destination-over",
+    "destination-in",
+    "destination-out",
+    "destination-atop",
+    "lighter",
+    "copy",
+    "xor",
+    "difference",
+    "exclusion"*/
+    
     ]
 
     me.generate = (parent)=>{

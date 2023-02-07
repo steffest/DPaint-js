@@ -116,16 +116,23 @@ var Input = function(){
 	}
 
 	function onKeyDown(e){
-		e.preventDefault();
-		e.stopPropagation();
 		let code = limitKeyCode(e.code);
 		let key = e.key;
+		if (code === "keyv" && Input.isMetaDown()){
+			// allow default paste
+			return;
+		}
+
+		e.preventDefault();
+		e.stopPropagation();
+		//console.log(code);
+
 		keyDown[code] = true;
 		if (modifiers.indexOf(code)>=0){
 			document.body.classList.add(code.toLowerCase());
 			EventBus.trigger(EVENT.modifierKeyChanged);
 		}
-		console.log(code);
+
 
 		if (activeKeyHandler){
 			activeKeyHandler(code);
@@ -168,11 +175,12 @@ var Input = function(){
 		}else{
 			switch (key){
 				case "b": EventBus.trigger(COMMAND.DRAW); break;
-				case "s": EventBus.trigger(COMMAND.SELECT); break;
-				case "l": EventBus.trigger(COMMAND.LINE); break;
-				case "r": EventBus.trigger(COMMAND.SQUARE); break;
 				case "c": EventBus.trigger(COMMAND.CIRCLE); break;
 				case "e": EventBus.trigger(COMMAND.ERASE); break;
+				case "g": EventBus.trigger(COMMAND.GRADIENT); break;
+				case "l": EventBus.trigger(COMMAND.LINE); break;
+				case "r": EventBus.trigger(COMMAND.SQUARE); break;
+				case "s": EventBus.trigger(COMMAND.SELECT); break;
 			}
 		}
 

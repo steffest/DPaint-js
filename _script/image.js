@@ -110,6 +110,10 @@ let ImageFile = function(){
     me.getActiveFrameIndex = function(){
         return activeFrameIndex;
     }
+
+    me.getActiveFrame = function(){
+        return currentFrame();
+    }
     
     me.render = function(){
         if (currentFrame().layers.length>1){

@@ -9,7 +9,6 @@ import HistoryService from "../services/historyservice.js";
 import Selection from "./selection.js";
 import ImageFile from "../image.js";
 import Resizer from "./components/resizer.js";
-import input from "./input.js";
 import ToolOptions from "./components/toolOptions.js";
 
 let Canvas = function(parent){
@@ -212,7 +211,8 @@ let Canvas = function(parent){
                 if (touchData.isResizing){
                     return;
                 }
-                switch (Editor.getCurrentTool()){
+                let currentTool = Editor.getCurrentTool();
+                switch (currentTool){
                     case COMMAND.DRAW:
                     case COMMAND.ERASE:
                         touchData.isDrawing = true;
@@ -229,8 +229,23 @@ let Canvas = function(parent){
                         selectBox.classList.add("active");
                         Resizer.set(point.x,point.y,0,0,true,parent.getViewPort(),1);
                         drawFunction = function(ctx,x,y,w,h,button){
-                            ctx.fillStyle = button?Palette.getBackgroundColor():Palette.getDrawColor();
-                            ctx.fillRect(x,y,w,h);
+                            let color = button?Palette.getBackgroundColor():Palette.getDrawColor();
+                            if (ToolOptions.isFill()){
+                                ctx.fillStyle = color;
+                                ctx.fillRect(x,y,w,h);
+                            }else{
+                                ctx.strokeStyle = color;
+                                ctx.lineWidth = ToolOptions.getLineSize();
+                                let isOdd = ctx.lineWidth%2===1;
+                                ctx.beginPath();
+                                if (isOdd) ctx.translate(0.5,0.5);
+                                ctx.rect(x,y,w,h);
+                                if (isOdd) ctx.translate(-0.5,-0.5);
+                                ctx.closePath();
+                                ctx.stroke();
+
+                            }
+
                         }
                         Resizer.setOverlay(defaultDrawFunction);
                         break;
@@ -239,18 +254,33 @@ let Canvas = function(parent){
                         selectBox.classList.add("active");
                         Resizer.set(point.x,point.y,0,0,true,parent.getViewPort(),1);
                         drawFunction = function(ctx,x,y,w,h,button){
+                            let color = button?Palette.getBackgroundColor():Palette.getDrawColor();
                             let cx = x + w/2;
                             let cy = y + h/2;
                             let wx = w/2;
                             let wh = h/2;
-                            ctx.fillStyle = button?Palette.getBackgroundColor():Palette.getDrawColor();
+                            let isOdd = false;
+                            ctx.imageSmoothingEnabled = ToolOptions.isSmooth();
+                            ctx.fillStyle = color;
+                            if (!ToolOptions.isFill()){
+                                ctx.strokeStyle = color;
+                                ctx.lineWidth = ToolOptions.getLineSize();
+                                isOdd = ctx.lineWidth%2===1;
+                            }
                             ctx.beginPath();
+                            if (isOdd) ctx.translate(0.5,0.5);
                             ctx.ellipse(cx, cy, wx, wh, 0, 0, 2 * Math.PI);
-                            ctx.fill();
+                            if (isOdd) ctx.translate(-0.5,-0.5);
+                            if (ToolOptions.isFill()){
+                                ctx.fill();
+                            }else{
+                                ctx.stroke();
+                            }
                         }
                         Resizer.setOverlay(defaultDrawFunction);
                         break;
                     case COMMAND.LINE:
+                    case COMMAND.GRADIENT:
                         let layerIndex = ImageFile.addLayer();
                         let drawLayer = ImageFile.getLayer(layerIndex);
                         touchData.hotDrawFunction = function(x,y){
@@ -260,6 +290,13 @@ let Canvas = function(parent){
                             let isOdd = ctx.lineWidth%2===1;
                             ctx.lineCap = "square";
                             ctx.strokeStyle = Palette.getDrawColor();
+
+                            if (currentTool === COMMAND.GRADIENT){
+                                ctx.strokeStyle = "black";
+                                ctx.lineWidth = 2;
+                                isOdd = false;
+                                touchData.points=[point,{x:x,y:y}];
+                            }
 
                             ctx.imageSmoothingEnabled = ToolOptions.isSmooth();
                             if (Input.isShiftDown()){
@@ -289,6 +326,20 @@ let Canvas = function(parent){
                             EventBus.trigger(EVENT.layerContentChanged);
                         }
                         touchData.hotDrawDone = function(){
+                            if (currentTool === COMMAND.GRADIENT){
+                                //drawLayer.clear();
+                                let drawLayer = ImageFile.getLayer(layerIndex);
+                                let ctx = drawLayer.getContext();
+                                let p1=touchData.points[0];
+                                let p2=touchData.points[1];
+                                let f = ImageFile.getCurrentFile();
+                                var grd = ctx.createLinearGradient(p1.x,p1.y,p2.x,p2.y);
+                                grd.addColorStop(0,Palette.getDrawColor());
+                                grd.addColorStop(1,Palette.getBackgroundColor());
+                                ctx.fillStyle = grd;
+                                ctx.fillRect(0,0,f.width,f.height);
+                                EventBus.trigger(EVENT.layerContentChanged);
+                            }
                             ImageFile.mergeDown(layerIndex);
                         }
                         break;
@@ -456,8 +507,9 @@ let Canvas = function(parent){
     }
 
     function canPickColor(){
+        // TODO this is crap - FIXME !
         let ct = Editor.getCurrentTool();
-        return !(ct === COMMAND.SELECT || ct === COMMAND.SQUARE || ct === COMMAND.CIRCLE || ct === COMMAND.LINE ||  ct === COMMAND.TRANSFORMLAYER);
+        return !(ct === COMMAND.SELECT || ct === COMMAND.SQUARE || ct === COMMAND.GRADIENT || ct === COMMAND.CIRCLE || ct === COMMAND.LINE ||  ct === COMMAND.TRANSFORMLAYER);
     }
 
     return me;

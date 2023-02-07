@@ -41,6 +41,9 @@ export let COMMAND={
     FLATTEN: 1040,
     LAYERUP: 1041,
     LAYERDOWN: 1042,
+    GRADIENT: 1043,
+    SAVEPALETTE: 1044,
+    LOADPALETTE: 1045,
 }
 
 export let EVENT={
