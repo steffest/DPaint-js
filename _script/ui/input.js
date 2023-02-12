@@ -2,11 +2,13 @@ import EventBus from "../util/eventbus.js";
 import {COMMAND, EVENT} from "../enum.js";
 import Menu from "./menu.js";
 import Editor from "./editor.js";
+import Statusbar from "./statusbar.js";
+import ContextMenu from "./components/contextMenu.js";
 
 var Input = function(){
 	let me = {}
 	let keyDown = {}
-	let modifiers = ["space","shift",,"control"];
+	let modifiers = ["space","shift","control"];
 	let touchData = {};
 	let activeKeyHandler;
 	
@@ -77,9 +79,21 @@ var Input = function(){
 		if (!target || !target.classList.contains("menuitem")){
 			Menu.close();
 		}
+		if (!target || !target.classList.contains("contextmenuitem")){
+			ContextMenu.hide();
+		}
 
 		if (target){
 			if (target.onClick) target.onClick(e);
+			if (target.onDoubleClick){
+				let now = performance.now();
+				if (target.prevNow){
+					if((now - target.prevNow)<400){
+						target.onDoubleClick();
+					}
+				}
+				target.prevNow = now;
+			}
 			if (target.onDrag){
 				touchData.target = target;
 				touchData.onDrag = target.onDrag;
@@ -87,16 +101,28 @@ var Input = function(){
 				touchData.startX = e.clientX;
 				touchData.startY = e.clientY;
 				e.preventDefault();
-				if (target.onDragStart) target.onDragStart();
+				if (target.onDragStart) target.onDragStart(e);
 			}
+			if ((e.button || e.ctrlKey) && target.onContextMenu){
+				target.onContextMenu(e);
+			}
+
 		}
 	}
 
 	function onMouseMove(e){
+		let infoTarget = e.target.closest(".info");
+		if (infoTarget){
+			if (infoTarget.info) Statusbar.setToolTip(infoTarget.info);
+		}else{
+			Statusbar.setToolTip("");
+		}
+
+
 		if (touchData.isDragging && touchData.onDrag){
 			let x = e.clientX-touchData.startX;
 			let y = e.clientY-touchData.startY;
-			touchData.onDrag(x,y,touchData);
+			touchData.onDrag(x,y,touchData,e);
 		}
 		if (touchData.dragElement){
 			touchData.dragElement.classList.add("active");
@@ -108,7 +134,7 @@ var Input = function(){
 	function onMouseUp(e){
 		if (touchData.isDragging){
 			if (touchData.target && touchData.target.onDragEnd){
-				touchData.target.onDragEnd();
+				touchData.target.onDragEnd(e);
 			}
 		}
 		touchData.isDragging = false;
@@ -118,6 +144,11 @@ var Input = function(){
 	function onKeyDown(e){
 		let code = limitKeyCode(e.code);
 		let key = e.key;
+
+		if (me.isShiftDown() && !e.shiftKey) modifierKeyUp("shift");
+		if (me.isControlDown() && !e.ctrlKey) modifierKeyUp("control");
+		if (keyDown["meta"] && !e.metaKey) modifierKeyUp("meta");
+
 		if (code === "keyv" && Input.isMetaDown()){
 			// allow default paste
 			return;
@@ -125,7 +156,7 @@ var Input = function(){
 
 		e.preventDefault();
 		e.stopPropagation();
-		//console.log(code);
+		console.log(e);
 
 		keyDown[code] = true;
 		if (modifiers.indexOf(code)>=0){
@@ -139,6 +170,7 @@ var Input = function(){
 			return;
 		}
 
+		//console.log(code);
 		switch (code){
 			case "delete":
 			case "backspace":
@@ -147,6 +179,8 @@ var Input = function(){
 			case "escape":
 				// TODO should we tie this to the selected tool?
 				EventBus.trigger(COMMAND.CLEARSELECTION);
+				Menu.close();
+				ContextMenu.hide();
 				break;
 			case "tab":
 				EventBus.trigger(COMMAND.SPLITSCREEN);
@@ -154,10 +188,17 @@ var Input = function(){
 			case "enter":
 				Editor.commit();
 				break;
+			case "arrowleft":
+			case "arrowup":
+			case "arrowright":
+			case "arrowdown":
+				Editor.arrowKey(code.replace("arrow",""));
+				break;
 		}
 
 		if (me.isMetaDown()){
 			switch (key){
+				case "b": EventBus.trigger(COMMAND.EFFECTS); break;
 				case "d": EventBus.trigger(COMMAND.DUPLICATELAYER); break;
 				case "i": EventBus.trigger(COMMAND.INFO); break;
 				case "j": EventBus.trigger(COMMAND.TOLAYER); break;
@@ -179,6 +220,7 @@ var Input = function(){
 				case "e": EventBus.trigger(COMMAND.ERASE); break;
 				case "g": EventBus.trigger(COMMAND.GRADIENT); break;
 				case "l": EventBus.trigger(COMMAND.LINE); break;
+				case "p": EventBus.trigger(COMMAND.POLYGONSELECT); break;
 				case "r": EventBus.trigger(COMMAND.SQUARE); break;
 				case "s": EventBus.trigger(COMMAND.SELECT); break;
 			}
@@ -190,9 +232,14 @@ var Input = function(){
 		let code = limitKeyCode(e.code);
 		keyDown[code] = false;
 		if (modifiers.indexOf(code)>=0){
-			document.body.classList.remove(code);
-			EventBus.trigger(EVENT.modifierKeyChanged);
+			modifierKeyUp(code);
 		}
+	}
+
+	function modifierKeyUp(code){
+		keyDown[code] = false;
+		document.body.classList.remove(code);
+		EventBus.trigger(EVENT.modifierKeyChanged);
 	}
 
 	function limitKeyCode(code){

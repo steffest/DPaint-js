@@ -6,6 +6,7 @@ var Cursor = function(){
     var me = {}
     var cursor;
     var cursorMark;
+    let position = {x:0,y:0}
     
     me.init = function(){
         cursor = $div("cursor");
@@ -13,6 +14,7 @@ var Cursor = function(){
         document.body.appendChild(cursor);
 
         document.body.addEventListener("mousemove", function (e) {
+            position = {x:e.clientX,y:e.clientY};
             cursor.style.left =  e.clientX  + "px";
             cursor.style.top =  e.clientY  + "px";
             //cursor.style.transform = "translate(" + e.clientX + "px," + e.clientY + "px)";
@@ -25,6 +27,10 @@ var Cursor = function(){
 
     me.set = function(name){
         console.error(name);
+    }
+
+    me.getPosition = ()=>{
+        return position;
     }
     
     return me;

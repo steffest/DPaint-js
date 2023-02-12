@@ -61,13 +61,6 @@ var EditPanel = function(parent,type){
         canvas.clear();
     }
 
-    me.set = function(image,reset){
-        console.error("DEPRECATED");
-        //canvas.set(image,reset);
-        //syncZoomLevel();
-
-    }
-
     me.zoom = function(zoomFactor,center){
         canvas.zoom(zoomFactor,center);
         syncZoomLevel();
@@ -124,7 +117,7 @@ var EditPanel = function(parent,type){
     }
 
     // setup toolbar
-    $div("button","-",toolbar,()=>{
+    let zoomoutButton = $div("button info","-",toolbar,()=>{
         var z =  canvas.getZoom();
         for (var i=zoomLevels.length-1;i>=0;i--){
             var zoom = zoomLevels[i];
@@ -133,11 +126,11 @@ var EditPanel = function(parent,type){
         canvas.setZoom(zoom);
         syncZoomLevel();
     })
-    var zoombutton = $div("button auto","100%",toolbar,()=>{
+    var zoombutton = $div("button auto info","100%",toolbar,()=>{
         canvas.setZoom(1);
         syncZoomLevel();
     })
-    $div("button","+",toolbar,()=>{
+    let zoominButton = $div("button info","+",toolbar,()=>{
         var z =  canvas.getZoom();
         for (var i=0;i<zoomLevels.length-1;i++){
             var zoom = zoomLevels[i];
@@ -146,20 +139,28 @@ var EditPanel = function(parent,type){
         canvas.setZoom(zoom);
         syncZoomLevel();
     })
-    $div("button expand","",toolbar,me.zoomToFit);
+    let zoomFitButton = $div("button expand info","",toolbar,me.zoomToFit);
+    zoomoutButton.info = "Zoom out";
+    zoominButton.info = "Zoom in";
+    zoombutton.info = "Reset zoom to 100%";
+    zoomFitButton.info = "Zoom to fit screen";
 
     if (thisPanel === 0){
         toolPanel = $div("toolpanel","",toolbar);
         EventBus.on(EVENT.toolChanged,(tool)=>{
+            tool = tool || Editor.getCurrentTool();
             toolPanel.innerHTML = "";
             toolPanel.appendChild(ToolOptions.getOptions(tool));
         })
     }
     if (thisPanel === 1){
         let viewPanel = $div("viewstyle","",toolbar);
-        $div("button editor active","E",viewPanel,()=>{me.setView('editor')});
-        $div("button icons","I",viewPanel,()=>{me.setView('icons')});
-        $div("button tiles","T",viewPanel,()=>{me.setView('tiles')});
+        let b1 = $div("button info editor active","E",viewPanel,()=>{me.setView('editor')});
+        let b2 = $div("button info icons","I",viewPanel,()=>{me.setView('icons')});
+        let b3 = $div("button info tiles","T",viewPanel,()=>{me.setView('tiles')});
+        b1.info = "View in editor";
+        b2.info = "Preview as icon";
+        b3.info = "Preview as tile";
     }
 
     function generateWindows(){

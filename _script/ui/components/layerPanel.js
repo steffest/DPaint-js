@@ -1,16 +1,17 @@
 import ImageFile from "../../image.js";
-import {$div, $elm} from "../../util/dom.js";
+import {$div, $elm, $input} from "../../util/dom.js";
 import EventBus from "../../util/eventbus.js";
 import {COMMAND, EVENT} from "../../enum.js";
 import input from "../input.js";
 import Input from "../input.js";
+import ContextMenu from "./contextMenu.js";
 
 let LayerPanel = function(){
     let me = {};
     let contentPanel;
-    let dragData = {};
     let opacityRange;
     let blendSelect;
+    let editIndex;
     
     let blendModes=[
         "normal",
@@ -58,14 +59,14 @@ let LayerPanel = function(){
         }
         rangeSelect.appendChild(opacityRange);
 
-        blendSelect = $div("blendselect","",toolbar);
-        $div("label","Blend",blendSelect);
-        let select = $elm("select","",blendSelect);
+        let blendSelectElm = $div("blendselect","",toolbar);
+        $div("label","Blend",blendSelectElm);
+        blendSelect = $elm("select","",blendSelectElm);
         blendModes.forEach(mode=>{
-            $elm("option",mode,select);
+            $elm("option",mode,blendSelect);
         });
-        select.oninput = ()=>{
-            ImageFile.setLayerBlendMode(select.value);
+        blendSelect.oninput = ()=>{
+            ImageFile.setLayerBlendMode(blendSelect.value);
         }
 
 
@@ -88,21 +89,27 @@ let LayerPanel = function(){
         for (let i = 0;i<=max;i++){
             let layer = frame.layers[i];
             let elm = $div("layer" + (activeIndex === i ? " active":"") + (layer.visible?"":" hidden"),layer.name,contentPanel,()=>{
-                ImageFile.activateLayer(i);
+                if (elm.classList.contains('hasinput')){
+                    let input = elm.querySelector("input");
+                    if (input) input.focus();
+                    return;
+                };
+                if (activeIndex !== i) ImageFile.activateLayer(i);
             });
             elm.style.top = 46 + ((max-i)*23) + "px";
             elm.currentIndex = elm.targetIndex = i;
             elm.id = "layer" + i;
 
             elm.onDragStart = (e)=>{
+                if (elm.classList.contains('hasinput')) return;
                 // TODO probably more performant if we postpone this to when we actually drag
                 console.error("drag start");
                 let dupe = $div("dragelement box",elm.innerText);
-                elm.classList.add("ghost");
                 Input.setDragElement(dupe,e);
             }
 
             elm.onDrag = (x,y)=>{
+                if (elm.classList.contains('hasinput')) return;
                 let distance = Math.abs(y)
 
                 if (distance>5){
@@ -139,7 +146,7 @@ let LayerPanel = function(){
             }
 
             elm.onDragEnd = (e)=>{
-                console.error("drop");
+                console.log("drop");
                 Input.removeDragElement();
                 let currentTarget = contentPanel.querySelector("#layer" + elm.currentIndex);
                 currentTarget.classList.remove("ghost");
@@ -148,17 +155,89 @@ let LayerPanel = function(){
                 }
             }
 
+            elm.onDoubleClick = ()=>{
+                renameLayer(i);
+            }
+
+            elm.onContextMenu = ()=>{
+                let items = [];
+                if (max>1) items.push ({label: "Remove Layer", command: COMMAND.DELETELAYER});
+                items.push ({label: "Duplicate Layer", command: COMMAND.DUPLICATELAYER});
+                items.push ({label: "Rename Layer", action: ()=>{
+                    renameLayer(i);
+                    }});
+
+                if (layer.hasMask){
+                    items.push({label: "Remove Layer Mask", command: COMMAND.DELETELAYERMASK});
+                    items.push({label: "Apply Layer Mask", command: COMMAND.APPLYLAYERMASK});
+                }else{
+                    items.push({label: "Add Layer Mask", command: COMMAND.LAYERMASK});
+                }
+
+                if (i<max) items.push ({label: "Move Up", command: COMMAND.LAYERUP});
+                if (i>0){
+                    items.push ({label: "Move Down", command: COMMAND.LAYERDOWN});
+                    items.push ({label: "Merge Down", command: COMMAND.MERGEDOWN});
+                }
+
+
+                ContextMenu.show(items);
+            }
+
+            if (elm.currentIndex === editIndex){
+                let input = $input("text",layer.name);
+                elm.appendChild(input);
+            }
+
             $div("eye","",elm,()=>{
                 ImageFile.toggleLayer(i);
             })
 
+            if (layer.hasMask){
+                $div("mask" + (layer.isMaskActive()?" active":""),"",elm,()=>{
+                    layer.toggleMask();
+                    EventBus.trigger(EVENT.toolChanged);
+                    EventBus.trigger(EVENT.layersChanged);
+                })
+            }
+
             if (activeIndex === i){
                 opacityRange.value = layer.opacity;
-                console.error(layer.blendMode);
+                console.error(layer.blendMode,blendSelect);
+
                 blendSelect.value = layer.blendMode;
             }
         }
     }
+
+
+    function renameLayer(index){
+        let elm=contentPanel.querySelector("#layer" + index);
+        let layer = ImageFile.getLayer(index);
+        if (elm){
+            let input = $input("text",layer.name);
+            input.onkeydown = function(e){
+                e.stopPropagation();
+                if (e.code === "Enter"){
+                    layer.name = input.value;
+                    me.list();
+                }
+                if (e.code === "Escape"){
+                    me.list();
+                }
+            }
+            elm.appendChild(input);
+            elm.classList.add('hasinput');
+            input.focus();
+
+            // needed for rename from context menu
+            setTimeout(()=>{
+                input.focus();
+            },50);
+        }
+
+    }
+
 
     EventBus.on(EVENT.layersChanged,me.list);
 

@@ -18,10 +18,10 @@ var Resizer = function(){
     me.set = function(x,y,w,h,hot,parent,startAspectRatio){
         if (!sizeBox) createSizeBox(parent);
         currentSize = {
-            left: x,
-            top: y,
-            width: w,
-            height: h
+            left: Math.round(x),
+            top: Math.round(y),
+            width: Math.round(w),
+            height: Math.round(h)
         }
         sizeBox.classList.add("active");
         if (hot) sizeBox.classList.add("hot");
@@ -55,6 +55,14 @@ var Resizer = function(){
         return currentSize;
     }
 
+    me.move = function(x,y){
+        if (sizeBox && sizeBox.classList.contains("active") && currentSize){
+            currentSize.left += x;
+            currentSize.top += y;
+            EventBus.trigger(EVENT.sizerChanged);
+        }
+    }
+
     EventBus.on(EVENT.sizerChanged,function(data){
         if (sizeBox && sizeBox.classList.contains("active")){
             data = data||currentSize;
@@ -76,7 +84,7 @@ var Resizer = function(){
 
     // TODO should this be in resizer?
     EventBus.on(EVENT.selectionChanged,function(){
-        if (sizeBox.classList.contains("active")){
+        if (sizeBox && sizeBox.classList.contains("active")){
             let s = Selection.get();
             if (s && s.width && s.height){
                 me.set(s.left,s.top,s.width,s.height);
@@ -146,7 +154,6 @@ var Resizer = function(){
             currentSize._width = currentSize._width||currentSize.width;
             currentSize._height = currentSize._height||currentSize.height;
             //let size = Math.min(currentSize._width,currentSize._height);
-            console.error(aspectRatio);
             let w = currentSize._width;
             let h = w / aspectRatio;
             if (w>currentSize.width || h>currentSize.height){
@@ -159,9 +166,6 @@ var Resizer = function(){
 
         let wz = currentSize.width*zoom;
         let hz = currentSize.height*zoom;
-
-        window.v = viewport;
-        console.error(viewport);
 
         sizeBox.style.left =  (rect.left - rect2.left + viewport.scrollLeft + currentSize.left*zoom) + "px";
         sizeBox.style.top =  (rect.top - rect2.top + viewport.scrollTop + currentSize.top*zoom)  + "px";

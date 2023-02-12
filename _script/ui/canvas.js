@@ -10,6 +10,8 @@ import Selection from "./selection.js";
 import ImageFile from "../image.js";
 import Resizer from "./components/resizer.js";
 import ToolOptions from "./components/toolOptions.js";
+import StatusBar from "./statusbar.js";
+import SelectBox from "./components/selectbox.js";
 
 let Canvas = function(parent){
 	let me = {};
@@ -27,7 +29,7 @@ let Canvas = function(parent){
 
     canvas = document.createElement("canvas");
     overlayCanvas = document.createElement("canvas");
-    selectBox = $div("selectbox");
+    selectBox = SelectBox();
 
     canvas.width = 200;
     canvas.height = 200;
@@ -39,26 +41,35 @@ let Canvas = function(parent){
     let c = $div("canvascontainer");
 
     overlayCanvas.className = "overlaycanvas";
-    canvas.className = "maincanvas";
+    canvas.className = "maincanvas info";
     c.appendChild(canvas);
     c.appendChild(overlayCanvas);
-    c.appendChild(selectBox);
+    c.appendChild(selectBox.getBox());
     
     panelParent = parent.getViewPort();
     panelParent.appendChild(c);
 
     panelParent.addEventListener('scroll',(e)=>{handle('scroll', e)},false);
 
-    canvas.addEventListener("mousemove", function (e) {handle('move', e)}, false);
-    canvas.addEventListener("mousedown", function (e) {handle('down', e)}, false);
-    canvas.addEventListener("mouseup", function (e) {handle('up', e)}, false);
-    canvas.addEventListener("mouseout", function (e) {handle('out', e)}, false);
+    panelParent.classList.add("handle");
+    panelParent.onDragStart = function (e) {handle('down', e)}
+    panelParent.onDrag = function (x,y,touchData,e) {handle('move', e)}
+    panelParent.onDragEnd = function (e) {handle('up', e)}
+    panelParent.onDoubleClick = function(e){
+        if (Editor.getCurrentTool() === COMMAND.POLYGONSELECT){
+            selectBox.endPolySelect(true);
+        }
+    }
+
+    canvas.addEventListener("mousemove", function (e) {handle('over', e)}, false);
+
     canvas.onmouseenter = function(){
         Input.setMouseOver("iconEditorCanvas");
     };
 
     canvas.onmouseleave = function(){
         Input.removeMouseOver("iconEditorCanvas");
+        hideOverlay();
     };
 
     EventBus.on(EVENT.hideCanvasOverlay,()=>{
@@ -72,8 +83,12 @@ let Canvas = function(parent){
     });
     
     EventBus.on(COMMAND.CLEARSELECTION,()=>{
-        selectBox.classList.remove("active");
-    })
+        selectBox.deActivate();
+    });
+
+    EventBus.on(COMMAND.ENDPOLYGONSELECT,()=>{
+        touchData.isPolySelect = false;
+    });
 
     EventBus.on(EVENT.imageSizeChanged,()=>{
         if (!parent.isVisible()) return;
@@ -91,19 +106,11 @@ let Canvas = function(parent){
 
     EventBus.on(EVENT.selectionChanged,()=>{
         if (!parent.isVisible()) return;
-        if (selectBox.classList.contains("active")){
-            updateSelectBox(true);
+        if (selectBox.isActive()){
+            selectBox.update(true);
         }
     })
 
-    EventBus.on(EVENT.sizerChanged,()=>{
-        if (selectBox.classList.contains("active")){
-            Selection.set(me,Resizer.get());
-            updateSelectBox(true);
-        }
-    })
-
-    
     me.clear = function(){
         ctx.clearRect(0,0,canvas.width,canvas.height);
     }
@@ -145,8 +152,8 @@ let Canvas = function(parent){
         panelParent.scrollLeft += _z*x;
         panelParent.scrollTop += _z*y;
 
-        if (selectBox.classList.contains("active")){
-            updateSelectBox();
+        if (selectBox.isActive()){
+            selectBox.update();
         }
 
     }
@@ -191,7 +198,7 @@ let Canvas = function(parent){
         var point;
         switch (action){
             case "down":
-                console.error(Editor.getCurrentTool());
+                //console.error(Editor.getCurrentTool());
                 point = getCursorPosition(canvas,e,true);
                 touchData.isdown = true;
                 touchData.button = e.button;
@@ -221,12 +228,16 @@ let Canvas = function(parent){
                         break;
                     case COMMAND.SELECT:
                         touchData.isSelecting = true;
-                        selectBox.classList.add("active");
+                        selectBox.activate();
                         Resizer.set(point.x,point.y,0,0,true,parent.getViewPort(),1);
+                        break;
+                    case COMMAND.POLYGONSELECT:
+                        touchData.isPolySelect = true;
+                        selectBox.polySelect(point);
                         break;
                     case COMMAND.SQUARE:
                         touchData.isSelecting = true;
-                        selectBox.classList.add("active");
+                        selectBox.activate();
                         Resizer.set(point.x,point.y,0,0,true,parent.getViewPort(),1);
                         drawFunction = function(ctx,x,y,w,h,button){
                             let color = button?Palette.getBackgroundColor():Palette.getDrawColor();
@@ -251,7 +262,7 @@ let Canvas = function(parent){
                         break;
                     case COMMAND.CIRCLE:
                         touchData.isSelecting = true;
-                        selectBox.classList.add("active");
+                        selectBox.activate();
                         Resizer.set(point.x,point.y,0,0,true,parent.getViewPort(),1);
                         drawFunction = function(ctx,x,y,w,h,button){
                             let color = button?Palette.getBackgroundColor():Palette.getDrawColor();
@@ -354,7 +365,7 @@ let Canvas = function(parent){
 
                 if (touchData.isSelecting){
                     if (touchData.selection){
-                        Selection.set(me,touchData.selection);
+                        Selection.set(touchData.selection);
                         Resizer.commit();
 
                         if (Editor.getCurrentTool() ===  COMMAND.SQUARE || Editor.getCurrentTool() ===  COMMAND.CIRCLE){
@@ -380,19 +391,39 @@ let Canvas = function(parent){
                 touchData.isSelecting = false;
                 touchData.isResizing = false;
                 touchData.selection = undefined;
-                selectBox.classList.remove("hot");
-                hideOverlay();
 
+                break;
+            case "over":
+                // mousemove with no click
+                if (!touchData.isdown){
+                    point = getCursorPosition(canvas,e,false);
+                    StatusBar.setToolTip(point.x + "," + point.y);
+
+                    if (touchData.isPolySelect){
+                        selectBox.updatePoint(point);
+                    }else{
+                        if (Input.isSpaceDown()){
+                            hideOverlay();
+                        }else{
+                            drawOverlay(point);
+                        }
+                    }
+                }
                 break;
             case "move":
                 point = getCursorPosition(canvas,e,false);
-                
+
                 if (touchData.isdown){
                     if (Input.isSpaceDown()){
                         var dx = (touchData.startDragX-e.clientX);
                         var dy = touchData.startDragY-e.clientY;
                         panelParent.scrollLeft = touchData.startScrollX+dx;
                         panelParent.scrollTop = touchData.startScrollY+dy;
+                        return;
+                    }
+
+                    if (touchData.isPolySelect){
+                        selectBox.updatePoint(point);
                         return;
                     }
 
@@ -437,25 +468,7 @@ let Canvas = function(parent){
                         touchData.hotDrawFunction(point.x,point.y);
                     }
                     
-                }else{
-                    if (Input.isSpaceDown()){
-                        hideOverlay();
-                    }else{
-                        drawOverlay(point);
-                    }
                 }
-                
-                
-                    /*if (Main.isShift && Main.isMouseDown){
-                        var pixel = ctx.getImageData(x, y, 1, 1).data;
-                        drawColor = "rgb(" + pixel[0] +"," + pixel[1] +"," + pixel[2] +")";
-                        cursorMark.style.borderColor = drawColor;
-                        console.log("set drawcolor to " + drawColor);
-                        EventBus.trigger(EVENT.drawColorChanged);
-                    }
-
-                    cursor.style.top = point.y + "px";
-                    cursor.style.left = point.x + "px";*/
                 break;
             case "scroll":
                 EventBus.trigger(EVENT.sizerChanged);
@@ -493,18 +506,6 @@ let Canvas = function(parent){
         EventBus.trigger(EVENT.drawCanvasOverlay,point);
     }
 
-    function updateSelectBox(fromEvent){
-        let data = Selection.get();
-
-        if (data){
-            selectBox.style.left = data.left*zoom + "px";
-            selectBox.style.top = data.top*zoom + "px";
-            selectBox.style.width = data.width*zoom + "px";
-            selectBox.style.height = data.height*zoom + "px";
-        }
-        console.error("zoom");
-        if (!fromEvent) EventBus.trigger(EVENT.selectionChanged);
-    }
 
     function canPickColor(){
         // TODO this is crap - FIXME !

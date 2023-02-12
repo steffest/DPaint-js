@@ -1,0 +1,31 @@
+.contextmenu{
+  position: absolute;
+  z-index: 999;
+  border: 1px solid black;
+  background-color: $panel-background-color;
+  box-shadow: 1px 1px 3px rgba(0, 0, 0, 0.5);
+  opacity: 0;
+  display: none;
+  pointer-events: none;
+  color: $menu-text-color;
+
+  &.active{
+    opacity: 1;
+    display: block;
+    pointer-events: all;
+  }
+
+  .contextmenuitem{
+    display: block;
+    padding: 0 24px 0 10px;
+    font-size: 13px;
+    line-height: 23px;
+    white-space: nowrap;
+    position: relative;
+
+    &:hover{
+      background-color: $panel-background-active;
+      cursor: pointer;
+    }
+  }
+}

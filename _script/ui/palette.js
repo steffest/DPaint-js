@@ -1,4 +1,4 @@
-import {$div} from "../util/dom.js";
+import {$div, $input} from "../util/dom.js";
 import EventBus from "../util/eventbus.js";
 import {COMMAND, EVENT} from "../enum.js";
 import Color from "../util/color.js";
@@ -148,13 +148,28 @@ let Palette = function(){
 
     me.init = function(parent){
         container = $div("palette","",parent);
+        let colorPicker = $input("color","","",()=>{
+            me.setColor(colorPicker.value,colorPicker.isBack);
+        });
 
         let display = $div("display","",container);
-        let front = $div("front","",display);
-        let back = $div("back","",display);
+        let front = $div("front info","",display,()=>{
+            colorPicker.value = me.getDrawColor();
+            colorPicker.isBack = false;
+            colorPicker.click();
+        });
+        front.info = "Left click drawing color - click to pick color";
+        let back = $div("back info","",display,()=>{
+            colorPicker.value = me.getBackgroundColor();
+            colorPicker.isBack = true;
+            colorPicker.click();
+        });
+        back.info = "Right click drawing color - click to pick color";
+
 
         paletteCanvas = document.createElement("canvas");
-        paletteCanvas.classList.add("handle");
+        paletteCanvas.classList.add("handle","info");
+        paletteCanvas.info = "Color palette, click to select";
         container.appendChild(paletteCanvas);
         paletteCtx = paletteCanvas.getContext("2d");
 
@@ -169,9 +184,11 @@ let Palette = function(){
         me.set(colors);
 
         EventBus.on(EVENT.drawColorChanged,(color)=>{
+            color = Color.fromString(color);
             front.style.backgroundColor = "rgb(" + color[0] + "," + color[1] + "," + color[2] + ")";
         });
         EventBus.on(EVENT.backgroundColorChanged,(color)=>{
+            color = Color.fromString(color);
             back.style.backgroundColor = "rgb(" + color[0] + "," + color[1] + "," + color[2] + ")";
         });
 
@@ -185,6 +202,7 @@ let Palette = function(){
             EventBus.trigger(EVENT.backgroundColorChanged,color);
         }else{
             drawColor = Color.toString(color);
+            console.error(drawColor);
             EventBus.trigger(EVENT.drawColorChanged,color);
         }
     }

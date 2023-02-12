@@ -249,6 +249,35 @@ input[type=range]:focus::-ms-fill-upper {
   display: block;
 }
 
+.contextmenu {
+  position: absolute;
+  z-index: 999;
+  border: 1px solid black;
+  background-color: #313335;
+  box-shadow: 1px 1px 3px rgba(0, 0, 0, 0.5);
+  opacity: 0;
+  display: none;
+  pointer-events: none;
+  color: #BBBBBB;
+}
+.contextmenu.active {
+  opacity: 1;
+  display: block;
+  pointer-events: all;
+}
+.contextmenu .contextmenuitem {
+  display: block;
+  padding: 0 24px 0 10px;
+  font-size: 13px;
+  line-height: 23px;
+  white-space: nowrap;
+  position: relative;
+}
+.contextmenu .contextmenuitem:hover {
+  background-color: #3C3F41;
+  cursor: pointer;
+}
+
 .toolbar {
   position: absolute;
   left: 0;
@@ -262,6 +291,31 @@ input[type=range]:focus::-ms-fill-upper {
   align-content: flex-start;
   justify-content: space-around;
   user-select: none;
+}
+.toolbar .togglepanel {
+  height: 20px;
+  width: 100%;
+  border-bottom: 1px solid black;
+}
+.toolbar .togglepanel:after {
+  content: "";
+  position: absolute;
+  right: 2px;
+  top: 2px;
+  background-position: center center;
+  width: 16px;
+  height: 16px;
+  background-image: url("../_img/caret.svg");
+  background-repeat: no-repeat;
+  background-size: contain;
+  opacity: 0.5;
+  transition: transform 0.3s ease-in-out;
+}
+.toolbar .togglepanel:hover {
+  cursor: pointer;
+}
+.toolbar .togglepanel:hover:after {
+  opacity: 1;
 }
 .toolbar .button {
   display: block;
@@ -407,12 +461,34 @@ input[type=range]:focus::-ms-fill-upper {
 .toolbar .viewstyle .button.active {
   opacity: 1;
 }
+.toolbar.fill .button.circle {
+  background-image: url("../_img/circle_fill.svg");
+}
+.toolbar.fill .button.square {
+  background-image: url("../_img/square_fill.svg");
+}
 
+body.withsidepanel .toolbar .togglepanel:after {
+  transform: rotate(180deg);
+}
+
+.statusbar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 20px;
+  background-color: #313335;
+  color: #BBBBBB;
+  font-size: 12px;
+  padding: 2px 0 0 10px;
+  border-top: 1px solid black;
+}
 .sidepanel {
   position: absolute;
   left: 70px;
   top: 27px;
-  bottom: 0;
+  bottom: 20px;
   border: 1px solid black;
   width: 175px;
   background-color: #313335;
@@ -473,6 +549,9 @@ input[type=range]:focus::-ms-fill-upper {
   background-color: rgba(255, 255, 255, 0.1);
   color: white;
 }
+.sidepanel .panel .inner .layer.active .mask:after {
+  background-color: #46484A;
+}
 .sidepanel .panel .inner .layer:hover {
   cursor: pointer;
 }
@@ -492,6 +571,40 @@ input[type=range]:focus::-ms-fill-upper {
   background-size: contain;
   background-repeat: no-repeat;
   opacity: 0.7;
+}
+.sidepanel .panel .inner .layer .mask {
+  position: absolute;
+  right: 27px;
+  top: 4px;
+  width: 16px;
+  height: 16px;
+  border: 1px solid #C7C8C8;
+  background-color: #C7C8C8;
+  text-align: center;
+}
+.sidepanel .panel .inner .layer .mask:after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 14px;
+  height: 14px;
+  border-radius: 7px;
+  margin: -7px 0 0 -7px;
+  background-color: #313335;
+}
+.sidepanel .panel .inner .layer .mask.active {
+  border: 1px solid #b1e00f;
+  background-color: #b1e00f;
+  box-shadow: 0 0 2px yellow;
+}
+.sidepanel .panel .inner .layer input[type=text] {
+  position: absolute;
+  z-index: 10;
+  left: 0;
+  top: 0;
+  font-size: 12px;
+  right: 0;
 }
 .sidepanel .panel .inner .frame {
   width: 50px;
@@ -695,7 +808,7 @@ body.withsidepanel .sidepanel {
   top: 27px;
   left: 70px;
   right: 0;
-  bottom: 0;
+  bottom: 20px;
 }
 .splitpanel .panel {
   position: absolute;
@@ -761,6 +874,9 @@ body.withsidepanel .sidepanel {
 .splitpanel .panel .toolbar .toolpanel .options .checkbox label span:before {
   width: 10px;
   height: 10px;
+}
+.splitpanel .panel .toolbar .toolpanel .options .checkbox.mask {
+  margin-left: 10px;
 }
 .splitpanel .panel .toolbar .toolpanel .options input[type=range] {
   margin: 0 4px 0 4px;
@@ -942,6 +1058,21 @@ body.withsidepanel .splitpanel {
 }
 .selectbox.active {
   display: block;
+}
+.selectbox.full {
+  display: block;
+  background-color: rgba(255, 0, 0, 0.15);
+  pointer-events: all;
+  border: none;
+}
+.selectbox.full:after {
+  display: none;
+}
+.selectbox.full .dots {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 10;
 }
 
 .sizedot {
@@ -1222,6 +1353,88 @@ body.hovericonEditorCanvas.shift:not(.select).mousedown .cursor .mark {
 .modalwindow .inner .palette .sliders .button.small.active {
   opacity: 1;
   pointer-events: all;
+}
+.modalwindow .inner .effects {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 16px;
+  bottom: 0;
+}
+.modalwindow .inner .effects .sliders {
+  position: absolute;
+  left: 10px;
+  top: 10px;
+}
+.modalwindow .inner .effects .sliders .slider {
+  position: relative;
+  margin: 4px 0;
+}
+.modalwindow .inner .effects .sliders .slider label {
+  display: block;
+  font-size: 12px;
+}
+.modalwindow .inner .effects .sliders .slider input[type=range] {
+  width: 200px;
+  position: relative;
+  z-index: 10;
+  margin-top: 7px;
+}
+.modalwindow .inner .effects .sliders .slider input[type=range]::-webkit-slider-runnable-track {
+  background: linear-gradient(90deg, rgb(0, 0, 0) 0%, rgb(200, 200, 200) 100%);
+  border: 1px solid #010101;
+  width: 100%;
+  height: 4px;
+  cursor: pointer;
+}
+.modalwindow .inner .effects .sliders .slider input[type=range].saturation::-webkit-slider-runnable-track {
+  background: linear-gradient(90deg, #7F7F7F 0%, #F50A0A 100%);
+}
+.modalwindow .inner .effects .sliders .slider input[type=range].contrast::-webkit-slider-runnable-track {
+  background: linear-gradient(90deg, #7F7F7F 0%, #000000 100%);
+}
+.modalwindow .inner .effects .sliders .slider input[type=range].hue::-webkit-slider-runnable-track {
+  background: linear-gradient(90deg, #FF3A00 0%, #F0FF00 20%, #00FF1D 40%, #0007FF 60%, #FF00F1 80%, #FA0505 100%);
+}
+.modalwindow .inner .effects .sliders .slider input[type=range].sepia::-webkit-slider-runnable-track {
+  background: linear-gradient(90deg, #313335 0%, #8A4F38 100%);
+}
+.modalwindow .inner .effects .sliders .slider input[type=range].cyan::-webkit-slider-runnable-track {
+  background: linear-gradient(90deg, #0AF5F5 0%, #F50A0A 100%);
+}
+.modalwindow .inner .effects .sliders .slider input[type=range].magenta::-webkit-slider-runnable-track {
+  background: linear-gradient(90deg, #F50AF5 0%, #0AF50A 100%);
+}
+.modalwindow .inner .effects .sliders .slider input[type=range].yellow::-webkit-slider-runnable-track {
+  background: linear-gradient(90deg, #F5F50A 0%, #0A0AF5 100%);
+}
+.modalwindow .inner .effects .sliders .slider input[type=text] {
+  position: absolute;
+  width: 40px;
+  right: 0;
+  top: 0;
+  font-size: 12px;
+  padding: 2px 4px;
+}
+.modalwindow .inner .effects .previewpanel {
+  position: absolute;
+  left: 240px;
+  top: 12px;
+}
+.modalwindow .inner .effects .previewpanel .preview {
+  width: 200px;
+  height: 200px;
+  border: 1px solid black;
+  margin-bottom: 10px;
+}
+.modalwindow .inner .effects .buttons {
+  left: 0;
+  right: 0;
+  justify-content: flex-end;
+}
+.modalwindow .inner .effects .buttons .button.left {
+  position: absolute;
+  left: 10px;
 }
 
 /*# sourceMappingURL=main.css.map */

@@ -60,8 +60,9 @@ var SaveDialog = function(){
 
     me.render = function(container){
         container.innerHTML = "";
-        container.appendChild(renderButton("Save as IFF","Amiga IFF file",writeIFF));
         container.appendChild(renderButton("Save as PNG","PNG file",writePNG));
+        container.appendChild(renderButton("Save as DPaint.JSON","JSON file",writeJSON));
+        container.appendChild(renderButton("Save as IFF","Amiga IFF file",writeIFF));
         container.appendChild(renderButton("Save as Amiga Classic Icon","(Use MUI palette for best compatibility)",writeAmigaClassicIcon));
         container.appendChild(renderButton("Save as Amiga Dual PNG Icon","(for modern Amiga system and/or with PeterK's Icon Library)",writeAmigaPNGIcon));
         container.appendChild(renderButton("Save as Amiga Color Icon","(for modern Amiga system and/or with PeterK's Icon Library)",writeAmigaColorIcon));
@@ -89,6 +90,38 @@ var SaveDialog = function(){
             saveFile(blob,"image.png",filetypes.PNG).then(()=>{
                 Modal.hide();
             });
+        });
+    }
+
+    function writeJSON(){
+        let struct = {
+            type: "dpaint",
+            image: {}
+        }
+        let currentFile = ImageFile.getCurrentFile();
+        console.error(currentFile);
+        struct.image.width = currentFile.width;
+        struct.image.height = currentFile.height;
+        struct.image.frames=[];
+
+        currentFile.frames.forEach(frame=>{
+            let _frame={layers:[]};
+            frame.layers.forEach(layer=>{
+                let _layer={
+                    blendMode: layer.blendMode,
+                    name: layer.name,
+                    opacity: layer.opacity,
+                    visible: layer.visible,
+                    canvas: layer.getCanvas().toDataURL()
+                }
+                _frame.layers.push(_layer);
+            });
+            struct.image.frames.push(_frame);
+        })
+
+        let blob = new Blob([JSON.stringify(struct,null,2)], { type: 'application/json' })
+        saveFile(blob,'image.json',filetypes.DPAINTJS).then(()=>{
+            Modal.hide();
         });
     }
 

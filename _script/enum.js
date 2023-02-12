@@ -32,8 +32,8 @@ export let COMMAND={
     IMPORTFRAME: 1031,
     RESIZE: 1032,
     RESAMPLE: 1033,
-    SHARPEN: 1034,
-    BLUR: 1035,
+    EFFECTS: 1034,
+    GRADIENT: 1035,
     DUPLICATELAYER: 1036,
     COLORMASK: 1037,
     EDITPALETTE: 1038,
@@ -41,9 +41,13 @@ export let COMMAND={
     FLATTEN: 1040,
     LAYERUP: 1041,
     LAYERDOWN: 1042,
-    GRADIENT: 1043,
-    SAVEPALETTE: 1044,
-    LOADPALETTE: 1045,
+    SAVEPALETTE: 1043,
+    LOADPALETTE: 1044,
+    LAYERMASK: 1045,
+    DELETELAYERMASK: 1046,
+    APPLYLAYERMASK: 1047,
+    POLYGONSELECT: 1048,
+    ENDPOLYGONSELECT: 1049
 }
 
 export let EVENT={
@@ -59,6 +63,7 @@ export let EVENT={
     toolDeActivated: 10,
     layersChanged: 11,
     modifierKeyChanged:12,
-    toolChanged: 13
+    toolChanged: 13,
+    toolOptionChanged: 14
 
 }

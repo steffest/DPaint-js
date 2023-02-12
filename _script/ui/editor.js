@@ -11,6 +11,7 @@ import Resizer from "./components/resizer.js";
 import Color from "../util/color.js";
 import Modal, {DIALOG} from "./modal.js";
 import {releaseCanvas} from "../util/canvasUtils.js";
+import Input from "./input.js";
 
 var Editor = function(){
     var me = {};
@@ -76,6 +77,11 @@ var Editor = function(){
             document.body.classList.add("select");
             document.body.classList.remove("draw");
         });
+        EventBus.on(COMMAND.POLYGONSELECT,function(){
+            currentTool = COMMAND.POLYGONSELECT;
+            document.body.classList.add("select");
+            document.body.classList.remove("draw");
+        });
         EventBus.on(COMMAND.SQUARE,function(){
             currentTool = COMMAND.SQUARE;
             document.body.classList.add("select");
@@ -106,16 +112,6 @@ var Editor = function(){
             let w = ImageFile.getCurrentFile().width;
             ImageFile.getCurrentFile().width = ImageFile.getCurrentFile().height;
             ImageFile.getCurrentFile().height = w;
-            EventBus.trigger(EVENT.imageSizeChanged);
-        });
-        EventBus.on(COMMAND.SHARPEN,function(){
-            EventBus.trigger(COMMAND.CLEARSELECTION);
-            ImageProcessing.sharpen(ImageFile.getCanvas());
-            EventBus.trigger(EVENT.imageSizeChanged);
-        });
-        EventBus.on(COMMAND.BLUR,function(){
-            EventBus.trigger(COMMAND.CLEARSELECTION);
-            ImageProcessing.blur(ImageFile.getCanvas());
             EventBus.trigger(EVENT.imageSizeChanged);
         });
         EventBus.on(COMMAND.CLEAR,function(){
@@ -207,8 +203,30 @@ var Editor = function(){
             return layerIndex;
         })
 
+        EventBus.on(COMMAND.LAYERMASK,()=>{
+            let layer = ImageFile.getActiveLayer();
+            layer.addMask();
+            EventBus.trigger(EVENT.layerContentChanged);
+            EventBus.trigger(EVENT.layersChanged);
+        });
+        EventBus.on(COMMAND.DELETELAYERMASK,()=>{
+            let layer = ImageFile.getActiveLayer();
+            layer.removeMask();
+            EventBus.trigger(EVENT.layerContentChanged);
+            EventBus.trigger(EVENT.layersChanged);
+        });
+        EventBus.on(COMMAND.APPLYLAYERMASK,()=>{
+            let layer = ImageFile.getActiveLayer();
+            layer.removeMask(true);
+            EventBus.trigger(EVENT.layerContentChanged);
+            EventBus.trigger(EVENT.layersChanged);
+        });
+
         EventBus.on(COMMAND.EDITPALETTE, ()=>{
             Modal.show(DIALOG.PALETTE);
+        })
+        EventBus.on(COMMAND.EFFECTS, ()=>{
+            Modal.show(DIALOG.EFFECTS);
         })
 
     }
@@ -273,8 +291,23 @@ var Editor = function(){
             ctx.drawImage(sizeCanvas,d.left,d.top,d.width,d.height);
             EventBus.trigger(COMMAND.CLEARSELECTION);
             EventBus.trigger(EVENT.layerContentChanged);
-
         }
+    }
+
+    me.arrowKey = function(direction){
+        let x = 0;
+        let y = 0;
+        switch (direction){
+            case "left": x=-1; break;
+            case "right": x=1; break;
+            case "up": y=-1; break;
+            case "down": y=1; break;
+        }
+        if (Input.isMetaDown()){
+            x*=10;
+            y*=10;
+        }
+        Resizer.move(x,y);
     }
 
 

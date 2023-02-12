@@ -52,7 +52,18 @@ export function $checkbox(label,parent,classname,onToggle){
 			onToggle(checkbox.checked)
 		};
 	}
-	if (classname) result.className = classname;
+	if (classname) result.className += " " + classname;
 	if (parent) parent.appendChild(result);
 	return result;
+}
+
+export function $input(type,value,parent,onInput){
+	let result = document.createElement("input");
+	result.type = type || "text";
+	if (typeof value !== "undefined") result.value = value;
+	if (onInput){
+		result.oninput = onInput;
+	}
+	if (parent) parent.appendChild(result);
+	return result
 }

@@ -6,6 +6,7 @@ import Layer from "./ui/layer.js";
 import Modal, {DIALOG} from "./ui/modal.js";
 import SidePanel from "./ui/sidepanel.js";
 import {duplicateCanvas, releaseCanvas} from "./util/canvasUtils.js";
+import Palette from "./ui/palette.js";
 
 let ImageFile = function(){
     let me = {};
@@ -47,10 +48,10 @@ let ImageFile = function(){
         if (!frame) return;
         if (frame.layers.length === 1){
             if (typeof frameIndex === "number"){
-                return frame.layers[0].getCanvas();
+                return frame.layers[0].render();
             }else{
                 if (activeLayer && activeLayer.visible){
-                    return activeLayer.getCanvas();
+                    return activeLayer.render();
                 }
             }
         }else{
@@ -64,7 +65,7 @@ let ImageFile = function(){
                     let blendMode = layer.blendMode || "normal";
                     if (blendMode === "normal") blendMode = "source-over";
                     ctx.globalCompositeOperation = blendMode;
-                    ctx.drawImage(layer.getCanvas(),0,0);
+                    ctx.drawImage(layer.render(),0,0);
                     ctx.globalAlpha  = 1;
                     ctx.globalCompositeOperation = "source-over";
                 }
@@ -261,32 +262,77 @@ let ImageFile = function(){
         if (files.length){
             var file = files[0];
             var detectType;
+            var isText;
             var ext = file.name.split(".").pop().toLowerCase();
             if (ext === "info") detectType=true;
+            if (ext === "json") isText=true;
 
 
             var reader = new FileReader();
             reader.onload = function(){
-                if (detectType){
+                if (detectType) {
                     console.log("Detecting type");
-                    FileDetector.detect(file,reader.result).then(result=>{
-                        if (target === "frame"){
-                            if (Array.isArray(result)){
+                    FileDetector.detect(file, reader.result).then(result => {
+                        if (target === "frame") {
+                            if (Array.isArray(result)) {
                                 drawFrame(result[0]);
-                            }else{
+                            } else {
                                 drawFrame(result);
                             }
                             drawFrame(image);
-                        }else{
-                            if (Array.isArray(result)){
+                        } else {
+                            if (Array.isArray(result)) {
                                 newFile(result[0]);
                                 addFrame(result[1]);
-                            }else{
+                            } else {
                                 newFile(result)
                             }
                         }
 
                     });
+                }else if (isText){
+                    let data={};
+                    if (ext === "json"){
+                        try {data=JSON.parse(reader.result)}catch (e){console.error("Can't parse JSON")};
+                    }
+                    if (data){
+                        if (data.type==="dpaint"){
+                            let image = data.image;
+                            currentFile.width = image.width;
+                            currentFile.height = image.height;
+                            let mockImage = new Image(currentFile.width,currentFile.height);
+                            newFile(mockImage);
+                            image.frames.forEach((_frame,frameIndex)=>{
+                                let frame = currentFile.frames[frameIndex];
+                                if (!frame){
+                                    addFrame();
+                                    frame = currentFile.frames[frameIndex];
+                                }
+                                _frame.layers.forEach((_layer,layerIndex)=>{
+                                    let layer = frame.layers[layerIndex];
+                                    if (!layer){
+                                        layer = Layer(currentFile.width,currentFile.height);
+                                        frame.layers.push(layer);
+                                    }
+                                    layer.name = _layer.name;
+                                    layer.opacity = _layer.opacity;
+                                    layer.blendMode = _layer.blendMode;
+                                    layer.visible = _layer.visible;
+                                    let _image = new Image();
+                                    _image.onload = function () {
+                                        layer.draw(_image);
+                                        console.error(_image.width);
+                                        EventBus.trigger(EVENT.layersChanged);
+                                        EventBus.trigger(EVENT.imageSizeChanged);
+                                    }
+                                    _image.src = _layer.canvas;
+                                });
+                            })
+                        }
+                        if (data.type==="palette"){
+                            Palette.set(data.palette);
+                        }
+                    }
                 }else{
                     // load as Image, fallback to detectType if it fails
                     var image = new Image();
@@ -308,7 +354,9 @@ let ImageFile = function(){
                     image.src = reader.result;
                 }
             };
-            if (detectType){
+            if (isText){
+                reader.readAsText(file);
+            }else if (detectType){
                 reader.readAsArrayBuffer(file);
             }else{
                 reader.readAsDataURL(file);
@@ -377,7 +425,7 @@ let ImageFile = function(){
     function addFrame(image){
         let layer = Layer(currentFile.width,currentFile.height);
         currentFile.frames.push({
-            layers:[layer ]
+            layers:[layer]
         })
         if (image){
             layer .getContext().drawImage(image,0,0);
@@ -410,6 +458,9 @@ let ImageFile = function(){
         let layer = currentFrame().layers[index];
         let belowLayer = currentFrame().layers[index-1];
         if (layer && belowLayer){
+            if (layer.hasMask){
+                layer.removeMask(true);
+            }
             let ctx = belowLayer.getContext();
             ctx.globalAlpha = layer.opacity;
             let blendMode = layer.blendMode || "normal";
@@ -419,6 +470,7 @@ let ImageFile = function(){
             ctx.globalAlpha = 1;
             ctx.globalCompositeOperation = "source-over";
             currentFrame().layers.splice(index,1);
+            EventBus.trigger(EVENT.layerContentChanged);
             me.activateLayer(index-1);
         }
     }
@@ -458,8 +510,8 @@ let ImageFile = function(){
         let newLayer = Layer(currentFile.width,currentFile.height,layer.name + " duplicate");
         newLayer.opacity = layer.opacity;
         newLayer.draw(layer.getCanvas());
-        currentFrame().layers.splice(activeLayerIndex,0,newLayer);
-        me.activateLayer(activeLayerIndex++);
+        currentFrame().layers.splice(activeLayerIndex+1,0,newLayer);
+        me.activateLayer(activeLayerIndex+1);
     });
 
     EventBus.on(COMMAND.LAYERUP,function(index){
@@ -513,6 +565,7 @@ let ImageFile = function(){
     });
 
     EventBus.on(EVENT.layerContentChanged,function(){
+        if (activeLayer) activeLayer.update();
         me.render();
         EventBus.trigger(EVENT.imageContentChanged);
     });

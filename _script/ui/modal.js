@@ -5,12 +5,14 @@ import SaveDialog from "./components/saveDialog.js";
 import ResizeDialog from "./components/resizeDialog.js";
 import ResampleDialog from "./components/resampleDialog.js";
 import PaletteDialog from "./components/paletteDialog.js";
+import EffectDialog from "./components/effectDialog.js";
 
 export let DIALOG={
     SAVE: 1,
     RESIZE: 2,
     RESAMPLE: 3,
-    PALETTE: 4
+    PALETTE: 4,
+    EFFECTS: 5
 }
 
 var Modal = function(){
@@ -26,7 +28,8 @@ var Modal = function(){
         1: {title: "Save File", fuzzy: true, handler: SaveDialog, position: [0,0]},
         2: {title: "Canvas Size", fuzzy: true, handler: ResizeDialog, position: [0,0]},
         3: {title: "Image Size", fuzzy: true, handler: ResampleDialog, position: [0,0]},
-        4: {title: "Palette", handler: PaletteDialog, position: [0,0]}
+        4: {title: "Palette", handler: PaletteDialog, position: [0,0]},
+        5: {title: "Effects", handler: EffectDialog, position: [0,0],width:500,height:500}
     }
 
     me.show = function(type){
@@ -57,6 +60,12 @@ var Modal = function(){
         Input.setActiveKeyHandler(keyHandler);
 
         if (dialog){
+            let width = dialog.width || 440;
+            let height = dialog.height || 260;
+            window.style.width = width + "px";
+            window.style.height = height + "px";
+            window.style.top = 'calc(50vh - ' + (height>>1) + 'px)';
+            window.style.marginLeft = -(width>>1) + "px";
             currentDialog = dialog;
             let x = currentDialog.position[0];
             let y = currentDialog.position[1];

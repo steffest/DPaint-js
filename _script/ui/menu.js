@@ -25,9 +25,7 @@ let Menu = function(){
                 {label: "Crop", command: COMMAND.CROP},
                 {label: "Trim", command: COMMAND.TRIM},
                 {label: "Image size", command: COMMAND.RESAMPLE,shortKey: "meta+R"},
-                {label: "Canvas Size", command: COMMAND.RESIZE,shortKey: "meta+P"},
-                {label: "Sharpen", command: COMMAND.SHARPEN},
-                {label: "blur", command: COMMAND.BLUR},
+                {label: "Canvas Size", command: COMMAND.RESIZE,shortKey: "meta+P"}
             ]},
         {label: "Tools", items:[
                 {label: "Draw",command: COMMAND.DRAW,shortKey: "B"},
@@ -41,11 +39,13 @@ let Menu = function(){
         {label: "Layer", items:[
                 {label: "New",command: COMMAND.NEWLAYER},
                 {label: "Transform",command: COMMAND.TRANSFORMLAYER,shortKey: "meta+T"},
+                {label: "Duplicate",command: COMMAND.DUPLICATELAYER,shortKey: "meta+D"},
+                {label: "Effects",command: COMMAND.EFFECTS,shortKey: "meta+B"},
                 {label: "Move Up",command: COMMAND.LAYERUP},
                 {label: "Move Down",command: COMMAND.LAYERDOWN},
-                {label: "Duplicate",command: COMMAND.DUPLICATELAYER,shortKey: "meta+D"},
                 {label: "Merge Down",command: COMMAND.MERGEDOWN},
-                {label: "Flatten",command: COMMAND.FLATTEN}
+                {label: "Flatten",command: COMMAND.FLATTEN},
+                {label: "Add Layer Mask",command: COMMAND.LAYERMASK}
             ]},
         {label: "Selection", items:[
                 {label: "Deselect",command: COMMAND.CLEARSELECTION},

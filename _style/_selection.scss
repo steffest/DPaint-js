@@ -56,6 +56,28 @@
     display: block;
   }
 
+  &.full{
+    display: block;
+    background-color: rgba(255, 0, 0, 0.15);
+    pointer-events: all;
+
+    border: none;
+    &:after{
+      display: none;
+    }
+
+    canvas{
+
+    }
+
+    .dots{
+      position: absolute;
+      left: 0;
+      top: 0;
+      z-index: 10;
+    }
+  }
+
 }
 
 .sizedot{

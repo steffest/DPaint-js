@@ -1,0 +1,16 @@
+.statusbar{
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 20px;
+  background-color: $panel-background-color;
+  color: $menu-text-color;
+  font-size: 12px;
+  padding: 2px 0 0 10px;
+  border-top: 1px solid black;
+
+  .tooltip{
+
+  }
+}

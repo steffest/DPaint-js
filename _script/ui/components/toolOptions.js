@@ -1,13 +1,17 @@
 import {$checkbox, $div, $elm} from "../../util/dom.js";
-import {COMMAND} from "../../enum.js";
+import {COMMAND, EVENT} from "../../enum.js";
+import EventBus from "../../util/eventbus.js";
+import ImageFile from "../../image.js";
 
 let ToolOptions = function(){
     let me = {}
     let smooth = false;
     let fill = false;
     let lineSize = 1;
+    let mask = false;
 
     let smoothCheckbox;
+    let maskCheckbox;
     let fillCheckbox;
     let lineSizeRange;
 
@@ -17,6 +21,19 @@ let ToolOptions = function(){
 
     me.isFill = ()=>{
         return fill;
+    }
+
+    me.showMask = ()=>{
+        return mask;
+    }
+
+    me.setFill = (state)=>{
+        fill = !!state;
+        if (fillCheckbox){
+            let cb = fillCheckbox.querySelector("input");
+            if (cb) cb.checked = fill;
+        }
+        EventBus.trigger(EVENT.toolOptionChanged);
     }
 
     me.getLineSize = ()=>{
@@ -42,6 +59,11 @@ let ToolOptions = function(){
                 options.appendChild(lineSetting());
                 break;
         }
+
+        let activeLayer = ImageFile.getActiveLayer();
+        if (activeLayer.isMaskActive()){
+            options.appendChild(maskSetting());
+        }
         return options;
     }
 
@@ -55,6 +77,7 @@ let ToolOptions = function(){
     function fillSetting(){
         if (!fillCheckbox) fillCheckbox=$checkbox("Fill","","",(checked)=>{
             fill = checked;
+            EventBus.trigger(EVENT.toolOptionChanged);
         });
         return fillCheckbox;
     }
@@ -77,6 +100,14 @@ let ToolOptions = function(){
 
         }
         return lineSizeRange;
+    }
+
+    function maskSetting(){
+        if (!maskCheckbox) maskCheckbox=$checkbox("Show Mask","","mask",(checked)=>{
+            mask = checked;
+            EventBus.trigger(EVENT.layerContentChanged);
+        });
+        return maskCheckbox;
     }
 
     function label(text){

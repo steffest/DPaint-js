@@ -7,14 +7,13 @@ let Selection = function(){
     let me = {};
     let currentSelection;
     
-    me.set = function(canvas,selection){
-        console.error(selection);
+    me.set = function(selection){
         currentSelection = {
             left: selection.left,
             top: selection.top,
             width: selection.width,
             height: selection.height,
-            canvas:  canvas.getCanvas()
+            points: selection.points
         }
     }
 
@@ -39,7 +38,7 @@ let Selection = function(){
             brushCanvas.height = currentSelection.height;
             let brushContext = brushCanvas.getContext("2d");
             brushContext.imageSmoothingEnabled = false;
-            brushContext.drawImage(currentSelection.canvas,currentSelection.left,currentSelection.top,brushCanvas.width,brushCanvas.height,0,0, brushCanvas.width, brushCanvas.height);
+            brushContext.drawImage(ImageFile.getActiveLayer().getCanvas(),currentSelection.left,currentSelection.top,brushCanvas.width,brushCanvas.height,0,0, brushCanvas.width, brushCanvas.height);
             Brush.set("canvas",brushCanvas);
             EventBus.trigger(COMMAND.DRAW);
             EventBus.trigger(COMMAND.CLEARSELECTION);
@@ -48,9 +47,35 @@ let Selection = function(){
     
     me.toLayer = function(){
         if (currentSelection){
+            let canvas = ImageFile.getActiveLayer().getCanvas();
             let index = ImageFile.addLayer();
+            console.error(currentSelection);
             ImageFile.activateLayer(index);
-            ImageFile.getActiveContext().drawImage(currentSelection.canvas,currentSelection.left,currentSelection.top,currentSelection.width,currentSelection.height,currentSelection.left,currentSelection.top, currentSelection.width, currentSelection.height);
+            ImageFile.getActiveContext().drawImage(canvas,currentSelection.left,currentSelection.top,currentSelection.width,currentSelection.height,currentSelection.left,currentSelection.top, currentSelection.width, currentSelection.height);
+
+            if (currentSelection.points){
+                // draw Polygon on Mask
+                let layer = ImageFile.getActiveLayer();
+                layer.addMask();
+                layer.toggleMask();
+                let ctx = layer.getContext();
+                ctx.fillStyle = "black";
+                ctx.fillRect(0,0,canvas.width,canvas.height);
+                ctx.fillStyle = "white";
+                ctx.beginPath();
+                currentSelection.points.forEach((point,index)=>{
+                    if (index){
+                        ctx.lineTo(point.x,point.y);
+                    }else{
+                        ctx.moveTo(point.x,point.y);
+                    }
+                });
+                ctx.closePath();
+                ctx.fill();
+                layer.update();
+                layer.removeMask(true);
+            }
+
             EventBus.trigger(EVENT.layerContentChanged);
             EventBus.trigger(COMMAND.CLEARSELECTION);
         }

@@ -6,6 +6,7 @@ import EventBus from "../util/eventbus.js";
 import Palette from "./palette.js";
 import LayerPanel from "./components/layerPanel.js";
 import FramesPanel from "./components/framesPanel.js";
+import BrushPanel from "./components/brushPanel.js";
 
 var SidePanel = function(){
     let me = {}
@@ -30,6 +31,13 @@ var SidePanel = function(){
                 LayerPanel.generate(parent);
             }
         },
+        brush:{
+            label: "Brush",
+            height: 100,
+            content: parent=>{
+                BrushPanel.generate(parent);
+            }
+        },
         colors:{
             label: "Colors",
             height: 230,
@@ -51,6 +59,10 @@ var SidePanel = function(){
 
     me.hide = ()=>{
         document.body.classList.remove("withsidepanel");
+    }
+
+    me.toggle = ()=>{
+        document.body.classList.toggle("withsidepanel");
     }
 
     me.showInfo = (file)=>{

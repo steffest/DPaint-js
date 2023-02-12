@@ -2,7 +2,7 @@
   position: absolute;
   left: 70px;
   top: 27px;
-  bottom: 0;
+  bottom: 20px;
   border: 1px solid black;
   width: 175px;
   background-color: $panel-background-color;
@@ -65,6 +65,12 @@
         &.active{
           background-color: rgba(255, 255, 255, 0.1);
           color: white;
+
+          .mask{
+            &:after{
+              background-color: #46484A;
+            }
+          }
         }
 
         &:hover{
@@ -89,6 +95,44 @@
           background-size: contain;
           background-repeat: no-repeat;
           opacity: 0.7;
+        }
+
+        .mask{
+          position: absolute;
+          right: 27px;
+          top: 4px;
+          width: 16px;
+          height: 16px;
+          border: 1px solid #C7C8C8;
+          background-color: #C7C8C8;
+          text-align: center;
+
+          &:after{
+            content: "";
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            width: 14px;
+            height: 14px;
+            border-radius: 7px;
+            margin: -7px 0 0 -7px;
+            background-color: #313335;
+          }
+
+          &.active{
+            border: 1px solid #b1e00f;
+            background-color: #b1e00f;
+            box-shadow: 0 0 2px yellow;
+          }
+        }
+
+        input[type="text"]{
+          position: absolute;
+          z-index: 10;
+          left: 0;
+          top: 0;
+          font-size: 12px;
+          right: 0;
         }
       }
 

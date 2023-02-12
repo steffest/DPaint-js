@@ -15,7 +15,7 @@ onmessage = function(e)
 
 	var ColorCubeInfo = TrimColorCube(ColorCube, { RedMin: 0, RedMax: 255, GreenMin: 0, GreenMax: 255, BlueMin: 0, BlueMax: 255 });
 
-	Colors = new Array();
+	var Colors = new Array();
 
 	QuantizeRecursive(ColorCube, ColorCubeInfo, Colors, 0, MaxRecursionDepth);
 

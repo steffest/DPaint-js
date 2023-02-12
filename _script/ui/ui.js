@@ -5,6 +5,7 @@ import Toolbar from "./toolbar.js";
 import Editor from "./editor.js";
 import Cursor from "./cursor.js";
 import Sidepanel from "./sidepanel.js";
+import StatusBar from "./statusbar.js";
 
 let UI = function(){
 	let me = {}
@@ -17,12 +18,13 @@ let UI = function(){
 		Input.init();
 		Menu.init(container);
 		Toolbar.init(container);
+		StatusBar.init(container);
 		Sidepanel.init(container);
 		Editor.init(container);
 	}
 
 	me.fuzzy = function(value){
-		container.classList.toggle("fuzzy",value)
+		if (container) container.classList.toggle("fuzzy",value)
 	}
 
 	me.getContainer = function(){

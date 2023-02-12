@@ -12,5 +12,6 @@ export function releaseCanvas(canvas) {
     canvas.width = 1;
     canvas.height = 1;
     canvas.getContext('2d').clearRect(0, 0, 1, 1);
+    canvas = undefined;
 }
 
