@@ -5,8 +5,9 @@ import {COMMAND, EVENT} from "../../enum.js";
 import Editor from "../editor.js";
 import ImageFile from "../../image.js";
 import Input from "../input.js";
-import {releaseCanvas} from "../../util/canvasUtils.js";
+import {duplicateCanvas, releaseCanvas} from "../../util/canvasUtils.js";
 import Resizer from "./resizer.js";
+import effects from "../effects.js";
 
 let SelectBox = (()=>{
     let me = {};
@@ -44,26 +45,8 @@ let SelectBox = (()=>{
     }
 
     me.polySelect = (point)=>{
-        box.classList.add("full","active");
-        let zoom = Editor.getActivePanel().getZoom();
-        let w = ImageFile.getCurrentFile().width;
-        let h = ImageFile.getCurrentFile().height;
-
-        box.style.left =  "0px";
-        box.style.top = "0px";
-        box.style.width = w*zoom + "px";
-        box.style.height = h*zoom + "px";
-
-        if (!canvas){
-            canvas = document.createElement("canvas");
-            canvas.width = w;
-            canvas.height = h;
-            canvas.style.width = Math.floor(canvas.width * zoom) + "px";
-            canvas.style.height = Math.floor(canvas.height * zoom) + "px";
-            box.appendChild(canvas);
-            ctx = canvas.getContext("2d");
-            dots = $div("dots","",box);
-        }
+        setupCanvas();
+        if (!dots) dots = $div("dots","",box);
 
         if (!selecting){
             selectionPoints = [];
@@ -72,6 +55,9 @@ let SelectBox = (()=>{
         selecting = true;
         selectionPoints.push(point);
         if (selectionPoints.length===1) selectionPoints.push({x:point.x,y:point.y});
+
+        let w = ImageFile.getCurrentFile().width;
+        let h = ImageFile.getCurrentFile().height;
         Selection.set({left: 0, top: 0, width: w, height: h, points: selectionPoints});
         drawShape();
     }
@@ -82,7 +68,55 @@ let SelectBox = (()=>{
             selecting = false;
             EventBus.trigger(COMMAND.ENDPOLYGONSELECT);
             Input.setActiveKeyHandler();
+            selectionPoints = [];
         },fromClick?100:0);
+    }
+
+    me.applyCanvas = _canvas=>{
+        setupCanvas();
+        selectionPoints = [];
+        ctx.clearRect(0,0,canvas.width,canvas.height);
+        //ctx.drawImage(_canvas,0,0);
+
+        let selectedCanvas = duplicateCanvas(_canvas,true);
+        let selectedCtx = selectedCanvas.getContext("2d");
+
+        selectedCtx.globalCompositeOperation = "source-in";
+        selectedCtx.fillStyle = "white";
+        selectedCtx.fillRect(0,0,canvas.width,canvas.height);
+        selectedCtx.globalCompositeOperation = "source-over";
+
+        ctx.globalAlpha = 0.5;
+        ctx.drawImage(selectedCanvas,0,0);
+        ctx.globalCompositeOperation = "source-in";
+        ctx.fillStyle = "red";
+        ctx.fillRect(0,0,canvas.width,canvas.height);
+        ctx.globalCompositeOperation = "source-over";
+
+        let boundary = effects.outline(_canvas.getContext("2d"));
+        if (boundary.length){
+            let data = ctx.getImageData(0,0,canvas.width,canvas.height);
+            let d=data.data;
+            boundary.forEach(index=>{
+                let p=index>>2;
+                let y = Math.floor(p/canvas.width) >> 2;
+                let x = p%canvas.width >> 2;
+                let c = Math.abs(((x%2)-(y%2))*255);
+                d[index] = c;
+                d[index+1] = c;
+                d[index+2] = c;
+                d[index+3] = 255;
+            });
+            ctx.putImageData(data,0,0);
+        }
+
+        Selection.set({
+            left:0,
+            right: 0,
+            width: canvas.width,
+            height: canvas.height,
+            canvas: selectedCanvas
+        })
     }
 
     me.update = (fromEvent)=>{
@@ -97,7 +131,7 @@ let SelectBox = (()=>{
             }
             canvas.style.width = Math.floor(canvas.width * zoom) + "px";
             canvas.style.height = Math.floor(canvas.height * zoom) + "px";
-            drawShape();
+            if (selectionPoints.length) drawShape();
         }
         if (data){
             box.style.left = data.left*zoom + "px";
@@ -117,6 +151,28 @@ let SelectBox = (()=>{
         }
         Selection.set({left: 0, top: 0, width: canvas.width, height: canvas.height, points: selectionPoints});
         drawShape();
+    }
+
+    function setupCanvas(){
+        box.classList.add("full","active");
+        let zoom = Editor.getActivePanel().getZoom();
+        let w = ImageFile.getCurrentFile().width;
+        let h = ImageFile.getCurrentFile().height;
+
+        box.style.left =  "0px";
+        box.style.top = "0px";
+        box.style.width = w*zoom + "px";
+        box.style.height = h*zoom + "px";
+
+        if (!canvas){
+            canvas = document.createElement("canvas");
+            canvas.width = w;
+            canvas.height = h;
+            canvas.style.width = Math.floor(canvas.width * zoom) + "px";
+            canvas.style.height = Math.floor(canvas.height * zoom) + "px";
+            box.appendChild(canvas);
+            ctx = canvas.getContext("2d");
+        }
     }
 
     function drawShape(){
@@ -180,6 +236,11 @@ let SelectBox = (()=>{
             me.update(true);
         }
     })
+
+    EventBus.on(COMMAND.TOSELECTION,()=>{
+        let layer = ImageFile.getActiveLayer();
+        me.applyCanvas(layer.getCanvas());
+    });
 
     return me;
 });

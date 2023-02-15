@@ -47,7 +47,10 @@ export let COMMAND={
     DELETELAYERMASK: 1046,
     APPLYLAYERMASK: 1047,
     POLYGONSELECT: 1048,
-    ENDPOLYGONSELECT: 1049
+    ENDPOLYGONSELECT: 1049,
+    TOSELECTION: 1050,
+    CUTTOLAYER: 1051,
+    SWAPCOLORS: 1052,
 }
 
 export let EVENT={
@@ -64,6 +67,7 @@ export let EVENT={
     layersChanged: 11,
     modifierKeyChanged:12,
     toolChanged: 13,
-    toolOptionChanged: 14
+    toolOptionsChanged: 14,
+    brushOptionsChanged: 15
 
 }

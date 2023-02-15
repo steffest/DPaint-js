@@ -223,6 +223,7 @@ var Input = function(){
 				case "p": EventBus.trigger(COMMAND.POLYGONSELECT); break;
 				case "r": EventBus.trigger(COMMAND.SQUARE); break;
 				case "s": EventBus.trigger(COMMAND.SELECT); break;
+				case "x": EventBus.trigger(COMMAND.SWAPCOLORS); break;
 			}
 		}
 

@@ -14,7 +14,7 @@ let Toolbar = function(){
     let items=[
         {name: "pencil",command: COMMAND.DRAW, isTool: true, info: "Left click: draw with foreground color, Right click: draw with background color"},
         {name: "select",command: COMMAND.SELECT, isTool: true, handleDeActivate: true, info: "Make rectangular selection"},
-        {name: "polygonselect",label: "P",command: COMMAND.POLYGONSELECT, isTool: true, handleDeActivate: true, info: "Make polygon selection"},
+        {name: "polygonselect",command: COMMAND.POLYGONSELECT, isTool: true, handleDeActivate: true, info: "Make polygon selection"},
         {name: "line",label: "", isTool: true, command: COMMAND.LINE, info: "Draw straight line"},
         {name: "circle",label: "", isTool: true, canFill: true, command: COMMAND.CIRCLE, info: "Draw ellipsis. Shift to lock to circle, select again to toggle fill."},
         {name: "square",label: "", isTool: true, canFill: true, command: COMMAND.SQUARE, info: "Draw rectangle. Shift to lock to square, select again to toggle fill."},
@@ -30,7 +30,7 @@ let Toolbar = function(){
         container = $div("toolbar","",parent);
         generate();
 
-        EventBus.on(EVENT.toolOptionChanged,()=>{
+        EventBus.on(EVENT.toolOptionsChanged,()=>{
             if (container) container.classList.toggle("fill",ToolOptions.isFill());
         })
     }
@@ -87,6 +87,7 @@ let Toolbar = function(){
                 })
             }
         });
+
         Palette.init(container);
     }
 

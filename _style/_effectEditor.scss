@@ -22,7 +22,7 @@
         width: 200px;
         position: relative;
         z-index: 10;
-        margin-top: 7px;
+        margin-top: -2px;
 
         &::-webkit-slider-runnable-track {
           background: linear-gradient(90deg, rgb(0,0,0) 0%, rgb(200,200,200) 100%);
@@ -32,25 +32,40 @@
           cursor: pointer;
         }
 
-        &.saturation::-webkit-slider-runnable-track{
+        &::-moz-range-track {
+          background: linear-gradient(90deg, rgb(0,0,0) 0%, rgb(200,200,200) 100%);
+          border: 1px solid #010101;
+          width: 100%;
+          height: 2px;
+          cursor: pointer;
+        }
+
+        &.saturation::-webkit-slider-runnable-track,
+        &.saturation::-moz-range-track{
           background: linear-gradient(90deg, #7F7F7F 0%, #F50A0A 100%);
         }
-        &.contrast::-webkit-slider-runnable-track{
+        &.contrast::-webkit-slider-runnable-track,
+        &.contrast::-moz-range-track{
           background: linear-gradient(90deg, #7F7F7F 0%, #000000 100%);
         }
-        &.hue::-webkit-slider-runnable-track{
+        &.hue::-webkit-slider-runnable-track,
+        &.hue::-moz-range-track{
           background: linear-gradient(90deg, #FF3A00 0%, #F0FF00 20%, #00FF1D 40%, #0007FF 60%, #FF00F1 80%, #FA0505 100%);
         }
-        &.sepia::-webkit-slider-runnable-track{
+        &.sepia::-webkit-slider-runnable-track,
+        &.sepia::-moz-range-track{
           background: linear-gradient(90deg, #313335 0%, #8A4F38 100%);
         }
-        &.cyan::-webkit-slider-runnable-track{
+        &.cyan::-webkit-slider-runnable-track,
+        &.cyan::-moz-range-track{
           background: linear-gradient(90deg, #0AF5F5 0%, #F50A0A 100%);
         }
-        &.magenta::-webkit-slider-runnable-track{
+        &.magenta::-webkit-slider-runnable-track,
+        &.magenta::-moz-range-track{
           background: linear-gradient(90deg, #F50AF5 0%, #0AF50A 100%);
         }
-        &.yellow::-webkit-slider-runnable-track{
+        &.yellow::-webkit-slider-runnable-track,
+        &.yellow::-moz-range-track{
           background: linear-gradient(90deg, #F5F50A 0%, #0A0AF5 100%);
         }
       }

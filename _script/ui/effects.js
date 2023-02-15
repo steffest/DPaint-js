@@ -1,3 +1,5 @@
+import * as StackBlur from "../util/stackBlur.js";
+
 let Effects = function(){
     let me = {}
     let filters = {};
@@ -7,6 +9,10 @@ let Effects = function(){
     let customFilters = {
         sharpen : function(value){
             sharpen(_target,_target.canvas.width,_target.canvas.height,value);
+        },
+        blur : function(value){
+            console.error(value);
+            StackBlur.canvasRGBA(_target.canvas,0,0,_target.canvas.width,_target.canvas.height,value);
         },
         red : function(value){
             if (value){
@@ -58,7 +64,8 @@ let Effects = function(){
 
     me.setBlur = (value,src,target)=>{
         me.setSrcTarget(src,target)
-        filters.blur = (value/5) + "px";
+        //filters.blur = (value/5) + "px";
+        filters.blur = (value/2);
         applyFilters();
     }
 
@@ -99,6 +106,91 @@ let Effects = function(){
     me.apply = ()=>{
         doApply = true;
         applyFilters();
+    }
+
+    me.feather = function(ctx,amount){
+        let w = ctx.canvas.width;
+        let h = ctx.canvas.height;
+        let data = ctx.getImageData(0,0,w,h);
+        let d = data.data;
+        let target = [];
+
+        if (amount>0){
+            function onEdge(index){
+                return d[index+3] === 0;
+            }
+
+            for (let y=0; y<h; y++){
+                for (let x=0; x<w; x++){
+                    let index = (y*w + x) * 4;
+                    let alpha = d[index+3];
+                    if (alpha){
+                        let isOnEdge = onEdge(index-4) || onEdge(index+4) || onEdge(index-(w*4)) || onEdge(index+(w*4));
+                        if (isOnEdge) target.push(index);
+                    }
+                }
+            }
+
+            target.forEach(index=>{
+                d[index+3] = d[index+3]>>1;
+            });
+            ctx.putImageData(data,0,0);
+        }else{
+            let alphaIncrease = -amount*100;
+            for (let y=0; y<h; y++){
+                for (let x=0; x<w; x++){
+                    let index = (y*w + x) * 4;
+                    let alpha = d[index+3];
+                    if (alpha<255 && alpha>0){
+                        alpha = Math.min(255,alpha+=alphaIncrease);
+                        d[index+3] = alpha;
+                    }
+                }
+            }
+            ctx.putImageData(data,0,0);
+        }
+
+    }
+
+    me.outline = function(ctx,color){
+        let w = ctx.canvas.width;
+        let h = ctx.canvas.height;
+        let data = ctx.getImageData(0,0,w,h);
+        let d = data.data;
+        let target = [];
+
+        function checkPixel(index){
+            if (d[index+3] === 0){
+                target.push(index);
+            }
+        }
+
+        for (let y=1; y<h-1; y++){
+            for (let x=1; x<w-1; x++){
+                let index = (y*w + x) * 4;
+                let alpha = d[index+3];
+                if (alpha){
+                    checkPixel(index-4);
+                    checkPixel(index+4);
+                    checkPixel(index-(w*4));
+                    checkPixel(index+(w*4));
+                }
+            }
+        }
+
+        if (color){
+            target.forEach(index=>{
+                d[index] = color[0];
+                d[index+1] = color[1];
+                d[index+2] = color[2];
+                d[index+3] = 255;
+            });
+            target=[];
+            ctx.putImageData(data,0,0);
+        }else{
+            return target;
+        }
+
     }
 
    function applyFilters(){

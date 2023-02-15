@@ -148,7 +148,7 @@ let ImageFile = function(){
                 frame.layers.forEach(layer=>{
                     let canvas = layer.getCanvas();
                     let ctx = layer.getContext();
-                    let d = duplicateCanvas(canvas);
+                    let d = duplicateCanvas(canvas,true);
                     canvas.width = w;
                     canvas.height = h;
                     ctx.drawImage(d,0,0);
@@ -172,7 +172,7 @@ let ImageFile = function(){
                 frame.layers.forEach(layer=>{
                     let canvas = layer.getCanvas();
                     let ctx = layer.getContext();
-                    let d = duplicateCanvas(canvas);
+                    let d = duplicateCanvas(canvas,true);
                     canvas.width = w;
                     canvas.height = h;
                     ctx.webkitImageSmoothingEnabled = false;
@@ -197,6 +197,17 @@ let ImageFile = function(){
         currentFrame().layers[index].visible = !currentFrame().layers[index].visible;
         EventBus.trigger(EVENT.layersChanged);
         EventBus.trigger(EVENT.imageContentChanged);
+    }
+
+    me.duplicateLayer = function(index){
+        if (typeof index !== "number") index = activeLayerIndex;
+        let layer = currentFrame().layers[index];
+        let newLayer = Layer(currentFile.width,currentFile.height,layer.name + " duplicate");
+        newLayer.opacity = layer.opacity;
+        newLayer.blendMode = layer.blendMode;
+        newLayer.drawImage(layer.getCanvas());
+        currentFrame().layers.splice(index+1,0,newLayer);
+        me.activateLayer(index+1);
     }
 
     me.setLayerOpacity = function(value){
@@ -320,7 +331,7 @@ let ImageFile = function(){
                                     layer.visible = _layer.visible;
                                     let _image = new Image();
                                     _image.onload = function () {
-                                        layer.draw(_image);
+                                        layer.drawImage(_image);
                                         console.error(_image.width);
                                         EventBus.trigger(EVENT.layersChanged);
                                         EventBus.trigger(EVENT.imageSizeChanged);
@@ -445,7 +456,7 @@ let ImageFile = function(){
     function drawFrame(image){
         let layer = currentFrame().layers[0];
         layer.clear();
-        layer.draw(image);
+        layer.drawImage(image);
         EventBus.trigger(EVENT.layerContentChanged);
     }
 
@@ -466,7 +477,7 @@ let ImageFile = function(){
             let blendMode = layer.blendMode || "normal";
             if (blendMode === "normal") blendMode = "source-over";
             ctx.globalCompositeOperation = blendMode;
-            belowLayer.draw(layer.getCanvas(),0,0);
+            belowLayer.drawImage(layer.getCanvas(),0,0);
             ctx.globalAlpha = 1;
             ctx.globalCompositeOperation = "source-over";
             currentFrame().layers.splice(index,1);
@@ -506,12 +517,7 @@ let ImageFile = function(){
     });
 
     EventBus.on(COMMAND.DUPLICATELAYER,function(){
-        let layer = currentFrame().layers[activeLayerIndex];
-        let newLayer = Layer(currentFile.width,currentFile.height,layer.name + " duplicate");
-        newLayer.opacity = layer.opacity;
-        newLayer.draw(layer.getCanvas());
-        currentFrame().layers.splice(activeLayerIndex+1,0,newLayer);
-        me.activateLayer(activeLayerIndex+1);
+        me.duplicateLayer();
     });
 
     EventBus.on(COMMAND.LAYERUP,function(index){
@@ -539,7 +545,7 @@ let ImageFile = function(){
             let layer = currentFrame().layers[0];
             if (layer){
                 layer.clear();
-                layer.draw(canvas,0,0);
+                layer.drawImage(canvas,0,0);
             }
             me.activateLayer(0);
             EventBus.trigger(EVENT.imageContentChanged);

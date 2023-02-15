@@ -25,7 +25,7 @@ var EffectDialog = function() {
         let panel = $div("effects panel form","",container);
         let sliders = $div("sliders","",panel);
 
-        currentSource = duplicateCanvas(ImageFile.getActiveLayer().getCanvas());
+        currentSource = duplicateCanvas(ImageFile.getActiveLayer().getCanvas(),true);
 
         Effects.setSrcTarget(currentSource,previewCanvas.getContext("2d"))
 

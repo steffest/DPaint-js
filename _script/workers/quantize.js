@@ -1,62 +1,61 @@
-
 onmessage = function(e)
 {
-	var LineIndex = e.data.LineIndex;
-	var CanvasData = e.data.CanvasData;
-	var MaxRecursionDepth = e.data.MaxRecursionDepth;
-	var BitsPerColor = e.data.BitsPerColor;
-	var ColorCount = e.data.ColorCount;
-	var transparentColor = e.data.transparentColor;
+	let lineIndex = e.data.LineIndex;
+	let canvasData = e.data.CanvasData;
+	let maxRecursionDepth = e.data.MaxRecursionDepth;
+	let bitsPerColor = e.data.BitsPerColor;
+	let colorCount = e.data.ColorCount;
+	let transparentColor = e.data.transparentColor;
 
 	// for colorcount < 8 we use the transparent color as color - otherwise we just add it.
-	var useTransParentColor = ColorCount<7 && transparentColor;
+	let useTransParentColor = colorCount<7 && transparentColor;
 
-	var ColorCube = CreateColorCube(CanvasData,useTransParentColor?transparentColor:undefined);
+	let colorCube = CreateColorCube(canvasData,useTransParentColor?transparentColor:undefined);
 
-	var ColorCubeInfo = TrimColorCube(ColorCube, { RedMin: 0, RedMax: 255, GreenMin: 0, GreenMax: 255, BlueMin: 0, BlueMax: 255 });
+	let colorCubeInfo = TrimColorCube(colorCube, { RedMin: 0, RedMax: 255, GreenMin: 0, GreenMax: 255, BlueMin: 0, BlueMax: 255 });
 
-	var Colors = new Array();
+	let colors = new Array();
 
-	QuantizeRecursive(ColorCube, ColorCubeInfo, Colors, 0, MaxRecursionDepth);
+	quantizeRecursive(colorCube, colorCubeInfo, colors, 0, maxRecursionDepth);
 
 	if (transparentColor && !useTransParentColor){
 		// this is probably not really correct but well ...
-		Colors.shift();
+		colors.shift();
 	}
 
-	Colors.sort(function (Color1, Color2) { return (Color1.Red * 0.21 + Color1.Green * 0.72 + Color1.Blue * 0.07) - (Color2.Red * 0.21 + Color2.Green * 0.72 + Color2.Blue * 0.07) });
+	colors.sort(function (Color1, Color2) { return (Color1.Red * 0.21 + Color1.Green * 0.72 + Color1.Blue * 0.07) - (Color2.Red * 0.21 + Color2.Green * 0.72 + Color2.Blue * 0.07) });
 
-	var ShadesPerColor = 1 << BitsPerColor;
+	var ShadesPerColor = 1 << bitsPerColor;
 
-	for(var Index = 0; Index < Colors.length; Index++){
-		Colors[Index].Red = Math.floor(Math.floor(Colors[Index].Red * ShadesPerColor / 256.0) * (255.0 / (ShadesPerColor - 1.0)));
-		Colors[Index].Green = Math.floor(Math.floor(Colors[Index].Green * ShadesPerColor / 256.0) * (255.0 / (ShadesPerColor - 1.0)));
-		Colors[Index].Blue = Math.floor(Math.floor(Colors[Index].Blue * ShadesPerColor / 256.0) * (255.0 / (ShadesPerColor - 1.0)));
+	for(var Index = 0; Index < colors.length; Index++){
+		colors[Index].Red = Math.floor(Math.floor(colors[Index].Red * ShadesPerColor / 256.0) * (255.0 / (ShadesPerColor - 1.0)));
+		colors[Index].Green = Math.floor(Math.floor(colors[Index].Green * ShadesPerColor / 256.0) * (255.0 / (ShadesPerColor - 1.0)));
+		colors[Index].Blue = Math.floor(Math.floor(colors[Index].Blue * ShadesPerColor / 256.0) * (255.0 / (ShadesPerColor - 1.0)));
 	}
 
-	for(var Index = Colors.length; Index < ColorCount; Index++) Colors.push({ Red: 0, Green: 0, Blue: 0 });
+	for(var Index = colors.length; Index < colorCount; Index++) colors.push({ Red: 0, Green: 0, Blue: 0 });
 
 	if (useTransParentColor){
 		// force exact match and move in front
 		var d=100000000;
 		var i = -1;
-		for(var Index = 0; Index < Colors.length; Index++){
+		for(var Index = 0; Index < colors.length; Index++){
 			var distance =
-				Math.abs(Colors[Index].Red - transparentColor[0]) +
-				Math.abs(Colors[Index].Green - transparentColor[1]) +
-				Math.abs(Colors[Index].Blue - transparentColor[2]);
+				Math.abs(colors[Index].Red - transparentColor[0]) +
+				Math.abs(colors[Index].Green - transparentColor[1]) +
+				Math.abs(colors[Index].Blue - transparentColor[2]);
 			if (distance<d){
 				d=distance;
 				i=Index;
 			}
 		}
 		if (i>=0){
-			Colors.splice(i,1);
-			Colors.unshift({Red: transparentColor[0], Green: transparentColor[1], Blue: transparentColor[2]})
+			colors.splice(i,1);
+			colors.unshift({Red: transparentColor[0], Green: transparentColor[1], Blue: transparentColor[2]})
 		}
 	}
 
-	self.postMessage({ LineIndex: LineIndex, Colors: Colors });
+	self.postMessage({ LineIndex: lineIndex, Colors: colors });
 
 	self.close();
 };
@@ -185,7 +184,7 @@ function QuantizationCountWeight(Count)
 	//return Count;
 }
 
-function QuantizeRecursive(ColorCube, ColorCubeInfo, Palette, RecursionDepth, MaxRecursionDepth)
+function quantizeRecursive(ColorCube, ColorCubeInfo, Palette, RecursionDepth, MaxRecursionDepth)
 {
 	var RedLength = ColorCubeInfo.RedMax - ColorCubeInfo.RedMin;
 	var GreenLength = ColorCubeInfo.GreenMax - ColorCubeInfo.GreenMin;
@@ -277,8 +276,8 @@ function QuantizeRecursive(ColorCube, ColorCubeInfo, Palette, RecursionDepth, Ma
 		NewColorCubeInfo.BlueMin = HighIndex;
 	}
 
-	QuantizeRecursive(ColorCube, TrimColorCube(ColorCube, ColorCubeInfo), Palette, RecursionDepth + 1, MaxRecursionDepth);
-	QuantizeRecursive(ColorCube, TrimColorCube(ColorCube, NewColorCubeInfo), Palette, RecursionDepth + 1, MaxRecursionDepth);
+	quantizeRecursive(ColorCube, TrimColorCube(ColorCube, ColorCubeInfo), Palette, RecursionDepth + 1, MaxRecursionDepth);
+	quantizeRecursive(ColorCube, TrimColorCube(ColorCube, NewColorCubeInfo), Palette, RecursionDepth + 1, MaxRecursionDepth);
 }
 
 function QuantizeColors(Canvas, ColorCount)

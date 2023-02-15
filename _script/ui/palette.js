@@ -166,10 +166,20 @@ let Palette = function(){
         });
         back.info = "Right click drawing color - click to pick color";
 
+        let swapColors = $div("button swapcolors info","",display,()=>{
+            EventBus.trigger(COMMAND.SWAPCOLORS);
+        });
+        swapColors.info = "Swap foreground and background color - [x]"
+
+        let noColor = $div("button transparentcolors info","",display,(e)=>{
+            me.setColor("transparent",e.button);
+        });
+        noColor.info = "Select transparent color, left click to select front, right click to select back";
+
 
         paletteCanvas = document.createElement("canvas");
         paletteCanvas.classList.add("handle","info");
-        paletteCanvas.info = "Color palette, click to select";
+        paletteCanvas.info = "Color palette, left click to select front, right click to select back";
         container.appendChild(paletteCanvas);
         paletteCtx = paletteCanvas.getContext("2d");
 
@@ -185,11 +195,25 @@ let Palette = function(){
 
         EventBus.on(EVENT.drawColorChanged,(color)=>{
             color = Color.fromString(color);
-            front.style.backgroundColor = "rgb(" + color[0] + "," + color[1] + "," + color[2] + ")";
+            if (color === "transparent"){
+                front.style.backgroundColor = color;
+                front.classList.add("nofill");
+            }else{
+                front.style.backgroundColor = "rgb(" + color[0] + "," + color[1] + "," + color[2] + ")";
+                front.classList.remove("nofill");
+            }
         });
         EventBus.on(EVENT.backgroundColorChanged,(color)=>{
             color = Color.fromString(color);
-            back.style.backgroundColor = "rgb(" + color[0] + "," + color[1] + "," + color[2] + ")";
+            if (color === "transparent"){
+                back.style.backgroundColor = color;
+                back.classList.add("nofill");
+            }else{
+                back.style.backgroundColor = "rgb(" + color[0] + "," + color[1] + "," + color[2] + ")";
+                back.classList.remove("nofill");
+            }
+
+
         });
 
         me.setColor(colors[2],false);
@@ -394,7 +418,11 @@ let Palette = function(){
 
     EventBus.on(COMMAND.PALETTEFROMIMAGE,me.fromImage);
     EventBus.on(COMMAND.PALETTEREDUCE,me.reduce);
-
+    EventBus.on(COMMAND.SWAPCOLORS,()=>{
+        let c = drawColor;
+        me.setColor(backgroundColor);
+        me.setColor(c,1);
+    })
 
     return me;
 }();

@@ -1,9 +1,9 @@
 
-export function duplicateCanvas(canvas){
+export function duplicateCanvas(canvas,includingContent){
     let result = document.createElement("canvas");
     result.width = canvas.width;
     result.height = canvas.height;
-    result.getContext("2d").drawImage(canvas,0,0);
+    if (includingContent) result.getContext("2d").drawImage(canvas,0,0);
     return result;
 }
 

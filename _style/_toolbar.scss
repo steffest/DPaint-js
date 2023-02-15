@@ -6,7 +6,7 @@
   top: 27px;
   border: 1px solid black;
   width: 64px;
-  height: 250px;
+  height: 306px;
   background-color: $panel-background-color;
   display: flex;
   flex-wrap: wrap;
@@ -131,6 +131,11 @@
       background-image: url("../_img/gradient.svg");
       background-size: 80% 80%;
     }
+
+    &.polygonselect{
+      background-image: url("../_img/poly.svg");
+      background-size: 80% 80%;
+    }
   }
 
 
@@ -174,22 +179,54 @@
     text-align: center;
 
     .display{
-      height: 34px;
+      height: 80px;
       position: relative;
 
       div{
         position: absolute;
-        width: 18px;
-        height: 18px;
+        width: 24px;
+        height: 24px;
         border: 1px solid black;
-        left: 28px;
-        top: 10px;
+        left: 24px;
+        top: 16px;
         background-color: black;
+
+        &.nofill{
+          background-image: url("../_img/nofill.svg");
+          background-size: 100% 100%;
+        }
 
         &.front{
           z-index: 2;
-          left: 16px;
-          top: 5px;
+          left: 12px;
+          top: 6px;
+        }
+
+        &.button{
+          width: 30px;
+          height: 30px;
+          left: 30px;
+          top: 42px;
+          background-color:transparent;
+          border: 0;
+          background-image: url("../_img/swap.svg");
+          background-repeat: no-repeat;
+          background-size: 60% 60%;
+          background-position: center center;
+          opacity: 0.7;
+
+          &:hover,
+          &.active{
+            background-color: $panel-background-active;
+            cursor: pointer;
+            opacity: 1;
+          }
+
+          &.transparentcolors{
+            left: 0;
+            background-image: url("../_img/nofill-white.svg");
+            background-size: 50% 50%;
+          }
         }
       }
     }

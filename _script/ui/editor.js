@@ -116,14 +116,27 @@ var Editor = function(){
         });
         EventBus.on(COMMAND.CLEAR,function(){
             var s = Selection.get();
-            let ctx = ImageFile.getActiveContext();
-            if (ctx) ctx.fillStyle = Palette.getBackgroundColor();
+            let layer = ImageFile.getActiveLayer();
+            if (!layer) return;
             if (s){
-                ctx.fillRect(s.left,s.top,s.width,s.height);
+                if (s.canvas || s.points){
+                    console.error(s);
+                    let canvas = Selection.getCanvas();
+                    console.error(s.canvas);
+                    console.error(canvas);
+                    let layerCtx = layer.getContext();
+                    layerCtx.globalCompositeOperation = "destination-out";
+                    layerCtx.drawImage(canvas,0,0);
+                    layerCtx.globalCompositeOperation = "source-over";
+                    releaseCanvas(canvas);
+                }else{
+                    // rectangular selection
+                    layer.getContext().clearRect(s.left,s.top,s.width,s.height);
+                }
             }else{
-                s = ImageFile.getCurrentFile();
-                ctx.fillRect(0,0,s.width,s.height);
+                layer.clear();
             }
+            EventBus.trigger(EVENT.layerContentChanged);
             EventBus.trigger(EVENT.imageContentChanged);
         });
         EventBus.on(COMMAND.CROP,function(){
@@ -221,7 +234,6 @@ var Editor = function(){
             EventBus.trigger(EVENT.layerContentChanged);
             EventBus.trigger(EVENT.layersChanged);
         });
-
         EventBus.on(COMMAND.EDITPALETTE, ()=>{
             Modal.show(DIALOG.PALETTE);
         })

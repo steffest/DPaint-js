@@ -1,6 +1,6 @@
 import {$div} from "../util/dom.js";
-import Eventbus from "../util/eventbus.js";
-import {COMMAND, EVENT} from "../enum.js";
+import EventBus from "../util/eventbus.js";
+import {EVENT} from "../enum.js";
 import Palette from "./palette.js";
 import HistoryService from "../services/historyservice.js";
 import Color from "../util/color.js";
@@ -14,6 +14,7 @@ var Brush = function(){
     var presets = [];
     var brushIndex = 0;
     let dynamicSettings;
+    let opacity = 100;
 
     var brushCanvas = document.createElement("canvas");
     let brushCtx = brushCanvas.getContext("2d");
@@ -34,7 +35,7 @@ var Brush = function(){
             presets.push(b);
         }
         
-        Eventbus.on(EVENT.drawColorChanged,()=>{
+        EventBus.on(EVENT.drawColorChanged,()=>{
             if (brushType === 'canvas' && brushIndex>=0){
                 generateBrush();
             }
@@ -43,6 +44,18 @@ var Brush = function(){
 
     me.get = function(){
 
+    }
+
+    me.getOpacity = ()=>{
+        return opacity/100;
+    }
+
+    me.getSettings=()=>{
+        return{
+            width:width,
+            height:height,
+            opacity: opacity
+        };
     }
 
     me.set = function(type,index){
@@ -95,6 +108,7 @@ var Brush = function(){
         if (type === "dynamic"){
             width = index.width;
             height = index.height;
+            opacity = index.opacity || 100;
 
             if (!index.softness){
                 brushType = "square";
@@ -106,6 +120,8 @@ var Brush = function(){
 
             }
         }
+
+        EventBus.trigger(EVENT.brushOptionsChanged);
     }
 
 
@@ -125,15 +141,12 @@ var Brush = function(){
         if (h>1) y -= Math.floor((h-1)/2);
 
         if (useHistory) cFrom = ctx.getImageData(x,y,w,h);
-        if (color === "transparent"){
-            ctx.clearRect(x,y,w,h);
+
+        if (brushType === "canvas"){
+            ctx.drawImage(brushCanvas,x,y);
         }else{
-            if (brushType === "canvas"){
-                ctx.drawImage(brushCanvas,x,y);
-            }else{
-                ctx.fillStyle = color;
-                ctx.fillRect(x,y,w,h);
-            }
+            ctx.fillStyle = color;
+            ctx.fillRect(x,y,w,h);
         }
 
         if (useHistory){
@@ -187,7 +200,9 @@ var Brush = function(){
                 let wx = dynamicSettings.width/2;
                 let wh = dynamicSettings.height/2;
 
-                brushCtx.fillStyle = Palette.getDrawColor();
+                let color = Palette.getDrawColor();
+                if (color === "transparent") color="black";
+                brushCtx.fillStyle = color;
 
                 if (dynamicSettings.softness){
                     let opacityStep = 1/wx/dynamicSettings.softness;
@@ -222,7 +237,6 @@ var Brush = function(){
                 brushCtx.globalAlpha = 1;
 
             default:
-                console.error("dd");
                 break;
         }
 

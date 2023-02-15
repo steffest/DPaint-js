@@ -45,11 +45,13 @@ let Menu = function(){
                 {label: "Move Down",command: COMMAND.LAYERDOWN},
                 {label: "Merge Down",command: COMMAND.MERGEDOWN},
                 {label: "Flatten",command: COMMAND.FLATTEN},
-                {label: "Add Layer Mask",command: COMMAND.LAYERMASK}
+                {label: "Add Layer Mask",command: COMMAND.LAYERMASK},
+                {label: "Layer to Selection",command: COMMAND.TOSELECTION}
             ]},
         {label: "Selection", items:[
                 {label: "Deselect",command: COMMAND.CLEARSELECTION},
-                {label: "To Layer",command: COMMAND.TOLAYER,shortKey: "meta+J"},
+                {label: "Copy To Layer",command: COMMAND.TOLAYER,shortKey: "meta+J"},
+                {label: "Cut To Layer",command: COMMAND.CUTTOLAYER,shortKey: "meta+K"},
                 {label: "To Stencil",command: COMMAND.STAMP}
             ]},
         {label: "Palette", items:[

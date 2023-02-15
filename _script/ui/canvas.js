@@ -79,7 +79,9 @@ let Canvas = function(parent){
     EventBus.on(EVENT.drawCanvasOverlay,(point)=>{
         overlayCanvas.style.opacity = 1;
         overlayCtx.clearRect(0,0, canvas.width, canvas.height);
+        overlayCtx.globalAlpha = Brush.getOpacity();
         Brush.draw(overlayCtx,point.x,point.y,Palette.getDrawColor());
+        overlayCtx.globalAlpha = 1;
     });
     
     EventBus.on(COMMAND.CLEARSELECTION,()=>{
@@ -181,7 +183,9 @@ let Canvas = function(parent){
         let color = touchData.button?Palette.getBackgroundColor():Palette.getDrawColor();
         if (Editor.getCurrentTool() === COMMAND.ERASE) color = "transparent";
         let {x,y} = touchData;
-        Brush.draw(ImageFile.getActiveContext(),x,y,color,true);
+        touchData.drawLayer = ImageFile.getActiveLayer();
+        touchData.drawLayer.draw(x,y,color,touchData.isDrawing);
+        touchData.isDrawing = true;
         EventBus.trigger(EVENT.layerContentChanged);
     }
 
@@ -222,7 +226,6 @@ let Canvas = function(parent){
                 switch (currentTool){
                     case COMMAND.DRAW:
                     case COMMAND.ERASE:
-                        touchData.isDrawing = true;
                         HistoryService.start([COMMAND.DRAW,ctx,onChange]);
                         draw();
                         break;
@@ -357,10 +360,11 @@ let Canvas = function(parent){
                 }
                 break;
             case 'up':
-            case "out":
 
                 if (touchData.isDrawing){
-                    HistoryService.end();
+                    let layer = touchData.drawLayer || ImageFile.getActiveLayer();
+                    layer.commitDraw();
+                    EventBus.trigger(EVENT.layerContentChanged);
                 }
 
                 if (touchData.isSelecting){
