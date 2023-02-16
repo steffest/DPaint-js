@@ -181,7 +181,7 @@ var Editor = function(){
         EventBus.on(COMMAND.TRANSFORMLAYER,()=>{
             currentTool = COMMAND.TRANSFORMLAYER;
             let box = ImageFile.getLayerBoundingRect();
-            Resizer.set(box.x,box.y,box.w,box.h,false,activePanel.getViewPort(),box.w/box.h);
+            Resizer.set(box.x,box.y,box.w,box.h,0,false,activePanel.getViewPort(),box.w/box.h);
             let sizeCanvas = document.createElement("canvas");
             sizeCanvas.width = box.w;
             sizeCanvas.height = box.h;
@@ -300,7 +300,31 @@ var Editor = function(){
             layer.clear();
             let ctx = layer.getContext();
             ctx.imageSmoothingEnabled = false;
-            ctx.drawImage(sizeCanvas,d.left,d.top,d.width,d.height);
+            if (d.rotation){
+                console.error("rotate " + d.rotation);
+                //ctx.translate(-d.left + d.width/2,-d.top + d.height/2);
+                let dw = (d.left + d.width/2);
+                let dh = (d.top + d.height/2);
+                ctx.translate(dw,dh);
+                ctx.rotate((d.rotation * Math.PI) / 180);
+                ctx.translate(-dw,-dh);
+
+                // first resize the image
+                //let rCanvas=document.createElement("canvas");
+                //rCanvas.width = d.width;
+                //rCanvas.height = d.height;
+                //let rCtx = rCanvas.getContext("2d");
+                //rCtx.imageSmoothingEnabled = false;
+                //rCtx.drawImage(sizeCanvas,0,0);
+
+                //ctx.drawImage(rCanvas,d.left,d.top,d.width,d.height);
+
+                ctx.drawImage(sizeCanvas,d.left,d.top,d.width,d.height);
+
+            }else{
+                ctx.drawImage(sizeCanvas,d.left,d.top,d.width,d.height);
+            }
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
             EventBus.trigger(COMMAND.CLEARSELECTION);
             EventBus.trigger(EVENT.layerContentChanged);
         }

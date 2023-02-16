@@ -2,9 +2,8 @@
 - layers => dragging of layers
 - dragging of panels?
 - middle mouse drag
-- brightness/contrast/hue
 - dither gradient
-- layer mask
+- rotate layer/selection
 
 
 - filters: e.g. https://medium.com/skylar-salernos-tech-blog/mimicking-googles-pop-filter-using-canvas-blend-modes-d7da83590d1a

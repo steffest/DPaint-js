@@ -12,18 +12,25 @@ var Resizer = function(){
     let overlay;
     let overlayContent;
     let dots = [];
+    let rotateDots = [];
     let touchData = {};
     let aspectRatio = 1;
 
-    me.set = function(x,y,w,h,hot,parent,startAspectRatio){
+    me.set = function(x,y,w,h,rotation,hot,parent,startAspectRatio){
+        console.error(rotation)
         if (!sizeBox) createSizeBox(parent);
         currentSize = {
             left: Math.round(x),
             top: Math.round(y),
             width: Math.round(w),
-            height: Math.round(h)
+            height: Math.round(h),
+            rotation: rotation
         }
         sizeBox.classList.add("active");
+        if (!rotation){
+            sizeBox.style.transform = "none";
+        }
+
         if (hot) sizeBox.classList.add("hot");
         if (startAspectRatio) {
             console.log("setting AR to " + startAspectRatio)
@@ -70,7 +77,8 @@ var Resizer = function(){
                 left: data.left,
                 top: data.top,
                 width: data.width,
-                height: data.height
+                height: data.height,
+                rotation: currentSize?currentSize.rotation:undefined
             }
             updateSizeBox();
         }
@@ -87,6 +95,8 @@ var Resizer = function(){
         if (sizeBox && sizeBox.classList.contains("active")){
             let s = Selection.get();
             if (s && s.width && s.height){
+                debugger;
+                console.error("CHECK");
                 me.set(s.left,s.top,s.width,s.height);
             }
         }
@@ -120,7 +130,7 @@ var Resizer = function(){
             resizeBox(e);
         });
 
-        for (var i = 0; i< 8; i++){
+        for (let i = 0; i< 8; i++){
             let dot = $div("sizedot","",sizeBox,function(e){
                 resizeBox(e);
             });
@@ -132,6 +142,44 @@ var Resizer = function(){
             }
             dot.index = i;
             dots.push(dot);
+        }
+
+        for (let i = 0; i< 4; i++){
+            let rotateDot = $div("rotatedot d"+(i+1),"",sizeBox,function(e){
+
+            });
+            rotateDot.onDragStart = function(){
+                let x = currentSize.left + currentSize.width/2;
+                let y = currentSize.top + currentSize.height/2;
+                touchData.rotateCenter = [x,y];
+                if (i===0)  touchData.rotateStart= [currentSize.left,currentSize.top];
+                if (i===1)  touchData.rotateStart= [currentSize.left+currentSize.width,currentSize.top];
+                if (i===2)  touchData.rotateStart= [currentSize.left+currentSize.width,currentSize.top+currentSize.height];
+                if (i===3)  touchData.rotateStart= [currentSize.left,currentSize.top+currentSize.height];
+                touchData.isRotating = true;
+
+            }
+            rotateDot.onDrag = function(x,y,_touchData){
+                touchData.rotateEnd = [touchData.rotateStart[0]+x,touchData.rotateStart[1]+y];
+                let a ={x:touchData.rotateStart[0],y:touchData.rotateStart[1]};
+                let b ={x:touchData.rotateCenter[0],y:touchData.rotateCenter[1]};
+                let c ={x:touchData.rotateEnd[0],y:touchData.rotateEnd[1]};
+                let angle = angle_between_points(c,b,a);
+                angle += currentSize.rotation||0;
+                if (Input.isShiftDown() && Input.isMouseDown()){
+                    angle = Math.round(angle/15) * 15;
+                }
+                currentSize.angle=angle;
+                sizeBox.style.transform = "rotate("+angle+"deg)";
+
+            }
+            rotateDot.onDragEnd = function(x,y){
+                currentSize.rotation = currentSize.angle;
+                delete  currentSize.angle;
+                touchData.isRotating = false;
+            }
+            rotateDot.index = i;
+            rotateDots.push(rotateDot);
         }
 
         sizeBox.onDrag = function(x,y){
@@ -149,7 +197,7 @@ var Resizer = function(){
         var rect2 =  viewport.getBoundingClientRect();
         let zoom = Editor.getActivePanel().getZoom();
 
-        if (Input.isShiftDown() && Input.isMouseDown()){
+        if (Input.isShiftDown() && Input.isMouseDown() && !touchData.isRotating){
             // aspect ratio lock
             currentSize._width = currentSize._width||currentSize.width;
             currentSize._height = currentSize._height||currentSize.height;
@@ -187,6 +235,11 @@ var Resizer = function(){
         dots[6].style.top = hz + "px";
 
         dots[7].style.top = dots[3].style.top;
+
+        rotateDots[1].style.left = dots[2].style.left;
+        rotateDots[2].style.top = dots[4].style.top;
+        rotateDots[2].style.left = dots[4].style.left;
+        rotateDots[3].style.top = dots[6].style.top;
 
         if (overlay){
             overlay.width = wz;
@@ -274,8 +327,17 @@ var Resizer = function(){
                 break;
         }
 
-        me.set(l,t,w,h);
+        me.set(l,t,w,h,currentSize?currentSize.rotation:0);
 
+    }
+
+    function angle_between_points( p1, p2, p3 ){
+        // p2 is the center point;
+        const ab = { x: p2.x - p1.x, y: p2.y - p1.y };
+        const bc = { x: p3.x - p2.x, y: p3.y - p2.y };
+        const radians = Math.atan2(bc.y, bc.x) - Math.atan2(ab.y, ab.x);
+        const degrees = -(radians * 180 / Math.PI -180) % 360;
+        return degrees;
     }
     
     return me;

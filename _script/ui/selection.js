@@ -85,9 +85,10 @@ let Selection = function(){
         }
     }
     
-    me.toLayer = function(){
+    me.toLayer = function(andCut){
         if (currentSelection){
             let canvas = ImageFile.getActiveLayer().getCanvas();
+            let sourceLayerIndex = ImageFile.getActiveLayerIndex();
             ImageFile.duplicateLayer();
             let layer = ImageFile.getActiveLayer();
 
@@ -126,6 +127,12 @@ let Selection = function(){
                 layer.getContext().drawImage(canvas,currentSelection.left,currentSelection.top,currentSelection.width,currentSelection.height,currentSelection.left,currentSelection.top, currentSelection.width, currentSelection.height);
             }
 
+            if (andCut){
+                ImageFile.activateLayer(sourceLayerIndex);
+                EventBus.trigger(COMMAND.CLEAR);
+                ImageFile.activateLayer(sourceLayerIndex+1);
+            }
+
 
             EventBus.trigger(EVENT.layerContentChanged);
             EventBus.trigger(COMMAND.CLEARSELECTION);
@@ -143,6 +150,11 @@ let Selection = function(){
     EventBus.on(COMMAND.TOLAYER,()=>{
         me.toLayer();
     })
+
+    EventBus.on(COMMAND.CUTTOLAYER,()=>{
+        me.toLayer(true);
+    })
+
     
     return me;
 }()

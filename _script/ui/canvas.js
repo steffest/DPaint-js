@@ -232,7 +232,7 @@ let Canvas = function(parent){
                     case COMMAND.SELECT:
                         touchData.isSelecting = true;
                         selectBox.activate();
-                        Resizer.set(point.x,point.y,0,0,true,parent.getViewPort(),1);
+                        Resizer.set(point.x,point.y,0,0,0,true,parent.getViewPort(),1);
                         break;
                     case COMMAND.POLYGONSELECT:
                         touchData.isPolySelect = true;
@@ -241,7 +241,7 @@ let Canvas = function(parent){
                     case COMMAND.SQUARE:
                         touchData.isSelecting = true;
                         selectBox.activate();
-                        Resizer.set(point.x,point.y,0,0,true,parent.getViewPort(),1);
+                        Resizer.set(point.x,point.y,0,0,0,true,parent.getViewPort(),1);
                         drawFunction = function(ctx,x,y,w,h,button){
                             let color = button?Palette.getBackgroundColor():Palette.getDrawColor();
                             if (ToolOptions.isFill()){
@@ -266,7 +266,7 @@ let Canvas = function(parent){
                     case COMMAND.CIRCLE:
                         touchData.isSelecting = true;
                         selectBox.activate();
-                        Resizer.set(point.x,point.y,0,0,true,parent.getViewPort(),1);
+                        Resizer.set(point.x,point.y,0,0,0,true,parent.getViewPort(),1);
                         drawFunction = function(ctx,x,y,w,h,button){
                             let color = button?Palette.getBackgroundColor():Palette.getDrawColor();
                             let cx = x + w/2;
