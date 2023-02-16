@@ -12,7 +12,9 @@ var EffectDialog = function() {
     let effects = [];
     let previewCanvas;
     let livePreview;
+    let codePanel;
     let currentSource;
+    let mainPanel;
 
     me.render = function (container,modal) {
         if (!previewCanvas){
@@ -22,8 +24,28 @@ var EffectDialog = function() {
         }
 
         container.innerHTML = "";
-        let panel = $div("effects panel form","",container);
-        let sliders = $div("sliders","",panel);
+        mainPanel = $div("effects panel form","",container);
+
+        let tabs = $div("tabs","",mainPanel);
+        let generalTab = $div("tab active","General",tabs,()=>{
+            generalTab.classList.add('active');
+            alchemyTab.classList.remove('active');
+            sliders.classList.add("active");
+            alchemy.classList.remove('active');
+            if (codePanel){
+                codePanel.innerHTML = "";
+                codePanel = undefined;
+            }
+        });
+        let alchemyTab = $div("tab","Alchemy",tabs,()=>{
+            generalTab.classList.remove('active');
+            alchemyTab.classList.add('active');
+            sliders.classList.remove("active");
+            alchemy.classList.add('active');
+        });
+
+
+        let sliders = $div("sliders active","",mainPanel);
 
         currentSource = duplicateCanvas(ImageFile.getActiveLayer().getCanvas(),true);
 
@@ -63,7 +85,28 @@ var EffectDialog = function() {
             Effects.setColorBalance("blue",value); update();
         });
 
-        let previewPanel = $div("previewpanel","",panel);
+
+        /* alchemy */
+        codePanel = undefined;
+        let alchemy = $div("alchemy","",mainPanel);
+        $div("recipe","Dabble",alchemy,()=>{
+            loadRecipe("dots");
+        })
+        $div("recipe","Speckles",alchemy,()=>{
+            loadRecipe("speckles");
+        })
+        $div("recipe","Lines",alchemy,()=>{
+            loadRecipe("lines");
+        })
+        $div("recipe","Texture",alchemy,()=>{
+            loadRecipe("texture");
+        })
+
+
+
+        /* previewPanel */
+
+        let previewPanel = $div("previewpanel","",mainPanel);
         let p = $div("preview","",previewPanel);
         p.appendChild(previewCanvas);
         $checkbox("Preview",previewPanel,"",checked=>{
@@ -71,7 +114,7 @@ var EffectDialog = function() {
             update();
         });
 
-        let buttons = $div("buttons","",panel);
+        let buttons = $div("buttons","",mainPanel);
         $div("button ghost left","Reset",buttons,()=>{
             Effects.hold();
             effects.forEach(slider=>{
@@ -89,9 +132,13 @@ var EffectDialog = function() {
             EventBus.trigger(EVENT.layerContentChanged);
         });
         $div("button primary","Apply",buttons,()=>{
-            let t = ImageFile.getActiveLayer().getContext();
-            Effects.setSrcTarget(currentSource,t);
-            Effects.apply();
+            if (codePanel){
+
+            }else{
+                let t = ImageFile.getActiveLayer().getContext();
+                Effects.setSrcTarget(currentSource,t);
+                Effects.apply();
+            }
             releaseCanvas(currentSource);
             modal.hide();
             EventBus.trigger(EVENT.layerContentChanged);
@@ -134,6 +181,39 @@ var EffectDialog = function() {
             Effects.apply();
             Effects.setSrcTarget(currentSource,previewCanvas.getContext("2d"));
             EventBus.trigger(EVENT.layerContentChanged);
+        }
+    }
+
+    async function loadRecipe(recipe){
+        let textarea;
+        let button;
+        let process;
+        if (codePanel){
+            codePanel.remove();
+            codePanel = undefined;
+        }
+
+
+        codePanel = $div("code","",mainPanel);
+        textarea = $elm("textarea","",codePanel);
+        button = $div("button primary","Run",codePanel,()=>{
+            if (typeof process === "function"){
+                let source = currentSource;
+                //let target = ImageFile.getActiveLayer().getContext();
+                let target = previewCanvas.getContext("2d");
+                process(source,target);
+                if(livePreview){
+                    target = ImageFile.getActiveLayer().getContext();
+                    process(source,target);
+                }
+                EventBus.trigger(EVENT.layerContentChanged);
+            }
+        })
+
+
+        process = (await import("../../alchemy/"+recipe+".js")).default
+        if (typeof process === "function"){
+            textarea.value = process.toString();
         }
     }
 

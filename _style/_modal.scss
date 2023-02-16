@@ -127,6 +127,48 @@
       }
     }
 
+    .about{
+      img{
+        width: 100%;
+        height: auto;
+      }
+
+      .text{
+        position: absolute;
+        z-index: 1;
+        font-size: 11px;
+        line-height: 14px;
+        left: 35px;
+        color: #a5bac2;
+        pointer-events: none;
+
+        &.info{
+          width: 320px;
+          bottom: 50px;
+        }
+
+        &.copyright{
+          bottom: 30px;
+        }
+
+        &.github{
+          bottom: 10px;
+          pointer-events: all;
+
+          &:hover{
+            color: white;
+            cursor: pointer;
+            text-decoration: underline;
+          }
+        }
+
+        &.version{
+          left: 369px;
+          bottom: 10px;
+        }
+      }
+    }
+
 
     @import "paletteEditor";
     @import "effectEditor";

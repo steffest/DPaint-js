@@ -3,11 +3,12 @@ import EventBus from "./util/eventbus.js";
 import {COMMAND, EVENT} from "./enum.js";
 import ImageFile from "./image.js";
 import Palette from "./ui/palette.js";
-import effects from "./ui/effects.js";
-import * as StackBlur from "./util/stackBlur.js";
+import Modal, {DIALOG} from "./ui/modal.js";
 
 let App = function(){
-	let me = {}
+	let me = {
+		version: "0.01 alpha"
+	}
 	
 	me.init = function(){
 		UI.init();
@@ -19,6 +20,10 @@ let App = function(){
 
 		EventBus.on(COMMAND.LOADPALETTE,()=>{
 			Palette.openLocal();
+		})
+
+		EventBus.on(COMMAND.ABOUT,()=>{
+			Modal.show(DIALOG.ABOUT,me.version);
 		})
 	}
 
@@ -60,8 +65,8 @@ let App = function(){
 		//effects.outline(ctx,[0,0,0]);
 		//effects.feather(ctx,-1);
 
-		StackBlur.canvasRGBA(canvas,0 ,0,canvas.width,canvas.height,10);
-		EventBus.trigger(EVENT.layerContentChanged);
+		//StackBlur.canvasRGBA(canvas,0 ,0,canvas.width,canvas.height,10);
+		//EventBus.trigger(EVENT.layerContentChanged);
 
 
 	}

@@ -63,6 +63,12 @@ let Menu = function(){
             ]},
         {label: "View", items:[
                 {label: "Split Screen",command: COMMAND.SPLITSCREEN,shortKey: "tab"}
+            ]},
+        {label: "Help", items:[
+                {label: "About DPaint.js",command: COMMAND.ABOUT},
+                {label: "SourceCode on GitHub",action: ()=>{
+                    window.open('https://github.com/steffest/dpaint-js');
+                    }}
             ]}
     ]
 
@@ -118,6 +124,10 @@ let Menu = function(){
                         if (subitem.command){
                             EventBus.trigger(subitem.command);
                             me.deActivateMenu();
+                        }
+                        if (subitem.action){
+                            me.deActivateMenu();
+                            subitem.action();
                         }
                     });
                     if (subitem.shortKey){
