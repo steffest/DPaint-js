@@ -33,7 +33,7 @@ var SidePanel = function(){
         },
         brush:{
             label: "Brush",
-            height: 100,
+            height: 118,
             content: parent=>{
                 BrushPanel.generate(parent);
             }

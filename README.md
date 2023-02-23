@@ -13,6 +13,7 @@ Currently
    - Selections
    - Masking
    - Transformation tools
+   - Effects and filters
  - Amiga focus
    - Read/write/convert Amiga icon files (all formats)
    - Reads IFF ILBM images (all formats including HAM and 24-bit)

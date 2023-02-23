@@ -54,6 +54,9 @@ export function $checkbox(label,parent,classname,onToggle){
 	}
 	if (classname) result.className += " " + classname;
 	if (parent) parent.appendChild(result);
+	result.setState = (state)=>{
+		checkbox.checked = !!state;
+	}
 	return result;
 }
 

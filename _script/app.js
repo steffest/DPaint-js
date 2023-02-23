@@ -55,18 +55,18 @@ let App = function(){
 		let canvas = ImageFile.getCanvas();
 		let ctx = canvas.getContext("2d");
 
-		/*let imagaDate = canvas.getContext("2d").getImageData(0,0,canvas.width,canvas.height);
+		let imagaDate = canvas.getContext("2d").getImageData(0,0,canvas.width,canvas.height);
 
-		//let transformed = bayer(imagaDate,128);
-		let transformed = atkinson(imagaDate);
+		let transformed = bayer(imagaDate,128);
+		//let transformed = atkinson(imagaDate);
 		ctx.putImageData(transformed,0,0);
-		 */
+
 
 		//effects.outline(ctx,[0,0,0]);
 		//effects.feather(ctx,-1);
 
 		//StackBlur.canvasRGBA(canvas,0 ,0,canvas.width,canvas.height,10);
-		//EventBus.trigger(EVENT.layerContentChanged);
+		EventBus.trigger(EVENT.layerContentChanged);
 
 
 	}

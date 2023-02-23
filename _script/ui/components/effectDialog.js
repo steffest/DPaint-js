@@ -6,6 +6,7 @@ import Canvas from "../canvas.js";
 import {duplicateCanvas, releaseCanvas} from "../../util/canvasUtils.js";
 import EventBus from "../../util/eventbus.js";
 import {EVENT} from "../../enum.js";
+import SyntaxEdit from "./syntaxEdit.js";
 
 var EffectDialog = function() {
     let me = {};
@@ -89,17 +90,20 @@ var EffectDialog = function() {
         /* alchemy */
         codePanel = undefined;
         let alchemy = $div("alchemy","",mainPanel);
-        $div("recipe","Dabble",alchemy,()=>{
-            loadRecipe("dots");
-        })
-        $div("recipe","Speckles",alchemy,()=>{
-            loadRecipe("speckles");
-        })
-        $div("recipe","Lines",alchemy,()=>{
-            loadRecipe("lines");
-        })
-        $div("recipe","Texture",alchemy,()=>{
-            loadRecipe("texture");
+
+        let recipes=[
+            {name: "Dabble", file:"dots"},
+            {name: "Speckles", file:"speckles"},
+            {name: "Lines", file:"lines"},
+            {name: "Lines Curved", file:"linescurved"},
+            {name: "Webby", file:"web"},
+            {name: "Texture", file:"texture"},
+        ]
+
+        recipes.forEach(recipe=>{
+            $div("recipe",recipe.name,alchemy,()=>{
+                loadRecipe(recipe.file);
+            })
         })
 
 
@@ -195,8 +199,15 @@ var EffectDialog = function() {
 
 
         codePanel = $div("code","",mainPanel);
-        textarea = $elm("textarea","",codePanel);
-        button = $div("button primary","Run",codePanel,()=>{
+        textarea = SyntaxEdit(codePanel,(value)=>{
+            console.log("updating function");
+            let f  = new Function("source", "target", 'return ' + value);
+            process = f();
+        })
+
+
+        $div("button primary","Run",codePanel,()=>{
+            console.error(typeof process);
             if (typeof process === "function"){
                 let source = currentSource;
                 //let target = ImageFile.getActiveLayer().getContext();
@@ -213,7 +224,7 @@ var EffectDialog = function() {
 
         process = (await import("../../alchemy/"+recipe+".js")).default
         if (typeof process === "function"){
-            textarea.value = process.toString();
+            textarea.setValue(process.toString());
         }
     }
 

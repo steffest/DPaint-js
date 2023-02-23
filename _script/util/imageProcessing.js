@@ -6,7 +6,7 @@ import ImageFile from "../image.js";
 var ImageProcessing = function(){
 	var me = {};
 
-	var ImageInfos = {};
+	var imageInfos = {};
 
 	// good explanation on dithering: https://tannerhelland.com/2012/12/28/dithering-eleven-algorithms-source-code.html
     // also: implement  https://twitter.com/lorenschmidt/status/1468671174821486594?s=20 ?
@@ -43,23 +43,23 @@ var ImageProcessing = function(){
 
 
 	me.matting = function(){
-		if (ImageInfos.canvas){
+		if (imageInfos.canvas){
 			var opaqueCanvas = document.createElement("canvas");
-			opaqueCanvas.width = ImageInfos.canvas.width;
-			opaqueCanvas.height = ImageInfos.canvas.height;
+			opaqueCanvas.width = imageInfos.canvas.width;
+			opaqueCanvas.height = imageInfos.canvas.height;
 			var opaqueCtx = opaqueCanvas.getContext("2d");
 			opaqueCtx.fillStyle = mattingColor;
 			opaqueCtx.fillRect(0,0,opaqueCanvas.width,opaqueCanvas.height);
-			opaqueCtx.drawImage(ImageInfos.canvas,0,0);
+			opaqueCtx.drawImage(imageInfos.canvas,0,0);
 			
-			var ctx = ImageInfos.canvas.getContext("2d");
+			var ctx = imageInfos.canvas.getContext("2d");
 			
-			var data = ctx.getImageData(0, 0, ImageInfos.canvas.width, ImageInfos.canvas.height);
-			var opaqueData = opaqueCtx.getImageData(0, 0, ImageInfos.canvas.width, ImageInfos.canvas.height);
+			var data = ctx.getImageData(0, 0, imageInfos.canvas.width, imageInfos.canvas.height);
+			var opaqueData = opaqueCtx.getImageData(0, 0, imageInfos.canvas.width, imageInfos.canvas.height);
 
-			for(var y = 0; y < ImageInfos.canvas.height; y++){
-				for(var x = 0; x < ImageInfos.canvas.width; x++){
-					var index = (x + y * ImageInfos.canvas.width) * 4;
+			for(var y = 0; y < imageInfos.canvas.height; y++){
+				for(var x = 0; x < imageInfos.canvas.width; x++){
+					var index = (x + y * imageInfos.canvas.width) * 4;
 
 					var red = opaqueData.data[index];
 					var green = opaqueData.data[index + 1];
@@ -85,7 +85,7 @@ var ImageProcessing = function(){
 	
 	me.getColors = function(canvas) {
 
-		ImageInfos.canvas = canvas;
+		imageInfos.canvas = canvas;
 		
 		var ctx = canvas.getContext("2d");
 		var data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
@@ -127,13 +127,13 @@ var ImageProcessing = function(){
 		if (!isNaN(colors)){
 			mode = colors;
 		}else{
-			ImageInfos.palette = colors;
+			imageInfos.palette = colors;
 		}
 
 		console.error(canvas);
 		
-		ImageInfos.canvas = canvas;
-		ImageInfos.colorCount = colors;
+		imageInfos.canvas = canvas;
+		imageInfos.colorCount = colors;
 		
 		me.matting();
 		
@@ -148,11 +148,11 @@ var ImageProcessing = function(){
 		return Math.pow(ColorChannel / 255, 2.2) * 255;
 	}
 
-	function ColorDistance(RedDelta, GreenDelta, BlueDelta, LuminanceDelta) {
+	function colorDistance(RedDelta, GreenDelta, BlueDelta, LuminanceDelta) {
 		return RedDelta * RedDelta + GreenDelta * GreenDelta + BlueDelta * BlueDelta + LuminanceDelta * LuminanceDelta * 6;
 	}
 	
-	function RemapImage(canvas, Colors, ditherPattern) {
+	function remapImage(canvas, Colors, ditherPattern) {
 		var Context = canvas.getContext("2d");
 		var Data = Context.getImageData(0, 0, canvas.width, canvas.height);
 
@@ -227,15 +227,15 @@ var ImageProcessing = function(){
 
 							var LuminanceDelta2 = Colors[Colors[ColorIndex].Index2].TrueRed * 0.21 + Colors[Colors[ColorIndex].Index2].TrueGreen * 0.72 + Colors[Colors[ColorIndex].Index2].TrueBlue * 0.07 - Luminance;
 
-							Distance = ColorDistance(RedDelta, GreenDelta, BlueDelta, LuminanceDelta) * 4;
-							Distance += ColorDistance(RedDelta1, GreenDelta1, BlueDelta1, LuminanceDelta1);
-							Distance += ColorDistance(RedDelta2, GreenDelta2, BlueDelta2, LuminanceDelta2);
+							Distance = colorDistance(RedDelta, GreenDelta, BlueDelta, LuminanceDelta) * 4;
+							Distance += colorDistance(RedDelta1, GreenDelta1, BlueDelta1, LuminanceDelta1);
+							Distance += colorDistance(RedDelta2, GreenDelta2, BlueDelta2, LuminanceDelta2);
 
 							Distance /= 4 + 1 + 1;
 						}
 						else
 						{
-							Distance = ColorDistance(RedDelta, GreenDelta, BlueDelta, LuminanceDelta);
+							Distance = colorDistance(RedDelta, GreenDelta, BlueDelta, LuminanceDelta);
 						}
 
 
@@ -384,7 +384,7 @@ var ImageProcessing = function(){
 		Context.putImageData(Data, 0, 0);
 	}
 
-	function RemapFullPaletteImage(Canvas, BitsPerColor, DitherPattern) {
+	function remapFullPaletteImage(Canvas, BitsPerColor, DitherPattern) {
 		var Context = Canvas.getContext("2d");
 		var Data = Context.getImageData(0, 0, Canvas.width, Canvas.height);
 		var ShadesPerColor = 1 << BitsPerColor;
@@ -541,14 +541,14 @@ var ImageProcessing = function(){
 		var transparentColor = useTransparentColor?Palette.getBackgroundColor():undefined;
 
 		if(colorCount === "Palette") {
-			for(var i = 0; i < ImageInfos.palette.length; i++){
-				var color = ImageInfos.palette[i];
+			for(var i = 0; i < imageInfos.palette.length; i++){
+				var color = imageInfos.palette[i];
 				Colors.push({ Red: color[0], Green: color[1], Blue: color[2], Alpha: 255 });
 			}
-			ImageInfos.QuantizedColors = Colors;
-			RemapImage(ImageInfos.canvas, Colors, ditherPattern);
+			imageInfos.QuantizedColors = Colors;
+			remapImage(imageInfos.canvas, Colors, ditherPattern);
 		}else{
-			if(!ImageInfos.Colors || ImageInfos.Colors.length > colorCount) {
+			if(!imageInfos.Colors || imageInfos.Colors.length > colorCount) {
 				if(colorCount === 2){
 					if (useTransparentColor){
 						Colors.push({ Red: transparentColor[0], Green: transparentColor[1], Blue: transparentColor[2] });
@@ -557,11 +557,11 @@ var ImageProcessing = function(){
 					}
 					Colors.push({ Red: 0, Green: 0, Blue: 0 });
 
-					ImageInfos.QuantizedColors = Colors;
+					imageInfos.QuantizedColors = Colors;
 
-					RemapImage(ImageInfos.canvas, Colors, ditherPattern);
+					remapImage(imageInfos.canvas, Colors, ditherPattern);
 
-					UpdateImageWindow(Id);
+					updateImageWindow(Id);
 				}
 				else
 				{
@@ -576,24 +576,24 @@ var ImageProcessing = function(){
 						{type: 'module'}
 					);
 
-					var QuantizeData = { LineIndex: 0, CanvasData: ImageInfos.canvas.getContext("2d").getImageData(0, 0, ImageInfos.canvas.width, ImageInfos.canvas.height), MaxRecursionDepth: MaxRecursionDepth, BitsPerColor: bitsPerColor, ColorCount: colorCount, transparentColor: transparentColor};
+					var QuantizeData = { LineIndex: 0, CanvasData: imageInfos.canvas.getContext("2d").getImageData(0, 0, imageInfos.canvas.width, imageInfos.canvas.height), MaxRecursionDepth: MaxRecursionDepth, BitsPerColor: bitsPerColor, ColorCount: colorCount, transparentColor: transparentColor};
 
 					QuantizeWorker.addEventListener(
 						"message",
 						function(e)
 						{
-							ImageInfos.QuantizedColors = e.data.Colors;
+							imageInfos.QuantizedColors = e.data.Colors;
 
 
-							console.error(ImageInfos.QuantizedColors);
+							console.error(imageInfos.QuantizedColors);
 
-							RemapImage(ImageInfos.canvas, ImageInfos.QuantizedColors, ditherPattern);
+							remapImage(imageInfos.canvas, imageInfos.QuantizedColors, ditherPattern);
 
 							if (useTransparentColor && colorCount>4){
-								ImageInfos.QuantizedColors.unshift({Red: transparentColor[0], Green: transparentColor[1], Blue: transparentColor[2]})
+								imageInfos.QuantizedColors.unshift({Red: transparentColor[0], Green: transparentColor[1], Blue: transparentColor[2]})
 							}
 
-							UpdateImageWindow(Id);
+							updateImageWindow(Id);
 						},
 						false);
 
@@ -603,8 +603,8 @@ var ImageProcessing = function(){
 
 				return;
 			}else{
-				for (var Index = 0; Index < ImageInfos.Colors.length; Index++)
-					Colors.push({ Red: ImageInfos.Colors[Index].Red, Green: ImageInfos.Colors[Index].Green, Blue: ImageInfos.Colors[Index].Blue });
+				for (var Index = 0; Index < imageInfos.Colors.length; Index++)
+					Colors.push({ Red: imageInfos.Colors[Index].Red, Green: imageInfos.Colors[Index].Green, Blue: imageInfos.Colors[Index].Blue });
 			}
 
 			var ShadesPerColor = 1 << bitsPerColor;
@@ -623,28 +623,28 @@ var ImageProcessing = function(){
 		// Remap image.
 
 		if(colorCount === "Palette") {
-			RemapFullPaletteImage(ImageInfos.canvas, bitsPerColor, ditherPattern);
+			remapFullPaletteImage(imageInfos.canvas, bitsPerColor, ditherPattern);
 		}
 
-		ImageInfos.QuantizedColors = Colors;
+		imageInfos.QuantizedColors = Colors;
 		
-		UpdateImageWindow(Id);
+		updateImageWindow(Id);
 	}
 	
 	
-	function UpdateImageWindow(){
-		console.error(ImageInfos);
+	function updateImageWindow(){
+		console.error(imageInfos);
 		
-		if (ImageInfos.QuantizedColors){
+		if (imageInfos.QuantizedColors){
 			var palette = [];
-			ImageInfos.QuantizedColors.forEach(function(c){
+			imageInfos.QuantizedColors.forEach(function(c){
 				palette.push([c.Red,c.Green,c.Blue]);
 			});
 			//console.error(palette);
 			let f = ImageFile.getCurrentFile();
 			let ctx = ImageFile.getActiveContext();
 			ctx.clearRect(0,0,f.width,f.height);
-			ctx.drawImage(ImageInfos.canvas,0,0);
+			ctx.drawImage(imageInfos.canvas,0,0);
 			EventBus.trigger(EVENT.layerContentChanged);
 			Palette.set(palette);
 			//IconEditor.setPalette(palette);

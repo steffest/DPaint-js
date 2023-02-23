@@ -5,6 +5,9 @@ import Canvas from "./canvas.js";
 import Editor from "./editor.js";
 import ImageFile from "../image.js";
 import ToolOptions from "./components/toolOptions.js";
+import Input from "./input.js";
+import Brush from "./brush.js";
+import BrushPanel from "./components/brushPanel.js";
 
 var EditPanel = function(parent,type){
     var me = {};
@@ -38,12 +41,26 @@ var EditPanel = function(parent,type){
 
 
     viewport.addEventListener("wheel",function(e){
-        let point = [e.clientX,e.clientY];
         e.preventDefault();
-        if (e.deltaY>0){
-            EventBus.trigger(COMMAND.ZOOMOUT,e);
-        }else if (e.deltaY<0){
-            EventBus.trigger(COMMAND.ZOOMIN,e);
+        if (Input.isShiftDown()){
+            let point = canvas.getCursorPosition(e);
+            let settings = Brush.getSettings();
+            let offset = e.deltaY>0?-1:1;
+            BrushPanel.set({size:settings.width+offset});
+            EventBus.trigger(EVENT.drawCanvasOverlay,point);
+            //console.error(settings);
+        }else if (Input.isControlDown()){
+            let point = canvas.getCursorPosition(e);
+            let settings = Brush.getSettings();
+            let offset = e.deltaY>0?-5:5;
+            BrushPanel.set({opacity:settings.opacity+offset});
+            EventBus.trigger(EVENT.drawCanvasOverlay,point);
+        }else{
+            if (e.deltaY>0){
+                EventBus.trigger(COMMAND.ZOOMOUT,e);
+            }else if (e.deltaY<0){
+                EventBus.trigger(COMMAND.ZOOMIN,e);
+            }
         }
     });
 

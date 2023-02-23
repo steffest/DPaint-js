@@ -10,7 +10,7 @@ onmessage = function(e)
 	// for colorcount < 8 we use the transparent color as color - otherwise we just add it.
 	let useTransParentColor = colorCount<7 && transparentColor;
 
-	let colorCube = CreateColorCube(canvasData,useTransParentColor?transparentColor:undefined);
+	let colorCube = createColorCube(canvasData,useTransParentColor?transparentColor:undefined);
 
 	let colorCubeInfo = TrimColorCube(colorCube, { RedMin: 0, RedMax: 255, GreenMin: 0, GreenMax: 255, BlueMin: 0, BlueMax: 255 });
 
@@ -60,7 +60,7 @@ onmessage = function(e)
 	self.close();
 };
 
-function CreateColorCube(CanvasData,transparentColor)
+function createColorCube(CanvasData, transparentColor)
 {
 	var TotalColorCount = 0;
 	var ColorCube = {}; // Note: an associative array is actually an object.
@@ -282,7 +282,7 @@ function quantizeRecursive(ColorCube, ColorCubeInfo, Palette, RecursionDepth, Ma
 
 function QuantizeColors(Canvas, ColorCount)
 {
-	var ColorCube = CreateColorCube(Canvas);
+	var ColorCube = createColorCube(Canvas);
 	var ColorCubeInfos = new Array(TrimColorCube(ColorCube, { RedMin: 0, RedMax: 255, GreenMin: 0, GreenMax: 255, BlueMin: 0, BlueMax: 255 }));
 
 	while(ColorCubeInfos.length < ColorCount)

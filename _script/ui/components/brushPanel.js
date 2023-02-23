@@ -2,6 +2,8 @@ import {$div, $input, $elm} from "../../util/dom.js";
 import Brush from "../brush.js";
 import EventBus from "../../util/eventbus.js";
 import {EVENT} from "../../enum.js";
+import DitherPanel from "./ditherPanel.js";
+import Modal, {DIALOG} from "../modal.js";
 
 let BrushPanel = function(){
     let me = {};
@@ -10,6 +12,7 @@ let BrushPanel = function(){
     let softRange;
     let opacityRange;
     let opacityInput;
+    let ditherPatterns = [];
 
     me.generate = (parent)=> {
 
@@ -40,6 +43,26 @@ let BrushPanel = function(){
         opacityInput = $input("text",100,opacitySelect);
         opacityRange.min = 1;
         sanitize(opacityInput,opacityRange);
+
+        let ditherPanel = $div("dither",'',parent);
+        $elm("label","Dither",ditherPanel);
+        let patterns = $div("patterns","",ditherPanel);
+
+        ditherPatterns = [];
+        for (let i = 0; i<5; i++){
+            ditherPatterns.push($div("pattern p"+i,"",patterns,()=>{
+                if (i === 4){
+                    Modal.show(DIALOG.DITHER);
+                }else{
+                    DitherPanel.setDitherPattern(i);
+                }
+            }))
+        }
+        ditherPatterns[0].classList.add("active");
+
+
+
+
     };
 
     function update(){
@@ -86,6 +109,16 @@ let BrushPanel = function(){
         sizeInput.value = settings.width;
         opacityRange.value = settings.opacity;
         opacityInput.value = settings.opacity;
+
+        ditherPatterns.forEach(elm=>{
+            elm.classList.remove("active");
+        })
+        let ditherIndex = DitherPanel.getDitherIndex();
+        let elm = ditherPatterns[ditherIndex];
+        if (elm){
+            elm.classList.add("active");
+        }
+
     })
 
     return me;

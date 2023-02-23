@@ -13,7 +13,7 @@
   display: none;
 }
 
-body.hovericonEditorCanvas.shift:not(.select){
+body.hovericonEditorCanvas.shift.mousedown:not(.select){
   canvas.mainCanvas{
     cursor: none;
   }

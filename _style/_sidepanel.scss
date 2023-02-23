@@ -120,8 +120,8 @@
           }
 
           &.active{
-            border: 1px solid #b1e00f;
-            background-color: #b1e00f;
+            border: 1px solid $active-color;
+            background-color: $active-color;
             box-shadow: 0 0 2px yellow;
           }
         }
@@ -276,18 +276,21 @@
     }
 
     &.brush{
+
+      color: $menu-text-color;
+      font-size: 12px;
+
+      label{
+        opacity: 0.7;
+        line-height: 19px;
+        padding: 0 4px;
+        width: 110px;
+      }
+
       .rangeselect{
         display: flex;
-        color: $menu-text-color;
-        font-size: 12px;
         margin-bottom: 3px;
 
-        label{
-          opacity: 0.7;
-          line-height: 19px;
-          padding: 0 4px;
-          width: 110px;
-        }
 
         input[type="text"]{
           padding: 0 4px;
@@ -299,6 +302,59 @@
         }
 
       }
+
+      .dither{
+        display: flex;
+
+      }
+
+      .patterns{
+        display: flex;
+        width: 140%;;
+
+        .pattern{
+            width: 100%;
+            height: 20px;
+            margin-right: 2px;
+            border: 1px solid black;
+            background-color: #808080;
+            background-size: contain;
+
+          &.p1{
+            background-image: url("../_img/patterns/dots.png");
+          }
+
+          &.p2{
+            background-image: url("../_img/patterns/cross.png");
+          }
+            &.p3{
+              background-image: url("../_img/patterns/grid.png");
+            }
+
+            &:last-of-type{
+              margin-right: 0;
+              background-color: transparent;
+              background-image: url("../_img/caret.svg");
+              opacity: 0.5;
+              &:hover{
+                background-color: transparent;
+                opacity: 1;
+              }
+            }
+
+            &:hover{
+              cursor: pointer;
+              background-color: white;
+            }
+
+
+          &.active{
+            border-color: $active-color;
+            box-shadow: 0 0 2px yellow;
+          }
+        }
+      }
+
 
     }
   }

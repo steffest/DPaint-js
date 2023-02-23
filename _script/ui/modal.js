@@ -6,6 +6,7 @@ import ResizeDialog from "./components/resizeDialog.js";
 import ResampleDialog from "./components/resampleDialog.js";
 import PaletteDialog from "./components/paletteDialog.js";
 import EffectDialog from "./components/effectDialog.js";
+import DitherDialog from "./components/ditherDialog.js";
 
 export let DIALOG={
     SAVE: 1,
@@ -13,7 +14,8 @@ export let DIALOG={
     RESAMPLE: 3,
     PALETTE: 4,
     EFFECTS: 5,
-    ABOUT: 6
+    ABOUT: 6,
+    DITHER: 7
 }
 
 var Modal = function(){
@@ -31,7 +33,8 @@ var Modal = function(){
         3: {title: "Image Size", fuzzy: true, handler: ResampleDialog, position: [0,0]},
         4: {title: "Palette", handler: PaletteDialog, position: [0,0]},
         5: {title: "Effects", handler: EffectDialog, position: [0,0],width:500,height:530},
-        6: {title: "About", action: showAbout, position: [0,0],width:500,height:320}
+        6: {title: "About", action: showAbout, position: [0,0],width:750,height:470},
+        7: {title: "DitherPattern",  handler: DitherDialog, position: [0,0],width:662,height:326}
     }
 
     me.show = function(type,data){

@@ -80,8 +80,9 @@ let Canvas = function(parent){
         overlayCanvas.style.opacity = 1;
         overlayCtx.clearRect(0,0, canvas.width, canvas.height);
         overlayCtx.globalAlpha = Brush.getOpacity();
-        Brush.draw(overlayCtx,point.x,point.y,Palette.getDrawColor());
+        Brush.draw(overlayCtx,point.x,point.y,Palette.getDrawColor(),false,(Input.isControlDown() || Input.isMetaDown()));
         overlayCtx.globalAlpha = 1;
+
     });
     
     EventBus.on(COMMAND.CLEARSELECTION,()=>{
@@ -184,7 +185,7 @@ let Canvas = function(parent){
         if (Editor.getCurrentTool() === COMMAND.ERASE) color = "transparent";
         let {x,y} = touchData;
         touchData.drawLayer = ImageFile.getActiveLayer();
-        touchData.drawLayer.draw(x,y,color,touchData.isDrawing);
+        touchData.drawLayer.draw(x,y,color,touchData);
         touchData.isDrawing = true;
         EventBus.trigger(EVENT.layerContentChanged);
     }
@@ -206,7 +207,7 @@ let Canvas = function(parent){
                 point = getCursorPosition(canvas,e,true);
                 touchData.isdown = true;
                 touchData.button = e.button;
-                if (e.metaKey) touchData.button = 3;
+                if (e.metaKey || e.ctrlKey) touchData.button = 3;
                 if (Input.isSpaceDown()){
                     touchData.startDragX = e.clientX;
                     touchData.startDragY =  e.clientY;
@@ -493,6 +494,10 @@ let Canvas = function(parent){
             touchData.y = y;
         }
         return{x:x,y:y};
+    }
+
+    me.getCursorPosition = function(event){
+        return getCursorPosition(canvas,event);
     }
 
     function getElementPosition(el) {

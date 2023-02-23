@@ -23,6 +23,12 @@ var Input = function(){
 		document.body.oncontextmenu = function(){
 			return me.isShiftDown();
 		}
+
+		window.addEventListener("paste", handlePaste,false);
+		window.addEventListener("copy", handleCopy,false);
+		window.addEventListener("cut", handleCut,false);
+		window.addEventListener("undo", handleUndo,false);
+		window.addEventListener("delete", handleDelete,false);
 	}
 
 	me.isSpaceDown = function(){
@@ -33,6 +39,9 @@ var Input = function(){
 	}
 	me.isControlDown = function(){
 		return !!keyDown["control"];
+	}
+	me.isAltDown = function(){
+		return !!keyDown["alt"];
 	}
 	me.isMetaDown = function(){
 		return !!keyDown["meta"] || me.isControlDown() || me.isShiftDown();
@@ -248,6 +257,26 @@ var Input = function(){
 		if ((code === "ControlLeft") || (code === "ControlRight")) code = "control";
 		if ((code === "MetaLeft") || (code === "MetaRight")) code = "meta";
 		return code.toLowerCase();
+	}
+
+	function handlePaste(){
+		console.error("paste");
+	}
+
+	function handleCopy(){
+		console.error("copy");
+	}
+
+	function handleCut(){
+		console.error("cut");
+	}
+
+	function handleUndo(){
+		console.error("undo");
+	}
+
+	function handleDelete(){
+		console.error("delete");
 	}
 	
 	return me;

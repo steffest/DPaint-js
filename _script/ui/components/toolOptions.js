@@ -4,6 +4,7 @@ import EventBus from "../../util/eventbus.js";
 import ImageFile from "../../image.js";
 import BrushPanel from "./brushPanel.js";
 import Brush from "../brush.js";
+import DitherPanel from "./ditherPanel.js";
 
 let ToolOptions = function(){
     let me = {}
@@ -14,10 +15,10 @@ let ToolOptions = function(){
 
     let smoothCheckbox;
     let maskCheckbox;
+    let ditherCheckbox;
     let fillCheckbox;
     let lineSizeRange;
-    let brushSizeRange;
-    let brushOpacityRange;
+    let brushOptionGroup;
     let brushSettings={};
 
     me.isSmooth = ()=>{
@@ -51,6 +52,7 @@ let ToolOptions = function(){
             case COMMAND.DRAW:
                 options.appendChild(label("Brush:"));
                 options.appendChild(brushSetting());
+                options.appendChild(ditherSetting());
                 break;
             case COMMAND.LINE:
                 options.appendChild(label("Line:"));
@@ -66,6 +68,10 @@ let ToolOptions = function(){
                 options.appendChild(label("Circle:"));
                 options.appendChild(fillSetting());
                 options.appendChild(lineSetting());
+                break;
+            case COMMAND.GRADIENT:
+                options.appendChild(label("Gradient:"));
+                options.appendChild(ditherSetting());
                 break;
         }
 
@@ -112,9 +118,10 @@ let ToolOptions = function(){
     }
 
     function brushSetting(){
-        if (!brushSizeRange){
+        if (!brushOptionGroup){
             let settings = Brush.getSettings();
-            brushSizeRange = $div("range");
+            brushOptionGroup = $div("optionsgroup");
+            let brushSizeRange = $div("range","",brushOptionGroup);
             $elm("label","Size:",brushSizeRange);
             brushSettings.sizeRange = $input("range",settings.width,brushSizeRange)
             brushSettings.sizeRange.min=1;
@@ -125,27 +132,28 @@ let ToolOptions = function(){
             }
 
 
-            $elm("label","Opacity:",brushSizeRange,"inline");
-            brushSettings.opacityRange = $input("range",settings.opacity,brushSizeRange)
+            let brushOpacityRange = $div("range","",brushOptionGroup);
+            $elm("label","Opacity:",brushOpacityRange,"inline");
+            brushSettings.opacityRange = $input("range",settings.opacity,brushOpacityRange)
             brushSettings.opacityRange.min=1;
             brushSettings.opacityRange.max=100;
-            brushSettings.opacityInput = $elm("span",settings.opacity,brushSizeRange);
+            brushSettings.opacityInput = $elm("span",settings.opacity + "%",brushOpacityRange);
             brushSettings.opacityRange.oninput = function(){
                 BrushPanel.set({opacity:brushSettings.opacityRange.value});
             }
-
 
             EventBus.on(EVENT.brushOptionsChanged,()=>{
                 let settings = Brush.getSettings();
                 brushSettings.sizeRange.value = settings.width;
                 brushSettings.sizeInput.innerText = settings.width + "px" ;
                 brushSettings.opacityRange.value = settings.opacity;
-                brushSettings.opacityInput.innerText = settings.opacity + "px" ;
+                brushSettings.opacityInput.innerText = settings.opacity + "%" ;
+                ditherCheckbox.setState(DitherPanel.getDitherState());
             })
 
         }
 
-        return brushSizeRange;
+        return brushOptionGroup;
     }
 
     function maskSetting(){
@@ -154,6 +162,14 @@ let ToolOptions = function(){
             EventBus.trigger(EVENT.layerContentChanged);
         });
         return maskCheckbox;
+    }
+
+    function ditherSetting(){
+        if (!ditherCheckbox) ditherCheckbox=$checkbox("Dither","","inline",(checked)=>{
+            DitherPanel.setDitherState(checked);
+        });
+        ditherCheckbox.setState(DitherPanel.getDitherState());
+        return ditherCheckbox;
     }
 
     function label(text){

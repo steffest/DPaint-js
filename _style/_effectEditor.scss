@@ -165,16 +165,34 @@
     top: 250px;
     right: 10px;
 
-    textarea{
+    code{
       position: absolute;
       left: 0;
       right: 0;
       top: 0;
       height: 170px;
-      white-space: nowrap;
+      overflow: auto;
+      white-space: pre;
+      font-family: monospace;
+      display: block;
       border: 1px solid black;
       background-color: #1c1c1c;
       color: $menu-text-color-dim;
+
+      &:focus{
+        outline: none;
+      }
+
+      .string{color:#A1E46D;}
+      .number{color:#4176BA;}
+      .html {color:#E4D95F;}
+      .reserved {color:#C87531;}
+      .js {color:#6DE4D1;}
+      .globals {color:#ab66b7;}
+      .comment{color:#aaa;}
+      .method {color:#F9C26B;}
+      .source {color: #64b969;}
+      .target {color: #64b9a9;}
     }
 
     .button{

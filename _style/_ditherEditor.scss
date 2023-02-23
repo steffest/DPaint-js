@@ -1,0 +1,120 @@
+.ditheredit{
+  .preset{
+    display: inline-block;
+    width: 50px;
+    height: 50px;
+    border: 1px solid black;
+    background-size: 50% 50%;
+    background-color: #6b6b6b;
+    @include pixelated;
+
+    &:hover{
+      border: 1px solid $active-color;
+      background-color: #bbbbbb;
+      cursor: pointer;
+    }
+
+    &.p0{
+      background-image: url("../_img/patterns/dots.png");
+    }
+    &.p1{
+      background-image: url("../_img/patterns/cross.png");
+    }
+    &.p2{
+      background-image: url("../_img/patterns/grid.png");
+    }
+    &.p3{
+      background-image: url("../_img/patterns/cross2.png");
+    }
+    &.p4{
+      background-image: url("../_img/patterns/lines_hor.png");
+    }
+    &.p5{
+      background-image: url("../_img/patterns/lines_ver.png");
+    }
+    &.p6{
+      background-image: url("../_img/patterns/lines_diag.png");
+    }
+    &.p7{
+      background-image: url("../_img/patterns/longgrid.png");
+    }
+    &.user{
+      canvas{
+        width: 100%;
+        height: 100%;
+      }
+    }
+
+
+
+  }
+
+  .editpreset,
+  .previewpreset,
+  .presets{
+    position: absolute;
+    left: 5px;
+    top: 25px;
+    bottom: 5px;
+    width: 202px;
+    border: 1px solid black;
+  }
+
+  .editpreset{
+    left: 210px;
+    width: 242px;
+  }
+
+  .previewpreset{
+    left: 455px;
+    canvas{
+      background-image: url("../_img/patterns/gradient.png");
+      background-size: 100% 100%;
+    }
+  }
+
+  h2{
+    font-size: 12px;
+    padding: 4px;
+    border-bottom: 1px solid black;
+    font-weight: normal;
+    margin: 0;
+  }
+
+  .subtoolbar{
+    border-top: 1px solid black;
+    text-align: right;
+    font-size: 12px;
+    position: relative;
+    padding: 0;
+
+    .button{
+      display: inline-block;
+      padding: 4px 9px;
+      text-align: center;
+      white-space: nowrap;
+
+      &.small{
+        width: 24px;
+        padding: 4px;
+      }
+
+      &.active{
+        border-color: $active-color-dim;
+        color: $active-color-dim;
+        background-color: #413e28;
+      }
+
+      &.hidden{
+        display: none;
+      }
+
+      &.left{
+        position: absolute;
+        left: 0;
+        max-width: 49%;
+      }
+    }
+  }
+
+}

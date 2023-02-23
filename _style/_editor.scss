@@ -66,6 +66,10 @@
             color: $menu-text-color-dim;
           }
 
+          .optionsgroup{
+            display: flex;
+          }
+
           .checkbox{
             font-size: 12px;
             padding-right: 10px;
@@ -78,6 +82,10 @@
             }
 
             &.mask{
+              margin-left: 10px;
+            }
+
+            &.inline{
               margin-left: 10px;
             }
           }
@@ -107,6 +115,7 @@
               margin-left: 6px;
             }
           }
+
 
 
 
@@ -218,7 +227,7 @@ body.space.select{
   }
 }
 
-body.shift,
+body.shift.mousedown,
 body.select{
   .splitpanel{
     .overlaycanvas{

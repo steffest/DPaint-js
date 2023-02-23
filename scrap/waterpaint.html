@@ -1,0 +1,169 @@
+<html>
+<head>
+    <style>
+        body{
+            background-color: black;
+        }
+    </style>
+</head>
+<body>
+
+<script>
+    let canvas = document.createElement("canvas");
+    let ctx = canvas.getContext("2d");
+    let w = 640;
+    let h = 480;
+    canvas.width = w;
+    canvas.height = h;
+    document.body.appendChild(canvas);
+
+    let img = new Image();
+    img.onload = ()=>{
+        ctx.drawImage(img,0,0,w,h);
+
+        //dots();
+        //speckles();
+        //lines();
+        water();
+    }
+    img.src="waves.png"
+
+    function water(){
+
+        let polygonSize=50;
+        let polygonPointCount=20;
+        let sizeVariation =200;
+        let transparency = 0.05;
+        let splashCount = 200;
+
+        let data = ctx.getImageData(0,0,w,h);
+        let d = data.data;
+
+        for (let i = 0; i<splashCount;i++){
+            splash();
+        }
+
+
+        function splash(){
+            let x = Math.floor(Math.random()*w);
+            let y = Math.floor(Math.random()*h);
+            let color = getColor(x,y);
+            ctx.fillStyle = toRGBA(color,transparency);
+            for (let i = 0; i<10;i++){
+                polygon(x,y);
+            }
+        }
+
+        function polygon(x,y){
+            ctx.beginPath();
+            ctx.moveTo(x,y);
+
+            for (let i = 0; i<polygonPointCount; i++){
+                ctx.lineTo(x+r(polygonSize + r(sizeVariation)),y+r(polygonSize + r(sizeVariation)));
+            }
+            ctx.closePath();
+            ctx.fill();
+        }
+
+        function r(size){
+            return Math.random()*size - size/2;
+        }
+
+        function getColor(x,y){
+            let index = (y*w+x)*4;
+            return [d[index],d[index+1],d[index+2]];
+        }
+    }
+
+    function lines(){
+        function lineSet(color,alpha){
+            let x = Math.floor(Math.random()*w);
+            let y = Math.floor(Math.random()*h);
+
+            let x_len = 70 + Math.random()*20;
+            let y_len = -4 + Math.random()*4;
+
+            let dist = 5;
+            for (let i=0;i<4;i++){
+                let d = dist*i;
+                line(x,y+d,x+x_len,y+y_len+d,toRGBA(color,alpha/(1<<i)));
+            }
+        }
+
+        function line(x,y,x2,y2,color){
+            ctx.strokeStyle = color;
+            ctx.beginPath();
+            ctx.moveTo(x,y);
+            ctx.lineTo(x2,y2);
+            ctx.closePath();
+            ctx.stroke();
+        }
+
+        for (let i = 0;i<500;i++){
+            lineSet([0,0,0],0.1);
+            lineSet([0,0,0],0.2);
+            lineSet([255,255,255],0.08);
+        }
+    }
+
+    function speckles(){
+        function dot(color,alpha){
+            let x = Math.floor(Math.random()*w);
+            let y = Math.floor(Math.random()*h);
+            ctx.fillStyle = toRGBA(color,alpha);
+            splash(x,y,2,100,2);
+        }
+
+        for (let i = 0;i<500;i++){
+            dot([0,0,0],0.03);
+            dot([255,255,255],0.06);
+        }
+    }
+
+    function dots(){
+        let data = ctx.getImageData(0,0,w,h);
+        let d = data.data;
+
+        function dot(){
+            let x = Math.floor(Math.random()*w);
+            let y = Math.floor(Math.random()*h);
+            let color = getColor(x,y);
+            ctx.fillStyle = toRGBA(color,0.1);
+            splash(x,y,10,100,10);
+        }
+
+        function getColor(x,y){
+            let index = (y*w+x)*4;
+            return [d[index],d[index+1],d[index+2]];
+        }
+
+        for (let i = 0;i<500;i++){
+            dot();
+        }
+    }
+
+
+
+
+    function splash(x,y,radius,jitter,jitterRadius){
+        jitterRadius =jitterRadius||jitter;
+        for (let i = 0; i<20; i++){
+            let _x = x + Math.random()*jitter - jitter/2;
+            let _y = y + Math.random()*jitter - jitter/2;
+            let _r = radius + Math.random()*jitterRadius - jitterRadius/2;
+            if (_r<1) _r=1;
+            ctx.beginPath();
+            ctx.arc(_x, _y, _r, 0, 2 * Math.PI, false);
+            ctx.fill();
+        }
+    }
+
+    function toRGBA(color,alpha){
+        return "rgba("+color[0]+","+color[1]+","+color[2]+","+alpha+")"
+    }
+
+
+
+</script>
+</body>
+</html>

@@ -17,7 +17,9 @@ var Brush = function(){
     let opacity = 100;
 
     var brushCanvas = document.createElement("canvas");
+    var brushBackCanvas = document.createElement("canvas");
     let brushCtx = brushCanvas.getContext("2d");
+    let brushBackCtx = brushBackCanvas.getContext("2d");
 
     me.init = function(parent){
         container = $div("brushes info","",parent);
@@ -36,6 +38,11 @@ var Brush = function(){
         }
         
         EventBus.on(EVENT.drawColorChanged,()=>{
+            if (brushType === 'canvas' && brushIndex>=0){
+                generateBrush();
+            }
+        })
+        EventBus.on(EVENT.backgroundColorChanged,()=>{
             if (brushType === 'canvas' && brushIndex>=0){
                 generateBrush();
             }
@@ -99,10 +106,13 @@ var Brush = function(){
             brushType = type;
             brushIndex = -1;
             console.error(index)
-            brushCanvas.width = index.width;
-            brushCanvas.height = index.height;
+            brushCanvas.width = brushBackCanvas.width = index.width;
+            brushCanvas.height = brushBackCanvas.height = index.height;
             brushCtx.clearRect(0,0,brushCanvas.width,brushCanvas.height);
             brushCtx.drawImage(index,0,0);
+            brushBackCtx.clearRect(0,0,brushCanvas.width,brushCanvas.height);
+            brushBackCtx.drawImage(index,0,0);
+            // TODO: What do we draw when grabbing a stencil with right-click draw ?
         }
 
         if (type === "dynamic"){
@@ -125,7 +135,7 @@ var Brush = function(){
     }
 
 
-    me.draw = function(ctx,x,y,color,useHistory){
+    me.draw = function(ctx,x,y,color,useHistory,onBackground){
 
         let w,h,cFrom;
 
@@ -143,7 +153,11 @@ var Brush = function(){
         if (useHistory) cFrom = ctx.getImageData(x,y,w,h);
 
         if (brushType === "canvas"){
-            ctx.drawImage(brushCanvas,x,y);
+            if (onBackground){
+                ctx.drawImage(brushBackCanvas,x,y);
+            }else{
+                ctx.drawImage(brushCanvas,x,y);
+            }
         }else{
             ctx.fillStyle = color;
             ctx.fillRect(x,y,w,h);
@@ -157,8 +171,8 @@ var Brush = function(){
     }
     
     function generateBrush(){
-        brushCanvas.width = width;
-        brushCanvas.height = height;
+        brushCanvas.width = brushBackCanvas.width = width;
+        brushCanvas.height = brushBackCanvas.height = height;
         brushCtx.clearRect(0,0,width,height);
         brushCtx.fillStyle = Palette.getDrawColor();
 
@@ -239,6 +253,13 @@ var Brush = function(){
             default:
                 break;
         }
+
+        brushBackCtx.fillStyle = Palette.getBackgroundColor();
+        brushBackCtx.fillRect(0,0,width,height);
+        brushBackCtx.globalCompositeOperation = "destination-in";
+        brushBackCtx.drawImage(brushCanvas,0,0);
+        brushBackCtx.globalCompositeOperation = "source-over";
+
 
     }
 

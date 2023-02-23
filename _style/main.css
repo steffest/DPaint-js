@@ -70,7 +70,7 @@ body {
   content: "";
   position: absolute;
   left: 0;
-  top: 2px;
+  top: 1px;
   width: 14px;
   height: 14px;
   background-color: #2b2b2b;
@@ -753,17 +753,19 @@ body.withsidepanel .toolbar .togglepanel:after {
   color: #888888;
   border: 1px solid #7b7b7b;
 }
-.sidepanel .panel.brush .rangeselect {
-  display: flex;
+.sidepanel .panel.brush {
   color: #BBBBBB;
   font-size: 12px;
-  margin-bottom: 3px;
 }
-.sidepanel .panel.brush .rangeselect label {
+.sidepanel .panel.brush label {
   opacity: 0.7;
   line-height: 19px;
   padding: 0 4px;
   width: 110px;
+}
+.sidepanel .panel.brush .rangeselect {
+  display: flex;
+  margin-bottom: 3px;
 }
 .sidepanel .panel.brush .rangeselect input[type=text] {
   padding: 0 4px;
@@ -772,6 +774,48 @@ body.withsidepanel .toolbar .togglepanel:after {
   margin-left: 4px;
   margin-right: 2px;
   font-size: 11px;
+}
+.sidepanel .panel.brush .dither {
+  display: flex;
+}
+.sidepanel .panel.brush .patterns {
+  display: flex;
+  width: 140%;
+}
+.sidepanel .panel.brush .patterns .pattern {
+  width: 100%;
+  height: 20px;
+  margin-right: 2px;
+  border: 1px solid black;
+  background-color: #808080;
+  background-size: contain;
+}
+.sidepanel .panel.brush .patterns .pattern.p1 {
+  background-image: url("../_img/patterns/dots.png");
+}
+.sidepanel .panel.brush .patterns .pattern.p2 {
+  background-image: url("../_img/patterns/cross.png");
+}
+.sidepanel .panel.brush .patterns .pattern.p3 {
+  background-image: url("../_img/patterns/grid.png");
+}
+.sidepanel .panel.brush .patterns .pattern:last-of-type {
+  margin-right: 0;
+  background-color: transparent;
+  background-image: url("../_img/caret.svg");
+  opacity: 0.5;
+}
+.sidepanel .panel.brush .patterns .pattern:last-of-type:hover {
+  background-color: transparent;
+  opacity: 1;
+}
+.sidepanel .panel.brush .patterns .pattern:hover {
+  cursor: pointer;
+  background-color: white;
+}
+.sidepanel .panel.brush .patterns .pattern.active {
+  border-color: #b1e00f;
+  box-shadow: 0 0 2px yellow;
 }
 .sidepanel .caption {
   background-color: #282A2C;
@@ -925,6 +969,9 @@ body.withsidepanel .sidepanel {
   padding: 0px 4px 0 10px;
   color: #8f8f8f;
 }
+.splitpanel .panel .toolbar .toolpanel .options .optionsgroup {
+  display: flex;
+}
 .splitpanel .panel .toolbar .toolpanel .options .checkbox {
   font-size: 12px;
   padding-right: 10px;
@@ -937,6 +984,9 @@ body.withsidepanel .sidepanel {
   height: 10px;
 }
 .splitpanel .panel .toolbar .toolpanel .options .checkbox.mask {
+  margin-left: 10px;
+}
+.splitpanel .panel .toolbar .toolpanel .options .checkbox.inline {
   margin-left: 10px;
 }
 .splitpanel .panel .toolbar .toolpanel .options input[type=range] {
@@ -1047,7 +1097,7 @@ body.space.select .splitpanel .overlaycanvas {
   display: none;
 }
 
-body.shift .splitpanel .overlaycanvas,
+body.shift.mousedown .splitpanel .overlaycanvas,
 body.select .splitpanel .overlaycanvas {
   display: none;
 }
@@ -1192,13 +1242,13 @@ body.withsidepanel .splitpanel {
   display: none;
 }
 
-body.hovericonEditorCanvas.shift:not(.select) canvas.mainCanvas {
+body.hovericonEditorCanvas.shift.mousedown:not(.select) canvas.mainCanvas {
   cursor: none;
 }
-body.hovericonEditorCanvas.shift:not(.select) .cursor {
+body.hovericonEditorCanvas.shift.mousedown:not(.select) .cursor {
   display: block;
 }
-body.hovericonEditorCanvas.shift:not(.select) .cursor .mark {
+body.hovericonEditorCanvas.shift.mousedown:not(.select) .cursor .mark {
   position: absolute;
   pointer-events: none;
   display: none;
@@ -1209,7 +1259,7 @@ body.hovericonEditorCanvas.shift:not(.select) .cursor .mark {
   border-radius: 50%;
   box-shadow: 0 0 3px 1px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.5), inset 0 0 3px 1px rgba(0, 0, 0, 0.5), inset 0 0 0 1px rgba(255, 255, 255, 0.5);
 }
-body.hovericonEditorCanvas.shift:not(.select).mousedown .cursor .mark {
+body.hovericonEditorCanvas.shift.mousedown:not(.select).mousedown .cursor .mark {
   display: block;
 }
 
@@ -1281,6 +1331,7 @@ body.hovericonEditorCanvas.shift:not(.select).mousedown .cursor .mark {
   top: 2px;
   right: 2px;
   font-size: 12px;
+  user-select: none;
 }
 .modalwindow .caption .button:hover {
   background-color: #3C3F41;
@@ -1296,6 +1347,7 @@ body.hovericonEditorCanvas.shift:not(.select).mousedown .cursor .mark {
   border: 1px solid #6a6a6a;
   margin: 2px;
   padding: 6px;
+  user-select: none;
 }
 .modalwindow .inner .button .title {
   color: #BBBBBB;
@@ -1316,11 +1368,9 @@ body.hovericonEditorCanvas.shift:not(.select).mousedown .cursor .mark {
 .modalwindow .inner .panel.form {
   padding: 0 10px;
 }
-.modalwindow .inner .panel.form span {
+.modalwindow .inner .panel.form span.label {
   display: inline-block;
   width: 80px;
-}
-.modalwindow .inner .panel.form span.label {
   text-align: right;
   padding-right: 8px;
 }
@@ -1353,21 +1403,22 @@ body.hovericonEditorCanvas.shift:not(.select).mousedown .cursor .mark {
 .modalwindow .inner .about .text {
   position: absolute;
   z-index: 1;
-  font-size: 11px;
+  font-size: 12px;
   line-height: 14px;
-  left: 35px;
+  left: 56px;
   color: #a5bac2;
+  opacity: 0.8;
   pointer-events: none;
 }
 .modalwindow .inner .about .text.info {
-  width: 320px;
-  bottom: 50px;
+  width: 380px;
+  bottom: 80px;
 }
 .modalwindow .inner .about .text.copyright {
-  bottom: 30px;
+  bottom: 50px;
 }
 .modalwindow .inner .about .text.github {
-  bottom: 10px;
+  bottom: 24px;
   pointer-events: all;
 }
 .modalwindow .inner .about .text.github:hover {
@@ -1376,8 +1427,8 @@ body.hovericonEditorCanvas.shift:not(.select).mousedown .cursor .mark {
   text-decoration: underline;
 }
 .modalwindow .inner .about .text.version {
-  left: 369px;
-  bottom: 10px;
+  left: 556px;
+  bottom: 24px;
 }
 .modalwindow .inner .palette {
   position: relative;
@@ -1624,16 +1675,52 @@ body.hovericonEditorCanvas.shift:not(.select).mousedown .cursor .mark {
   top: 250px;
   right: 10px;
 }
-.modalwindow .inner .effects .code textarea {
+.modalwindow .inner .effects .code code {
   position: absolute;
   left: 0;
   right: 0;
   top: 0;
   height: 170px;
-  white-space: nowrap;
+  overflow: auto;
+  white-space: pre;
+  font-family: monospace;
+  display: block;
   border: 1px solid black;
   background-color: #1c1c1c;
   color: #8f8f8f;
+}
+.modalwindow .inner .effects .code code:focus {
+  outline: none;
+}
+.modalwindow .inner .effects .code code .string {
+  color: #A1E46D;
+}
+.modalwindow .inner .effects .code code .number {
+  color: #4176BA;
+}
+.modalwindow .inner .effects .code code .html {
+  color: #E4D95F;
+}
+.modalwindow .inner .effects .code code .reserved {
+  color: #C87531;
+}
+.modalwindow .inner .effects .code code .js {
+  color: #6DE4D1;
+}
+.modalwindow .inner .effects .code code .globals {
+  color: #ab66b7;
+}
+.modalwindow .inner .effects .code code .comment {
+  color: #aaa;
+}
+.modalwindow .inner .effects .code code .method {
+  color: #F9C26B;
+}
+.modalwindow .inner .effects .code code .source {
+  color: #64b969;
+}
+.modalwindow .inner .effects .code code .target {
+  color: #64b9a9;
 }
 .modalwindow .inner .effects .code .button {
   position: absolute;
@@ -1660,6 +1747,113 @@ body.hovericonEditorCanvas.shift:not(.select).mousedown .cursor .mark {
 .modalwindow .inner .effects .buttons .button.left {
   position: absolute;
   left: 10px;
+}
+.modalwindow .inner .ditheredit .preset {
+  display: inline-block;
+  width: 50px;
+  height: 50px;
+  border: 1px solid black;
+  background-size: 50% 50%;
+  background-color: #6b6b6b;
+  image-rendering: optimizeSpeed;
+  image-rendering: optimize-contrast;
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: crisp-edges;
+  image-rendering: -moz-crisp-edges;
+  image-rendering: -o-crisp-edges;
+  image-rendering: pixelated;
+  -ms-interpolation-mode: nearest-neighbor;
+}
+.modalwindow .inner .ditheredit .preset:hover {
+  border: 1px solid #b1e00f;
+  background-color: #bbbbbb;
+  cursor: pointer;
+}
+.modalwindow .inner .ditheredit .preset.p0 {
+  background-image: url("../_img/patterns/dots.png");
+}
+.modalwindow .inner .ditheredit .preset.p1 {
+  background-image: url("../_img/patterns/cross.png");
+}
+.modalwindow .inner .ditheredit .preset.p2 {
+  background-image: url("../_img/patterns/grid.png");
+}
+.modalwindow .inner .ditheredit .preset.p3 {
+  background-image: url("../_img/patterns/cross2.png");
+}
+.modalwindow .inner .ditheredit .preset.p4 {
+  background-image: url("../_img/patterns/lines_hor.png");
+}
+.modalwindow .inner .ditheredit .preset.p5 {
+  background-image: url("../_img/patterns/lines_ver.png");
+}
+.modalwindow .inner .ditheredit .preset.p6 {
+  background-image: url("../_img/patterns/lines_diag.png");
+}
+.modalwindow .inner .ditheredit .preset.p7 {
+  background-image: url("../_img/patterns/longgrid.png");
+}
+.modalwindow .inner .ditheredit .preset.user canvas {
+  width: 100%;
+  height: 100%;
+}
+.modalwindow .inner .ditheredit .editpreset,
+.modalwindow .inner .ditheredit .previewpreset,
+.modalwindow .inner .ditheredit .presets {
+  position: absolute;
+  left: 5px;
+  top: 25px;
+  bottom: 5px;
+  width: 202px;
+  border: 1px solid black;
+}
+.modalwindow .inner .ditheredit .editpreset {
+  left: 210px;
+  width: 242px;
+}
+.modalwindow .inner .ditheredit .previewpreset {
+  left: 455px;
+}
+.modalwindow .inner .ditheredit .previewpreset canvas {
+  background-image: url("../_img/patterns/gradient.png");
+  background-size: 100% 100%;
+}
+.modalwindow .inner .ditheredit h2 {
+  font-size: 12px;
+  padding: 4px;
+  border-bottom: 1px solid black;
+  font-weight: normal;
+  margin: 0;
+}
+.modalwindow .inner .ditheredit .subtoolbar {
+  border-top: 1px solid black;
+  text-align: right;
+  font-size: 12px;
+  position: relative;
+  padding: 0;
+}
+.modalwindow .inner .ditheredit .subtoolbar .button {
+  display: inline-block;
+  padding: 4px 9px;
+  text-align: center;
+  white-space: nowrap;
+}
+.modalwindow .inner .ditheredit .subtoolbar .button.small {
+  width: 24px;
+  padding: 4px;
+}
+.modalwindow .inner .ditheredit .subtoolbar .button.active {
+  border-color: #b2970e;
+  color: #b2970e;
+  background-color: #413e28;
+}
+.modalwindow .inner .ditheredit .subtoolbar .button.hidden {
+  display: none;
+}
+.modalwindow .inner .ditheredit .subtoolbar .button.left {
+  position: absolute;
+  left: 0;
+  max-width: 49%;
 }
 
 /*# sourceMappingURL=main.css.map */

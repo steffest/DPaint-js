@@ -8,13 +8,18 @@ let process = function(source,target){
         let x = Math.floor(Math.random()*w);
         let y = Math.floor(Math.random()*h);
 
-        let x_len = 35 + Math.random()*10;
-        let y_len = -2 + Math.random()*2;
+        let x_offset = 35 + Math.random()*10;
+
+        let hx = (w/2-x)/2;
+        let hy = y/h;
+
+        let y_offset = (hx/4  +  Math.random()*hx) * hy;
+        y_offset = Math.round(y_offset);
 
         let dist = 4;
         for (let i=0;i<4;i++){
             let d = dist*i;
-            line(x,y+d,x+x_len,y+y_len+d,toRGBA(color,alpha/(1<<i)));
+            line(x,y+d,x+x_offset,y+y_offset+d,toRGBA(color,alpha/(1<<i)));
         }
     }
 
@@ -36,9 +41,7 @@ let process = function(source,target){
     function toRGBA(color,alpha){
         return "rgba("+color[0]+","+color[1]+","+color[2]+","+alpha+")"
     }
-
 }
-
 
 
 export default process;

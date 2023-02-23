@@ -1,10 +1,30 @@
+/* Median blurs an image while applying some sine smoothing waves
+*  Experimental and cpu intensive - might crash from time to time
+*  Steffest
+* */
+
 let process = function(source,target){
     let w = source.width;
     let h = source.height;
     target.clearRect(0,0,target.canvas.width,target.canvas.height);
     target.drawImage(source,0,0);
 
-    function lineSet(color,alpha){
+    function fakeBlur(strength){
+            // draws layers on top of each other with small
+            target.globalAlpha = 0.1;
+            for (let y = -strength; y <= strength; y += 2) {
+                for (var x = -strength; x <= strength; x += 2) {
+                    // Apply layers
+                    target.drawImage(this.element, x, y);
+                    if (x>=0 && y>=0) {
+                        target.drawImage(this.element, -(x-1), -(y-1));
+                    }
+                }
+            }
+        target.globalAlpha = 1;
+    }
+
+    function smoove(color,alpha){
         let x = Math.floor(Math.random()*w);
         let y = Math.floor(Math.random()*h);
 
@@ -32,11 +52,10 @@ let process = function(source,target){
         lineSet([0,0,0],0.2);
         lineSet([255,255,255],0.08);
     }
+}
 
-    function toRGBA(color,alpha){
-        return "rgba("+color[0]+","+color[1]+","+color[2]+","+alpha+")"
-    }
-
+function toRGBA(color,alpha){
+    return "rgba("+color[0]+","+color[1]+","+color[2]+","+alpha+")"
 }
 
 

@@ -8,3 +8,17 @@ $button-background-medium: #2D2E30;
 $menu-text-color: #BBBBBB;
 $menu-text-color-dim: #8f8f8f;
 $dimmed-text-color: #adadad;
+
+$active-color: #b1e00f;
+$active-color-dim: #b2970e;
+
+@mixin pixelated{
+  image-rendering: optimizeSpeed;
+  image-rendering: optimize-contrast;
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: crisp-edges;
+  image-rendering: -moz-crisp-edges;
+  image-rendering: -o-crisp-edges;
+  image-rendering: pixelated;
+  -ms-interpolation-mode: nearest-neighbor;
+}

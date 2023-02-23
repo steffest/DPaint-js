@@ -2,6 +2,8 @@ let process = function(source,target){
     let ctx=source.getContext("2d");
     let w = source.width;
     let h = source.height;
+    target.clearRect(0,0,target.canvas.width,target.canvas.height);
+    target.drawImage(source,0,0);
 
     let data = ctx.getImageData(0,0,w,h);
     let d = data.data;

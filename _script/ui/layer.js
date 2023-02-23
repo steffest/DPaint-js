@@ -2,8 +2,8 @@ import Color from "../util/color.js";
 import ToolOptions from "./components/toolOptions.js";
 import {duplicateCanvas, releaseCanvas} from "../util/canvasUtils.js";
 import Brush from "./brush.js";
-import ImageFile from "../image.js";
 import HistoryService from "../services/historyservice.js";
+import DitherPanel from "./components/ditherPanel.js";
 
 let Layer = function(width,height,name){
     let me = {
@@ -114,12 +114,12 @@ let Layer = function(width,height,name){
         me.update();
     }
 
-    me.draw = function(x,y,color,_isDrawing){
+    me.draw = function(x,y,color,touchData){
         if (!drawLayer){
             drawLayer=duplicateCanvas(canvas);
             drawCtx = drawLayer.getContext("2d");
         }
-        if (!_isDrawing){
+        if (!touchData.isDrawing){
             drawOpacity = Brush.getOpacity();
         }
         isDrawing = true;
@@ -129,7 +129,15 @@ let Layer = function(width,height,name){
             drawColor = "black";
         }
         //Brush.draw(me.getContext(),x,y,color,true);
-        Brush.draw(drawCtx,x,y,drawColor,true);
+        Brush.draw(drawCtx,x,y,drawColor,true,touchData.button); // TODO: color should not be part of the brush?
+
+        if (DitherPanel.getDitherState()){
+            let pattern = DitherPanel.getDitherPattern();
+
+            drawCtx.globalCompositeOperation = touchData.button ? "destination-out" : "destination-in";
+            drawCtx.drawImage(pattern,0,0);
+            drawCtx.globalCompositeOperation = "source-over";
+        }
     }
 
     me.commitDraw = function(){

@@ -24,6 +24,8 @@ var PaletteDialog = function() {
 
     me.render = function (container,modal) {
         container.innerHTML = "";
+        sliders = [];
+        buttons = [];
         let panel = $div("palette panel form","",container);
 
         let palettePanel = $div("palettepanel","",panel);
