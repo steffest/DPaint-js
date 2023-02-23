@@ -673,6 +673,32 @@ var ImageProcessing = function(){
 		newCanvas = null;
 	}
 
+	me.bayer = function (ctx, threshold, whiteTransparent) {
+		let image = ctx.getImageData(0,0,ctx.canvas.width, ctx.canvas.height);
+		const thresholdMap = [
+			[15, 135, 45, 165],
+			[195, 75, 225, 105],
+			[60, 180, 30, 150],
+			[240, 120, 210, 90],
+		];
+
+		for (let i = 0; i < image.data.length; i += 4) {
+			const luminance = (image.data[i] * 0.299) + (image.data[i + 1] * 0.587) + (image.data[i + 2] * 0.114);
+			const x = i / 4 % image.width;
+			const y = Math.floor(i / 4 / image.width);
+			const map = Math.floor((luminance + thresholdMap[x % 4][y % 4]) / 2);
+			//console.error(map);
+			let value = map < threshold ? 0 : 255;
+			image.data.fill(value, i, i + 3);
+			if (whiteTransparent && value===255){
+				image.data[i+3] = 0;
+			}
+		}
+
+		ctx.putImageData(image,0,0);
+
+	}
+
 	return me;
 }();
 

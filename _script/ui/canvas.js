@@ -12,6 +12,9 @@ import Resizer from "./components/resizer.js";
 import ToolOptions from "./components/toolOptions.js";
 import StatusBar from "./statusbar.js";
 import SelectBox from "./components/selectbox.js";
+import ImageProcessing from "../util/imageProcessing.js";
+import DitherPanel from "./components/ditherPanel.js";
+import {duplicateCanvas} from "../util/canvasUtils.js";
 
 let Canvas = function(parent){
 	let me = {};
@@ -305,15 +308,8 @@ let Canvas = function(parent){
                             let isOdd = ctx.lineWidth%2===1;
                             ctx.lineCap = "square";
                             ctx.strokeStyle = Palette.getDrawColor();
-
-                            if (currentTool === COMMAND.GRADIENT){
-                                ctx.strokeStyle = "black";
-                                ctx.lineWidth = 2;
-                                isOdd = false;
-                                touchData.points=[point,{x:x,y:y}];
-                            }
-
                             ctx.imageSmoothingEnabled = ToolOptions.isSmooth();
+
                             if (Input.isShiftDown()){
                                 // snap to x or y axis
                                 let w = Math.abs(x-point.x);
@@ -331,6 +327,15 @@ let Canvas = function(parent){
                                     }
                                 }
                             }
+
+                            if (currentTool === COMMAND.GRADIENT){
+                                ctx.strokeStyle = "black";
+                                ctx.lineWidth = 2;
+                                isOdd = false;
+                                touchData.points=[point,{x:x,y:y}];
+                            }
+
+
                             if (isOdd) ctx.translate(.5,.5);
                             ctx.beginPath();
                             ctx.moveTo(point.x,point.y);
@@ -345,14 +350,59 @@ let Canvas = function(parent){
                                 //drawLayer.clear();
                                 let drawLayer = ImageFile.getLayer(layerIndex);
                                 let ctx = drawLayer.getContext();
+
                                 let p1=touchData.points[0];
                                 let p2=touchData.points[1];
-                                let f = ImageFile.getCurrentFile();
-                                var grd = ctx.createLinearGradient(p1.x,p1.y,p2.x,p2.y);
-                                grd.addColorStop(0,Palette.getDrawColor());
-                                grd.addColorStop(1,Palette.getBackgroundColor());
-                                ctx.fillStyle = grd;
-                                ctx.fillRect(0,0,f.width,f.height);
+                                let w = ctx.canvas.width;
+                                let h = ctx.canvas.height;
+                                ctx.clearRect(0,0,w,h);
+                                let grd;
+
+                                if (DitherPanel.getDitherState()){
+                                    let gradientCanvas = duplicateCanvas(ctx.canvas);
+                                    let gCtx = gradientCanvas.getContext("2d");
+                                    grd = gCtx.createLinearGradient(p1.x,p1.y,p2.x,p2.y);
+                                    grd.addColorStop(0,"white");
+                                    grd.addColorStop(1,"black");
+                                    gCtx.fillStyle = grd;
+                                    gCtx.fillRect(0,0,w,h);
+                                    ImageProcessing.bayer(gCtx,128,true);
+
+                                    let fColor = Palette.getDrawColor();
+                                    let bColor = Palette.getBackgroundColor();
+                                    let patterCanvas = duplicateCanvas(ctx.canvas);
+                                    let pCtx = patterCanvas.getContext("2d");
+
+                                    if (fColor === "transparent"){
+                                        pCtx.fillStyle = bColor;
+                                        pCtx.fillRect(0,0,w,h);
+
+                                        pCtx.globalCompositeOperation = "destination-in";
+                                        pCtx.drawImage(gradientCanvas,0,0);
+                                        pCtx.globalCompositeOperation = "source-over";
+
+                                        ctx.drawImage(patterCanvas,0,0);
+
+                                    }else{
+                                        pCtx.fillStyle = fColor;
+                                        pCtx.fillRect(0,0,w,h);
+
+                                        pCtx.globalCompositeOperation = "destination-out";
+                                        pCtx.drawImage(gradientCanvas,0,0);
+                                        pCtx.globalCompositeOperation = "source-over";
+
+                                        ctx.fillStyle = bColor;
+                                        ctx.fillRect(0,0,w,h);
+                                        ctx.drawImage(patterCanvas,0,0);
+                                    }
+                                }else{
+                                    grd = ctx.createLinearGradient(p1.x,p1.y,p2.x,p2.y);
+                                    grd.addColorStop(0,Palette.getDrawColor());
+                                    grd.addColorStop(1,Palette.getBackgroundColor());
+                                    ctx.fillStyle = grd;
+                                    ctx.fillRect(0,0,w,h);
+                                }
+
                                 EventBus.trigger(EVENT.layerContentChanged);
                             }
                             ImageFile.mergeDown(layerIndex);
