@@ -4,6 +4,7 @@ import {COMMAND, EVENT} from "./enum.js";
 import ImageFile from "./image.js";
 import Palette from "./ui/palette.js";
 import Modal, {DIALOG} from "./ui/modal.js";
+import Eventbus from "./util/eventbus.js";
 
 let App = function(){
 	let me = {
@@ -25,6 +26,7 @@ let App = function(){
 		EventBus.on(COMMAND.ABOUT,()=>{
 			Modal.show(DIALOG.ABOUT,me.version);
 		})
+
 	}
 
 	window.addEventListener('DOMContentLoaded', (event) => {
