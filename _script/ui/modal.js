@@ -30,7 +30,7 @@ var Modal = function(){
     let dialogs={
         1: {title: "Save File", fuzzy: true, handler: SaveDialog, position: [0,0]},
         2: {title: "Canvas Size", fuzzy: true, handler: ResizeDialog, position: [0,0],width:406,height:220},
-        3: {title: "Image Size", fuzzy: true, handler: ResampleDialog, position: [0,0]},
+        3: {title: "Image Size", fuzzy: true, handler: ResampleDialog, position: [0,0],width:326,height:220},
         4: {title: "Palette", handler: PaletteDialog, position: [0,0]},
         5: {title: "Effects", handler: EffectDialog, position: [0,0],width:500,height:530},
         6: {title: "About", action: showAbout, position: [0,0],width:750,height:470},

@@ -1,12 +1,11 @@
 import {$div, $elm, $title} from "../../util/dom.js";
 import ImageFile from "../../image.js";
-import Eventbus from "../../util/eventbus.js";
-import {COMMAND, EVENT} from "../../enum.js";
 
 var ResizeDialog = function() {
     let me = {};
     let lockAspectRatio = true;
     let aspectRatio = 1;
+    let anchorPoint = "center";
 
     me.render = function (container,modal) {
         let image = ImageFile.getCurrentFile();
@@ -74,7 +73,8 @@ var ResizeDialog = function() {
         let zones = ["top left","top","top right","left","center","right","bottom left","bottom","bottom right"];
         for (let i = 0; i<9; i++){
             $div("hotspot","",anchor,()=>{
-                anchor.className="anchor " + zones[i];
+                anchorPoint = zones[i];
+                anchor.className="anchor " + anchorPoint;
             })
         }
         $div("page","",anchor);
@@ -94,7 +94,7 @@ var ResizeDialog = function() {
             if (w<1)w=1;
             if (h<1)h=1;
             modal.hide();
-            ImageFile.resize({width:w,height: h});
+            ImageFile.resize({width:w,height: h, anchor: anchorPoint});
         });
 
     }

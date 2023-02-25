@@ -141,17 +141,27 @@ let ImageFile = function(){
         }else{
             let w = properties.width;
             let h = properties.height;
+            let anchor = properties.anchor;
+            let pW = currentFile.width;
+            let pH = currentFile.height;
             currentFile.width = w;
             currentFile.height = h;
+            let aX = Math.round((w-pW)/2);
+            let aY = Math.round((h-pH)/2);
+            if (anchor.indexOf("top")>=0) aY = 0;
+            if (anchor.indexOf("bottom")>=0) aY = h-pH;
+            if (anchor.indexOf("left")>=0) aX = 0;
+            if (anchor.indexOf("right")>=0) aX = w-pW;
             console.log("Resizing image to " +w + "x" + h);
             currentFile.frames.forEach(frame=>{
                 frame.layers.forEach(layer=>{
+                    // TODO: what about mask canvas and dither canvas ?
                     let canvas = layer.getCanvas();
                     let ctx = layer.getContext();
                     let d = duplicateCanvas(canvas,true);
                     canvas.width = w;
                     canvas.height = h;
-                    ctx.drawImage(d,0,0);
+                    ctx.drawImage(d,aX,aY);
                     releaseCanvas(d);
                 })
             })
