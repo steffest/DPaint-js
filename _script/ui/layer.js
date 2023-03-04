@@ -140,6 +140,16 @@ let Layer = function(width,height,name){
         }
     }
 
+    me.drawShape = function(drawFunction,x,y,w,h){
+        if (!drawLayer){
+            drawLayer=duplicateCanvas(canvas);
+            drawCtx = drawLayer.getContext("2d");
+        }
+        isDrawing = true;
+
+        drawFunction(drawCtx,x,y,w,h);
+    }
+
     me.commitDraw = function(){
         let _ctx = me.getContext();
         _ctx.globalAlpha = drawOpacity;

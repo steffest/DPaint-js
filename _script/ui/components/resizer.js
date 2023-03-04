@@ -4,20 +4,19 @@ import {COMMAND, EVENT} from "../../enum.js";
 import {$div} from "../../util/dom.js";
 import Editor from "../editor.js";
 import Input from "../input.js";
+import Cursor from "../cursor.js";
 
 var Resizer = function(){
     let me = {};
     let currentSize;
     let sizeBox;
-    let overlay;
-    let overlayContent;
+    let updateHandler;
     let dots = [];
     let rotateDots = [];
     let touchData = {};
     let aspectRatio = 1;
 
     me.set = function(x,y,w,h,rotation,hot,parent,startAspectRatio){
-        console.error(rotation)
         if (!sizeBox) createSizeBox(parent);
         currentSize = {
             left: Math.round(x),
@@ -40,22 +39,13 @@ var Resizer = function(){
         EventBus.trigger(EVENT.sizerChanged,currentSize);
     }
 
-    me.setOverlay = function(content){
-        if (!sizeBox){
-            console.error("Please set Resizer before defining overlay");
-            return;
-        }
-        if (!overlay){
-            overlay = document.createElement("canvas");
-            overlay.width = 0;
-            overlay.height = 0;
-            sizeBox.appendChild(overlay);
-        }
-        overlayContent = content;
+    me.setOnUpdate = function(handler){
+        updateHandler = handler;
     }
 
     me.commit = function(){
         sizeBox.classList.remove("hot");
+        updateHandler = undefined;
     }
     
     me.get = function(){
@@ -95,7 +85,6 @@ var Resizer = function(){
         if (sizeBox && sizeBox.classList.contains("active")){
             let s = Selection.get();
             if (s && s.width && s.height){
-                debugger;
                 console.error("CHECK");
                 me.set(s.left,s.top,s.width,s.height);
             }
@@ -119,10 +108,6 @@ var Resizer = function(){
     // TODO should this be in resizer?
     EventBus.on(COMMAND.CLEARSELECTION,()=>{
         if (sizeBox) sizeBox.classList.remove("active");
-        if (overlay){
-            overlay.remove();
-            overlay = undefined;
-        }
     })
 
     function createSizeBox(parent){
@@ -152,6 +137,7 @@ var Resizer = function(){
                 let x = currentSize.left + currentSize.width/2;
                 let y = currentSize.top + currentSize.height/2;
                 touchData.rotateCenter = [x,y];
+                touchData.startAngle = currentSize.rotation;
                 if (i===0)  touchData.rotateStart= [currentSize.left,currentSize.top];
                 if (i===1)  touchData.rotateStart= [currentSize.left+currentSize.width,currentSize.top];
                 if (i===2)  touchData.rotateStart= [currentSize.left+currentSize.width,currentSize.top+currentSize.height];
@@ -165,18 +151,27 @@ var Resizer = function(){
                 let b ={x:touchData.rotateCenter[0],y:touchData.rotateCenter[1]};
                 let c ={x:touchData.rotateEnd[0],y:touchData.rotateEnd[1]};
                 let angle = angle_between_points(c,b,a);
-                angle += currentSize.rotation||0;
+                angle += touchData.startAngle||0;
                 if (Input.isShiftDown() && Input.isMouseDown()){
                     angle = Math.round(angle/15) * 15;
                 }
                 currentSize.angle=angle;
+                currentSize.rotation=angle;
                 sizeBox.style.transform = "rotate("+angle+"deg)";
+
+                updateSizeBox();
 
             }
             rotateDot.onDragEnd = function(x,y){
                 currentSize.rotation = currentSize.angle;
                 delete  currentSize.angle;
                 touchData.isRotating = false;
+            }
+            rotateDot.onmouseenter = function(){
+                Cursor.set("rotate");
+            }
+            rotateDot.onmouseleave = function(){
+                Cursor.reset();
             }
             rotateDot.index = i;
             rotateDots.push(rotateDot);
@@ -241,27 +236,9 @@ var Resizer = function(){
         rotateDots[2].style.left = dots[4].style.left;
         rotateDots[3].style.top = dots[6].style.top;
 
-        if (overlay){
-            overlay.width = wz;
-            overlay.height = hz;
-            updateOverlay();
-        }
-    }
 
-    function updateOverlay(){
-        if (overlay && overlayContent){
-            if (typeof overlayContent === "function"){
-                overlayContent(overlay);
-            }else{
-                // only type canvas?
-                let ctx = overlay.getContext("2d");
-                ctx.webkitImageSmoothingEnabled = false;
-                ctx.mozImageSmoothingEnabled = false;
-                ctx.imageSmoothingEnabled = false;
-                ctx.clearRect(0,0,overlay.width,overlay.height);
-                ctx.drawImage(overlayContent,0,0,overlay.width,overlay.height);
-            }
-        }
+        if (updateHandler) updateHandler();
+
     }
 
     function resizeBox(event){

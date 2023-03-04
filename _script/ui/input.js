@@ -127,7 +127,6 @@ var Input = function(){
 			Statusbar.setToolTip("");
 		}
 
-
 		if (touchData.isDragging && touchData.onDrag){
 			let x = e.clientX-touchData.startX;
 			let y = e.clientY-touchData.startY;
@@ -187,9 +186,9 @@ var Input = function(){
 				break;
 			case "escape":
 				// TODO should we tie this to the selected tool?
-				EventBus.trigger(COMMAND.CLEARSELECTION);
 				Menu.close();
 				ContextMenu.hide();
+				Editor.reset();
 				break;
 			case "tab":
 				EventBus.trigger(COMMAND.SPLITSCREEN);
@@ -232,6 +231,7 @@ var Input = function(){
 				case "p": EventBus.trigger(COMMAND.POLYGONSELECT); break;
 				case "r": EventBus.trigger(COMMAND.SQUARE); break;
 				case "s": EventBus.trigger(COMMAND.SELECT); break;
+				case "v": EventBus.trigger(COMMAND.TRANSFORMLAYER); break;
 				case "x": EventBus.trigger(COMMAND.SWAPCOLORS); break;
 			}
 		}

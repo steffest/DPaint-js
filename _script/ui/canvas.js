@@ -193,11 +193,12 @@ let Canvas = function(parent){
         EventBus.trigger(EVENT.layerContentChanged);
     }
 
-    let defaultDrawFunction = function(canvas){
-        let w = canvas.width;
-        let h = canvas.height;
-        let x = 0;
-        let y = 0;
+    let defaultDrawFunction = function(){
+        let box = Resizer.get();
+        let w = box.width;
+        let h = box.height;
+        let x = box.left;
+        let y = box.top;
         drawFunction(canvas.getContext("2d"),x,y,w,h);
     }
 
@@ -222,10 +223,7 @@ let Canvas = function(parent){
                     Palette.setColor(pixel);
                     return;
                 }
-                
-                if (touchData.isResizing){
-                    return;
-                }
+
                 let currentTool = Editor.getCurrentTool();
                 switch (currentTool){
                     case COMMAND.DRAW:
@@ -242,63 +240,74 @@ let Canvas = function(parent){
                         touchData.isPolySelect = true;
                         selectBox.polySelect(point);
                         break;
+                    case COMMAND.CIRCLE:
                     case COMMAND.SQUARE:
                         touchData.isSelecting = true;
                         selectBox.activate();
                         Resizer.set(point.x,point.y,0,0,0,true,parent.getViewPort(),1);
-                        drawFunction = function(ctx,x,y,w,h,button){
-                            let color = button?Palette.getBackgroundColor():Palette.getDrawColor();
-                            if (ToolOptions.isFill()){
+
+                        if (currentTool === COMMAND.CIRCLE){
+                            drawFunction = function(ctx,x,y,w,h,button){
+                                ctx.clearRect(0,0,ctx.canvas.width,ctx.canvas.height);
+                                let color = button?Palette.getBackgroundColor():Palette.getDrawColor();
+                                let cx = x + w/2;
+                                let cy = y + h/2;
+                                let wx = w/2;
+                                let wh = h/2;
+                                let isOdd = false;
+                                ctx.imageSmoothingEnabled = ToolOptions.isSmooth();
                                 ctx.fillStyle = color;
-                                ctx.fillRect(x,y,w,h);
-                            }else{
-                                ctx.strokeStyle = color;
-                                ctx.lineWidth = ToolOptions.getLineSize();
-                                let isOdd = ctx.lineWidth%2===1;
+                                if (!ToolOptions.isFill()){
+                                    ctx.strokeStyle = color;
+                                    ctx.lineWidth = ToolOptions.getLineSize();
+                                    isOdd = ctx.lineWidth%2===1;
+                                }
                                 ctx.beginPath();
                                 if (isOdd) ctx.translate(0.5,0.5);
-                                ctx.rect(x,y,w,h);
+                                ctx.ellipse(cx, cy, wx, wh, 0, 0, 2 * Math.PI);
                                 if (isOdd) ctx.translate(-0.5,-0.5);
-                                ctx.closePath();
-                                ctx.stroke();
-
-                            }
-
-                        }
-                        Resizer.setOverlay(defaultDrawFunction);
-                        break;
-                    case COMMAND.CIRCLE:
-                        touchData.isSelecting = true;
-                        selectBox.activate();
-                        Resizer.set(point.x,point.y,0,0,0,true,parent.getViewPort(),1);
-                        drawFunction = function(ctx,x,y,w,h,button){
-                            let color = button?Palette.getBackgroundColor():Palette.getDrawColor();
-                            let cx = x + w/2;
-                            let cy = y + h/2;
-                            let wx = w/2;
-                            let wh = h/2;
-                            let isOdd = false;
-                            ctx.imageSmoothingEnabled = ToolOptions.isSmooth();
-                            ctx.fillStyle = color;
-                            if (!ToolOptions.isFill()){
-                                ctx.strokeStyle = color;
-                                ctx.lineWidth = ToolOptions.getLineSize();
-                                isOdd = ctx.lineWidth%2===1;
-                            }
-                            ctx.beginPath();
-                            if (isOdd) ctx.translate(0.5,0.5);
-                            ctx.ellipse(cx, cy, wx, wh, 0, 0, 2 * Math.PI);
-                            if (isOdd) ctx.translate(-0.5,-0.5);
-                            if (ToolOptions.isFill()){
-                                ctx.fill();
-                            }else{
-                                ctx.stroke();
+                                if (ToolOptions.isFill()){
+                                    ctx.fill();
+                                }else{
+                                    ctx.stroke();
+                                }
                             }
                         }
-                        Resizer.setOverlay(defaultDrawFunction);
+
+                        if (currentTool === COMMAND.SQUARE){
+                            drawFunction = function(ctx,x,y,w,h,button){
+                                ctx.clearRect(0,0,ctx.canvas.width,ctx.canvas.height);
+                                let color = button?Palette.getBackgroundColor():Palette.getDrawColor();
+                                if (ToolOptions.isFill()){
+                                    ctx.fillStyle = color;
+                                    ctx.fillRect(x,y,w,h);
+                                }else{
+                                    ctx.strokeStyle = color;
+                                    ctx.lineWidth = ToolOptions.getLineSize();
+                                    let isOdd = ctx.lineWidth%2===1;
+                                    ctx.beginPath();
+                                    if (isOdd) ctx.translate(0.5,0.5);
+                                    ctx.rect(x,y,w,h);
+                                    if (isOdd) ctx.translate(-0.5,-0.5);
+                                    ctx.closePath();
+                                    ctx.stroke();
+                                }
+                            }
+                        }
+
+                        Resizer.setOnUpdate(()=>{
+                            let box = Resizer.get();
+                            let w = box.width;
+                            let h = box.height;
+                            let x = box.left;
+                            let y = box.top;
+                            ImageFile.getActiveLayer().drawShape(drawFunction,x,y,w,h);
+                            EventBus.trigger(EVENT.layerContentChanged);
+                        });
                         break;
                     case COMMAND.LINE:
                     case COMMAND.GRADIENT:
+                        // TODO move this as well to the drawLayer of the active layer ?
                         let layerIndex = ImageFile.addLayer();
                         let drawLayer = ImageFile.getLayer(layerIndex);
                         touchData.hotDrawFunction = function(x,y){
@@ -411,7 +420,6 @@ let Canvas = function(parent){
                 }
                 break;
             case 'up':
-
                 if (touchData.isDrawing){
                     let layer = touchData.drawLayer || ImageFile.getActiveLayer();
                     layer.commitDraw();
@@ -423,9 +431,11 @@ let Canvas = function(parent){
                         Selection.set(touchData.selection);
                         Resizer.commit();
 
-                        if (Editor.getCurrentTool() ===  COMMAND.SQUARE || Editor.getCurrentTool() ===  COMMAND.CIRCLE){
-                            let s = Resizer.get();
-                            drawFunction(ImageFile.getActiveContext(),s.left,s.top,s.width,s.height,touchData.button)
+                        if (drawFunction){
+                            //let s = Resizer.get();
+                            //drawFunction(ImageFile.getActiveContext(),s.left,s.top,s.width,s.height,touchData.button)
+                            ImageFile.getActiveLayer().commitDraw();
+                            drawFunction = undefined;
                             EventBus.trigger(EVENT.layerContentChanged);
                             EventBus.trigger(COMMAND.CLEARSELECTION);
                         }
@@ -444,7 +454,6 @@ let Canvas = function(parent){
                 touchData.isdown = false;
                 touchData.isDrawing = false;
                 touchData.isSelecting = false;
-                touchData.isResizing = false;
                 touchData.selection = undefined;
 
                 break;
@@ -511,14 +520,6 @@ let Canvas = function(parent){
                         EventBus.trigger(EVENT.sizerChanged,touchData.selection);
                     }
 
-                    if (touchData.isResizing){
-                        let w = point.x - touchData.x;
-                        let h = point.y - touchData.y;
-                        touchData.selection.width = touchData.startSelectWidth + w;
-                        touchData.selection.height = touchData.startSelectHeight + h;
-                        EventBus.trigger(EVENT.sizerChanged,touchData.selection);
-                    }
-
                     if (touchData.hotDrawFunction){
                         touchData.hotDrawFunction(point.x,point.y);
                     }
@@ -531,7 +532,6 @@ let Canvas = function(parent){
         }
     }
 
-    
 
     function getCursorPosition(elm, event, persist) {
         const rect = elm.getBoundingClientRect();

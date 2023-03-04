@@ -56,9 +56,11 @@ var Editor = function(){
         
         EventBus.on(COMMAND.ZOOMIN,function(center){
             activePanel.zoom(zoomFactor,center);
+            EventBus.trigger(EVENT.sizerChanged);
         });
         EventBus.on(COMMAND.ZOOMOUT,function(center){
             activePanel.zoom(1/zoomFactor,center);
+            EventBus.trigger(EVENT.sizerChanged);
         });
 
         //TODO: move these to ToolOptions
@@ -182,11 +184,17 @@ var Editor = function(){
             currentTool = COMMAND.TRANSFORMLAYER;
             let box = ImageFile.getLayerBoundingRect();
             Resizer.set(box.x,box.y,box.w,box.h,0,false,activePanel.getViewPort(),box.w/box.h);
-            let sizeCanvas = document.createElement("canvas");
-            sizeCanvas.width = box.w;
-            sizeCanvas.height = box.h;
-            sizeCanvas.getContext("2d").drawImage(ImageFile.getActiveContext().canvas,box.x,box.y,box.w,box.h,0,0,box.w,box.h);
-            Resizer.setOverlay(sizeCanvas)
+
+            touchData.transformBox = box;
+            touchData.transformCanvas = document.createElement("canvas");
+            touchData.transformCanvas.width = box.w;
+            touchData.transformCanvas.height = box.h;
+            let ctx = touchData.transformCanvas.getContext("2d");
+            ctx.imageSmoothingEnabled = false;
+            ctx.drawImage(ImageFile.getActiveContext().canvas,box.x,box.y,box.w,box.h,0,0,box.w,box.h);
+
+            touchData.transformLayer = ImageFile.getActiveLayer();
+            Resizer.setOnUpdate(updateTransform);
         });
 
         EventBus.on(COMMAND.COLORMASK,()=>{
@@ -284,50 +292,22 @@ var Editor = function(){
 
     me.commit = function(){
         if (currentTool === COMMAND.TRANSFORMLAYER){
-            console.error("commit layer");
-            let d = Resizer.get();
-            let box = ImageFile.getLayerBoundingRect();
-            console.error(box,d);
-
-            let sizeCanvas = document.createElement("canvas");
-            sizeCanvas.width = box.w;
-            sizeCanvas.height = box.h;
-            let sctx = sizeCanvas.getContext("2d");
-            sctx.imageSmoothingEnabled = false;
-            sctx.drawImage(ImageFile.getActiveContext().canvas,box.x,box.y,box.w,box.h,0,0,box.w,box.h);
-
-            let layer = ImageFile.getActiveLayer();
-            layer.clear();
-            let ctx = layer.getContext();
-            ctx.imageSmoothingEnabled = false;
-            if (d.rotation){
-                console.error("rotate " + d.rotation);
-                //ctx.translate(-d.left + d.width/2,-d.top + d.height/2);
-                let dw = (d.left + d.width/2);
-                let dh = (d.top + d.height/2);
-                ctx.translate(dw,dh);
-                ctx.rotate((d.rotation * Math.PI) / 180);
-                ctx.translate(-dw,-dh);
-
-                // first resize the image
-                //let rCanvas=document.createElement("canvas");
-                //rCanvas.width = d.width;
-                //rCanvas.height = d.height;
-                //let rCtx = rCanvas.getContext("2d");
-                //rCtx.imageSmoothingEnabled = false;
-                //rCtx.drawImage(sizeCanvas,0,0);
-
-                //ctx.drawImage(rCanvas,d.left,d.top,d.width,d.height);
-
-                ctx.drawImage(sizeCanvas,d.left,d.top,d.width,d.height);
-
-            }else{
-                ctx.drawImage(sizeCanvas,d.left,d.top,d.width,d.height);
-            }
-            ctx.setTransform(1, 0, 0, 1, 0, 0);
+            console.log("commit layer");
+            Resizer.commit();
+            updateTransform();
+            clearTransform();
             EventBus.trigger(COMMAND.CLEARSELECTION);
-            EventBus.trigger(EVENT.layerContentChanged);
         }
+    }
+
+    me.reset = function(){
+        if (currentTool === COMMAND.TRANSFORMLAYER){
+            Resizer.commit();
+            resetTransform();
+            clearTransform();
+            currentTool = undefined;
+        }
+        EventBus.trigger(COMMAND.CLEARSELECTION);
     }
 
     me.arrowKey = function(direction){
@@ -344,6 +324,42 @@ var Editor = function(){
             y*=10;
         }
         Resizer.move(x,y);
+    }
+
+    function updateTransform(){
+        console.log("update transform layer");
+        let d = Resizer.get();
+        touchData.transformLayer.clear();
+        let ctx = touchData.transformLayer.getContext();
+        ctx.imageSmoothingEnabled = false;
+        if (d.rotation){
+            console.error("rotate " + d.rotation);
+
+            let dw = (d.left + d.width/2);
+            let dh = (d.top + d.height/2);
+            ctx.translate(dw,dh);
+            ctx.rotate((d.rotation * Math.PI) / 180);
+            ctx.translate(-dw,-dh);
+        }
+        ctx.drawImage(touchData.transformCanvas,d.left,d.top,d.width,d.height);
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        EventBus.trigger(EVENT.layerContentChanged);
+    }
+
+    function resetTransform(){
+        touchData.transformLayer.clear();
+        let ctx = touchData.transformLayer.getContext();
+        let box = touchData.transformBox;
+        ctx.imageSmoothingEnabled = false;
+        ctx.drawImage(touchData.transformCanvas,box.x,box.y,box.w,box.h);
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        EventBus.trigger(EVENT.layerContentChanged);
+    }
+
+    function clearTransform(){
+        touchData.transformBox = undefined;
+        if (touchData.transformCanvas) releaseCanvas(touchData.transformCanvas);
+        touchData.transformLayer = undefined;
     }
 
 

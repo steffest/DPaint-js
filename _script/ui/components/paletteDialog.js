@@ -201,9 +201,6 @@ var PaletteDialog = function() {
     }
 
     function updateColor(color){
-        if (window.debug){
-            debugger;
-        }
         if (typeof color === "string" && color.substr(0,1) === "#"){
             color = color + "000000";
             color=color.substr(0, 7);

@@ -11,6 +11,24 @@
   background-size: contain;
   z-index: 100;
   display: none;
+
+  &.rotate{
+    background-image: url("../_img/rotate1.svg");
+    margin-top: -10px;
+    margin-left: -10px;
+  }
+}
+
+body.customcursor{
+  cursor: none;
+
+  .sizebox{
+    cursor: none;
+  }
+
+  .cursor{
+    display: block;
+  }
 }
 
 body.hovericonEditorCanvas.shift.mousedown:not(.select){

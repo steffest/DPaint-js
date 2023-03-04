@@ -26,7 +26,13 @@ var Cursor = function(){
     }
 
     me.set = function(name){
-        console.error(name);
+        document.body.classList.add("customcursor");
+        cursor.className = "cursor " + name;
+    }
+
+    me.reset = function(name){
+        document.body.classList.remove("customcursor");
+        cursor.className = "cursor";
     }
 
     me.getPosition = ()=>{
