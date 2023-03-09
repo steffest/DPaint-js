@@ -240,6 +240,14 @@ let Canvas = function(parent){
                         touchData.isPolySelect = true;
                         selectBox.polySelect(point);
                         break;
+                    case COMMAND.FLOODSELECT:
+                        let c = selectBox.floodSelect(ImageFile.getActiveLayer().getCanvas(),point);
+
+                        selectBox.activate();
+                        selectBox.applyCanvas(c);
+                        EventBus.trigger(EVENT.layerContentChanged);
+
+                        break;
                     case COMMAND.CIRCLE:
                     case COMMAND.SQUARE:
                         touchData.isSelecting = true;

@@ -51,7 +51,8 @@ export let COMMAND={
     TOSELECTION: 1050,
     CUTTOLAYER: 1051,
     SWAPCOLORS: 1052,
-    ABOUT: 1053
+    ABOUT: 1053,
+    FLOODSELECT: 1054,
 }
 
 export let EVENT={

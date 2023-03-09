@@ -120,6 +120,11 @@ var Input = function(){
 	}
 
 	function onMouseMove(e){
+
+		if (!e.shiftKey) keyDown["shift"]=false;
+		if (!e.ctrlKey) keyDown["control"]=false;
+		if (!e.metaKey) keyDown["meta"]=false;
+
 		let infoTarget = e.target.closest(".info");
 		if (infoTarget){
 			if (infoTarget.info) Statusbar.setToolTip(infoTarget.info);

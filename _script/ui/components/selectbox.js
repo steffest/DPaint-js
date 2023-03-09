@@ -8,6 +8,7 @@ import Input from "../input.js";
 import {duplicateCanvas, releaseCanvas} from "../../util/canvasUtils.js";
 import Resizer from "./resizer.js";
 import effects from "../effects.js";
+import Color from "../../util/color.js";
 
 let SelectBox = (()=>{
     let me = {};
@@ -117,6 +118,57 @@ let SelectBox = (()=>{
             height: canvas.height,
             canvas: selectedCanvas
         })
+    }
+
+    me.floodSelect = function(canvas,point){
+        let w = canvas.width;
+        let h = canvas.height;
+        let imageData = canvas.getContext("2d").getImageData(0,0,w,h);
+
+        let c = duplicateCanvas(canvas).getContext("2d");
+        let target = c.getImageData(0,0,w,h);
+
+        let done = {};
+        let check = [];
+        let ind = getIndex(point);
+        put(ind);
+        let color = getColor(ind);
+
+        while (check.length){
+            let i = check.shift();
+            let x = i%w;
+            let y = (i-x)/w;
+            if (x>0) checkIndex(i-1);
+            if (x<w) checkIndex(i+1);
+            if (y>0) checkIndex(i-w);
+            if (y<h) checkIndex(i+w);
+        }
+
+        c.putImageData(target,0,0);
+        return c.canvas;
+
+        function getColor(index){
+            index *= 4;
+            let r = imageData.data[index];
+            let g = imageData.data[index+1];
+            let b = imageData.data[index+2];
+            let a = imageData.data[index+3];
+            return Color.toHex([r,g,b]);
+        }
+
+        function getIndex(p) {
+            return p.y*w + p.x;
+        }
+
+        function checkIndex(ind){
+            if (!done[ind] && getColor(ind) === color) put(ind);
+        }
+
+        function put(ind){
+            target.data[ind*4 + 3] = 255;
+            done[ind] = true;
+            check.push(ind)
+        }
     }
 
     me.update = (fromEvent)=>{

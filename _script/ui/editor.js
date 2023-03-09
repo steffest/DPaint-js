@@ -84,6 +84,11 @@ var Editor = function(){
             document.body.classList.add("select");
             document.body.classList.remove("draw");
         });
+        EventBus.on(COMMAND.FLOODSELECT,function(){
+            currentTool = COMMAND.FLOODSELECT;
+            document.body.classList.add("select");
+            document.body.classList.remove("draw");
+        });
         EventBus.on(COMMAND.SQUARE,function(){
             currentTool = COMMAND.SQUARE;
             document.body.classList.add("select");
@@ -165,7 +170,6 @@ var Editor = function(){
                 ImageFile.getCurrentFile().height = s.height;
                 Selection.move(0,0,s.width,s.height);
                 EventBus.trigger(EVENT.imageSizeChanged);
-
             }
         });
         EventBus.on(COMMAND.TRIM,()=>{
@@ -248,6 +252,10 @@ var Editor = function(){
         EventBus.on(COMMAND.EFFECTS, ()=>{
             Modal.show(DIALOG.EFFECTS);
         })
+        EventBus.on(EVENT.toolChanged,(tool)=>{
+            console.error("tool changed");
+            me.commit();
+        });
 
     }
 
