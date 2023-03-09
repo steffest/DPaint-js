@@ -20,6 +20,12 @@ let SelectBox = (()=>{
     let selecting;
     let dots;
 
+    let border = $div("border","<svg xmlns='http://www.w3.org/2000/svg' viewbox='0 0 40 40' preserveAspectRatio='none'><rect class='white' width='40' height='40'/><<rect class='ants'  width='40' height='40'/>/svg>");
+    box.appendChild(border);
+
+    let content = $div("content");
+    box.appendChild(content);
+
     me.getBox = ()=>{
         return box;
     }
@@ -32,7 +38,7 @@ let SelectBox = (()=>{
         box.classList.remove("active","full");
         if (canvas){
             me.endPolySelect();
-            box.innerHTML = "";
+            content.innerHTML = "";
             selectionPoints = [];
             selecting = false;
             canvas.remove();
@@ -47,7 +53,7 @@ let SelectBox = (()=>{
 
     me.polySelect = (point)=>{
         setupCanvas();
-        if (!dots) dots = $div("dots","",box);
+        if (!dots) dots = $div("dots","",content);
 
         if (!selecting){
             selectionPoints = [];
@@ -222,7 +228,7 @@ let SelectBox = (()=>{
             canvas.height = h;
             canvas.style.width = Math.floor(canvas.width * zoom) + "px";
             canvas.style.height = Math.floor(canvas.height * zoom) + "px";
-            box.appendChild(canvas);
+            content.appendChild(canvas);
             ctx = canvas.getContext("2d");
         }
     }

@@ -1163,16 +1163,45 @@ body.withsidepanel .splitpanel {
   display: none;
   z-index: 4;
   pointer-events: none;
-  border: 1px solid black;
 }
-.selectbox:after {
-  content: "";
+.selectbox .border {
   position: absolute;
-  border: 1px dashed white;
   left: -1px;
-  right: -1px;
   top: -1px;
+  right: -1px;
   bottom: -1px;
+}
+.selectbox .border svg {
+  width: 100%;
+  height: 100%;
+}
+.selectbox .border svg .white {
+  fill: none;
+  stroke: #FFF;
+  stroke-width: 2px;
+  vector-effect: non-scaling-stroke;
+}
+.selectbox .border svg .ants {
+  fill: none;
+  stroke: #000;
+  stroke-width: 2px;
+  vector-effect: non-scaling-stroke;
+  stroke-dasharray: 4px;
+  animation: stroke 0.2s linear infinite;
+  /*shape-rendering: geometricPrecision;*/
+  stroke-dashoffset: 8px;
+}
+@keyframes stroke {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+.selectbox .content {
+  position: absolute;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
 }
 .selectbox.active {
   display: block;
@@ -1181,9 +1210,8 @@ body.withsidepanel .splitpanel {
   display: block;
   background-color: rgba(255, 0, 0, 0.15);
   pointer-events: all;
-  border: none;
 }
-.selectbox.full:after {
+.selectbox.full .border {
   display: none;
 }
 .selectbox.full .dots {
@@ -1332,7 +1360,7 @@ body.hovericonEditorCanvas.shift.mousedown:not(.select).mousedown .cursor .mark 
   border-bottom: 1px solid black;
   position: relative;
   height: 20px;
-  background-color: #00000038;
+  background-color: rgba(0, 0, 0, 0.2196078431);
   cursor: move;
   user-select: none;
 }
@@ -1740,14 +1768,14 @@ body.hovericonEditorCanvas.shift.mousedown:not(.select).mousedown .cursor .mark 
   margin-top: -2px;
 }
 .modalwindow .inner .effects .sliders .slider input[type=range]::-webkit-slider-runnable-track {
-  background: linear-gradient(90deg, black 0%, #c8c8c8 100%);
+  background: linear-gradient(90deg, rgb(0, 0, 0) 0%, rgb(200, 200, 200) 100%);
   border: 1px solid #010101;
   width: 100%;
   height: 4px;
   cursor: pointer;
 }
 .modalwindow .inner .effects .sliders .slider input[type=range]::-moz-range-track {
-  background: linear-gradient(90deg, black 0%, #c8c8c8 100%);
+  background: linear-gradient(90deg, rgb(0, 0, 0) 0%, rgb(200, 200, 200) 100%);
   border: 1px solid #010101;
   width: 100%;
   height: 2px;

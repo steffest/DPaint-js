@@ -100,7 +100,7 @@ var Resizer = function(){
     // TODO should this be in resizer?
     EventBus.on(COMMAND.SELECT,()=>{
         let s = Selection.get();
-        if (s && s.width && s.height){
+        if (s && s.width && s.height && sizeBox){
             sizeBox.classList.add("active");
         }
     })
