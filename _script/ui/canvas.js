@@ -14,7 +14,9 @@ import StatusBar from "./statusbar.js";
 import SelectBox from "./components/selectbox.js";
 import ImageProcessing from "../util/imageProcessing.js";
 import DitherPanel from "./components/ditherPanel.js";
+import Color from "../util/color.js";
 import {duplicateCanvas} from "../util/canvasUtils.js";
+import historyservice from "../services/historyservice.js";
 
 let Canvas = function(parent){
 	let me = {};
@@ -83,7 +85,7 @@ let Canvas = function(parent){
         overlayCanvas.style.opacity = 1;
         overlayCtx.clearRect(0,0, canvas.width, canvas.height);
         overlayCtx.globalAlpha = Brush.getOpacity();
-        Brush.draw(overlayCtx,point.x,point.y,Palette.getDrawColor(),false,(Input.isControlDown() || Input.isMetaDown()));
+        Brush.draw(overlayCtx,point.x,point.y,Palette.getDrawColor(),(Input.isControlDown() || Input.isMetaDown()));
         overlayCtx.globalAlpha = 1;
 
     });
@@ -218,7 +220,7 @@ let Canvas = function(parent){
                     touchData.startScrollX = panelParent.scrollLeft;
                     touchData.startScrollY = panelParent.scrollTop;
                     return;
-                }else if (Input.isShiftDown() && canPickColor()){
+                }else if ((Input.isShiftDown() || Input.isAltDown()) && canPickColor()){
                     var pixel = ctx.getImageData(point.x, point.y, 1, 1).data;
                     Palette.setColor(pixel);
                     return;
@@ -228,7 +230,7 @@ let Canvas = function(parent){
                 switch (currentTool){
                     case COMMAND.DRAW:
                     case COMMAND.ERASE:
-                        HistoryService.start([COMMAND.DRAW,ctx,onChange]);
+                        historyservice.start(EVENT.layerHistory);
                         draw();
                         break;
                     case COMMAND.SELECT:
@@ -242,11 +244,16 @@ let Canvas = function(parent){
                         break;
                     case COMMAND.FLOODSELECT:
                         let c = selectBox.floodSelect(ImageFile.getActiveLayer().getCanvas(),point);
-
                         selectBox.activate();
                         selectBox.applyCanvas(c);
                         EventBus.trigger(EVENT.layerContentChanged);
-
+                        break;
+                    case COMMAND.FLOOD:
+                        historyservice.start(EVENT.layerHistory);
+                        let cf = selectBox.floodSelect(ImageFile.getActiveLayer().getCanvas(),point,Color.fromString(e.button?Palette.getBackgroundColor():Palette.getDrawColor()));
+                        ImageFile.getActiveLayer().drawImage(cf)
+                        historyservice.end();
+                        EventBus.trigger(EVENT.layerContentChanged);
                         break;
                     case COMMAND.CIRCLE:
                     case COMMAND.SQUARE:
@@ -321,11 +328,10 @@ let Canvas = function(parent){
                         touchData.hotDrawFunction = function(x,y){
                             drawLayer.clear();
                             let ctx = drawLayer.getContext();
-                            ctx.lineWidth = ToolOptions.getLineSize();
-                            let isOdd = ctx.lineWidth%2===1;
+                            ctx.lineWidth = ToolOptions.getLineSize() / (window.devicePixelRatio || 1);
                             ctx.lineCap = "square";
                             ctx.strokeStyle = Palette.getDrawColor();
-                            ctx.imageSmoothingEnabled = ToolOptions.isSmooth();
+                            ctx.imageSmoothingEnabled = false;
 
                             if (Input.isShiftDown()){
                                 // snap to x or y axis
@@ -348,19 +354,24 @@ let Canvas = function(parent){
                             if (currentTool === COMMAND.GRADIENT){
                                 ctx.strokeStyle = "black";
                                 ctx.lineWidth = 2;
-                                isOdd = false;
                                 touchData.points=[point,{x:x,y:y}];
                             }
 
+                            if (ToolOptions.isSmooth()){
+                                let isOdd = ctx.lineWidth%2===1;
+                                if (isOdd) ctx.translate(.5,.5);
+                                ctx.beginPath();
+                                ctx.moveTo(point.x,point.y);
+                                ctx.lineTo(x,y);
+                                ctx.closePath();
+                                ctx.stroke();
+                                if (isOdd) ctx.translate(-.5,-.5);
+                            }else{
+                                bLine(point.x,point.y,x,y,ctx,Color.fromString(Palette.getDrawColor()));
+                            }
 
-                            if (isOdd) ctx.translate(.5,.5);
-                            ctx.beginPath();
-                            ctx.moveTo(point.x,point.y);
-                            ctx.lineTo(x,y);
-                            ctx.closePath();
-                            ctx.stroke();
-                            if (isOdd) ctx.translate(-.5,-.5);
                             EventBus.trigger(EVENT.layerContentChanged);
+
                         }
                         touchData.hotDrawDone = function(){
                             if (currentTool === COMMAND.GRADIENT){
@@ -499,7 +510,7 @@ let Canvas = function(parent){
                         return;
                     }
 
-                    if (Input.isShiftDown() && canPickColor()){
+                    if ((Input.isShiftDown() || Input.isAltDown()) && canPickColor()){
                         var pixel = ctx.getImageData(point.x, point.y, 1, 1).data;
                         Palette.setColor(pixel);
                         return;
@@ -578,6 +589,31 @@ let Canvas = function(parent){
         // TODO this is crap - FIXME !
         let ct = Editor.getCurrentTool();
         return !(ct === COMMAND.SELECT || ct === COMMAND.SQUARE || ct === COMMAND.GRADIENT || ct === COMMAND.CIRCLE || ct === COMMAND.LINE ||  ct === COMMAND.TRANSFORMLAYER);
+    }
+
+    //Bresenham's_line_algorithm
+    //http://rosettacode.org/wiki/Bitmap/Bresenham's_line_algorithm
+    function bLine(x0, y0, x1, y1,ctx,color) {
+        let imgData=ctx.getImageData(0,0,canvas.width,canvas.height);
+        let data = imgData.data;
+
+        var dx = Math.abs(x1 - x0), sx = x0 < x1 ? 1 : -1;
+        var dy = Math.abs(y1 - y0), sy = y0 < y1 ? 1 : -1;
+        var err = (dx>dy ? dx : -dy)/2;
+        while (true) {
+            // setPixel
+            let n=(y0*canvas.width+x0)*4;
+            data[n]=color[0];
+            data[n+1]=color[1];
+            data[n+2]=color[2];
+            data[n+3]=255;
+
+            if (x0 === x1 && y0 === y1) break;
+            var e2 = err;
+            if (e2 > -dx) { err -= dy; x0 += sx; }
+            if (e2 < dy) { err += dx; y0 += sy; }
+        }
+        ctx.putImageData(imgData,0,0);
     }
 
     return me;

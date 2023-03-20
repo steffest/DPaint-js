@@ -1285,13 +1285,13 @@ body.customcursor .cursor {
   display: block;
 }
 
-body.hovericonEditorCanvas.shift.mousedown:not(.select) canvas.mainCanvas {
+body.hovericonEditorCanvas.mousedown.colorpicker canvas.mainCanvas {
   cursor: none;
 }
-body.hovericonEditorCanvas.shift.mousedown:not(.select) .cursor {
+body.hovericonEditorCanvas.mousedown.colorpicker .cursor {
   display: block;
 }
-body.hovericonEditorCanvas.shift.mousedown:not(.select) .cursor .mark {
+body.hovericonEditorCanvas.mousedown.colorpicker .cursor .mark {
   position: absolute;
   pointer-events: none;
   display: none;
@@ -1302,7 +1302,7 @@ body.hovericonEditorCanvas.shift.mousedown:not(.select) .cursor .mark {
   border-radius: 50%;
   box-shadow: 0 0 3px 1px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.5), inset 0 0 3px 1px rgba(0, 0, 0, 0.5), inset 0 0 0 1px rgba(255, 255, 255, 0.5);
 }
-body.hovericonEditorCanvas.shift.mousedown:not(.select).mousedown .cursor .mark {
+body.hovericonEditorCanvas.mousedown.colorpicker.mousedown .cursor .mark {
   display: block;
 }
 
@@ -1360,7 +1360,7 @@ body.hovericonEditorCanvas.shift.mousedown:not(.select).mousedown .cursor .mark 
   border-bottom: 1px solid black;
   position: relative;
   height: 20px;
-  background-color: rgba(0, 0, 0, 0.2196078431);
+  background-color: #00000038;
   cursor: move;
   user-select: none;
 }
@@ -1655,7 +1655,7 @@ body.hovericonEditorCanvas.shift.mousedown:not(.select).mousedown .cursor .mark 
 }
 .modalwindow .inner .palette .sliders .slider input.slider {
   width: 155px;
-  margin-top: 12px;
+  margin: 4px 0 0 0;
 }
 .modalwindow .inner .palette .sliders .slider input.slider.red::-webkit-slider-runnable-track {
   background: #c40202;
@@ -1687,6 +1687,10 @@ body.hovericonEditorCanvas.shift.mousedown:not(.select).mousedown .cursor .mark 
   top: 0;
   height: 30px;
 }
+.modalwindow .inner .palette .sliders .checkbox {
+  padding: 3px 0;
+  position: relative;
+}
 .modalwindow .inner .palette .sliders .button.small {
   position: absolute;
   line-height: 14px;
@@ -1706,6 +1710,11 @@ body.hovericonEditorCanvas.shift.mousedown:not(.select).mousedown .cursor .mark 
 .modalwindow .inner .palette .sliders .button.small.active {
   opacity: 1;
   pointer-events: all;
+}
+.modalwindow .inner .palette .sliders .pixelcount {
+  position: absolute;
+  left: 169px;
+  top: 0;
 }
 .modalwindow .inner .effects {
   position: absolute;
@@ -1768,14 +1777,14 @@ body.hovericonEditorCanvas.shift.mousedown:not(.select).mousedown .cursor .mark 
   margin-top: -2px;
 }
 .modalwindow .inner .effects .sliders .slider input[type=range]::-webkit-slider-runnable-track {
-  background: linear-gradient(90deg, rgb(0, 0, 0) 0%, rgb(200, 200, 200) 100%);
+  background: linear-gradient(90deg, black 0%, #c8c8c8 100%);
   border: 1px solid #010101;
   width: 100%;
   height: 4px;
   cursor: pointer;
 }
 .modalwindow .inner .effects .sliders .slider input[type=range]::-moz-range-track {
-  background: linear-gradient(90deg, rgb(0, 0, 0) 0%, rgb(200, 200, 200) 100%);
+  background: linear-gradient(90deg, black 0%, #c8c8c8 100%);
   border: 1px solid #010101;
   width: 100%;
   height: 2px;

@@ -1,6 +1,8 @@
 import {$div} from "../util/dom.js";
 import Eventbus from "../util/eventbus.js";
-import {EVENT} from "../enum.js";
+import Input from "./input.js";
+import {COMMAND, EVENT} from "../enum.js";
+import Editor from "./editor.js";
 
 var Cursor = function(){
     var me = {}
@@ -27,17 +29,30 @@ var Cursor = function(){
 
     me.set = function(name){
         document.body.classList.add("customcursor");
+        if (name === "colorpicker") document.body.classList.add("colorpicker");
         cursor.className = "cursor " + name;
     }
 
     me.reset = function(name){
-        document.body.classList.remove("customcursor");
+        document.body.classList.remove("customcursor","colorpicker");
         cursor.className = "cursor";
     }
 
     me.getPosition = ()=>{
         return position;
     }
+
+    Eventbus.on(EVENT.modifierKeyChanged,()=>{
+        let ct = Editor.getCurrentTool();
+        if (ct===COMMAND.DRAW){
+            if (Input.isShiftDown() || Input.isAltDown()){
+                me.set("colorpicker");
+            }else{
+                me.reset();
+            }
+        }
+
+    })
     
     return me;
 }();

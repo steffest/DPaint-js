@@ -1,4 +1,4 @@
-import {$checkbox, $div, $elm, $title} from "../../util/dom.js";
+import $, {$checkbox, $div, $elm, $setTarget} from "../../util/dom.js";
 import ImageFile from "../../image.js";
 import Palette from "../palette.js";
 import Color from "../../util/color.js";
@@ -19,6 +19,7 @@ var PaletteDialog = function() {
     let colorPicker;
     let lockToImage = false;
     let highlight = false;
+    let pixelCount;
     let currentIndex;
     let colorSize = 30;
 
@@ -26,43 +27,45 @@ var PaletteDialog = function() {
         container.innerHTML = "";
         sliders = [];
         buttons = [];
-        let panel = $div("palette panel form","",container);
 
-        let palettePanel = $div("palettepanel","",panel);
-        renderPalette(palettePanel);
-        let subPanel = $div("sliders","",panel);
         let currentColor = Palette.getDrawColor();
 
-        colorCanvas = document.createElement("canvas");
-        colorCanvas.width = 60;
-        colorCanvas.height = 30;
-        subPanel.appendChild(colorCanvas);
+        let palettePanel;
+        let subPanel;
+
+        $setTarget(container);
+        $(".palette.panel.form",
+            palettePanel=$(".palettepanel"),
+            subPanel=$(".sliders",
+                colorCanvas = $("canvas",{
+                    width:60,
+                    height:30,
+                    onclick:()=>{colorPicker.click();}
+                }),
+                colorPicker = $("input.masked",{
+                    type:"color",
+                    value:Color.toHex(currentColor),
+                    oninput: ()=>{
+                        inputHex.value = colorPicker.value;
+                        updateColor(inputHex.value);
+                    }
+                }),
+                inputHex = $("input.hex",{
+                    type:"text",
+                    value:Color.toHex(currentColor),
+                    oninput: ()=>{
+                        updateColor(inputHex.value);
+                    },
+                    onkeydown: modal.inputKeyDown
+                }),
+                )
+        );
+
+        renderPalette(palettePanel);
         colorCanvasCtx = colorCanvas.getContext("2d");
-        colorCanvasCtx.fillStyle = Palette.getDrawColor();
+        colorCanvasCtx.fillStyle = currentColor;
         colorCanvasCtx.fillRect(0,0,60,30);
 
-        colorPicker = document.createElement("input");
-        colorPicker.type = "color";
-        colorPicker.className = "masked";
-        colorPicker.value=Color.toHex(Palette.getDrawColor());
-        colorPicker.oninput = ()=>{
-            inputHex.value = colorPicker.value;
-            updateColor(inputHex.value);
-        }
-        subPanel.appendChild(colorPicker);
-        colorCanvas.onclick = ()=>{
-            colorPicker.click();
-        }
-
-        inputHex = document.createElement("input");
-        inputHex.value = Color.toHex(Palette.getDrawColor());
-        inputHex.type = "text";
-        inputHex.className = "hex"
-        inputHex.onkeydown = modal.inputKeyDown;
-        inputHex.oninput = function(){
-            updateColor(inputHex.value);
-        }
-        subPanel.appendChild(inputHex);
 
         let RGBValues = Color.fromString(currentColor);
         ["red","green","blue"].forEach((color,index)=>{
@@ -104,13 +107,15 @@ var PaletteDialog = function() {
             currentIndex = 0;
         })
 
-        $checkbox("Lock to image",subPanel,"",(checked)=>{
+        $checkbox("Update image colors",subPanel,"",(checked)=>{
             lockToImage = checked;
         })
-        $checkbox("HighLight pixels",subPanel,"",(checked)=>{
+        let cb = $checkbox("HighLight pixels",subPanel,"",(checked)=>{
             highlight = checked;
             setPixelHighLights();
         })
+        $setTarget(cb);
+        pixelCount = $(".pixelcount");
 
         buttons.push($div("button small revert","Revert",subPanel,()=>{
             setColor(Palette.get()[currentIndex],currentIndex);
@@ -137,9 +142,7 @@ var PaletteDialog = function() {
     }
 
     function renderPalette(parent){
-        paletteCanvas = document.createElement("canvas");
-        paletteCanvas.width = 120;
-        paletteCanvas.height = 210;
+        paletteCanvas = $("canvas",{width:120,height:210});
         paletteCanvasCtx = paletteCanvas.getContext("2d");
         let colors = Palette.get();
         colorHighlight = $div("highlight","",parent);
@@ -231,6 +234,10 @@ var PaletteDialog = function() {
 
         buttons.forEach(button=>{button.classList.add("active")})
     }
+
+    EventBus.on(EVENT.colorCount,(count)=>{
+        if (highlight) pixelCount.innerText = "Count: " + count;
+    })
 
     return me;
 }();

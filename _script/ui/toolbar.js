@@ -20,6 +20,7 @@ let Toolbar = function(){
         {name: "square",label: "", isTool: true, canFill: true, command: COMMAND.SQUARE, info: "Draw rectangle. Shift to lock to square, select again to toggle fill."},
         {name: "line",label: "", isTool: true, command: COMMAND.LINE, info: "Draw straight line"},
         {name: "gradient", isTool: true, command: COMMAND.GRADIENT, info: "Gradient fill, draw line to set start- and endpoint"},
+        {name: "flood",label: "F", isTool: true, command: COMMAND.FLOOD, info: "Fill an area"},
         {name: "stamp", command: COMMAND.STAMP, info: "Draw stencil from selection"},
         {name: "erase", isTool: true, command: COMMAND.ERASE, info: "Erase"},
         {name: "split", command: COMMAND.SPLITSCREEN, toggleProperty: "splitPanel", info: "Toggle split view"},

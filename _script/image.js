@@ -586,6 +586,10 @@ let ImageFile = function(){
         EventBus.trigger(EVENT.imageContentChanged);
     });
 
+    EventBus.on(EVENT.imageSizeChanged,()=>{
+        cachedImage = undefined;
+    })
+
     return me;
 }();
 

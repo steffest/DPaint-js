@@ -31,7 +31,7 @@ body.customcursor{
   }
 }
 
-body.hovericonEditorCanvas.shift.mousedown:not(.select){
+body.hovericonEditorCanvas.mousedown.colorpicker{
   canvas.mainCanvas{
     cursor: none;
   }

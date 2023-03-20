@@ -1,7 +1,6 @@
 .palette{
   position: relative;
 
-
   .palettepanel{
     position: absolute;
     left: 10px;
@@ -48,7 +47,7 @@
 
       input.slider{
         width: 155px;
-        margin-top: 12px;
+        margin: 4px 0 0 0;
 
         &.red::-webkit-slider-runnable-track {
           background: #c40202;
@@ -86,6 +85,12 @@
       height: 30px;
     }
 
+
+    .checkbox{
+      padding: 3px 0;
+      position: relative;
+    }
+
     .button.small{
       position: absolute;
       line-height: 14px;
@@ -107,6 +112,12 @@
         opacity: 1;
         pointer-events: all;
       }
+    }
+
+    .pixelcount{
+      position: absolute;
+      left: 169px;
+      top: 0;
     }
   }
 }

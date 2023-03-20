@@ -130,7 +130,6 @@ var ImageProcessing = function(){
 			imageInfos.palette = colors;
 		}
 
-		console.error(canvas);
 		
 		imageInfos.canvas = canvas;
 		imageInfos.colorCount = colors;

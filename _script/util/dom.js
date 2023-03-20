@@ -70,3 +70,64 @@ export function $input(type,value,parent,onInput){
 	if (parent) parent.appendChild(result);
 	return result
 }
+
+
+
+
+let append = (parent, child) => {
+	if (child) {
+		if (Array.isArray(child)) {
+			child.map(sub => append(parent, sub));
+		} else {
+			if (typeof child === "string") child = document.createTextNode(child);
+			parent.appendChild(child);
+		}
+	}
+};
+let defaultParent;
+
+// TODO move to new Dom constructor
+
+export default function dom(tagName,options){
+	let elm;
+	let opt = {};
+	let index = 1;
+	if (typeof options === "object" && !Array.isArray(options) && !(options instanceof Element)){
+		opt = options;
+		index++;
+	}
+
+	if (tagName instanceof Element){
+		elm = tagName;
+	}else{
+		// allow tag.class and tag#id constructors
+		if (tagName.indexOf(".")>=0){
+			let classNames = tagName.split(".");
+			tagName = classNames.shift();
+			opt.className = ((opt.className || "") + " " +  classNames.join(" ")).trim();
+		}
+		if (tagName.indexOf("#")>=0){
+			let p = tagName.split("#");
+			tagName = p.shift();
+			opt.id = p[0];
+		}
+		tagName = tagName||"div";
+		elm = document.createElement(tagName);
+	}
+
+
+	for (let key in opt) {
+		elm[key] = opt[key];
+	}
+
+	for (; index < arguments.length; index++) {
+		append(elm, arguments[index]);
+	}
+
+	if (defaultParent) defaultParent.appendChild(elm);
+	return elm;
+}
+
+export function $setTarget(parent){
+	defaultParent = parent
+}

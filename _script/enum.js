@@ -53,6 +53,7 @@ export let COMMAND={
     SWAPCOLORS: 1052,
     ABOUT: 1053,
     FLOODSELECT: 1054,
+    FLOOD: 1055
 }
 
 export let EVENT={
@@ -70,6 +71,11 @@ export let EVENT={
     modifierKeyChanged:12,
     toolChanged: 13,
     toolOptionsChanged: 14,
-    brushOptionsChanged: 15
+    brushOptionsChanged: 15,
+    colorCount:16,
+    layerHistory:17,
+    imageHistory:18,
+    selectionHistory:19,
+    paletteHistory:20
 
 }

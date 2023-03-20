@@ -2,7 +2,6 @@ import {$div} from "../util/dom.js";
 import EventBus from "../util/eventbus.js";
 import {EVENT} from "../enum.js";
 import Palette from "./palette.js";
-import HistoryService from "../services/historyservice.js";
 import Color from "../util/color.js";
 
 var Brush = function(){
@@ -135,7 +134,7 @@ var Brush = function(){
     }
 
 
-    me.draw = function(ctx,x,y,color,useHistory,onBackground){
+    me.draw = function(ctx,x,y,color,onBackground){
 
         let w,h,cFrom;
 
@@ -150,8 +149,6 @@ var Brush = function(){
         if (w>1) x -= Math.floor((w-1)/2);
         if (h>1) y -= Math.floor((h-1)/2);
 
-        if (useHistory) cFrom = ctx.getImageData(x,y,w,h);
-
         if (brushType === "canvas"){
             if (onBackground){
                 ctx.drawImage(brushBackCanvas,x,y);
@@ -161,11 +158,6 @@ var Brush = function(){
         }else{
             ctx.fillStyle = color;
             ctx.fillRect(x,y,w,h);
-        }
-
-        if (useHistory){
-            let cTo = ctx.getImageData(x,y,w,h);
-            HistoryService.log([x,y,cFrom,cTo]);
         }
 
     }

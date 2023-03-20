@@ -4,6 +4,7 @@ import {duplicateCanvas, releaseCanvas} from "../util/canvasUtils.js";
 import Brush from "./brush.js";
 import HistoryService from "../services/historyservice.js";
 import DitherPanel from "./components/ditherPanel.js";
+import historyservice from "../services/historyservice.js";
 
 let Layer = function(width,height,name){
     let me = {
@@ -129,7 +130,7 @@ let Layer = function(width,height,name){
             drawColor = "black";
         }
         //Brush.draw(me.getContext(),x,y,color,true);
-        Brush.draw(drawCtx,x,y,drawColor,true,touchData.button); // TODO: color should not be part of the brush?
+        Brush.draw(drawCtx,x,y,drawColor,touchData.button); // TODO: color should not be part of the brush?
 
         if (DitherPanel.getDitherState()){
             let pattern = DitherPanel.getDitherPattern();
@@ -162,7 +163,7 @@ let Layer = function(width,height,name){
         drawCtx.clearRect(0,0,drawLayer.width,drawLayer.height);
         isDrawing = false;
         currentColor="";
-        HistoryService.end();
+        historyservice.end();
     }
 
     me.fill = function(color){

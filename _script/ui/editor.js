@@ -89,6 +89,11 @@ var Editor = function(){
             document.body.classList.add("select");
             document.body.classList.remove("draw");
         });
+        EventBus.on(COMMAND.FLOOD,function(){
+            currentTool = COMMAND.FLOOD;
+            document.body.classList.add("select");
+            document.body.classList.remove("draw");
+        });
         EventBus.on(COMMAND.SQUARE,function(){
             currentTool = COMMAND.SQUARE;
             document.body.classList.add("select");
@@ -212,6 +217,7 @@ var Editor = function(){
             layer.type = "pixelSelection";
             let ctx2 = ImageFile.getLayer(layerIndex).getContext();
             ctx2.fillStyle = "red";
+            let count = 0;
             for (let y = 0;y<h;y++){
                 for (let x = 0;x<w;x++){
                     let index = (y*w + x) * 4;
@@ -220,11 +226,13 @@ var Editor = function(){
                     let b = data[index+2];
                     let c = Color.toString([r,g,b]);
                     if (c === color){
+                        count++;
                         ctx2.fillRect(x,y,1,1);
                     }
                 }
             }
             EventBus.trigger(EVENT.imageContentChanged);
+            EventBus.trigger(EVENT.colorCount,count);
             return layerIndex;
         })
 

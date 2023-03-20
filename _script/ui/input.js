@@ -8,7 +8,7 @@ import ContextMenu from "./components/contextMenu.js";
 var Input = function(){
 	let me = {}
 	let keyDown = {}
-	let modifiers = ["space","shift","control"];
+	let modifiers = ["space","shift","control","alt"];
 	let touchData = {};
 	let activeKeyHandler;
 	
@@ -160,6 +160,7 @@ var Input = function(){
 
 		if (me.isShiftDown() && !e.shiftKey) modifierKeyUp("shift");
 		if (me.isControlDown() && !e.ctrlKey) modifierKeyUp("control");
+		if (me.isAltDown() && !e.altKey) modifierKeyUp("alt");
 		if (keyDown["meta"] && !e.metaKey) modifierKeyUp("meta");
 
 		if (code === "keyv" && Input.isMetaDown()){
@@ -259,6 +260,7 @@ var Input = function(){
 
 	function limitKeyCode(code){
 		if ((code === "ShiftLeft") || (code === "ShiftRight")) code = "shift";
+		if ((code === "AltLeft") || (code === "AltRight")) code = "alt";
 		if ((code === "ControlLeft") || (code === "ControlRight")) code = "control";
 		if ((code === "MetaLeft") || (code === "MetaRight")) code = "meta";
 		return code.toLowerCase();

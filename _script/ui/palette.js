@@ -8,6 +8,7 @@ import ImageFile from "../image.js";
 import SidePanel from "./sidepanel.js";
 import Canvas from "./canvas.js";
 import FileDetector from "../fileformats/detect.js";
+import {duplicateCanvas} from "../util/canvasUtils.js";
 
 let Palette = function(){
     let me = {};
@@ -138,11 +139,16 @@ let Palette = function(){
 
     var paletteMap = {
         optimized: {label: "Optimized", palette: null},
+        current: {label: "Current", palette: null},
         mui: {label: "MUI", palette:muiPalette},
         sketch: {label: "Sketch", palette:sketchPalette},
+        db8: {label: "DawnBringer 8", palette:[[20, 12, 28],[85, 65, 95],[100, 105, 100],[215, 115, 85],[80, 140, 215],[100, 185, 100],[230, 200, 110],[220, 245, 255]]},
         db16: {label: "DawnBringer 16", palette:db16Palette},
         db32: {label: "DawnBringer 32", palette:db32Palette},
-        gfxk: {label: "Grafxkids 32", palette:gfxkPalette}
+        gfxk: {label: "Grafxkid 32", palette:gfxkPalette},
+        gfxk16: {label: "Grafxkid 16", palette:[[26, 28, 44],[93, 39, 93],[177, 62, 83],[239, 125, 87],[255, 205, 117],[167, 240, 112],[56, 183, 100],[37, 113, 121],[41, 54, 111],[59, 93, 201],[65, 166, 246],[115, 239, 247],[244, 244, 244],[148, 176, 194],[86, 108, 134],[51, 60, 87]]},
+        pico8: {label: "PICO-8", palette:[[0, 0, 0],[29, 43, 83],[126, 37, 83],[0, 135, 81],[171, 82, 54],[95, 87, 79],[194, 195, 199],[255, 241, 232],[255, 0, 77],[255, 163, 0],[255, 236, 39],[0, 228, 54],[41, 173, 255],[131, 118, 156],[255, 119, 168],[255, 204, 170]]},
+        pepto: {label: "Pepto", palette:[[0, 0, 0],[255, 255, 255],[104,55,43],[112 ,164 ,178 ],[111 ,61 ,134 ],[88 ,141 ,67],[53 ,40 ,121],[184 ,199 ,111],[111 ,79 ,37],[67 ,57 ,0],[154 ,103 ,89],[68 ,68 ,68],[108 ,108 ,108],[154 ,210 ,132],[108 ,94 ,181],[149 ,149 ,149]]}
     };
     var targetPalette = null;
 
@@ -241,6 +247,7 @@ let Palette = function(){
 
     me.set = function(palette){
         currentPalette = palette;
+        console.error("set palette",currentPalette);
         let cols = 4;
         let rows = palette.length/cols;
         paletteCanvas.width = cols*size;
@@ -280,11 +287,17 @@ let Palette = function(){
             ImageFile.restoreOriginal();
         }else{
             let base = ImageFile.getOriginal();
-            let c = document.createElement("canvas");
-            c.width = base.width;
-            c.height = base.height;
-            c.getContext("2d").drawImage(base,0,0);
-            ImageProcessing.reduce(c,targetPalette || targetColorCount,alphaThreshold,ditherIndex);
+            let c = duplicateCanvas(base,true);
+            if (targetColorCount === 2 && ditherIndex){
+                ImageProcessing.bayer(c.getContext("2d"),Math.floor(alphaThreshold*2.56),false);
+                let layer = ImageFile.getActiveLayer();
+                layer.clear();
+                layer.drawImage(c,0,0);
+                EventBus.trigger(EVENT.layerContentChanged);
+            }else{
+                ImageProcessing.reduce(c,targetPalette || targetColorCount,alphaThreshold,ditherIndex);
+            }
+
             SidePanel.show();
         }
     }
@@ -313,6 +326,7 @@ let Palette = function(){
         });
         pselect.onchange = function(){
             targetPalette = paletteMap[pselect.value].palette;
+            if (pselect.value === "current")targetPalette = currentPalette;
             me.reduce();
         }
         palettePanel.appendChild(pselect);

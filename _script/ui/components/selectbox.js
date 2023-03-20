@@ -126,7 +126,8 @@ let SelectBox = (()=>{
         })
     }
 
-    me.floodSelect = function(canvas,point){
+    me.floodSelect = function(canvas,point,fillColor){
+        fillColor = fillColor||[0,0,0];
         let w = canvas.width;
         let h = canvas.height;
         let imageData = canvas.getContext("2d").getImageData(0,0,w,h);
@@ -145,9 +146,9 @@ let SelectBox = (()=>{
             let x = i%w;
             let y = (i-x)/w;
             if (x>0) checkIndex(i-1);
-            if (x<w) checkIndex(i+1);
+            if (x<w-1) checkIndex(i+1);
             if (y>0) checkIndex(i-w);
-            if (y<h) checkIndex(i+w);
+            if (y<h-1) checkIndex(i+w);
         }
 
         c.putImageData(target,0,0);
@@ -159,7 +160,12 @@ let SelectBox = (()=>{
             let g = imageData.data[index+1];
             let b = imageData.data[index+2];
             let a = imageData.data[index+3];
-            return Color.toHex([r,g,b]);
+            if (index>=imageData.data.length){
+                console.error("invalid index " + index)
+            }else{
+                return Color.toHex([r,g,b]);
+            }
+
         }
 
         function getIndex(p) {
@@ -171,6 +177,9 @@ let SelectBox = (()=>{
         }
 
         function put(ind){
+            target.data[ind*4] = fillColor[0];
+            target.data[ind*4 + 1] = fillColor[1];
+            target.data[ind*4 + 2] = fillColor[2];
             target.data[ind*4 + 3] = 255;
             done[ind] = true;
             check.push(ind)
