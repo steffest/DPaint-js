@@ -5,6 +5,7 @@ import ImageFile from "./image.js";
 import Palette from "./ui/palette.js";
 import Modal, {DIALOG} from "./ui/modal.js";
 import Eventbus from "./util/eventbus.js";
+import layer from "./ui/layer.js";
 
 let App = function(){
 	let me = {
@@ -33,24 +34,6 @@ let App = function(){
 		me.init();
 	});
 
-	window.addEventListener('paste', function (evt) {
-		// Get the data of clipboard
-		const clipboardItems = evt.clipboardData.items;
-		const items = [].slice.call(clipboardItems).filter(function (item) {
-			// Filter the image items only
-			return item.type.indexOf('image') !== -1;
-		});
-		if (items.length === 0) {
-			return;
-		}
-
-		const item = items[0];
-		// Get the blob of image
-		const blob = item.getAsFile();
-		console.error(blob);
-
-		//imageEle.src = URL.createObjectURL(blob);
-	});
 
 
 	window.test = function(){

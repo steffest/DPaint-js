@@ -305,8 +305,19 @@ let SelectBox = (()=>{
     })
 
     EventBus.on(COMMAND.TOSELECTION,()=>{
+        // TODO: what's the difference between this and COMMAND.SELECTALL?
         let layer = ImageFile.getActiveLayer();
         me.applyCanvas(layer.getCanvas());
+    });
+
+    EventBus.on(COMMAND.SELECTALL,()=>{
+        let w = ImageFile.getCurrentFile().width;
+        let h = ImageFile.getCurrentFile().height;
+        let viewport = Editor.getActivePanel().getViewPort();
+
+        Selection.set({left: 0, top: 0, width: w, height: h});
+        Resizer.set(0,0,w,h,0,false,viewport,1);
+        me.update(true);
     });
 
     return me;

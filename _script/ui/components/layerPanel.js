@@ -171,7 +171,8 @@ let LayerPanel = function(){
                     items.push({label: "Remove Layer Mask", command: COMMAND.DELETELAYERMASK});
                     items.push({label: "Apply Layer Mask", command: COMMAND.APPLYLAYERMASK});
                 }else{
-                    items.push({label: "Add Layer Mask", command: COMMAND.LAYERMASK});
+                    items.push({label: "Add Layer Mask: Show", command: COMMAND.LAYERMASK});
+                    items.push({label: "Add Layer Mask: Hide", command: COMMAND.LAYERMASKHIDE});
                 }
 
                 if (i<max) items.push ({label: "Move Up", command: COMMAND.LAYERUP});

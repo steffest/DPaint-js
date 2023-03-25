@@ -18,6 +18,8 @@ let Menu = function(){
                 {label: "Info", command: COMMAND.INFO,shortKey: "meta+I"},
             ]},
         {label: "Edit", items:[
+                {label: "Copy", command: COMMAND.COPY,shortKey: "meta+C"},
+                {label: "Paste", command: COMMAND.PASTE,shortKey: "meta+V"},
                 {label: "Undo", command: COMMAND.UNDO,shortKey: "meta+Z"},
                 {label: "Redo", command: COMMAND.REDO,shortKey: "meta+Y"},
                 {label: "Rotate", command: COMMAND.ROTATE},
@@ -45,11 +47,13 @@ let Menu = function(){
                 {label: "Move Down",command: COMMAND.LAYERDOWN},
                 {label: "Merge Down",command: COMMAND.MERGEDOWN},
                 {label: "Flatten",command: COMMAND.FLATTEN},
-                {label: "Add Layer Mask",command: COMMAND.LAYERMASK},
+                {label: "Add Layer Mask: Show",command: COMMAND.LAYERMASK},
+                {label: "Add Layer Mask: Hide",command: COMMAND.LAYERMASKHIDE},
                 {label: "Layer to Selection",command: COMMAND.TOSELECTION}
             ]},
         {label: "Selection", items:[
                 {label: "Deselect",command: COMMAND.CLEARSELECTION},
+                {label: "Select All",command: COMMAND.SELECTALL,shortKey: "meta+A"},
                 {label: "Copy To Layer",command: COMMAND.TOLAYER,shortKey: "meta+J"},
                 {label: "Cut To Layer",command: COMMAND.CUTTOLAYER,shortKey: "meta+K"},
                 {label: "To Stencil",command: COMMAND.STAMP}

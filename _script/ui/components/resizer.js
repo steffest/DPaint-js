@@ -53,11 +53,15 @@ var Resizer = function(){
     }
 
     me.move = function(x,y){
-        if (sizeBox && sizeBox.classList.contains("active") && currentSize){
+        if (me.isActive() && currentSize){
             currentSize.left += x;
             currentSize.top += y;
             EventBus.trigger(EVENT.sizerChanged);
         }
+    }
+
+    me.isActive = function(){
+        return sizeBox && sizeBox.classList.contains("active");
     }
 
     EventBus.on(EVENT.sizerChanged,function(data){

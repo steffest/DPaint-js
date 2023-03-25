@@ -1,8 +1,9 @@
 import {$div} from "../util/dom.js";
 import EventBus from "../util/eventbus.js";
-import {EVENT} from "../enum.js";
+import {COMMAND, EVENT} from "../enum.js";
 import Palette from "./palette.js";
 import Color from "../util/color.js";
+import Editor from "./editor.js";
 
 var Brush = function(){
     var me = {};
@@ -27,6 +28,10 @@ var Brush = function(){
             let b = $div("brush","",container,(e)=>{
                 let index = e.target.index || 0;
                 me.set("preset",index);
+                let currentTool = Editor.getCurrentTool();
+                if (!(currentTool === COMMAND.DRAW || currentTool === COMMAND.ERASE)){
+                    EventBus.trigger(COMMAND.DRAW);
+                }
             })
             let x = -(i % 5)*11 + "px";
             let y = (Math.floor(i / 5) * -11) + "px";

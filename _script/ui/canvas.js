@@ -5,7 +5,6 @@ import {$div} from "../util/dom.js";
 import Palette from "./palette.js";
 import Brush from "./brush.js";
 import Editor from "./editor.js";
-import HistoryService from "../services/historyservice.js";
 import Selection from "./selection.js";
 import ImageFile from "../image.js";
 import Resizer from "./components/resizer.js";
@@ -16,7 +15,7 @@ import ImageProcessing from "../util/imageProcessing.js";
 import DitherPanel from "./components/ditherPanel.js";
 import Color from "../util/color.js";
 import {duplicateCanvas} from "../util/canvasUtils.js";
-import historyservice from "../services/historyservice.js";
+import HistoryService from "../services/historyservice.js";
 
 let Canvas = function(parent){
 	let me = {};
@@ -209,12 +208,13 @@ let Canvas = function(parent){
         var point;
         switch (action){
             case "down":
-                //console.error(Editor.getCurrentTool());
                 point = getCursorPosition(canvas,e,true);
                 touchData.isdown = true;
                 touchData.button = e.button;
                 if (e.metaKey || e.ctrlKey) touchData.button = 3;
-                if (Input.isSpaceDown()){
+                if (Input.isSpaceDown() || e.button===1){
+                    hideOverlay();
+                    document.body.classList.add("space");
                     touchData.startDragX = e.clientX;
                     touchData.startDragY =  e.clientY;
                     touchData.startScrollX = panelParent.scrollLeft;
@@ -230,7 +230,7 @@ let Canvas = function(parent){
                 switch (currentTool){
                     case COMMAND.DRAW:
                     case COMMAND.ERASE:
-                        historyservice.start(EVENT.layerHistory);
+                        HistoryService.start(EVENT.layerHistory);
                         draw();
                         break;
                     case COMMAND.SELECT:
@@ -249,10 +249,10 @@ let Canvas = function(parent){
                         EventBus.trigger(EVENT.layerContentChanged);
                         break;
                     case COMMAND.FLOOD:
-                        historyservice.start(EVENT.layerHistory);
+                        HistoryService.start(EVENT.layerHistory);
                         let cf = selectBox.floodSelect(ImageFile.getActiveLayer().getCanvas(),point,Color.fromString(e.button?Palette.getBackgroundColor():Palette.getDrawColor()));
                         ImageFile.getActiveLayer().drawImage(cf)
-                        historyservice.end();
+                        HistoryService.end();
                         EventBus.trigger(EVENT.layerContentChanged);
                         break;
                     case COMMAND.CIRCLE:
@@ -323,6 +323,7 @@ let Canvas = function(parent){
                     case COMMAND.LINE:
                     case COMMAND.GRADIENT:
                         // TODO move this as well to the drawLayer of the active layer ?
+                        HistoryService.start(EVENT.layerHistory);
                         let layerIndex = ImageFile.addLayer();
                         let drawLayer = ImageFile.getLayer(layerIndex);
                         touchData.hotDrawFunction = function(x,y){
@@ -434,6 +435,7 @@ let Canvas = function(parent){
                                 EventBus.trigger(EVENT.layerContentChanged);
                             }
                             ImageFile.mergeDown(layerIndex);
+                            HistoryService.end(EVENT.layerHistory);
                         }
                         break;
                 }
@@ -470,6 +472,8 @@ let Canvas = function(parent){
                     }
                 }
 
+                if (!Input.isSpaceDown()) document.body.classList.remove("space");
+
                 touchData.isdown = false;
                 touchData.isDrawing = false;
                 touchData.isSelecting = false;
@@ -497,7 +501,7 @@ let Canvas = function(parent){
                 point = getCursorPosition(canvas,e,false);
 
                 if (touchData.isdown){
-                    if (Input.isSpaceDown()){
+                    if (Input.isSpaceDown() || touchData.button===1 ){
                         var dx = (touchData.startDragX-e.clientX);
                         var dy = touchData.startDragY-e.clientY;
                         panelParent.scrollLeft = touchData.startScrollX+dx;
@@ -588,7 +592,7 @@ let Canvas = function(parent){
     function canPickColor(){
         // TODO this is crap - FIXME !
         let ct = Editor.getCurrentTool();
-        return !(ct === COMMAND.SELECT || ct === COMMAND.SQUARE || ct === COMMAND.GRADIENT || ct === COMMAND.CIRCLE || ct === COMMAND.LINE ||  ct === COMMAND.TRANSFORMLAYER);
+        return !(ct === COMMAND.SELECT || ct === COMMAND.SQUARE || ct === COMMAND.GRADIENT || ct === COMMAND.CIRCLE  ||  ct === COMMAND.TRANSFORMLAYER);
     }
 
     //Bresenham's_line_algorithm

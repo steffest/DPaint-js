@@ -289,7 +289,7 @@ input[type=range]:focus::-ms-fill-upper {
   top: 27px;
   border: 1px solid black;
   width: 64px;
-  height: 306px;
+  height: 366px;
   background-color: #313335;
   display: flex;
   flex-wrap: wrap;
@@ -398,6 +398,28 @@ input[type=range]:focus::-ms-fill-upper {
 .toolbar .button.polygonselect {
   background-image: url("../_img/poly.svg");
   background-size: 80% 80%;
+}
+.toolbar .button.floodselect {
+  background-image: url("../_img/magicwand.svg");
+  background-size: 80% 80%;
+}
+.toolbar .button.flood {
+  background-image: url("../_img/fill.svg");
+  background-size: 90% 90%;
+}
+.toolbar .button.undo {
+  background-image: url("../_img/undo.svg");
+  background-size: 60% 60%;
+}
+.toolbar .button.undo.disabled {
+  opacity: 0.2;
+}
+.toolbar .button.redo {
+  background-image: url("../_img/redo.svg");
+  background-size: 60% 60%;
+}
+.toolbar .button.redo.disabled {
+  opacity: 0.2;
 }
 .toolbar .brushes {
   width: 55px;
@@ -816,6 +838,57 @@ body.withsidepanel .toolbar .togglepanel:after {
 .sidepanel .panel.brush .patterns .pattern.active {
   border-color: #b1e00f;
   box-shadow: 0 0 2px yellow;
+}
+.sidepanel .panel.color .inner {
+  overflow: hidden;
+}
+.sidepanel .panel.color .colorpicker {
+  height: 120px;
+  width: 100%;
+  overflow: hidden;
+}
+.sidepanel .panel.color .colorpicker canvas {
+  border-right: 1px solid black;
+}
+.sidepanel .panel.color .colorpicker canvas:last-of-type {
+  border-left: 1px solid black;
+  margin-left: 4px;
+}
+.sidepanel .panel.color .colorpicker .dot {
+  position: absolute;
+  pointer-events: none;
+  width: 10px;
+  height: 10px;
+  border: 2px solid white;
+  border-radius: 50%;
+  margin: -5px 0 0 -5px;
+  left: 119px;
+  top: 0;
+  box-shadow: 0 0 1px 1px rgba(0, 0, 0, 0.7), inset 0 0 0 1px rgba(0, 0, 0, 0.5);
+}
+.sidepanel .panel.color .colorpicker .line {
+  position: absolute;
+  pointer-events: none;
+  width: 0;
+  height: 0;
+  border-bottom: 5px solid transparent;
+  border-top: 5px solid transparent;
+  border-right: 5px solid white;
+  left: 144px;
+  filter: drop-shadow(0px 0px 2px black);
+  top: 0;
+  margin-top: -5px;
+}
+.sidepanel .panel.color .colorpicker .line:before {
+  content: "";
+  position: absolute;
+  left: -20px;
+  top: -5px;
+  width: 0;
+  height: 0;
+  border-bottom: 5px solid transparent;
+  border-top: 5px solid transparent;
+  border-left: 5px solid white;
 }
 .sidepanel .caption {
   background-color: #282A2C;

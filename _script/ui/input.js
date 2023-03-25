@@ -4,6 +4,9 @@ import Menu from "./menu.js";
 import Editor from "./editor.js";
 import Statusbar from "./statusbar.js";
 import ContextMenu from "./components/contextMenu.js";
+import ImageFile from "../image.js";
+import Selection from "./selection.js";
+import Resizer from "./components/resizer.js";
 
 var Input = function(){
 	let me = {}
@@ -17,6 +20,7 @@ var Input = function(){
 		document.addEventListener("mousedown",onMouseDown)
 		document.addEventListener("mouseup",onMouseUp)
 		document.addEventListener("mousemove",onMouseMove)
+		document.addEventListener("touchmove",onMouseMove)
 		document.addEventListener("keydown",onKeyDown)
 		document.addEventListener("keyup",onKeyUp)
 
@@ -29,6 +33,12 @@ var Input = function(){
 		window.addEventListener("cut", handleCut,false);
 		window.addEventListener("undo", handleUndo,false);
 		window.addEventListener("delete", handleDelete,false);
+		window.addEventListener("dragenter", handleDragEnter,false);
+		window.addEventListener("dragover", handleDragOver,false);
+		window.addEventListener("drop", handleDrop,false);
+
+		EventBus.on(COMMAND.COPY,handleCopy);
+		EventBus.on(COMMAND.PASTE,handlePaste);
 	}
 
 	me.isSpaceDown = function(){
@@ -70,7 +80,6 @@ var Input = function(){
 		if (elm) touchData.dragElement.appendChild(elm);
 		console.error(event);
 		document.body.appendChild(touchData.dragElement);
-
 	}
 
 	me.removeDragElement = function(){
@@ -109,11 +118,20 @@ var Input = function(){
 				touchData.isDragging = true;
 				touchData.startX = e.clientX;
 				touchData.startY = e.clientY;
+				touchData.button = e.button;
 				e.preventDefault();
 				if (target.onDragStart) target.onDragStart(e);
 			}
 			if ((e.button || e.ctrlKey) && target.onContextMenu){
 				target.onContextMenu(e);
+			}
+
+
+			if (Resizer.isActive()){
+				let sizeTarget = target.closest(".sizebox");
+				if (!sizeTarget){
+					Editor.commit();
+				}
 			}
 
 		}
@@ -168,6 +186,11 @@ var Input = function(){
 			return;
 		}
 
+		if (code === "keyc" && Input.isMetaDown()){
+			// allow default copy
+			return;
+		}
+
 		e.preventDefault();
 		e.stopPropagation();
 		console.log(e);
@@ -212,6 +235,7 @@ var Input = function(){
 
 		if (me.isMetaDown()){
 			switch (key){
+				case "a": EventBus.trigger(COMMAND.SELECTALL); break;
 				case "b": EventBus.trigger(COMMAND.EFFECTS); break;
 				case "d": EventBus.trigger(COMMAND.DUPLICATELAYER); break;
 				case "i": EventBus.trigger(COMMAND.INFO); break;
@@ -266,12 +290,106 @@ var Input = function(){
 		return code.toLowerCase();
 	}
 
-	function handlePaste(){
-		console.error("paste");
+	function handlePaste(e){
+
+		function pasteImage(blob){
+			let img = new Image();
+			img.onerror = ()=>{
+				console.error("error pasting image");
+			}
+			img.onload = ()=>{
+				ImageFile.paste(img);
+			}
+			img.src = URL.createObjectURL(blob);
+		}
+
+		if (!e){
+			// "paste" seledcted from menu;
+
+			let blob;
+			const queryOpts = { name: 'clipboard-read', allowWithoutGesture: true };
+			navigator.permissions.query(queryOpts).then(permissionStatus=>{
+				// Will be 'granted', 'denied' or 'prompt':
+				console.log(permissionStatus.state);
+				getClipboardContents();
+
+				// Listen for changes to the permission state
+				permissionStatus.onchange = () => {
+					console.log(permissionStatus.state);
+					getClipboardContents();
+				};
+
+
+				async function getClipboardContents() {
+					if (permissionStatus.state === "granted") {
+						try {
+							const clipboardItems = await navigator.clipboard.read();
+							for (const clipboardItem of clipboardItems) {
+								for (const type of clipboardItem.types) {
+									if (!blob && type.indexOf('image') !== -1){
+										blob = await clipboardItem.getType(type);
+										pasteImage(blob);
+									}
+								}
+							}
+						} catch (err) {
+							console.error(err.name, err.message);
+						}
+					}
+				}
+			})
+		}
+		console.log("paste",e);
+		if (e && e.clipboardData){
+			const clipboardItems = e.clipboardData.items;
+			console.log("paste " + clipboardItems.length + " items");
+			let list = [].slice.call(clipboardItems);
+			list.forEach(item=>{
+				console.log(item.type);
+			});
+
+			const items = list.filter(function (item) {
+				// Filter the image items only
+				return item.type.indexOf('image') !== -1;
+			});
+			if (items.length === 0) {
+				return;
+			}
+
+			const item = items[0];
+			// Get the blob of image
+			const blob = item.getAsFile();
+			pasteImage(blob)
+		}
 	}
 
-	function handleCopy(){
-		console.error("copy");
+	function handleCopy(e){
+		if (e){
+			// Check what we need to copy
+			console.log("copy from ", e.target,e);
+
+			// allow default copy for input fields
+			if (e.target.tagName.toLowerCase() === "input") return;
+		}
+
+		let canvas = Selection.toCanvas() || ImageFile.getActiveContext().canvas;
+		if (canvas && ClipboardItem){
+			canvas.toBlob((blob) => {
+				// note: As to date, FireFox doesn't support ClipboardItem.
+				let data = [new ClipboardItem({ [blob.type]: blob })];
+
+				navigator.clipboard.write(data).then(
+					() => {
+						console.error("copied");
+					},
+					(err) => {
+						console.error("error");
+						console.error(err);
+						//onError(err);
+					}
+				);
+			});
+		}
 	}
 
 	function handleCut(){
@@ -284,6 +402,28 @@ var Input = function(){
 
 	function handleDelete(){
 		console.error("delete");
+	}
+
+	function handleDragEnter(e) {
+		e.stopPropagation();
+		e.preventDefault();
+	}
+
+	function handleDragOver(e){
+		e.stopPropagation();
+		e.preventDefault();
+	}
+
+	function handleDrop(e){
+		e.preventDefault();
+		//console.error("Drop");
+		//console.error(e);
+
+		var dt = e.dataTransfer;
+		var files = dt.files;
+
+		ImageFile.handleUpload(files,"file")
+
 	}
 	
 	return me;

@@ -6,7 +6,7 @@
   top: 27px;
   border: 1px solid black;
   width: 64px;
-  height: 306px;
+  height: 366px;
   background-color: $panel-background-color;
   display: flex;
   flex-wrap: wrap;
@@ -135,6 +135,32 @@
     &.polygonselect{
       background-image: url("../_img/poly.svg");
       background-size: 80% 80%;
+    }
+
+    &.floodselect{
+      background-image: url("../_img/magicwand.svg");
+      background-size: 80% 80%;
+    }
+
+    &.flood{
+      background-image: url("../_img/fill.svg");
+      background-size: 90% 90%;
+    }
+
+    &.undo{
+      background-image: url("../_img/undo.svg");
+      background-size: 60% 60%;
+      &.disabled{
+        opacity: 0.2;
+      }
+    }
+
+    &.redo{
+      background-image: url("../_img/redo.svg");
+      background-size: 60% 60%;
+      &.disabled{
+        opacity: 0.2;
+      }
     }
   }
 

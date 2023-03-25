@@ -7,6 +7,7 @@ import Palette from "./palette.js";
 import LayerPanel from "./components/layerPanel.js";
 import FramesPanel from "./components/framesPanel.js";
 import BrushPanel from "./components/brushPanel.js";
+import ColorPicker from "./components/colorPicker.js";
 
 var SidePanel = function(){
     let me = {}
@@ -38,8 +39,15 @@ var SidePanel = function(){
                 BrushPanel.generate(parent);
             }
         },
-        colors:{
-            label: "Colors",
+        color:{
+            label: "Color",
+            height: 142,
+            content: parent=>{
+                ColorPicker.generate(parent);
+            }
+        },
+        reduce:{
+            label: "Reduce Colors",
             height: 230,
             content: parent=>{
                 Palette.generateControlPanel(parent);

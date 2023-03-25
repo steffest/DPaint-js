@@ -71,15 +71,23 @@ let Selection = function(){
         console.error("No selection to convert to canvas");
     }
 
-    me.toStamp = function(){
+    me.toCanvas = function(){
+        // TODO: non rectangular selections
         if (currentSelection){
-            let brushCanvas = document.createElement("canvas");
-            brushCanvas.width = currentSelection.width;
-            brushCanvas.height = currentSelection.height;
-            let brushContext = brushCanvas.getContext("2d");
-            brushContext.imageSmoothingEnabled = false;
-            brushContext.drawImage(ImageFile.getActiveLayer().getCanvas(),currentSelection.left,currentSelection.top,brushCanvas.width,brushCanvas.height,0,0, brushCanvas.width, brushCanvas.height);
-            Brush.set("canvas",brushCanvas);
+            let canvas = document.createElement("canvas");
+            canvas.width = currentSelection.width;
+            canvas.height = currentSelection.height;
+            let ctx = canvas.getContext("2d");
+            ctx.imageSmoothingEnabled = false;
+            ctx.drawImage(ImageFile.getActiveLayer().getCanvas(),currentSelection.left,currentSelection.top,canvas.width,canvas.height,0,0, canvas.width, canvas.height);
+            return canvas;
+        }
+    }
+
+    me.toStamp = function(){
+        let canvas = me.toCanvas();
+        if (canvas){
+            Brush.set("canvas",canvas);
             EventBus.trigger(COMMAND.DRAW);
             EventBus.trigger(COMMAND.CLEARSELECTION);
         }

@@ -44,16 +44,20 @@ export let COMMAND={
     SAVEPALETTE: 1043,
     LOADPALETTE: 1044,
     LAYERMASK: 1045,
-    DELETELAYERMASK: 1046,
-    APPLYLAYERMASK: 1047,
-    POLYGONSELECT: 1048,
-    ENDPOLYGONSELECT: 1049,
-    TOSELECTION: 1050,
-    CUTTOLAYER: 1051,
-    SWAPCOLORS: 1052,
-    ABOUT: 1053,
-    FLOODSELECT: 1054,
-    FLOOD: 1055
+    LAYERMASKHIDE: 1046,
+    DELETELAYERMASK: 1047,
+    APPLYLAYERMASK: 1048,
+    POLYGONSELECT: 1049,
+    ENDPOLYGONSELECT: 1050,
+    TOSELECTION: 1051,
+    CUTTOLAYER: 1052,
+    SWAPCOLORS: 1053,
+    ABOUT: 1054,
+    FLOODSELECT: 1055,
+    FLOOD: 1056,
+    SELECTALL: 1057,
+    COPY: 1058,
+    PASTE: 1059,
 }
 
 export let EVENT={
@@ -76,6 +80,6 @@ export let EVENT={
     layerHistory:17,
     imageHistory:18,
     selectionHistory:19,
-    paletteHistory:20
-
+    paletteHistory:20,
+    historyChanged:21
 }

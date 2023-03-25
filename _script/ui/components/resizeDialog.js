@@ -25,14 +25,14 @@ var ResizeDialog = function() {
             if (lockAspectRatio){
                 let w = parseInt(inputW.value);
                 if (isNaN(w)) w=image.width;
-                inputH.value = w/aspectRatio;
+                inputH.value = Math.round(w/aspectRatio);
             }
         }
         inputH.oninput = ()=>{
             if (lockAspectRatio){
                 let h = parseInt(inputH.value);
                 if (isNaN(h)) w=image.height;
-                inputW.value = h*aspectRatio;
+                inputW.value = Math.round(h*aspectRatio);
             }
         }
 

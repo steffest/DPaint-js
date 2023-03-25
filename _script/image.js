@@ -384,6 +384,7 @@ let ImageFile = function(){
             }
         }
     }
+    me.handleUpload = handleUpload;
     
     function newFile(image){
         Historyservice.clear();
@@ -494,6 +495,13 @@ let ImageFile = function(){
             EventBus.trigger(EVENT.layerContentChanged);
             me.activateLayer(index-1);
         }
+    }
+
+    me.paste = function(image){
+        let index = me.addLayer();
+        me.activateLayer(index);
+        me.getActiveLayer().drawImage(image,0,0);
+        EventBus.trigger(EVENT.layerContentChanged);
     }
 
     EventBus.on(COMMAND.NEW,function(){

@@ -357,6 +357,64 @@
 
 
     }
+
+    &.color{
+      .inner{
+        overflow: hidden;
+      }
+      .colorpicker{
+        height: 120px;
+        width: 100%;
+        overflow: hidden;
+
+        canvas{
+          border-right: 1px solid black;
+        }
+        canvas:last-of-type{
+          border-left: 1px solid black;
+          margin-left: 4px;
+        }
+
+        .dot{
+          position: absolute;
+          pointer-events: none;
+          width: 10px;
+          height: 10px;
+          border: 2px solid white;
+          border-radius: 50%;
+          margin: -5px 0 0 -5px;
+          left: 119px;
+          top: 0;
+          box-shadow: 0 0 1px 1px rgba(0, 0, 0, 0.7), inset 0 0 0 1px rgba(0, 0, 0, 0.5);
+        }
+
+        .line{
+          position: absolute;
+          pointer-events: none;
+          width: 0;
+          height: 0;
+          border-bottom: 5px solid transparent;
+          border-top: 5px solid transparent;
+          border-right: 5px solid white;
+          left: 144px;
+          filter: drop-shadow(0px 0px 2px black);
+          top: 0;
+          margin-top: -5px;
+
+          &:before{
+            content: "";
+            position: absolute;
+            left: -20px;
+            top: -5px;
+            width: 0;
+            height: 0;
+            border-bottom: 5px solid transparent;
+            border-top: 5px solid transparent;
+            border-left: 5px solid white;
+          }
+        }
+      }
+    }
   }
 
   .caption{

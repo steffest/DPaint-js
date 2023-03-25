@@ -32,7 +32,7 @@ let HistoryService = function(){
             if (history.length>maxHistory) history.pop();
             future=[];
             currentHistory = undefined;
-
+            EventBus.trigger(EVENT.historyChanged,[history.length,future.length]);
         }
     }
 
@@ -53,6 +53,7 @@ let HistoryService = function(){
                     EventBus.trigger(EVENT.layerContentChanged);
                     future.unshift(historyStep);
                     if (future.length>maxHistory) future.pop();
+                    EventBus.trigger(EVENT.historyChanged,[history.length,future.length]);
                     break;
                 default:
                     console.error("History type " + historyStep.type + " not handled");
@@ -72,6 +73,7 @@ let HistoryService = function(){
                     EventBus.trigger(EVENT.layerContentChanged);
                     history.unshift(historyStep);
                     if (history.length>maxHistory) history.pop();
+                    EventBus.trigger(EVENT.historyChanged,[history.length,future.length]);
                     break;
                 default:
                     console.error("History type " + historyStep.type + " not handled");

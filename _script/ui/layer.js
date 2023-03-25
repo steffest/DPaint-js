@@ -182,7 +182,7 @@ let Layer = function(width,height,name){
         ctx.putImageData(imageData,0,0);
     }
 
-    me.addMask = function(){
+    me.addMask = function(hide){
         if (!mask){
             mask = duplicateCanvas(canvas);
             alphaLayer = duplicateCanvas(canvas);
@@ -190,10 +190,16 @@ let Layer = function(width,height,name){
 
             maskCtx = mask.getContext("2d");
             alphaCtx = alphaLayer.getContext("2d");
-            maskCtx.fillStyle = alphaLayer.fillStyle = "white";
+            maskCtx.fillStyle = alphaLayer.fillStyle = hide?"black":"white";
             maskCtx.fillRect(0,0,mask.width,mask.height);
             alphaCtx.fillRect(0,0,mask.width,mask.height);
             me.hasMask = true;
+
+            if (!me.isMaskActive()){
+                me.toggleMask();
+                me.update(maskCtx);
+                me.toggleMask();
+            }
         }
     }
 

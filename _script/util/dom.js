@@ -92,6 +92,7 @@ export default function dom(tagName,options){
 	let elm;
 	let opt = {};
 	let index = 1;
+	let hasParent = false;
 	if (typeof options === "object" && !Array.isArray(options) && !(options instanceof Element)){
 		opt = options;
 		index++;
@@ -117,6 +118,11 @@ export default function dom(tagName,options){
 
 
 	for (let key in opt) {
+		if (key === 'parent'){
+			opt[key].appendChild(elm);
+			hasParent = true;
+			continue;
+		}
 		elm[key] = opt[key];
 	}
 
@@ -124,7 +130,7 @@ export default function dom(tagName,options){
 		append(elm, arguments[index]);
 	}
 
-	if (defaultParent) defaultParent.appendChild(elm);
+	if (defaultParent && !hasParent) defaultParent.appendChild(elm);
 	return elm;
 }
 

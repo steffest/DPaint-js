@@ -21,6 +21,7 @@ var Editor = function(){
     var zoomFactor = 1.1;
     var activePanel;
     var currentTool = COMMAND.DRAW;
+    let previousTool;
     var touchData = {};
     var state= {
         splitPanel: false
@@ -190,6 +191,7 @@ var Editor = function(){
         })
 
         EventBus.on(COMMAND.TRANSFORMLAYER,()=>{
+            previousTool = currentTool;
             currentTool = COMMAND.TRANSFORMLAYER;
             let box = ImageFile.getLayerBoundingRect();
             Resizer.set(box.x,box.y,box.w,box.h,0,false,activePanel.getViewPort(),box.w/box.h);
@@ -236,11 +238,19 @@ var Editor = function(){
             return layerIndex;
         })
 
-        EventBus.on(COMMAND.LAYERMASK,()=>{
+        EventBus.on(COMMAND.LAYERMASK,(hide)=>{
             let layer = ImageFile.getActiveLayer();
-            layer.addMask();
+            layer.addMask(!!hide);
             EventBus.trigger(EVENT.layerContentChanged);
             EventBus.trigger(EVENT.layersChanged);
+        });
+        EventBus.on(COMMAND.LAYERMASKHIDE,()=>{
+            EventBus.trigger(COMMAND.LAYERMASK,true);
+
+            setTimeout(()=>{
+                EventBus.trigger(EVENT.layerContentChanged);
+                EventBus.trigger(EVENT.layersChanged);
+            },1000)
         });
         EventBus.on(COMMAND.DELETELAYERMASK,()=>{
             let layer = ImageFile.getActiveLayer();
@@ -313,6 +323,8 @@ var Editor = function(){
             updateTransform();
             clearTransform();
             EventBus.trigger(COMMAND.CLEARSELECTION);
+            currentTool = undefined;
+            if (previousTool) EventBus.trigger(previousTool);
         }
     }
 
@@ -343,6 +355,7 @@ var Editor = function(){
     }
 
     function updateTransform(){
+        if (!touchData.transformLayer) return;
         console.log("update transform layer");
         let d = Resizer.get();
         touchData.transformLayer.clear();

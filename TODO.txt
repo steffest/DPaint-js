@@ -1,11 +1,19 @@
-- Undo/redo
+- Improve Undo/redo
 - Add/Remove from selection
 - dragging of panels?
-- middle mouse drag
 - improve rotate layer/selection
 - polygon mask - deduplicate points
-
 - pen/touch support
 - small screen support
+- non-smooth line drawing thickness
+
+- copy image larger than canvas => keep entire image?
+
 
 - filters: e.g. https://medium.com/skylar-salernos-tech-blog/mimicking-googles-pop-filter-using-canvas-blend-modes-d7da83590d1a
+
+
+Bugs:
+
+Transforming a mask clears the layer ?
+resizing sizebox negatively, makes the sizebox 0 width/height
