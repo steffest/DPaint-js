@@ -94,30 +94,7 @@ var SaveDialog = function(){
     }
 
     function writeJSON(){
-        let struct = {
-            type: "dpaint",
-            image: {}
-        }
-        let currentFile = ImageFile.getCurrentFile();
-        console.error(currentFile);
-        struct.image.width = currentFile.width;
-        struct.image.height = currentFile.height;
-        struct.image.frames=[];
-
-        currentFile.frames.forEach(frame=>{
-            let _frame={layers:[]};
-            frame.layers.forEach(layer=>{
-                let _layer={
-                    blendMode: layer.blendMode,
-                    name: layer.name,
-                    opacity: layer.opacity,
-                    visible: layer.visible,
-                    canvas: layer.getCanvas().toDataURL()
-                }
-                _frame.layers.push(_layer);
-            });
-            struct.image.frames.push(_frame);
-        })
+        let struct = ImageFile.clone();
 
         let blob = new Blob([JSON.stringify(struct,null,2)], { type: 'application/json' })
         saveFile(blob,'image.json',filetypes.DPAINTJS).then(()=>{

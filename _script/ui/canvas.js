@@ -260,6 +260,7 @@ let Canvas = function(parent){
                         touchData.isSelecting = true;
                         selectBox.activate();
                         Resizer.set(point.x,point.y,0,0,0,true,parent.getViewPort(),1);
+                        HistoryService.start(EVENT.layerHistory);
 
                         if (currentTool === COMMAND.CIRCLE){
                             drawFunction = function(ctx,x,y,w,h,button){

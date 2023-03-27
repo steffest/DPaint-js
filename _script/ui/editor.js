@@ -12,6 +12,7 @@ import Color from "../util/color.js";
 import Modal, {DIALOG} from "./modal.js";
 import {releaseCanvas} from "../util/canvasUtils.js";
 import Input from "./input.js";
+import HistoryService from "../services/historyservice.js";
 
 var Editor = function(){
     var me = {};
@@ -131,6 +132,7 @@ var Editor = function(){
             var s = Selection.get();
             let layer = ImageFile.getActiveLayer();
             if (!layer) return;
+            HistoryService.start(EVENT.layerHistory);
             if (s){
                 if (s.canvas || s.points){
                     console.error(s);
@@ -149,12 +151,14 @@ var Editor = function(){
             }else{
                 layer.clear();
             }
+            HistoryService.end();
             EventBus.trigger(EVENT.layerContentChanged);
             EventBus.trigger(EVENT.imageContentChanged);
         });
         EventBus.on(COMMAND.CROP,function(){
             var s = Selection.get();
             if (s){
+                HistoryService.start(EVENT.imageHistory);
                 ImageFile.getCurrentFile().frames.forEach(frame=>{
                     frame.layers.forEach(layer=>{
                         let c = layer.getCanvas();
@@ -175,6 +179,7 @@ var Editor = function(){
                 ImageFile.getCurrentFile().width = s.width;
                 ImageFile.getCurrentFile().height = s.height;
                 Selection.move(0,0,s.width,s.height);
+                HistoryService.end();
                 EventBus.trigger(EVENT.imageSizeChanged);
             }
         });

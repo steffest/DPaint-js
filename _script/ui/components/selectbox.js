@@ -133,6 +133,7 @@ let SelectBox = (()=>{
         let h = canvas.height;
         let imageData = canvas.getContext("2d").getImageData(0,0,w,h);
         let tolerance = ToolOptions.getTolerance();
+        fillColor[3] = 255;
 
         let c = duplicateCanvas(canvas).getContext("2d");
         let target = c.getImageData(0,0,w,h);
@@ -165,7 +166,7 @@ let SelectBox = (()=>{
             if (index>=imageData.data.length){
                 console.error("invalid index " + index)
             }else{
-                return Color.toHex([r,g,b]);
+                return Color.toHex([r,g,b,a]);
             }
 
         }

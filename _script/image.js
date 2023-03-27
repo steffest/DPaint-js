@@ -274,6 +274,68 @@ let ImageFile = function(){
         EventBus.trigger(EVENT.imageContentChanged);
     }
 
+    me.clone = function(){
+        let struct = {
+            type: "dpaint",
+            image: {}
+        }
+
+        struct.image.width = currentFile.width;
+        struct.image.height = currentFile.height;
+        struct.image.frames=[];
+
+        currentFile.frames.forEach(frame=>{
+            let _frame={layers:[]};
+            frame.layers.forEach(layer=>{
+                let _layer={
+                    blendMode: layer.blendMode,
+                    name: layer.name,
+                    opacity: layer.opacity,
+                    visible: layer.visible,
+                    canvas: layer.getCanvas().toDataURL()
+                }
+                _frame.layers.push(_layer);
+            });
+            struct.image.frames.push(_frame);
+        })
+
+        return struct;
+    }
+
+    me.restore = function(data){
+        let image = data.image;
+        currentFile.width = image.width;
+        currentFile.height = image.height;
+        let mockImage = new Image(currentFile.width,currentFile.height);
+        newFile(mockImage);
+        image.frames.forEach((_frame,frameIndex)=>{
+            let frame = currentFile.frames[frameIndex];
+            if (!frame){
+                addFrame();
+                frame = currentFile.frames[frameIndex];
+            }
+            _frame.layers.forEach((_layer,layerIndex)=>{
+                let layer = frame.layers[layerIndex];
+                if (!layer){
+                    layer = Layer(currentFile.width,currentFile.height);
+                    frame.layers.push(layer);
+                }
+                layer.name = _layer.name;
+                layer.opacity = _layer.opacity;
+                layer.blendMode = _layer.blendMode;
+                layer.visible = _layer.visible;
+                let _image = new Image();
+                _image.onload = function () {
+                    layer.drawImage(_image);
+                    console.error(_image.width);
+                    EventBus.trigger(EVENT.layersChanged);
+                    EventBus.trigger(EVENT.imageSizeChanged);
+                }
+                _image.src = _layer.canvas;
+            });
+        })
+    }
+
     me.addLayer = addLayer;
     me.removeLayer = removeLayer;
     me.moveLayer = moveLayer;
@@ -318,37 +380,7 @@ let ImageFile = function(){
                     }
                     if (data){
                         if (data.type==="dpaint"){
-                            let image = data.image;
-                            currentFile.width = image.width;
-                            currentFile.height = image.height;
-                            let mockImage = new Image(currentFile.width,currentFile.height);
-                            newFile(mockImage);
-                            image.frames.forEach((_frame,frameIndex)=>{
-                                let frame = currentFile.frames[frameIndex];
-                                if (!frame){
-                                    addFrame();
-                                    frame = currentFile.frames[frameIndex];
-                                }
-                                _frame.layers.forEach((_layer,layerIndex)=>{
-                                    let layer = frame.layers[layerIndex];
-                                    if (!layer){
-                                        layer = Layer(currentFile.width,currentFile.height);
-                                        frame.layers.push(layer);
-                                    }
-                                    layer.name = _layer.name;
-                                    layer.opacity = _layer.opacity;
-                                    layer.blendMode = _layer.blendMode;
-                                    layer.visible = _layer.visible;
-                                    let _image = new Image();
-                                    _image.onload = function () {
-                                        layer.drawImage(_image);
-                                        console.error(_image.width);
-                                        EventBus.trigger(EVENT.layersChanged);
-                                        EventBus.trigger(EVENT.imageSizeChanged);
-                                    }
-                                    _image.src = _layer.canvas;
-                                });
-                            })
+                            me.restore(data);
                         }
                         if (data.type==="palette"){
                             Palette.set(data.palette);

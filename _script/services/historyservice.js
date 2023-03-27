@@ -14,8 +14,18 @@ let HistoryService = function(){
     me.start = function(type){
         console.log("start his");
         currentHistory={type,data:{}};
-        if (type === EVENT.layerHistory){
-            currentHistory.data.from = duplicateCanvas(ImageFile.getActiveContext().canvas,true)
+        switch (type){
+            case EVENT.layerHistory:
+                currentHistory.data.from = duplicateCanvas(ImageFile.getActiveContext().canvas,true);
+                break;
+            case EVENT.imageHistory:
+                currentHistory.data.from = ImageFile.clone();
+                // TODO: this also clears all masks and selections
+                // and it doesn't hold the currenct layer so future undo actions ont work ...
+                // FIXME
+                break;
+            default:
+                console.error("History type " + type + " not handled");
         }
     }
 
@@ -25,6 +35,9 @@ let HistoryService = function(){
             switch (currentHistory.type){
                 case EVENT.layerHistory:
                     currentHistory.data.to = duplicateCanvas(ImageFile.getActiveContext().canvas,true)
+                    break;
+                case EVENT.imageHistory:
+                    currentHistory.data.to = ImageFile.clone();
                     break;
             }
 
@@ -51,13 +64,19 @@ let HistoryService = function(){
                     layer.clear();
                     layer.drawImage(historyStep.data.from);
                     EventBus.trigger(EVENT.layerContentChanged);
-                    future.unshift(historyStep);
-                    if (future.length>maxHistory) future.pop();
-                    EventBus.trigger(EVENT.historyChanged,[history.length,future.length]);
+                    break;
+                case EVENT.imageHistory:
+                    ImageFile.restore(historyStep.data.from);
+                    EventBus.trigger(COMMAND.CLEARSELECTION);
                     break;
                 default:
                     console.error("History type " + historyStep.type + " not handled");
             }
+
+            future.unshift(historyStep);
+            if (future.length>maxHistory) future.pop();
+            EventBus.trigger(EVENT.historyChanged,[history.length,future.length]);
+
         }
     })
 
@@ -71,13 +90,18 @@ let HistoryService = function(){
                     layer.clear();
                     layer.drawImage(historyStep.data.to);
                     EventBus.trigger(EVENT.layerContentChanged);
-                    history.unshift(historyStep);
-                    if (history.length>maxHistory) history.pop();
-                    EventBus.trigger(EVENT.historyChanged,[history.length,future.length]);
+                    break;
+                case EVENT.imageHistory:
+                    ImageFile.restore(historyStep.data.to);
+                    EventBus.trigger(COMMAND.CLEARSELECTION);
                     break;
                 default:
                     console.error("History type " + historyStep.type + " not handled");
             }
+
+            history.unshift(historyStep);
+            if (history.length>maxHistory) history.pop();
+            EventBus.trigger(EVENT.historyChanged,[history.length,future.length]);
         }
     })
 

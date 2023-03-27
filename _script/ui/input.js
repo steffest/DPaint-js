@@ -7,6 +7,7 @@ import ContextMenu from "./components/contextMenu.js";
 import ImageFile from "../image.js";
 import Selection from "./selection.js";
 import Resizer from "./components/resizer.js";
+import Cursor from "./cursor.js";
 
 var Input = function(){
 	let me = {}
@@ -159,6 +160,11 @@ var Input = function(){
 			touchData.dragElement.classList.add("active");
 			touchData.dragElement.style.left =  e.clientX  + "px";
 			touchData.dragElement.style.top =  e.clientY  + "px";
+		}
+
+		// Meh ...
+		if (document.body.classList.contains("colorpicker") && !me.isShiftDown() && !me.isAltDown()){
+			Cursor.reset();
 		}
 	}
 
@@ -370,6 +376,7 @@ var Input = function(){
 
 			// allow default copy for input fields
 			if (e.target.tagName.toLowerCase() === "input") return;
+			if (e.target.closest("code")) return;
 		}
 
 		let canvas = Selection.toCanvas() || ImageFile.getActiveContext().canvas;
