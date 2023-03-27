@@ -644,7 +644,7 @@ var ImageProcessing = function(){
 			let ctx = ImageFile.getActiveContext();
 			ctx.clearRect(0,0,f.width,f.height);
 			ctx.drawImage(imageInfos.canvas,0,0);
-			EventBus.trigger(EVENT.layerContentChanged);
+			EventBus.trigger(EVENT.layerContentChanged,true);
 			Palette.set(palette);
 			//IconEditor.setPalette(palette);
 			//IconEditor.updateIcon();

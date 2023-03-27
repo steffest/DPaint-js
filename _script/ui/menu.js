@@ -22,12 +22,15 @@ let Menu = function(){
                 {label: "Paste", command: COMMAND.PASTE,shortKey: "meta+V"},
                 {label: "Undo", command: COMMAND.UNDO,shortKey: "meta+Z"},
                 {label: "Redo", command: COMMAND.REDO,shortKey: "meta+Y"},
+            ]},
+        {label: "Image", items:[
                 {label: "Rotate", command: COMMAND.ROTATE},
                 {label: "Clear", command: COMMAND.CLEAR},
                 {label: "Crop", command: COMMAND.CROP},
                 {label: "Trim", command: COMMAND.TRIM},
+                {label: "Flatten",command: COMMAND.FLATTEN},
                 {label: "Image size", command: COMMAND.RESAMPLE,shortKey: "meta+R"},
-                {label: "Canvas Size", command: COMMAND.RESIZE,shortKey: "meta+P"}
+                {label: "Canvas Size", command: COMMAND.RESIZE,shortKey: "meta+P"},
             ]},
         {label: "Tools", items:[
                 {label: "Draw",command: COMMAND.DRAW,shortKey: "B"},
@@ -46,7 +49,6 @@ let Menu = function(){
                 {label: "Move Up",command: COMMAND.LAYERUP},
                 {label: "Move Down",command: COMMAND.LAYERDOWN},
                 {label: "Merge Down",command: COMMAND.MERGEDOWN},
-                {label: "Flatten",command: COMMAND.FLATTEN},
                 {label: "Add Layer Mask: Show",command: COMMAND.LAYERMASK},
                 {label: "Add Layer Mask: Hide",command: COMMAND.LAYERMASKHIDE},
                 {label: "Layer to Selection",command: COMMAND.TOSELECTION}

@@ -7,6 +7,7 @@
   width: 175px;
   background-color: $panel-background-color;
   display: none;
+  overflow: auto;
 
   .panel{
     position: absolute;
@@ -193,6 +194,7 @@
       justify-content: flex-end;
       font-size: 12px;
       color: $menu-text-color;
+      position: relative;
 
       &.multirow{
         height: 47px;
@@ -227,14 +229,18 @@
         position: absolute;
         left: 4px;
         top: 4px;
+        right: 44px;
         font-size: 11px;
         color: #9d9c9c;
-        display: flex;
 
         input{
-          width: 80px;
+          position: absolute;
           margin: 0 0 0 4px;
           height: 17px;
+          left: 40px;
+          top: 0;
+          right: 0;
+          width: auto;
 
           &::-webkit-slider-thumb,
           &::-moz-range-thumb{
@@ -267,7 +273,7 @@
           right: 4px;
           top: 0;
           height: 19px;
-          width: 123px;
+          left: 40px;
           background-color: #181818;
           color: #888888;
           border: 1px solid #7b7b7b;
@@ -276,7 +282,6 @@
     }
 
     &.brush{
-
       color: $menu-text-color;
       font-size: 12px;
 

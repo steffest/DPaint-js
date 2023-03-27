@@ -81,6 +81,12 @@
         border: 1px solid #8c8c8c;
         background-color: #232323;
       }
+
+      &.large{
+        padding: 10px;
+        margin: 10px;
+        text-align: center;
+      }
     }
 
     h3{
@@ -166,6 +172,13 @@
           left: 556px;
           bottom: 24px;
         }
+      }
+    }
+
+    .optiondialog{
+      p{
+        margin: 0;
+        padding: 10px;
       }
     }
 

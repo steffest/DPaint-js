@@ -1,5 +1,5 @@
 import ImageFile from "../../image.js";
-import {$div, $elm, $input} from "../../util/dom.js";
+import $,{$div, $elm, $input} from "../../util/dom.js";
 import EventBus from "../../util/eventbus.js";
 import {COMMAND, EVENT} from "../../enum.js";
 import input from "../input.js";
@@ -46,38 +46,31 @@ let LayerPanel = function(){
     ]
 
     me.generate = (parent)=>{
-        let toolbar = $div("paneltools multirow","",parent);
-        let rangeSelect = $div("rangeselect","",toolbar);
-        $div("label","Opacity",rangeSelect);
-        opacityRange = document.createElement("input");
-        opacityRange.type = "range";
-        opacityRange.max=100;
-        opacityRange.min=0;
-        opacityRange.value = 100;
-        opacityRange.oninput = ()=>{
-            ImageFile.setLayerOpacity(opacityRange.value);
-        }
-        rangeSelect.appendChild(opacityRange);
+        $(".paneltools.multirow",{parent:parent},
+            $(".rangeselect",
+                $(".label","Opacity"),
+                opacityRange = $("input",{type:"range",max:100,min:0,value:100,oninput:()=>{
+                    ImageFile.setLayerOpacity(opacityRange.value);
+                }})
+            ),
+            $(".blendselect",
+                $(".label","Blend"),
+                blendSelect = $("select",{oninput:()=>{
+                    ImageFile.setLayerBlendMode(blendSelect.value);
+                }})
+            ),
+            $(".button.delete",{onclick:()=>{
+                EventBus.trigger(COMMAND.DELETELAYER);
+            }}),
+            $(".button.add",{onclick:()=>{
+                EventBus.trigger(COMMAND.NEWLAYER);
+            }})
+        );
 
-        let blendSelectElm = $div("blendselect","",toolbar);
-        $div("label","Blend",blendSelectElm);
-        blendSelect = $elm("select","",blendSelectElm);
+        contentPanel = $(".panelcontent",{parent:parent});
         blendModes.forEach(mode=>{
             $elm("option",mode,blendSelect);
         });
-        blendSelect.oninput = ()=>{
-            ImageFile.setLayerBlendMode(blendSelect.value);
-        }
-
-
-        $div("button delete","",toolbar,()=>{
-            EventBus.trigger(COMMAND.DELETELAYER);
-        });
-        $div("button add","",toolbar,()=>{
-            EventBus.trigger(COMMAND.NEWLAYER);
-        });
-
-        contentPanel = $div("panelcontent","",parent);
     }
 
     me.list = ()=>{
@@ -239,9 +232,7 @@ let LayerPanel = function(){
 
     }
 
-
     EventBus.on(EVENT.layersChanged,me.list);
-
 
     return me;
 }();

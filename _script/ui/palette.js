@@ -293,7 +293,7 @@ let Palette = function(){
                 let layer = ImageFile.getActiveLayer();
                 layer.clear();
                 layer.drawImage(c,0,0);
-                EventBus.trigger(EVENT.layerContentChanged);
+                EventBus.trigger(EVENT.layerContentChanged,true);
             }else{
                 ImageProcessing.reduce(c,targetPalette || targetColorCount,alphaThreshold,ditherIndex);
             }

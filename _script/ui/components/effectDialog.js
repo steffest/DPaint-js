@@ -148,6 +148,8 @@ var EffectDialog = function() {
             EventBus.trigger(EVENT.layerContentChanged);
         });
 
+        Effects.clear();
+
     }
 
     function createSlider(parent,label,value,min,max,onInput){

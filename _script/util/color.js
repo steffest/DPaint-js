@@ -33,6 +33,15 @@ var Color = function(){
         }
     }
 
+    me.distance = function(color1,color2){
+        color1 = me.fromString(color1);
+        color2 = me.fromString(color2);
+        let r = color1[0] - color2[0];
+        let g = color1[1] - color2[1];
+        let b = color1[2] - color2[2];
+        return Math.sqrt(r*r + g*g + b*b);
+    }
+
     function hexByte(nr){
         if (typeof nr === "string") nr=parseInt(nr);
         let result = nr.toString(16);

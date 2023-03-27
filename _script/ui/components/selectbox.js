@@ -9,6 +9,7 @@ import {duplicateCanvas, releaseCanvas} from "../../util/canvasUtils.js";
 import Resizer from "./resizer.js";
 import effects from "../effects.js";
 import Color from "../../util/color.js";
+import ToolOptions from "./toolOptions.js";
 
 let SelectBox = (()=>{
     let me = {};
@@ -131,6 +132,7 @@ let SelectBox = (()=>{
         let w = canvas.width;
         let h = canvas.height;
         let imageData = canvas.getContext("2d").getImageData(0,0,w,h);
+        let tolerance = ToolOptions.getTolerance();
 
         let c = duplicateCanvas(canvas).getContext("2d");
         let target = c.getImageData(0,0,w,h);
@@ -173,7 +175,15 @@ let SelectBox = (()=>{
         }
 
         function checkIndex(ind){
-            if (!done[ind] && getColor(ind) === color) put(ind);
+            if (!done[ind]){
+                let c = getColor(ind);
+                let passed = c === color;
+                if (!passed && tolerance){
+                    let distance = Color.distance(c,color);
+                    passed = distance <= tolerance*2;
+                }
+                if (passed) put(ind);
+            }
         }
 
         function put(ind){

@@ -141,7 +141,7 @@ let ImageFile = function(){
         }else{
             let w = properties.width;
             let h = properties.height;
-            let anchor = properties.anchor;
+            let anchor = properties.anchor || "topleft";
             let pW = currentFile.width;
             let pH = currentFile.height;
             currentFile.width = w;
@@ -498,10 +498,33 @@ let ImageFile = function(){
     }
 
     me.paste = function(image){
-        let index = me.addLayer();
-        me.activateLayer(index);
-        me.getActiveLayer().drawImage(image,0,0);
-        EventBus.trigger(EVENT.layerContentChanged);
+        let w= ImageFile.getCurrentFile().width;
+        let h= ImageFile.getCurrentFile().height;
+
+        function doPaste(){
+            let index = me.addLayer();
+            me.activateLayer(index);
+            me.getActiveLayer().drawImage(image,0,0);
+            EventBus.trigger(EVENT.layerContentChanged);
+        }
+
+        if (image && (image.width>w || image.height>h)){
+            Modal.show(DIALOG.OPTION,{
+                title: "Paste Image",
+                width: 320,
+                text:"The image you are pasting is larger than the current canvas. What do you want to do?",
+                buttons:[
+                    {label: "Keep the canvas at " + w + "x" + h + " pixels", onclick: doPaste},
+                    {label: "Enlarge the canvas to " + image.width + "x" + image.height + " pixels", onclick: ()=>{
+                        me.resize({width: image.width, height: image.height});
+                        doPaste();
+                    }},
+                    {label: "Cancel"}
+                ]
+            })
+        }else{
+
+        }
     }
 
     EventBus.on(COMMAND.NEW,function(){
@@ -588,7 +611,8 @@ let ImageFile = function(){
         input.click();
     });
 
-    EventBus.on(EVENT.layerContentChanged,function(){
+    EventBus.on(EVENT.layerContentChanged,function(keepImageCache){
+        if (!keepImageCache) cachedImage = undefined;
         if (activeLayer) activeLayer.update();
         me.render();
         EventBus.trigger(EVENT.imageContentChanged);

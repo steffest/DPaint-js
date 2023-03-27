@@ -31,6 +31,10 @@ let Effects = function(){
         }
     }
 
+    me.clear = ()=>{
+        filters = {};
+    }
+
     me.setBrightness = (value,src,target)=>{
         me.setSrcTarget(src,target);
         value = parseInt(value);

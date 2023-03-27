@@ -11,6 +11,7 @@ let ToolOptions = function(){
     let smooth = false;
     let fill = false;
     let lineSize = 1;
+    let tolerance = 0;
     let mask = false;
 
     let smoothCheckbox;
@@ -18,6 +19,7 @@ let ToolOptions = function(){
     let ditherCheckbox;
     let fillCheckbox;
     let lineSizeRange;
+    let toleranceRange;
     let brushOptionGroup;
     let brushSettings={};
 
@@ -46,6 +48,10 @@ let ToolOptions = function(){
         return lineSize;
     }
 
+    me.getTolerance = ()=>{
+        return tolerance;
+    }
+
     me.getOptions = (command)=>{
         let options = $div("options");
         switch (command){
@@ -72,6 +78,10 @@ let ToolOptions = function(){
             case COMMAND.GRADIENT:
                 options.appendChild(label("Gradient:"));
                 options.appendChild(ditherSetting());
+                break;
+            case COMMAND.FLOOD:
+            case COMMAND.FLOODSELECT:
+                options.appendChild(toleranceSetting());
                 break;
         }
 
@@ -170,6 +180,26 @@ let ToolOptions = function(){
         });
         ditherCheckbox.setState(DitherPanel.getDitherState());
         return ditherCheckbox;
+    }
+
+    function toleranceSetting(){
+        if (!toleranceRange){
+            toleranceRange = $div("range");
+            $elm("label","Tolerance:",toleranceRange);
+            let range = document.createElement("input");
+            range.type="range";
+            range.min=0;
+            range.max=100;
+            range.value = 0;
+            toleranceRange.appendChild(range);
+            let value = $elm("span","0",toleranceRange);
+            range.oninput = function(){
+                value.innerText = range.value;
+                tolerance = range.value;
+            }
+
+        }
+        return toleranceRange;
     }
 
     function label(text){

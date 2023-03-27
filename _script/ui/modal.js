@@ -7,6 +7,7 @@ import ResampleDialog from "./components/resampleDialog.js";
 import PaletteDialog from "./components/paletteDialog.js";
 import EffectDialog from "./components/effectDialog.js";
 import DitherDialog from "./components/ditherDialog.js";
+import OptionDialog from "./components/optionDialog.js";
 
 export let DIALOG={
     SAVE: 1,
@@ -15,7 +16,8 @@ export let DIALOG={
     PALETTE: 4,
     EFFECTS: 5,
     ABOUT: 6,
-    DITHER: 7
+    DITHER: 7,
+    OPTION:8
 }
 
 var Modal = function(){
@@ -34,10 +36,12 @@ var Modal = function(){
         4: {title: "Palette", handler: PaletteDialog, position: [0,0]},
         5: {title: "Effects", handler: EffectDialog, position: [0,0],width:500,height:530},
         6: {title: "About", action: showAbout, position: [0,0],width:750,height:470},
-        7: {title: "DitherPattern",  handler: DitherDialog, position: [0,0],width:662,height:326}
+        7: {title: "DitherPattern",  handler: DitherDialog, position: [0,0],width:662,height:326},
+        8: {title: "Request", fuzzy: true, handler: OptionDialog, position: [0,0],width:300,height:"auto"}
     }
 
     me.show = function(type,data){
+        data = data || {};
         let dialog = dialogs[type];
         if (dialog && dialog.fuzzy){
             UI.fuzzy(true);
@@ -65,19 +69,19 @@ var Modal = function(){
         Input.setActiveKeyHandler(keyHandler);
 
         if (dialog){
-            let width = dialog.width || 440;
-            let height = dialog.height || 260;
+            let width = data.width || dialog.width || 440;
+            let height = data.height || dialog.height || 260;
             modalWindow.style.width = width + "px";
-            modalWindow.style.height = height + "px";
+            modalWindow.style.height = height + (height==="auto"?"":"px");
             modalWindow.style.top = 'calc(50vh - ' + (height>>1) + 'px)';
             modalWindow.style.marginLeft = -(width>>1) + "px";
             currentDialog = dialog;
             let x = currentDialog.position[0];
             let y = currentDialog.position[1];
             modalWindow.style.transform = "translate("+x+"px,"+y+"px)";
-            caption.innerHTML = dialog.title;
+            caption.innerHTML = data.title || dialog.title;
             if (dialog.handler){
-                dialog.handler.render(inner,me);
+                dialog.handler.render(inner,me,data);
             }
             if (dialog.action){
                 dialog.action(data);

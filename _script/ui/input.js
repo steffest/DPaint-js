@@ -304,7 +304,7 @@ var Input = function(){
 		}
 
 		if (!e){
-			// "paste" seledcted from menu;
+			// "paste" selected from menu;
 
 			let blob;
 			const queryOpts = { name: 'clipboard-read', allowWithoutGesture: true };

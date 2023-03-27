@@ -45,8 +45,6 @@ let ColorPicker = function(){
         dot = dom(".dot",{parent:container});
         line = dom(".line",{parent:container});
 
-        SidePanel.show();
-
     }
 
     function fillStrip(){

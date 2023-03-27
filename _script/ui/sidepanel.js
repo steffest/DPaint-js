@@ -16,7 +16,7 @@ var SidePanel = function(){
     let panels = {
         info:{
             label: "Info",
-            height: 100
+            height: 84
         },
         frames:{
             label: "Frames",
