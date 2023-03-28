@@ -11,24 +11,26 @@ let Toolbar = function(){
     let me = {}
     let container;
     let undo,redo;
+    let isMac = navigator.platform.toUpperCase().indexOf('MAC')>=0;
+    let meta = isMac?"Cmd":"Ctrl";
 
     let items=[
-        {name: "pencil",command: COMMAND.DRAW, isTool: true, info: "Left click: draw with foreground color, Right click: draw with background color"},
-        {name: "select",command: COMMAND.SELECT, isTool: true, handleDeActivate: true, info: "Make rectangular selection"},
-        {name: "polygonselect",command: COMMAND.POLYGONSELECT, isTool: true, handleDeActivate: true, info: "Make polygon selection"},
-        {name: "floodselect", isTool: true, command: COMMAND.FLOODSELECT, info: "Make selection of on area of the same color"},
-        {name: "circle",label: "", isTool: true, canFill: true, command: COMMAND.CIRCLE, info: "Draw ellipsis. Shift to lock to circle, select again to toggle fill."},
-        {name: "square",label: "", isTool: true, canFill: true, command: COMMAND.SQUARE, info: "Draw rectangle. Shift to lock to square, select again to toggle fill."},
-        {name: "line",label: "", isTool: true, command: COMMAND.LINE, info: "Draw straight line"},
-        {name: "gradient", isTool: true, command: COMMAND.GRADIENT, info: "Gradient fill, draw line to set start- and endpoint"},
-        {name: "flood", isTool: true, command: COMMAND.FLOOD, info: "Fill an area"},
-        {name: "stamp", command: COMMAND.STAMP, info: "Draw stencil from selection"},
-        {name: "erase", isTool: true, command: COMMAND.ERASE, info: "Erase"},
-        {name: "split", command: COMMAND.SPLITSCREEN, toggleProperty: "splitPanel", info: "Toggle split view"},
-        {name: "zoom",label: "", command: COMMAND.ZOOMIN, info: "Zoom in"},
-        {name: "zoomout",label: "",command: COMMAND.ZOOMOUT, info: "Zoom out"},
-        {name: "undo", command: COMMAND.UNDO, info: "Undo"},
-        {name: "redo",command: COMMAND.REDO, info: "Redo"}
+        {name: "pencil",command: COMMAND.DRAW, isTool: true, info: "<b>B</b> Left click: draw with foreground color, Right click: draw with background color."},
+        {name: "select",command: COMMAND.SELECT, isTool: true, handleDeActivate: true, info: "<b>S</b> Make rectangular selection."},
+        {name: "polygonselect",command: COMMAND.POLYGONSELECT, isTool: true, handleDeActivate: true, info: "<b>P</b> Make polygon selection."},
+        {name: "floodselect", isTool: true, command: COMMAND.FLOODSELECT, info: "<b>W</b> Make selection of on area of the same color."},
+        {name: "circle",label: "", isTool: true, canFill: true, command: COMMAND.CIRCLE, info: "<b>C</b> Draw ellipsis. Shift to lock to circle, select again to toggle fill."},
+        {name: "square",label: "", isTool: true, canFill: true, command: COMMAND.SQUARE, info: "<b>R</b> Draw rectangle. Shift to lock to square, select again to toggle fill."},
+        {name: "line",label: "", isTool: true, command: COMMAND.LINE, info: "<b>L</b> Draw straight line."},
+        {name: "gradient", isTool: true, command: COMMAND.GRADIENT, info: "<b>G</b> Gradient fill, draw line to set start- and endpoint."},
+        {name: "flood", isTool: true, command: COMMAND.FLOOD, info: "<b>F</b> Fill an area."},
+        {name: "stamp", command: COMMAND.STAMP, info: "Draw stencil from selection."},
+        {name: "erase", isTool: true, command: COMMAND.ERASE, info: "<b>E</b> Erase."},
+        {name: "split", command: COMMAND.SPLITSCREEN, toggleProperty: "<b>Tab</b> splitPanel", info: "Toggle split view."},
+        {name: "zoom",label: "", command: COMMAND.ZOOMIN, info: "<b>+</b> Zoom in."},
+        {name: "zoomout",label: "",command: COMMAND.ZOOMOUT, info: "<b>-</b> Zoom out."},
+        {name: "undo", command: COMMAND.UNDO, info: "<b>"+meta+"-Z</b> Undo."},
+        {name: "redo",command: COMMAND.REDO, info: "<b>"+meta+"-Y</b> Redo."}
     ]
 
     me.init = function(parent){
@@ -38,6 +40,13 @@ let Toolbar = function(){
         EventBus.on(EVENT.toolOptionsChanged,()=>{
             if (container) container.classList.toggle("fill",ToolOptions.isFill());
         })
+
+        let button = document.createElement("button");
+        button.innerHTML = "test2";
+        button.addEventListener("click",()=>{
+            EventBus.trigger(COMMAND.FULLSCREEN);
+        })
+        container.appendChild(button);
     }
 
     me.activateButton = function(index){

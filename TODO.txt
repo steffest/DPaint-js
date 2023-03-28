@@ -18,3 +18,5 @@ Bugs:
 Transforming a mask clears the layer ?
 resizing sizebox negatively, makes the sizebox 0 width/height
 copy/paste from syntax highlighter
+
+Draw line on non toplayer draws the line on the toplayer

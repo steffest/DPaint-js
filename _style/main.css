@@ -1,5 +1,6 @@
 html {
   box-sizing: border-box;
+  overflow: hidden;
 }
 
 *, *:before, *:after {
@@ -18,6 +19,7 @@ body {
 .container {
   position: relative;
   height: 100%;
+  background-color: #2B2B2B;
 }
 .container.fuzzy {
   pointer-events: none;
@@ -541,7 +543,18 @@ body.withsidepanel .toolbar .togglepanel:after {
   font-size: 12px;
   padding: 2px 0 0 10px;
   border-top: 1px solid black;
+  overflow: hidden;
 }
+.statusbar .tooltip b {
+  font-weight: normal;
+  display: inline-block;
+  border: 1px solid #9a9a9a;
+  font-size: 10px;
+  height: 14px;
+  padding: 0 3px;
+  text-align: center;
+}
+
 .sidepanel {
   position: absolute;
   left: 70px;
@@ -2131,6 +2144,121 @@ body.hovericonEditorCanvas.mousedown.colorpicker.mousedown .cursor .mark {
   position: absolute;
   left: 0;
   max-width: 49%;
+}
+.modalwindow .inner .saveform {
+  padding: 10px;
+}
+.modalwindow .inner .saveform h4 {
+  padding: 0;
+  margin: 0 0 4px 0;
+  font-weight: normal;
+}
+.modalwindow .inner .saveform h4.amiga, .modalwindow .inner .saveform h4.general {
+  background-image: url("../_img/amigatick.png");
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: left center;
+  padding-left: 20px;
+}
+.modalwindow .inner .saveform h4.general {
+  background-image: url("../_img/image.svg");
+  padding-left: 22px;
+}
+.modalwindow .inner .saveform input {
+  width: 100%;
+  margin-bottom: 10px;
+}
+.modalwindow .inner .saveform .platform {
+  display: inline-block;
+  width: 50%;
+  vertical-align: top;
+}
+.modalwindow .inner .saveform .platform .button {
+  border: none;
+  position: relative;
+  padding: 5px 5px 5px 40px;
+}
+.modalwindow .inner .saveform .platform .button .icon {
+  width: 32px;
+  height: 32px;
+  left: 0;
+  position: absolute;
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+}
+.modalwindow .inner .saveform .platform .button .icon.png {
+  background-image: url("../_img/png.svg");
+}
+.modalwindow .inner .saveform .platform .button .icon.json {
+  background-image: url("../_img/json.svg");
+}
+.modalwindow .inner .saveform .platform .button .icon.psd {
+  background-image: url("../_img/psd.svg");
+}
+.modalwindow .inner .saveform .platform .button .icon.mui {
+  background-image: url("../_img/mui.png");
+}
+.modalwindow .inner .saveform .platform .button .icon.os3 {
+  background-image: url("../_img/os3.png");
+}
+.modalwindow .inner .saveform .platform .button .icon.os4 {
+  background-image: url("../_img/os4.png");
+}
+.modalwindow .inner .saveform .platform .button .icon.iff {
+  background-image: url("../_img/iff.png");
+}
+.modalwindow .inner .saveform .platform .button .info {
+  background-color: #4d5052;
+  position: absolute;
+  padding: 4px 4px 4px 8px;
+  border: 1px solid black;
+  top: 0;
+  left: 140px;
+  z-index: 10;
+  width: 200px;
+  opacity: 0;
+  pointer-events: none;
+  min-height: 40px;
+  transition: opacity 0.2s ease-in-out, left 0.2s ease-in-out;
+}
+.modalwindow .inner .saveform .platform .button .info:before {
+  content: "";
+  position: absolute;
+  top: 10px;
+  left: -21px;
+  border: 10px solid transparent;
+  border-right: 10px solid black;
+}
+.modalwindow .inner .saveform .platform .button .info:after {
+  content: "";
+  position: absolute;
+  top: 10px;
+  left: -20px;
+  border: 10px solid transparent;
+  border-right: 10px solid #4d5052;
+}
+.modalwindow .inner .saveform .platform .button:hover .info {
+  opacity: 1;
+  left: 160px;
+}
+.modalwindow .inner .saveform .platform.amiga .button .info {
+  left: unset;
+  right: 140px;
+  transition: opacity 0.2s ease-in-out, right 0.2s ease-in-out;
+}
+.modalwindow .inner .saveform .platform.amiga .button .info:before {
+  left: unset;
+  right: -21px;
+  transform: rotate(180deg);
+}
+.modalwindow .inner .saveform .platform.amiga .button .info:after {
+  left: unset;
+  right: -20px;
+  transform: rotate(180deg);
+}
+.modalwindow .inner .saveform .platform.amiga .button:hover .info {
+  right: 160px;
 }
 
 /*# sourceMappingURL=main.css.map */

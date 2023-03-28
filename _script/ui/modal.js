@@ -30,7 +30,7 @@ var Modal = function(){
     let currentDialog;
 
     let dialogs={
-        1: {title: "Save File", fuzzy: true, handler: SaveDialog, position: [0,0]},
+        1: {title: "Save File", fuzzy: true,width:400,height:"auto", handler: SaveDialog, position: [0,0]},
         2: {title: "Canvas Size", fuzzy: true, handler: ResizeDialog, position: [0,0],width:406,height:220},
         3: {title: "Image Size", fuzzy: true, handler: ResampleDialog, position: [0,0],width:326,height:220},
         4: {title: "Palette", handler: PaletteDialog, position: [0,0]},
@@ -72,8 +72,13 @@ var Modal = function(){
             let width = data.width || dialog.width || 440;
             let height = data.height || dialog.height || 260;
             modalWindow.style.width = width + "px";
-            modalWindow.style.height = height + (height==="auto"?"":"px");
-            modalWindow.style.top = 'calc(50vh - ' + (height>>1) + 'px)';
+            modalWindow.style.height = height + "px";
+            let top = 'calc(50vh - ' + (height>>1) + 'px)';
+            if (height==="auto"){
+                modalWindow.style.height = "auto";
+                top = 'calc(50vh - 150px)';
+            }
+            modalWindow.style.top = top;
             modalWindow.style.marginLeft = -(width>>1) + "px";
             currentDialog = dialog;
             let x = currentDialog.position[0];

@@ -9,17 +9,26 @@ import {duplicateCanvas, releaseCanvas} from "./util/canvasUtils.js";
 import Palette from "./ui/palette.js";
 
 let ImageFile = function(){
-    let me = {};
+   let me = {};
     let activeLayer;
     let activeLayerIndex = 0;
     let activeFrameIndex = 0;
     let cachedImage;
     let currentFile = {
+        name:"Untitled",
         layers:[]
     }
 
     me.getCurrentFile = function(){
         return currentFile;
+    }
+
+    me.getName = function(){
+        return currentFile.name || "Untitled";
+    }
+
+    me.setName = function(name){
+        currentFile.name = name;
     }
 
     me.getOriginal = function(){
@@ -280,6 +289,7 @@ let ImageFile = function(){
             image: {}
         }
 
+        struct.image.name = currentFile.name;
         struct.image.width = currentFile.width;
         struct.image.height = currentFile.height;
         struct.image.frames=[];
@@ -308,6 +318,7 @@ let ImageFile = function(){
         currentFile.height = image.height;
         let mockImage = new Image(currentFile.width,currentFile.height);
         newFile(mockImage);
+        currentFile.name = image.name || "Untitled";
         image.frames.forEach((_frame,frameIndex)=>{
             let frame = currentFile.frames[frameIndex];
             if (!frame){
@@ -327,7 +338,6 @@ let ImageFile = function(){
                 let _image = new Image();
                 _image.onload = function () {
                     layer.drawImage(_image);
-                    console.error(_image.width);
                     EventBus.trigger(EVENT.layersChanged);
                     EventBus.trigger(EVENT.imageSizeChanged);
                 }
@@ -462,7 +472,6 @@ let ImageFile = function(){
     }
 
     function moveLayer(fromIndex,toIndex){
-        console.error(fromIndex,toIndex);
         if (currentFrame().layers.length>1){
             if (toIndex>=currentFrame().layers.length) toIndex=currentFrame().layers.length-1;
             if (toIndex<0) toIndex=0;

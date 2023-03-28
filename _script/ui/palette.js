@@ -175,7 +175,7 @@ let Palette = function(){
         let swapColors = $div("button swapcolors info","",display,()=>{
             EventBus.trigger(COMMAND.SWAPCOLORS);
         });
-        swapColors.info = "Swap foreground and background color - [x]"
+        swapColors.info = "<b>X</b> Swap foreground and background color"
 
         let noColor = $div("button transparentcolors info","",display,(e)=>{
             me.setColor("transparent",e.button);
@@ -225,6 +225,8 @@ let Palette = function(){
         me.setColor(colors[2],false);
         me.setColor(colors[1],true);
     }
+
+
 
     me.setColor=function(color,back){
         if (back){

@@ -4,8 +4,6 @@ import {COMMAND, EVENT} from "./enum.js";
 import ImageFile from "./image.js";
 import Palette from "./ui/palette.js";
 import Modal, {DIALOG} from "./ui/modal.js";
-import Eventbus from "./util/eventbus.js";
-import layer from "./ui/layer.js";
 
 let App = function(){
 	let me = {
@@ -13,6 +11,7 @@ let App = function(){
 	}
 	
 	me.init = function(){
+		console.error("init");
 		UI.init();
 		EventBus.trigger(COMMAND.NEW);
 
@@ -28,6 +27,21 @@ let App = function(){
 			Modal.show(DIALOG.ABOUT,me.version);
 		})
 
+		EventBus.on(COMMAND.FULLSCREEN,()=>{
+			let elm = document.body;
+			if (!elm) return;
+			if (elm.requestFullscreen) {
+				elm.requestFullscreen().catch(
+					(err)=>{
+						console.error("fullscreen failed");
+						console.error(err);
+					}
+				);
+			} else if (elm.webkitRequestFullscreen) { /* Safari */
+				elm.webkitRequestFullscreen();
+			}
+		})
+
 	}
 
 	window.addEventListener('DOMContentLoaded', (event) => {
@@ -35,7 +49,13 @@ let App = function(){
 	});
 
 
+	// prevent pinch-zoom for iOS Safari
+	if (window.GestureEvent) {
+		document.documentElement.addEventListener('gesturestart', (e)=>{e.preventDefault()}, {passive: false, capture:true});
+	}
 
+
+/*
 	window.test = function(){
 		let canvas = ImageFile.getCanvas();
 		let ctx = canvas.getContext("2d");
@@ -125,7 +145,7 @@ let App = function(){
 		return image;
 	}
 
-
+*/
 	
 	return me;
 }();

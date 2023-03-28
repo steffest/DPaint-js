@@ -330,7 +330,8 @@ let Canvas = function(parent){
                         touchData.hotDrawFunction = function(x,y){
                             drawLayer.clear();
                             let ctx = drawLayer.getContext();
-                            ctx.lineWidth = ToolOptions.getLineSize() / (window.devicePixelRatio || 1);
+                            let lineWidth = ToolOptions.getLineSize() / (window.devicePixelRatio || 1)
+                            ctx.lineWidth = lineWidth;
                             ctx.lineCap = "square";
                             ctx.strokeStyle = Palette.getDrawColor();
                             ctx.imageSmoothingEnabled = false;
@@ -369,7 +370,7 @@ let Canvas = function(parent){
                                 ctx.stroke();
                                 if (isOdd) ctx.translate(-.5,-.5);
                             }else{
-                                bLine(point.x,point.y,x,y,ctx,Color.fromString(Palette.getDrawColor()));
+                                bLine(point.x,point.y,x,y,ctx,Color.fromString(Palette.getDrawColor()),lineWidth);
                             }
 
                             EventBus.trigger(EVENT.layerContentChanged);
@@ -598,7 +599,7 @@ let Canvas = function(parent){
 
     //Bresenham's_line_algorithm
     //http://rosettacode.org/wiki/Bitmap/Bresenham's_line_algorithm
-    function bLine(x0, y0, x1, y1,ctx,color) {
+    function bLine_(x0, y0, x1, y1,ctx,color,lineWidth) {
         let imgData=ctx.getImageData(0,0,canvas.width,canvas.height);
         let data = imgData.data;
 
@@ -606,12 +607,11 @@ let Canvas = function(parent){
         var dy = Math.abs(y1 - y0), sy = y0 < y1 ? 1 : -1;
         var err = (dx>dy ? dx : -dy)/2;
         while (true) {
-            // setPixel
-            let n=(y0*canvas.width+x0)*4;
-            data[n]=color[0];
-            data[n+1]=color[1];
-            data[n+2]=color[2];
-            data[n+3]=255;
+            drawPixel(x0,y0);
+            //drawPixel(x0+1,y0);
+            //drawPixel(x0-1,y0);
+            //drawPixel(x0,y0+1);
+            //drawPixel(x0,y0-1);
 
             if (x0 === x1 && y0 === y1) break;
             var e2 = err;
@@ -619,7 +619,52 @@ let Canvas = function(parent){
             if (e2 < dy) { err += dx; y0 += sy; }
         }
         ctx.putImageData(imgData,0,0);
+
+        function drawPixel(x,y){
+            let n=(y*canvas.width+x)*4;
+            data[n]=color[0];
+            data[n+1]=color[1];
+            data[n+2]=color[2];
+            data[n+3]=255;
+        }
     }
+
+
+
+
+    function bLine(x0, y0, x1, y1,ctx,color,thickness) {
+        let dx = Math.abs(x1 - x0);
+        let dy = Math.abs(y1 - y0);
+        let sx = (x0 < x1) ? 1 : -1;
+        let sy = (y0 < y1) ? 1 : -1;
+        let err = dx - dy;
+        let e2;
+        let x = x0;
+        let y = y0;
+        let angle = Math.atan2(dy, dx);
+        let thicknessX = thickness * Math.cos(angle);
+        let thicknessY = thickness * Math.sin(angle);
+
+        color = "black";
+
+        while (true) {
+            for (let i = Math.floor(-thicknessX/2); i <= Math.ceil(thicknessX/2); i++) {
+                for (let j = Math.floor(-thicknessY/2); j <= Math.ceil(thicknessY/2); j++) {
+                    let xi = Math.round(x + i * Math.cos(angle) - j * Math.sin(angle));
+                    let yi = Math.round(y + i * Math.sin(angle) + j * Math.cos(angle));
+                    ctx.fillStyle = color;
+                    ctx.fillRect(xi, yi, 1, 1);
+                }
+            }
+
+            if ((x == x1) && (y == y1)) break;
+            e2 = err * 2;
+            if (e2 > -dy) { err -= dy; x += sx; }
+            if (e2 < dx) { err += dx; y += sy; }
+        }
+    }
+
+
 
     return me;
 };

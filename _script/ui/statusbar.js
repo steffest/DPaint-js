@@ -11,7 +11,7 @@ let StatusBar = (()=>{
   }
 
   me.setToolTip = (text)=>{
-    toolTip.innerText = text;
+    toolTip.innerHTML = text;
   }
 
   return me;

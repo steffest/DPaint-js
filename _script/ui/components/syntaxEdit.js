@@ -9,7 +9,8 @@ let SyntaxEdit = function(parent,onChange){
         reserved: {reg: /\b(new|var|let|if|do|function|while|switch|for|foreach|in|continue|break)(?=[^\w])/g, style:"reserved"},
         globals: {reg: /\b(document|window|Array|String|Object|Number|Math|\$)(?=[^\w])/g, style:"globals"},
         js: {reg: /\b(getElementsBy(TagName|ClassName|Name)|getElementById|typeof|instanceof)(?=[^\w])/g, style:"js"},
-        methods: {reg:/((?<=\.)\w+)/g, style:"method"},
+        //methods: {reg:/((?<=\.)\w+)/g, style:"method"},
+        // Note: Safari doesn't support lookbehind in regexes ...
         htmlTags: {reg: /(&lt;[^\&]*&gt;)/g, style:"html"},
         blockComments: {reg: /(\/\*.*\*\/)/g, style:"comment"},
         inlineComments: {reg: /(\/\/.*)/g, style:"comment"},

@@ -9,8 +9,18 @@
   font-size: 12px;
   padding: 2px 0 0 10px;
   border-top: 1px solid black;
+  overflow: hidden;
 
   .tooltip{
+    b{
+      font-weight: normal;
+      display: inline-block;
+      border: 1px solid #9a9a9a;
+      font-size: 10px;
+      height: 14px;;
+      padding: 0 3px;
+      text-align: center;
+    }
 
   }
 }

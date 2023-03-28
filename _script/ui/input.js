@@ -18,10 +18,9 @@ var Input = function(){
 	
 	me.init = function(){
 		console.log("Input init");
-		document.addEventListener("mousedown",onMouseDown)
-		document.addEventListener("mouseup",onMouseUp)
-		document.addEventListener("mousemove",onMouseMove)
-		document.addEventListener("touchmove",onMouseMove)
+		document.addEventListener("pointerdown",onPointerDown)
+		document.addEventListener("pointerup",onPointerUp)
+		document.addEventListener("pointermove",onPointerMove)
 		document.addEventListener("keydown",onKeyDown)
 		document.addEventListener("keyup",onKeyUp)
 
@@ -57,8 +56,8 @@ var Input = function(){
 	me.isMetaDown = function(){
 		return !!keyDown["meta"] || me.isControlDown() || me.isShiftDown();
 	}
-	me.isMouseDown = function(){
-		return document.body.classList.contains("mousedown");
+	me.isPointerDown = function(){
+		return document.body.classList.contains("pointerdown");
 	}
 
 	me.setMouseOver = function(id){
@@ -90,8 +89,8 @@ var Input = function(){
 		}
 	}
 
-	function onMouseDown(e){
-		document.body.classList.add("mousedown");
+	function onPointerDown(e){
+		document.body.classList.add("pointerdown");
 		let target = e.target.closest(".handle");
 		console.log(target);
 
@@ -138,7 +137,7 @@ var Input = function(){
 		}
 	}
 
-	function onMouseMove(e){
+	function onPointerMove(e){
 
 		if (!e.shiftKey) keyDown["shift"]=false;
 		if (!e.ctrlKey) keyDown["control"]=false;
@@ -168,14 +167,14 @@ var Input = function(){
 		}
 	}
 
-	function onMouseUp(e){
+	function onPointerUp(e){
 		if (touchData.isDragging){
 			if (touchData.target && touchData.target.onDragEnd){
 				touchData.target.onDragEnd(e);
 			}
 		}
 		touchData.isDragging = false;
-		document.body.classList.remove("mousedown");
+		document.body.classList.remove("pointerdown");
 	}
 
 	function onKeyDown(e){
@@ -255,20 +254,23 @@ var Input = function(){
 				case "t": EventBus.trigger(COMMAND.TRANSFORMLAYER); break;
 				case "y": EventBus.trigger(COMMAND.REDO); break;
 				case "z": EventBus.trigger(COMMAND.UNDO); break;
-
 			}
 		}else{
 			switch (key){
 				case "b": EventBus.trigger(COMMAND.DRAW); break;
 				case "c": EventBus.trigger(COMMAND.CIRCLE); break;
 				case "e": EventBus.trigger(COMMAND.ERASE); break;
+				case "f": EventBus.trigger(COMMAND.FLOOD); break;
 				case "g": EventBus.trigger(COMMAND.GRADIENT); break;
 				case "l": EventBus.trigger(COMMAND.LINE); break;
 				case "p": EventBus.trigger(COMMAND.POLYGONSELECT); break;
 				case "r": EventBus.trigger(COMMAND.SQUARE); break;
 				case "s": EventBus.trigger(COMMAND.SELECT); break;
 				case "v": EventBus.trigger(COMMAND.TRANSFORMLAYER); break;
+				case "w": EventBus.trigger(COMMAND.FLOODSELECT); break;
 				case "x": EventBus.trigger(COMMAND.SWAPCOLORS); break;
+				case "-": EventBus.trigger(COMMAND.ZOOMOUT); break;
+				case "+": EventBus.trigger(COMMAND.ZOOMIN); break;
 			}
 		}
 

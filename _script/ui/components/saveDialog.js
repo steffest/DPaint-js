@@ -1,4 +1,4 @@
-import {$div} from "../../util/dom.js";
+import $,{$div} from "../../util/dom.js";
 import IFF from "../../fileformats/iff.js";
 import Icon from "../../fileformats/amigaIcon.js";
 import ImageFile from "../../image.js";
@@ -10,6 +10,7 @@ import {COMMAND, EVENT} from "../../enum.js";
 
 var SaveDialog = function(){
     let me ={};
+    let nameInput;
 
     let filetypes = {
         IFF:{
@@ -60,26 +61,52 @@ var SaveDialog = function(){
 
     me.render = function(container){
         container.innerHTML = "";
-        container.appendChild(renderButton("Save as PNG","PNG file",writePNG));
-        container.appendChild(renderButton("Save as DPaint.JSON","JSON file",writeJSON));
-        container.appendChild(renderButton("Save as IFF","Amiga IFF file",writeIFF));
-        container.appendChild(renderButton("Save as Amiga Classic Icon","(Use MUI palette for best compatibility)",writeAmigaClassicIcon));
-        container.appendChild(renderButton("Save as Amiga Dual PNG Icon","(for modern Amiga system and/or with PeterK's Icon Library)",writeAmigaPNGIcon));
-        container.appendChild(renderButton("Save as Amiga Color Icon","(for modern Amiga system and/or with PeterK's Icon Library)",writeAmigaColorIcon));
+        container.appendChild(
+            $(".saveform",
+                $(".name",$("h4","Name"),nameInput = $("input",{type:"text",value:ImageFile.getName()})),
+                $("h4","Save as"),
+                $(".platform.general",
+                    $("h4.general","General"),
+                    renderButton("png","PNG Image","PNG file","Full color and transparency, no layers, only the current frame gets saved.",writePNG),
+                    renderButton("json","DPaint.JSON","JSON file","The internal format of Dpaint.js",writeJSON),
+                    renderButton("psd","PSD","Coming soon ...","Working on it!")
+                ),
+                $(".platform.amiga",
+                    $("h4.amiga","Amiga"),
+                    renderButton("iff","IFF Image","Amiga IFF file","Maximum 32 colours, only the current frame gets saved.",writeIFF),
+                    renderButton("mui","Amiga Classic Icon","OS1.3 Style","For all Amiga's. Use MUI palette for best compatibility",writeAmigaClassicIcon),
+                    renderButton("os3","Amiga Color Icon","OS3.2 Style","Also called 'Glowicons'. For modern Amiga systems and/or with PeterK's Icon Library. Max 256 colors.",writeAmigaColorIcon),
+                    renderButton("os4","Amiga Dual PNG Icon","OS4 Style","For modern Amiga systems and/or with PeterK's Icon Library. Full colors.",writeAmigaPNGIcon)
+                )
+        ));
+
+        nameInput.onkeydown = function(e){
+            e.stopPropagation();
+        }
+        nameInput.onchange = function(){
+            ImageFile.setName(getFileName());
+        }
     }
 
-    function renderButton(title,subtitle,onClick){
-        let button = $div("button","",undefined,onClick);
-        $div("title",title,button);
-        $div("subtitle",subtitle,button);
-        return button;
+    function renderButton(type,title,subtitle,info,onClick){
+        return $(".button",{onclick:onClick},
+            $(".icon."+type),
+            $(".title",title),
+            $(".subtitle",subtitle),
+            $(".info",info)
+        );
+    }
+
+    function getFileName(){
+        let name = nameInput.value.replace(/[ &\/\\#,+()$~%.'":*?<>{}]/g, "");
+        return name || "Untitled"
     }
 
     function writeIFF(){
         var buffer = IFF.write(ImageFile.getCanvas());
 
         var blob = new Blob([buffer], {type: "application/octet-stream"});
-        var fileName = 'image.iff';
+        var fileName = getFileName() + '.iff';
         saveFile(blob,fileName,filetypes.IFF).then(()=>{
             Modal.hide();
         });
@@ -87,7 +114,7 @@ var SaveDialog = function(){
 
     function writePNG(){
         ImageFile.getCanvas().toBlob(function(blob) {
-            saveFile(blob,"image.png",filetypes.PNG).then(()=>{
+            saveFile(blob,getFileName() + ".png",filetypes.PNG).then(()=>{
                 Modal.hide();
             });
         });
@@ -97,7 +124,7 @@ var SaveDialog = function(){
         let struct = ImageFile.clone();
 
         let blob = new Blob([JSON.stringify(struct,null,2)], { type: 'application/json' })
-        saveFile(blob,'image.json',filetypes.DPAINTJS).then(()=>{
+        saveFile(blob,getFileName() + '.json',filetypes.DPAINTJS).then(()=>{
             Modal.hide();
         });
     }
@@ -177,7 +204,7 @@ var SaveDialog = function(){
         var buffer = Icon.write(icon);
 
         let blob = new Blob([buffer], {type: "application/octet-stream"});
-        saveFile(blob,'icon.info',filetypes.ICO).then(()=>{
+        saveFile(blob,getFileName() + '.info',filetypes.ICO).then(()=>{
             Modal.hide();
         });
         Modal.hide();
@@ -192,7 +219,7 @@ var SaveDialog = function(){
                 canvas2.toBlob(function(blob2) {
 
                     let blob = new Blob([blob1,blob2], {type: "application/octet-stream"});
-                    saveFile(blob,'icon.info',filetypes.ICO).then(()=>{
+                    saveFile(blob, getFileName() + '.info',filetypes.ICO).then(()=>{
                         Modal.hide();
                     });
                 });
@@ -200,7 +227,7 @@ var SaveDialog = function(){
         }else{
             canvas1.toBlob(function(blob1) {
                 let blob = new Blob([blob1], {type: "application/octet-stream"});
-                saveFile(blob,'icon.info',filetypes.ICO).then(()=>{
+                saveFile(blob,getFileName() + '.info',filetypes.ICO).then(()=>{
                     Modal.hide();
                 });
             });
@@ -340,7 +367,7 @@ var SaveDialog = function(){
 
         let blob = new Blob([buffer], {type: "application/octet-stream"});
 
-        saveFile(blob,'icon.info',filetypes.ICO).then(()=>{
+        saveFile(blob,getFileName() + '.info',filetypes.ICO).then(()=>{
             Modal.hide();
         });
     };
@@ -355,7 +382,7 @@ var SaveDialog = function(){
             palette:  Palette.get()
         }
         let blob = new Blob([JSON.stringify(struct,null,2)], { type: 'application/json' })
-        saveFile(blob,'palette.json',filetypes.PALETTE).then(()=>{
+        saveFile(blob,getFileName() + '_palette.json',filetypes.PALETTE).then(()=>{
 
         });
     });

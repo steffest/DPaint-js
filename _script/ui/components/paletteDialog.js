@@ -147,7 +147,7 @@ var PaletteDialog = function() {
         let colors = Palette.get();
         colorHighlight = $div("highlight","",parent);
         colors.forEach(drawColor);
-        paletteCanvas.onmousedown = function(e){
+        paletteCanvas.onpointerdown = function(e){
             const rect = paletteCanvas.getBoundingClientRect();
             const x = Math.floor((e.clientX - rect.left) / colorSize);
             const y = Math.floor((e.clientY - rect.top) / colorSize);

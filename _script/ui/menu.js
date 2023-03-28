@@ -68,7 +68,8 @@ let Menu = function(){
                 {label: "Load Palette",command: COMMAND.LOADPALETTE}
             ]},
         {label: "View", items:[
-                {label: "Split Screen",command: COMMAND.SPLITSCREEN,shortKey: "tab"}
+                {label: "Split Screen",command: COMMAND.SPLITSCREEN,shortKey: "tab"},
+                {label: "Full Screen",command: COMMAND.FULLSCREEN}
             ]},
         {label: "Help", items:[
                 {label: "About DPaint.js",command: COMMAND.ABOUT},
@@ -118,7 +119,7 @@ let Menu = function(){
             item.element = $link("menuitem main handle",item.label,container,(e) =>{
                 me.activateMenu(index);
             });
-            item.element.addEventListener("mouseenter",(e)=>{
+            item.element.addEventListener("pointerenter",(e)=>{
                 if (isMenuActive && activeMenu!==index){
                     me.activateMenu(index);
                 }

@@ -156,7 +156,7 @@ var Resizer = function(){
                 let c ={x:touchData.rotateEnd[0],y:touchData.rotateEnd[1]};
                 let angle = angle_between_points(c,b,a);
                 angle += touchData.startAngle||0;
-                if (Input.isShiftDown() && Input.isMouseDown()){
+                if (Input.isShiftDown() && Input.isPointerDown()){
                     angle = Math.round(angle/15) * 15;
                 }
                 currentSize.angle=angle;
@@ -196,7 +196,7 @@ var Resizer = function(){
         var rect2 =  viewport.getBoundingClientRect();
         let zoom = Editor.getActivePanel().getZoom();
 
-        if (Input.isShiftDown() && Input.isMouseDown() && !touchData.isRotating){
+        if (Input.isShiftDown() && Input.isPointerDown() && !touchData.isRotating){
             // aspect ratio lock
             currentSize._width = currentSize._width||currentSize.width;
             currentSize._height = currentSize._height||currentSize.height;

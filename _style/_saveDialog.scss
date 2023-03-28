@@ -1,0 +1,127 @@
+.saveform{
+  padding: 10px;
+  h4{
+    padding: 0;
+    margin: 0 0 4px 0;
+    font-weight: normal;
+
+    &.amiga,
+    &.general{
+      background-image: url("../_img/amigatick.png");
+      background-size: contain;
+      background-repeat: no-repeat;
+      background-position: left center;
+      padding-left: 20px;
+    }
+
+    &.general{
+      background-image: url("../_img/image.svg");
+      padding-left: 22px;
+    }
+  }
+
+  input{
+    width: 100%;
+    margin-bottom: 10px;
+  }
+
+  .platform{
+    display: inline-block;
+    width: 50%;
+    vertical-align: top;
+
+    .button{
+      border: none;
+      position: relative;
+      padding: 5px 5px 5px 40px;
+
+      .icon{
+        width: 32px;
+        height:32px;
+        left: 0;
+        position: absolute;
+        background-size: contain;
+        background-repeat: no-repeat;
+        background-position: center;
+
+        &.png{background-image: url("../_img/png.svg");}
+        &.json{background-image: url("../_img/json.svg");}
+        &.psd{background-image: url("../_img/psd.svg");}
+        &.mui{background-image: url("../_img/mui.png");}
+        &.os3{background-image: url("../_img/os3.png");}
+        &.os4{background-image: url("../_img/os4.png");}
+        &.iff{background-image: url("../_img/iff.png");}
+      }
+
+      .info{
+        background-color: #4d5052;
+        position: absolute;
+        padding: 4px 4px 4px 8px;
+        border: 1px solid black;
+        top: 0;
+        left: 140px;
+        z-index: 10;
+        width: 200px;
+        opacity: 0;
+        pointer-events: none;
+        min-height: 40px;
+        transition: opacity 0.2s ease-in-out, left 0.2s ease-in-out;
+
+        &:before{
+            content: "";
+            position: absolute;
+            top: 10px;
+            left: -21px;
+            border: 10px solid transparent;
+            border-right: 10px solid black;
+        }
+
+        &:after{
+          content: "";
+          position: absolute;
+          top: 10px;
+          left: -20px;
+          border: 10px solid transparent;
+          border-right: 10px solid #4d5052;
+        }
+
+      }
+
+      &:hover{
+        .info{
+          opacity: 1;
+          left: 160px;
+        }
+      }
+    }
+
+    &.amiga{
+      .button{
+        .info{
+          left: unset;
+          right: 140px;
+          transition: opacity 0.2s ease-in-out, right 0.2s ease-in-out;
+
+          &:before{
+            left: unset;
+            right: -21px;
+            transform: rotate(180deg);
+          }
+
+          &:after{
+            left: unset;
+            right: -20px;
+            transform: rotate(180deg);
+          }
+        }
+          &:hover{
+            .info{
+              right: 160px;
+            }
+          }
+      }
+    }
+  }
+
+
+}

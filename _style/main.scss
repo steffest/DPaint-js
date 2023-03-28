@@ -2,6 +2,7 @@
 
 html {
   box-sizing: border-box;
+  overflow: hidden;
 }
 *, *:before, *:after {
   box-sizing: inherit;
@@ -19,6 +20,7 @@ body{
 .container{
   position: relative;
   height: 100%;
+  background-color: $background-color;
 
   &.fuzzy{
     pointer-events: none;
