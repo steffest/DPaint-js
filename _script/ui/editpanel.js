@@ -14,6 +14,7 @@ var EditPanel = function(parent,type){
     var zoomLevels = [0.1,0.25,0.5,1,2,3,4,6,8,10,15,20,30,50,100];
     let startZoom = 1;
     let startScale = 1;
+    let isZooming = false;
     let touchData = {};
     
     var panel = $div("panel " + type,"",parent);
@@ -67,6 +68,9 @@ var EditPanel = function(parent,type){
         }
     });
 
+    // TODO: I probably shouldn't bother with gestures, as it's not supported on Android.
+    // beter to implement a generic solution with touch events
+    // besides ... we still need to track touches to get the center of the gesture
     viewport.addEventListener("gesturestart", function (e) {
         e.preventDefault();
         e.stopPropagation();
@@ -75,40 +79,56 @@ var EditPanel = function(parent,type){
         startZoom = canvas.getZoom();
         touchData.startScrollX = viewport.scrollLeft;
         touchData.startScrollY = viewport.scrollTop;
-        touchData.startX = e.clientX;
-        touchData.startY = e.clientY;
-        console.log("gesturestart", e);
+        touchData.startDragX = e.clientX;
+        touchData.startDragY = e.clientY;
+        //console.log("gesturestart");
     });
 
     viewport.addEventListener("gesturechange", function (e) {
         e.preventDefault();
         e.stopPropagation();
         let scale = startScale *  (e.scale || 1);
-        if (scale>1.1 || scale<0.9){ // avoid zoom jittering when 2-finger pan is used
-            let zoom = scale * startZoom;
-            canvas.setZoom(zoom);
-            syncZoomLevel();
+        let touches = Input.getTouches();
 
-            // TODO: how do we know the center of the gesture?
-            // do we need to track the touch events?
 
-            // TODO get center of current viewport and apply x/Y scroll offset
+        if (touches.length>1){
+
+            if (scale>1.2 || scale<0.8 || isZooming){ // avoid zoom jittering when 2-finger pan is used
+
+                let zoom = scale * startZoom;
+                canvas.setZoom(zoom,e);
+                syncZoomLevel();
+                isZooming = true;
+
+                // TODO also apply panning ?
+
+            }else{
+                // pan
+                let dx = (touchData.startDragX-e.clientX);
+                let dy = (touchData.startDragY-e.clientY);
+
+                viewport.scrollLeft = touchData.startScrollX + dx;
+                viewport.scrollTop = touchData.startScrollY + dy;
+            }
         }
 
-        let x = e.clientX - touchData.startX;
-        let y = e.clientY - touchData.startY;
-        viewport.scrollLeft = touchData.startScrollX - x;
-        viewport.scrollTop = touchData.startScrollY - y;
+        //console.log("gesturechange");
 
-        console.log("gesturechange prop", e);
     });
 
     viewport.addEventListener("gestureend", function (e) {
         e.preventDefault();
         e.stopPropagation();
         Input.releasePointerEvents();
-        console.log("gestureend", e);
+        isZooming = false;
     });
+
+    viewport.addEventListener("pointerenter", function (e) {
+        Input.setPointerOver("viewport");
+    }, false);
+    viewport.addEventListener("pointerleave", function (e) {
+        Input.removePointerOver("viewport");
+    }, false);
 
     panel.addEventListener("pointermove",()=>{
         Editor.setActivePanel(thisPanel)

@@ -1,6 +1,6 @@
 <html>
 <head>
-
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
 
     <style>
         html {
@@ -12,182 +12,209 @@
 </head>
 <body>
 
-<textarea id="output">
+<textarea id="output" style="height: 400px">
 
 </textarea>
 <script>
+
+    function log(msg) {
+        document.getElementById("output").value += msg + '\n';
+    }
+
     window.addEventListener("pointerdown", (e)=>{
         e.preventDefault();
         console.log("pointerdown", e);
+        log("pointerdown")
     })
 
     window.addEventListener("pointerup", (e)=>{
         e.preventDefault();
         console.log("pointerup", e);
+        log("pointerup");
     })
 
     window.addEventListener("pointermove", (e)=>{
         e.preventDefault();
         console.log("pointermove", e);
+        log("pointermove");
     })
 
     window.addEventListener("pointerover", (e)=>{
         console.log("pointerover", e);
+        log("pointerover");
     })
 
     window.addEventListener("pointerout", (e)=>{
         console.log("pointerout", e);
+        log("pointerout");
     })
 
     window.addEventListener("pointerenter", (e)=>{
             console.log("pointerenter", e);
+            log("pointerenter");
         })
 
     window.addEventListener("pointerleave", (e)=>{
         console.log("pointerleave", e);
+        log("pointerleave");
     })
 
     window.addEventListener("pointercancel", (e)=>{
         console.log("pointercancel", e);
+        log("pointercancel");
     })
 
     window.addEventListener("gotpointercapture", (e)=>{
         console.log("gotpointercapture", e);
+        log("gotpointercapture");
     })
 
     window.addEventListener("lostpointercapture", (e)=>{
         console.log("lostpointercapture", e);
+        log("lostpointercapture");
     })
 
     window.addEventListener("touchstart", (e)=>{
         console.log("touchstart", e);
+        log("touchstart");
     })
 
     window.addEventListener("touchend", (e)=>{
         console.log("touchend", e);
+        log("touchend");
     })
 
     window.addEventListener("touchmove", (e)=>{
         console.log("touchmove", e);
+        log("touchmove");
     })
 
     window.addEventListener("touchcancel", (e)=>{
         console.log("touchcancel", e);
+        log("touchcancel");
     })
 
     window.addEventListener("touchenter", (e)=>{
         console.log("touchenter", e);
+        log("touchenter");
     })
 
     window.addEventListener("touchleave", (e)=>{
         console.log("touchleave", e);
+        log("touchleave");
     })
 
     window.addEventListener("touchforcechange", (e)=>{
         console.log("touchforcechange", e);
-    })
-
-    window.addEventListener("touchstart", (e)=>{
-        console.log("touchstart", e);
-    })
-
-    window.addEventListener("touchend", (e)=>{
-        console.log("touchend", e);
-    })
-
-    window.addEventListener("touchmove", (e)=>{
-        console.log("touchmove", e);
-    })
-
-    window.addEventListener("touchcancel", (e)=>{
-        console.log("touchcancel", e);
+        log("touchforcechange");
     })
 
     window.addEventListener("mousedown", (e)=>{
         console.log("mousedown", e);
+        log("mousedown")
     })
 
     window.addEventListener("mouseup", (e)=>{
         console.log("mouseup", e);
+        log("mouseup");
     })
 
     window.addEventListener("mousemove", (e)=>{
         console.log("mousemove", e);
+        log("mousemove");
     })
 
     window.addEventListener("mouseover", (e)=>{
         console.log("mouseover", e);
+        log("mouseover");
     })
 
     window.addEventListener("mouseout", (e)=>{
         console.log("mouseout", e);
+        log("mouseout");
     })
 
     window.addEventListener("mouseenter", (e)=>{
         console.log("mouseenter", e);
+        log("mouseenter");
     })
 
     window.addEventListener("mouseleave", (e)=>{
         console.log("mouseleave", e);
+        log("mouseleave");
     })
 
     window.addEventListener("click", (e)=>{
         console.log("click", e);
+        log("click");
     })
 
     window.addEventListener("dblclick", (e)=>{
         console.log("dblclick", e);
+        log("dblclick");
     })
 
     window.addEventListener("contextmenu", (e)=>{
         console.log("contextmenu", e);
+        log("contextmenu");
     })
 
     window.addEventListener("wheel", (e)=>{
         console.log("wheel", e);
+        log("wheel");
     })
 
     window.addEventListener("keydown", (e)=>{
         console.log("keydown", e);
+        log("keydown")
     })
 
     window.addEventListener("keyup", (e)=>{
         console.log("keyup", e);
+        log("keyup");
     })
 
     window.addEventListener("keypress", (e)=>{
         console.log("keypress", e);
+        log("keypress");
     })
 
     window.addEventListener("input", (e)=>{
         console.log("input", e);
+        log("input");
     })
 
     window.addEventListener("change", (e)=>{
         console.log("change", e);
+        log("change");
     })
 
     window.addEventListener("focus", (e)=>{
         console.log("focus", e);
+        log("focus")
     })
 
     window.addEventListener("blur", (e)=>{
         console.log("blur", e);
+        log("blur");
     })
 
     window.addEventListener("gesturestart", function (e) {
         //e.preventDefault();
         console.log("gesturestart", e);
+        log("gesturestart");
     });
 
     window.addEventListener("gesturechange", function (e) {
         //e.preventDefault();
         console.log("gesturechange", e);
+        log("gesturechange");
     });
 
     window.addEventListener("gestureend", function (e) {
         //e.preventDefault();
         console.log("gestureend", e);
+        log("gestureend");
     });
 
 </script>

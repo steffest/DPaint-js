@@ -79,6 +79,7 @@ let Canvas = function(parent){
     });
 
     EventBus.on(EVENT.drawCanvasOverlay,(point)=>{
+        if (!Input.hasPointerEvents()) return;
         overlayCanvas.style.opacity = 1;
         overlayCtx.clearRect(0,0, canvas.width, canvas.height);
         overlayCtx.globalAlpha = Brush.getOpacity();
@@ -167,10 +168,10 @@ let Canvas = function(parent){
         return zoom;
     }
 
-    me.setZoom = function(amount){
+    me.setZoom = function(amount,center){
         prevZoom = zoom;
         zoom = amount;
-        me.zoom(1);
+        me.zoom(1,center);
     }
 
     me.getCanvas = function(){
@@ -210,7 +211,7 @@ let Canvas = function(parent){
                 touchData.isdown = true;
                 touchData.button = e.button;
                 if (e.metaKey || e.ctrlKey) touchData.button = 3;
-                if (Input.isSpaceDown() || e.button===1){
+                if (Input.isSpaceDown() || e.button===1 || Editor.getCurrentTool() === COMMAND.PAN){
                     hideOverlay();
                     document.body.classList.add("space");
                     touchData.startDragX = e.clientX;
@@ -218,7 +219,7 @@ let Canvas = function(parent){
                     touchData.startScrollX = panelParent.scrollLeft;
                     touchData.startScrollY = panelParent.scrollTop;
                     return;
-                }else if ((Input.isShiftDown() || Input.isAltDown()) && canPickColor()){
+                }else if ((Input.isShiftDown() || Input.isAltDown()) && canPickColor() || Editor.getCurrentTool() === COMMAND.COLORPICKER){
                     var pixel = ctx.getImageData(point.x, point.y, 1, 1).data;
                     Palette.setColor(pixel);
                     return;
@@ -489,7 +490,7 @@ let Canvas = function(parent){
                     if (touchData.isPolySelect){
                         selectBox.updatePoint(point);
                     }else{
-                        if (Input.isSpaceDown()){
+                        if (Input.isSpaceDown() || Editor.getCurrentTool() === COMMAND.PAN){
                             hideOverlay();
                         }else{
                             drawOverlay(point);
@@ -501,7 +502,7 @@ let Canvas = function(parent){
                 point = getCursorPosition(canvas,e,false);
 
                 if (touchData.isdown){
-                    if (Input.isSpaceDown() || touchData.button===1 ){
+                    if (Input.isSpaceDown() || touchData.button===1 || Editor.getCurrentTool() === COMMAND.PAN){
                         var dx = (touchData.startDragX-e.clientX);
                         var dy = touchData.startDragY-e.clientY;
                         panelParent.scrollLeft = touchData.startScrollX+dx;

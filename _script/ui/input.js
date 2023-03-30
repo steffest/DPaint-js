@@ -25,6 +25,11 @@ var Input = function(){
 		document.addEventListener("pointerout",onPointerUp)
 		document.addEventListener("pointerleave",onPointerUp)
 		document.addEventListener("pointermove",onPointerMove)
+
+		document.addEventListener("touchstart",onTouchStart)
+		document.addEventListener("touchmove",onTouchMove)
+		document.addEventListener("touchend",onTouchEnd)
+
 		document.addEventListener("keydown",onKeyDown)
 		document.addEventListener("keyup",onKeyUp)
 
@@ -100,10 +105,50 @@ var Input = function(){
 		holdPointerEvents = false;
 	}
 
+	me.hasPointerEvents = function(){
+		return !holdPointerEvents;
+	}
+
+	me.getTouches = function(){
+		return touchData.touches || [];
+	}
+
 	function onPointerDown(e){
 		if (holdPointerEvents) return;
-		document.body.classList.add("pointerdown");
 		let target = e.target.closest(".handle");
+
+		if (e.pointerType === "touch" && target && target.classList.contains("viewport")){
+			// add a small delay so we still can capture multi touch gestures
+			setTimeout(function(){
+				handlePointerDown(e,target);
+			},100);
+			return;
+		}
+
+		handlePointerDown(e,target);
+	}
+
+	function onTouchStart(e){
+		touchData.touches = e.touches;
+		if (e.touches.length>1){
+			console.log("multitouch detected, holding pointer events");
+			holdPointerEvents = true;
+			EventBus.trigger(EVENT.hideCanvasOverlay);
+		}
+	}
+
+	function onTouchMove(e){
+		touchData.touches = e.touches;
+	}
+
+	function onTouchEnd(e){
+		touchData.touches = e.touches;
+		if (e.touches.length===0) holdPointerEvents = false;
+	}
+
+	function handlePointerDown(e,target){
+		if (holdPointerEvents) return;
+		document.body.classList.add("pointerdown");
 		console.log(target);
 
 		if (!target || !target.classList.contains("menuitem")){
@@ -188,7 +233,7 @@ var Input = function(){
 		}
 
 		// Meh ...
-		if (document.body.classList.contains("colorpicker") && !me.isShiftDown() && !me.isAltDown()){
+		if (document.body.classList.contains("colorpicker") && !me.isShiftDown() && !me.isAltDown() && Editor.getCurrentTool() !== COMMAND.COLORPICKER){
 			Cursor.reset();
 		}
 	}
@@ -306,6 +351,8 @@ var Input = function(){
 				case "e": EventBus.trigger(COMMAND.ERASE); break;
 				case "f": EventBus.trigger(COMMAND.FLOOD); break;
 				case "g": EventBus.trigger(COMMAND.GRADIENT); break;
+				case "h": EventBus.trigger(COMMAND.PAN); break;
+				case "i": EventBus.trigger(COMMAND.COLORPICKER); break;
 				case "l": EventBus.trigger(COMMAND.LINE); break;
 				case "p": EventBus.trigger(COMMAND.POLYGONSELECT); break;
 				case "r": EventBus.trigger(COMMAND.SQUARE); break;
@@ -331,6 +378,7 @@ var Input = function(){
 	function modifierKeyUp(code){
 		keyDown[code] = false;
 		document.body.classList.remove(code);
+		if (code === "space" && Editor.getCurrentTool() === COMMAND.PAN) document.body.classList.add(code);
 		EventBus.trigger(EVENT.modifierKeyChanged);
 	}
 

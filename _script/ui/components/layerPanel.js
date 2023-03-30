@@ -197,8 +197,6 @@ let LayerPanel = function(){
 
             if (activeIndex === i){
                 opacityRange.value = layer.opacity;
-                console.error(layer.blendMode,blendSelect);
-
                 blendSelect.value = layer.blendMode;
             }
         }

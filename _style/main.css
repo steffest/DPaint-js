@@ -14,6 +14,9 @@ body {
   height: 100%;
   margin: 0;
   padding: 1px;
+  user-select: none;
+  -moz-user-select: none;
+  -webkit-user-select: none;
 }
 
 .container {
@@ -1368,13 +1371,13 @@ body.withsidepanel .splitpanel {
   margin-left: -10px;
 }
 
-body.customcursor {
+body.customcursor.hoverviewport {
   cursor: none;
 }
-body.customcursor .sizebox {
+body.customcursor.hoverviewport .sizebox {
   cursor: none;
 }
-body.customcursor .cursor {
+body.customcursor.hoverviewport .cursor {
   display: block;
 }
 

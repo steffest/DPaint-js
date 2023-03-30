@@ -21,8 +21,8 @@ let Palette = function(){
     var ditherIndex = 0;
     var targetColorCount = 32;
 
-    var drawColor = "white";
-    var backgroundColor = "black"
+    var drawColor = "black";
+    var backgroundColor = "white";
 
     var colors = [
         [149,149,149],
@@ -201,6 +201,7 @@ let Palette = function(){
 
         EventBus.on(EVENT.drawColorChanged,(color)=>{
             color = Color.fromString(color);
+            if (color.length > 3 && color[3] === 0) color = "transparent";
             if (color === "transparent"){
                 front.style.backgroundColor = color;
                 front.classList.add("nofill");
@@ -211,6 +212,7 @@ let Palette = function(){
         });
         EventBus.on(EVENT.backgroundColorChanged,(color)=>{
             color = Color.fromString(color);
+            if (color.length > 3 && color[3] === 0) color = "transparent";
             if (color === "transparent"){
                 back.style.backgroundColor = color;
                 back.classList.add("nofill");
@@ -222,8 +224,8 @@ let Palette = function(){
 
         });
 
-        me.setColor(colors[2],false);
-        me.setColor(colors[1],true);
+        me.setColor(colors[1],false);
+        me.setColor(colors[2],true);
     }
 
 
@@ -234,7 +236,6 @@ let Palette = function(){
             EventBus.trigger(EVENT.backgroundColorChanged,color);
         }else{
             drawColor = Color.toString(color);
-            console.error(drawColor);
             EventBus.trigger(EVENT.drawColorChanged,color);
         }
     }

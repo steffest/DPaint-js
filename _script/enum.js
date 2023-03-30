@@ -58,7 +58,9 @@ export let COMMAND={
     SELECTALL: 1057,
     COPY: 1058,
     PASTE: 1059,
-    FULLSCREEN: 1060
+    FULLSCREEN: 1060,
+    PAN: 1061,
+    COLORPICKER: 1062,
 }
 
 export let EVENT={

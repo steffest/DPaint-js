@@ -13,6 +13,7 @@ import Modal, {DIALOG} from "./modal.js";
 import {releaseCanvas} from "../util/canvasUtils.js";
 import Input from "./input.js";
 import HistoryService from "../services/historyservice.js";
+import Cursor from "./cursor.js";
 
 var Editor = function(){
     var me = {};
@@ -69,50 +70,48 @@ var Editor = function(){
         EventBus.on(COMMAND.DRAW,function(){
             currentTool = COMMAND.DRAW;
             document.body.classList.remove("select");
-            document.body.classList.add("draw");
         });
         EventBus.on(COMMAND.ERASE,function(){
             currentTool = COMMAND.ERASE;
             document.body.classList.remove("select");
-            document.body.classList.add("draw");
         });
         EventBus.on(COMMAND.SELECT,function(){
             currentTool = COMMAND.SELECT;
             document.body.classList.add("select");
-            document.body.classList.remove("draw");
         });
         EventBus.on(COMMAND.POLYGONSELECT,function(){
             currentTool = COMMAND.POLYGONSELECT;
             document.body.classList.add("select");
-            document.body.classList.remove("draw");
         });
         EventBus.on(COMMAND.FLOODSELECT,function(){
             currentTool = COMMAND.FLOODSELECT;
             document.body.classList.add("select");
-            document.body.classList.remove("draw");
         });
         EventBus.on(COMMAND.FLOOD,function(){
             currentTool = COMMAND.FLOOD;
             document.body.classList.add("select");
-            document.body.classList.remove("draw");
         });
         EventBus.on(COMMAND.SQUARE,function(){
             currentTool = COMMAND.SQUARE;
             document.body.classList.add("select");
-            document.body.classList.remove("draw");
         });
         EventBus.on(COMMAND.CIRCLE,function(){
             currentTool = COMMAND.CIRCLE;
             document.body.classList.add("select");
-            document.body.classList.remove("draw");
         });
         EventBus.on(COMMAND.LINE,function(){
             currentTool = COMMAND.LINE;
-            document.body.classList.remove("draw");
         });
         EventBus.on(COMMAND.GRADIENT,function(){
             currentTool = COMMAND.GRADIENT;
-            document.body.classList.remove("draw");
+        });
+        EventBus.on(COMMAND.PAN,function(){
+            currentTool = COMMAND.PAN;
+            document.body.classList.add("space");
+        });
+        EventBus.on(COMMAND.COLORPICKER, function(){
+            currentTool = COMMAND.COLORPICKER;
+            Cursor.set("colorpicker");
         });
         EventBus.on(COMMAND.SPLITSCREEN,function(){
             me.splitPanel();
@@ -276,8 +275,9 @@ var Editor = function(){
             Modal.show(DIALOG.EFFECTS);
         })
         EventBus.on(EVENT.toolChanged,(tool)=>{
-            console.error("tool changed");
             me.commit();
+            Cursor.reset();
+            if (!Input.isShiftDown()) document.body.classList.remove("space");
         });
 
     }
