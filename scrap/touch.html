@@ -5,6 +5,7 @@
     <style>
         html {
             overflow: hidden;
+            touch-action: none;
         }
     </style>
 
@@ -173,6 +174,21 @@
     window.addEventListener("blur", (e)=>{
         console.log("blur", e);
     })
+
+    window.addEventListener("gesturestart", function (e) {
+        //e.preventDefault();
+        console.log("gesturestart", e);
+    });
+
+    window.addEventListener("gesturechange", function (e) {
+        //e.preventDefault();
+        console.log("gesturechange", e);
+    });
+
+    window.addEventListener("gestureend", function (e) {
+        //e.preventDefault();
+        console.log("gestureend", e);
+    });
 
 </script>
 </body>

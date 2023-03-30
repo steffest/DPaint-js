@@ -1113,6 +1113,7 @@ body.withsidepanel .sidepanel {
   bottom: 0;
   overflow: auto;
   display: flex;
+  touch-action: none;
 }
 .splitpanel .panel .viewport.hidden,
 .splitpanel .panel .windowContainer.hidden,

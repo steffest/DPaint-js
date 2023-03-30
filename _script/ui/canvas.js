@@ -65,16 +65,14 @@ let Canvas = function(parent){
         }
     }
 
-    canvas.addEventListener("mousemove", function (e) {handle('over', e)}, false);
-
-    canvas.onmouseenter = function(){
-        Input.setMouseOver("iconEditorCanvas");
-    };
-
-    canvas.onmouseleave = function(){
-        Input.removeMouseOver("iconEditorCanvas");
+    canvas.addEventListener("pointermove", function (e) {handle('over', e)}, false);
+    canvas.addEventListener("pointerenter", function (e) {
+        Input.setPointerOver("iconEditorCanvas");
+    }, false);
+    canvas.addEventListener("pointerleave", function (e) {
+        Input.removePointerOver("iconEditorCanvas");
         hideOverlay();
-    };
+    }, false);
 
     EventBus.on(EVENT.hideCanvasOverlay,()=>{
         overlayCanvas.style.opacity = 0;

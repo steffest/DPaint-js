@@ -359,6 +359,10 @@ var Editor = function(){
         Resizer.move(x,y);
     }
 
+    me.setZoom = function(factor,center){
+        activePanel.setZoom(factor,center);
+    }
+
     function updateTransform(){
         if (!touchData.transformLayer) return;
         console.log("update transform layer");

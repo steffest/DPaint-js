@@ -171,10 +171,10 @@ var Resizer = function(){
                 delete  currentSize.angle;
                 touchData.isRotating = false;
             }
-            rotateDot.onmouseenter = function(){
+            rotateDot.onpointerenter = function(){
                 Cursor.set("rotate");
             }
-            rotateDot.onmouseleave = function(){
+            rotateDot.onpointerleave = function(){
                 Cursor.reset();
             }
             rotateDot.index = i;

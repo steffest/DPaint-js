@@ -15,11 +15,10 @@ var Cursor = function(){
         cursorMark = $div("mark","",cursor);
         document.body.appendChild(cursor);
 
-        document.body.addEventListener("mousemove", function (e) {
+        document.body.addEventListener("pointermove", function (e) {
             position = {x:e.clientX,y:e.clientY};
             cursor.style.left =  e.clientX  + "px";
             cursor.style.top =  e.clientY  + "px";
-            //cursor.style.transform = "translate(" + e.clientX + "px," + e.clientY + "px)";
         }, false);
         
         Eventbus.on(EVENT.drawColorChanged,(color)=>{

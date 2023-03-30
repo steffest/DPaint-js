@@ -12,6 +12,9 @@ import BrushPanel from "./components/brushPanel.js";
 var EditPanel = function(parent,type){
     var me = {};
     var zoomLevels = [0.1,0.25,0.5,1,2,3,4,6,8,10,15,20,30,50,100];
+    let startZoom = 1;
+    let startScale = 1;
+    let touchData = {};
     
     var panel = $div("panel " + type,"",parent);
 
@@ -64,7 +67,50 @@ var EditPanel = function(parent,type){
         }
     });
 
-    panel.addEventListener("mousemove",()=>{
+    viewport.addEventListener("gesturestart", function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        Input.holdPointerEvents();
+        startScale = e.scale || 1;
+        startZoom = canvas.getZoom();
+        touchData.startScrollX = viewport.scrollLeft;
+        touchData.startScrollY = viewport.scrollTop;
+        touchData.startX = e.clientX;
+        touchData.startY = e.clientY;
+        console.log("gesturestart", e);
+    });
+
+    viewport.addEventListener("gesturechange", function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        let scale = startScale *  (e.scale || 1);
+        if (scale>1.1 || scale<0.9){ // avoid zoom jittering when 2-finger pan is used
+            let zoom = scale * startZoom;
+            canvas.setZoom(zoom);
+            syncZoomLevel();
+
+            // TODO: how do we know the center of the gesture?
+            // do we need to track the touch events?
+
+            // TODO get center of current viewport and apply x/Y scroll offset
+        }
+
+        let x = e.clientX - touchData.startX;
+        let y = e.clientY - touchData.startY;
+        viewport.scrollLeft = touchData.startScrollX - x;
+        viewport.scrollTop = touchData.startScrollY - y;
+
+        console.log("gesturechange prop", e);
+    });
+
+    viewport.addEventListener("gestureend", function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        Input.releasePointerEvents();
+        console.log("gestureend", e);
+    });
+
+    panel.addEventListener("pointermove",()=>{
         Editor.setActivePanel(thisPanel)
         //activeCanvas = type==="left"?canvas:canvas2;
     });
@@ -88,6 +134,11 @@ var EditPanel = function(parent,type){
         let sx = rect.width/canvas.getCanvas().width;
         let sy = rect.height/canvas.getCanvas().height;
         canvas.setZoom(Math.min(sx,sy));
+        syncZoomLevel();
+    }
+
+    me.setZoom = function(factor){
+        canvas.setZoom(factor);
         syncZoomLevel();
     }
 

@@ -12,9 +12,9 @@ let Menu = function(){
     let items=[
         {label: "File", items:[
                 {label: "New", command: COMMAND.NEW,shortKey: "meta+N"},
-                {label: "Open", command: COMMAND.OPEN,shortKey: "meta+O"},
+                {label: "Open", command: COMMAND.OPEN,shortKey: "meta+O",needsRealClick: true},
                 {label: "Save", command: COMMAND.SAVE,shortKey: "meta+S"},
-                {label: "Import to Frame", command: COMMAND.IMPORTFRAME},
+                {label: "Import to Frame", command: COMMAND.IMPORTFRAME,needsRealClick: true},
                 {label: "Info", command: COMMAND.INFO,shortKey: "meta+I"},
             ]},
         {label: "Edit", items:[
@@ -69,7 +69,7 @@ let Menu = function(){
             ]},
         {label: "View", items:[
                 {label: "Split Screen",command: COMMAND.SPLITSCREEN,shortKey: "tab"},
-                {label: "Full Screen",command: COMMAND.FULLSCREEN}
+                {label: "Full Screen",command: COMMAND.FULLSCREEN,needsRealClick: true},
             ]},
         {label: "Help", items:[
                 {label: "About DPaint.js",command: COMMAND.ABOUT},
@@ -137,6 +137,7 @@ let Menu = function(){
                             subitem.action();
                         }
                     });
+                    if (subitem.needsRealClick) menuItem.waitForClick = true;
                     if (subitem.shortKey){
                         let k = subitem.shortKey;
                         if (k.length>2){

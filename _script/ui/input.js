@@ -15,18 +15,21 @@ var Input = function(){
 	let modifiers = ["space","shift","control","alt"];
 	let touchData = {};
 	let activeKeyHandler;
+	let holdPointerEvents = false;
 	
 	me.init = function(){
 		console.log("Input init");
 		document.addEventListener("pointerdown",onPointerDown)
 		document.addEventListener("pointerup",onPointerUp)
+		document.addEventListener("pointercancel",onPointerUp)
+		document.addEventListener("pointerout",onPointerUp)
+		document.addEventListener("pointerleave",onPointerUp)
 		document.addEventListener("pointermove",onPointerMove)
 		document.addEventListener("keydown",onKeyDown)
 		document.addEventListener("keyup",onKeyUp)
 
-		document.body.oncontextmenu = function(){
-			return me.isShiftDown();
-		}
+		document.body.oncontextmenu = function(){return me.isShiftDown();}
+
 
 		window.addEventListener("paste", handlePaste,false);
 		window.addEventListener("copy", handleCopy,false);
@@ -60,11 +63,11 @@ var Input = function(){
 		return document.body.classList.contains("pointerdown");
 	}
 
-	me.setMouseOver = function(id){
+	me.setPointerOver = function(id){
 		document.body.classList.add("hover" + id);
 	}
 
-	me.removeMouseOver = function(id){
+	me.removePointerOver = function(id){
 		document.body.classList.remove("hover" + id);
 	}
 
@@ -89,7 +92,16 @@ var Input = function(){
 		}
 	}
 
+	me.holdPointerEvents = function(){
+		holdPointerEvents = true;
+	}
+
+	me.releasePointerEvents = function(){
+		holdPointerEvents = false;
+	}
+
 	function onPointerDown(e){
+		if (holdPointerEvents) return;
 		document.body.classList.add("pointerdown");
 		let target = e.target.closest(".handle");
 		console.log(target);
@@ -102,7 +114,21 @@ var Input = function(){
 		}
 
 		if (target){
-			if (target.onClick) target.onClick(e);
+			if (target.onClick){
+				// on touch devices this is not a click, which might interfere with events that require "user input"
+				// like the file input dialog to open a file
+				if (e.pointerType==="touch" && target.waitForClick){
+					touchData.waitForClick = {
+						target: target,
+						event: e,
+						time: performance.now()
+					}
+				}else {
+					target.onClick(e);
+				}
+			}
+
+
 			if (target.onDoubleClick){
 				let now = performance.now();
 				if (target.prevNow){
@@ -138,7 +164,7 @@ var Input = function(){
 	}
 
 	function onPointerMove(e){
-
+		if (holdPointerEvents) return;
 		if (!e.shiftKey) keyDown["shift"]=false;
 		if (!e.ctrlKey) keyDown["control"]=false;
 		if (!e.metaKey) keyDown["meta"]=false;
@@ -168,6 +194,18 @@ var Input = function(){
 	}
 
 	function onPointerUp(e){
+
+		if (touchData.waitForClick){
+			let now = performance.now();
+			if ((now - touchData.waitForClick.time)<2000){
+				touchData.waitForClick.target.onClick(touchData.waitForClick.event);
+			}else{
+				console.error("waitForClick timeout");
+			}
+			touchData.waitForClick = undefined;
+		}
+
+
 		if (touchData.isDragging){
 			if (touchData.target && touchData.target.onDragEnd){
 				touchData.target.onDragEnd(e);
@@ -175,6 +213,12 @@ var Input = function(){
 		}
 		touchData.isDragging = false;
 		document.body.classList.remove("pointerdown");
+
+		if (document.body.classList.contains("colorpicker") && !me.isShiftDown() && !me.isAltDown()){
+			//Cursor.reset();
+		}
+
+		//console.error("szzz");
 	}
 
 	function onKeyDown(e){

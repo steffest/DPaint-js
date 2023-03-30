@@ -133,6 +133,7 @@
       bottom: 0;
       overflow: auto;
       display: flex;
+      touch-action: none;
 
       &.hidden{
         display: none;
