@@ -18,8 +18,12 @@ Bugs:
 Transforming a mask clears the layer ?
 resizing sizebox negatively, makes the sizebox 0 width/height
 copy/paste from syntax highlighter
-
+ctrl-j from polymask doesn't work (but selection=> copy to layer does?)
+paste doesn't wortk anymore?
 Draw line on non toplayer draws the line on the toplayer
+resize image doesn't clear all cached data (like the drawlayer?)
 
-test from ipad
-is this auto save ?
+test
+
+
+

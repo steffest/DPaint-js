@@ -83,7 +83,7 @@ var ImageProcessing = function(){
 		}
 	};
 	
-	me.getColors = function(canvas) {
+	me.getColors = function(canvas,stopAtMax) {
 
 		imageInfos.canvas = canvas;
 		
@@ -109,6 +109,8 @@ var ImageProcessing = function(){
 						Colors.push({ Red: red, Green: green, Blue: blue });
 
 					ColorCube[red * 256 * 256 + green * 256 + blue]++;
+					if (stopAtMax && Colors.length>stopAtMax) return Colors;
+
 				}
 			}
 		}

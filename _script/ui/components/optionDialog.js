@@ -10,7 +10,10 @@ let OptionDialog = function() {
 
         $setTarget(panel)
         //if (data.title) $("h3",data.title);
-        if (data.text) $("p",data.text);
+        if (data.text){
+            if (typeof data.text === "string") data.text=[data.text];
+            data.text.forEach(text=>{$("p",text);});
+        }
 
         if (data.buttons){
             data.buttons.forEach(button=>{
@@ -20,9 +23,9 @@ let OptionDialog = function() {
                 }},button.label);
             })
         }else{
-            $(".buttons",
+            $(".buttons.relative",
                 $(".button.ghost",{onclick: modal.hide},"Cancel"),
-                $(".button.primary",{onclick: modal.hide},"OK")
+                $(".button.primary",{onclick: ()=>{modal.hide(); if (data.onOk) data.onOk()}},"OK")
             );
         }
     }

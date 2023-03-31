@@ -384,7 +384,9 @@ var Icon = function(){
             height: classicHeight,
             depth: 1,
             hasimageData: 1,
-            planePick: 1,
+            planePick: 1, // ? setting this to 1 sometimes causes the icon to be displayed as a only 1 bitplane ?
+            // according to https://wiki.amigaos.net/wiki/Icon_Library this should be 3
+            // my guess is that this is the number of colors-1
             planeOnOff: 0,
             nextImage: 0,
             pixels: []
@@ -447,7 +449,8 @@ var Icon = function(){
         fileSize += 20 + (bitSize/8);
 
         bitWidth = Math.ceil(icon.img2.width/16) * 16;
-        var bitSize = (icon.img2.height * bitWidth) * bitPlanes;
+        bitPlanes = icon.img2.depth;
+        bitSize = (icon.img2.height * bitWidth) * bitPlanes;
         fileSize += 20 + (bitSize/8);
 
         //icon.colorIcon = 0;
@@ -496,6 +499,8 @@ var Icon = function(){
         file.writeDWord(icon.hasToolWindow);
         file.writeDWord(icon.stackSize);
 
+        // 78
+
         // write first image
         writeImage(icon.img,1);
         writeImage(icon.img2,2);
@@ -517,8 +522,9 @@ var Icon = function(){
                     var bits = [];
                     var bitWidth = Math.ceil(img.width/16) * 16;
 
-                    for (var j = 0, maxj = bitWidth; j<maxj; j++){
-                        var colorIndex = img.pixels[pixelIndex];
+                    //for (var j = 0, maxj = bitWidth; j<maxj; j++){
+                    for (var j = 0, maxj =  img.width; j<maxj; j++){
+                        var colorIndex = img.pixels[pixelIndex] || 0;
                         var pixel = 0;
                         if (bitPlane === 0) pixel = colorIndex%2 === 1;
                         if (bitPlane === 1) pixel = (colorIndex === 2) || (colorIndex === 3) || (colorIndex === 6) || (colorIndex === 7);
@@ -527,20 +533,12 @@ var Icon = function(){
                         pixelIndex++;
                     }
 
+                    for (j = 0, maxj =  bitWidth - img.width; j<maxj; j++){
+                        bits.push(0);
+                    }
+
                     file.writeBits(bits);
 
-                    //var bits = [1,0,0,0,0,0,0,1];
-                    //if (i===0 || i===7) bits = [1,1,1,1,1,1,1,1];
-
-                    //if (index===2){
-                    //var bits = [0,1,1,1,1,1,1,0];
-                    //if (i===0 || i===7) bits = [1,0,1,0,1,0,1,0];
-                    //}
-
-                    //file.writeBits(bits);
-
-                    // padding to 16 bits
-                    //file.writeUbyte(0);
                 }
             }
         }

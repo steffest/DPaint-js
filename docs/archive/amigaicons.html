@@ -1,0 +1,490 @@
+<html>
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <meta http-equiv="Content-Style-Type" content="text/css">
+    <meta name="keywords" content="Amiga,icon,format,specification,bitplanes">
+    <meta name="Author" content="Grzegorz Kraszewski <krashan@teleinfo.pb.edu.pl>">
+    <title>Amiga icon file format</title>
+    <style type="text/css">
+        @import url(artstyles.css);
+        table.blk { border-width: 2px; }
+        td.blk { border: 1px solid black; text-align: center; }
+        td.blks { border: 1px solid #606060; color: #606060; text-align: center; }
+        span.cblock { display: inline-block; height: 12px; border: 1px solid black; }
+        tr.greyed { background-color: #D0D0D0; }
+        li.t { margin-bottom: 9px; line-height: 130%; }
+    </style>
+</head>
+
+<body>
+
+<center>
+    <h3>
+        This file is a copy of the original article, which was published on http://krashan.ppa.pl/articles/amigaicons/<br>
+        It's included here because the original site is no longer available.
+    </h3>
+</center>
+
+<div itemscope itemtype="http://schema.org/Article" class="main">
+
+    <!-- HEADER -->
+
+    <div class="hd2">
+        <img class="hd2" width="128" height="128" src="ikonki.png" alt="Amiga MagicWB icons">
+    </div>
+
+    <div class="hd3" itemprop="name">Amiga Icon File Format</div>
+    <div class="hd4" itemprop="headline">An unofficial guide to decoding classic Amiga icon images</div>
+    <div class="author"><a href="http://krashan.ppa.pl/" itemprop="author">Grzegorz Kraszewski</a></div>
+
+    <!-- END OF HEADER -->
+
+    <h2>1. Introduction</h2>
+
+    <p>Icons in AmigaOS and its derivatives (MorphOS, AROS), are basically the
+        same thing as on other operating systems &ndash; a small images identifying
+        files, directories, disks and so on. Except of image data, Amiga icons
+        contain some additional informations. File icons can contain a path to
+        an application used to open the project file when it is doubleclicked (the
+        default tool). They can also contain so-called tooltypes, which are just
+        strings used as program parameters. Dawer (folder) and disk icons contain
+        position, size and viewmode of a window opened on the desktop after
+        clicking the icon. All icons can store their position in parent drawer (or
+        desktop) window.</p>
+
+    <p>I've decided to write this unofficial specification, after I've found
+        none on the Internet. While Amiga icons are not very popular, as AmigaOS
+        itself is rather a niche, hobby OS, someone may find this article useful.
+        Note that there are a few kinds of Amiga icons. This article describes an
+        old, bitplane based format. Later NewIcons and PNG icons (as used in AmigaOS
+        4, MorphOS and AROS) are not described here.</p>
+
+    <h2>2. Real and default icons</h2>
+
+    <p>Icons in AmigaOS are separate files, with the same name as the 'main'
+        file, and '.info' extension at the end. Note that if a file has an extension
+        by itself (for example 'archive.lha'), the '.info' extension does not
+        replace file extension, but is appended at the end, so an icon for
+        'archive.lha' has the name 'archive.lha.info'. It may look strange for a
+        Windows user, but comes from the fact, that Amiga system does not use
+        extensions for file type recognition at all. An executable file without an
+        '.exe' is perfectly OK for example. To say more, executable files on
+        Amiga have no extension at all usually.</p>
+
+    <p>When a file has no icon associated, it is invisible in Workbench window
+        until "Show all files" viewmode is selected. Then a default icon for the
+        file is used. Older AmigaOS versions have stored default icons in
+        "ENVARC:sys/def_xxxx.info", where xxxx is 'drawer', 'project', 'tool' or
+        'disk'. Some extensions to this system have been developed, which allowed
+        different icons for different file types. What is important here, default
+        icons have the same file format as real ones. One can easily create a real
+        icon from a default one, using system tools, or just by copying the icon and
+        changing its name.</p>
+
+    <h2>3. Amiga icon structure</h2>
+
+    <p>The icon file is composed directly of some system structures. It has an
+        advantage of fast icon loading and displaying, the file is just loaded to
+        memory, structures addresses are extracted and may be passed directly to
+        Intuition, the main Amiga UI library. On the other hand many fields of these
+        system structures are unused or redundant, making the icon file bigger.
+        Some data in these structures are referenced via pointers in memory, in an
+        icon file, the data are stored after structures in a defined order.</p>
+
+    <p>The selected state of an Amiga icon is not generated programatically, but
+        is specified in the icon itself. Often the selected state is a second, separate
+        image, sometimes it is specified as palette entries swap.</p>
+
+    <h3>3.1. Format overview.</h3>
+
+    The icon file starts from a DiskObject structure, which embeds Gadget
+    structure. Then there may be a DrawerData structure, followed by one or two
+    Image structures. After them raster image data for Image(s) follows.
+    Then there is a default tool string and tooltypes strings. DrawerData
+    contains a NewWindow structure. Here is a block diagram of an Amiga icon:
+    <center><br>
+        <table class="blk" cellspacing="2" cellpadding="3"><tr>
+            <td class="blk">DiskObject</td>
+            <td class="blks">DrawerData</td>
+            <td class="blk">Image 1</td>
+            <td class="blk">raster data<br>for Image 1</td>
+            <td class="blks">Image 2</td>
+            <td class="blks">raster data<br>for Image 2</td>
+            <td class="blks">default tool</td>
+            <td class="blks">tooltypes</td>
+        </tr></table>
+        <br><i>Fig. 1. A block diagram of Amiga icon file structure (gray elements are optional).</i>
+    </center>
+    </p>
+
+    <p><b><u>NOTE:</u> All multi-byte fields of an Amiga icon are big-endian. x86
+        programmers have to swap bytes.</b></p>
+
+    <h3>3.2. DiskObject structure</h3>
+
+    <table style="width: 100%;" cellspacing="0" cellpadding="3">
+        <tr class="greyed">
+            <td>0000</td><td>uint16</td><td style="width: 20%;">do_Magic</td><td class="lc">A file identifier. All
+            icons have 0xE310 here.</td>
+        </tr>
+        <tr class="greyed">
+            <td>0002</td><td>uint16</td><td>do_Version</td><td class="lc">Icon version. The
+            current version is 1.</td>
+        </tr>
+        <tr>
+            <td>0004</td><td>uint32</td><td>do_Gadget.NextGadget</td><td class="lc">Unused.
+            Contains 0 usually.</td>
+        </tr>
+        <tr>
+            <td>0008</td><td>int16</td><td>do_Gadget.LeftEdge</td><td class="lc">Horizontal
+            position of the icon left edge relative to its parent window left
+            edge. This field is only used when an icon is loaded into memory.</td>
+        </tr>
+        <tr>
+            <td>0010</td><td>int16</td><td>do_Gadget.TopEdge</td><td class="lc">Vertical
+            position of the icon top edge relative to its parent window top
+            edge. This field is only used when an icon is loaded into memory.</td>
+        </tr>
+        <tr class="greyed">
+            <td>0012</td><td>uint16</td><td>do_Gadget.Width</td><td class="lc">Icon width
+            in pixels.</td>
+        </tr>
+        <tr class="greyed">
+            <td>0014</td><td>uint16</td><td>do_Gadget.Height</td><td class="lc">Icon height
+            in pixels.</td>
+        </tr>
+        <tr class="greyed">
+            <td>0016</td><td>uint16</td><td>do_Gadget.Flags</td><td class="lc">Gadget flags. Used only by
+            Intuition, when the icon is loaded into memory. Usually set to 5.</td>
+        </tr>
+        <tr>
+            <td>0018</td><td>uint16</td><td>do_Gadget.Activation</td><td class="lc">Gadget activation flags.
+            The usual value is 3 here (both 'immediate' and 'relverify' activation methods set).</td>
+        </tr>
+        <tr>
+            <td>0020</td><td>uint16</td><td>do_Gadget.GadgetType</td><td class="lc">Gadget type. The usual value
+            is 1 here (means boolean gadget).</td>
+        </tr>
+        <tr class="greyed">
+            <td>0022</td><td>uint32</td><td>do_Gadget.GadgetRender</td><td class="lc">In memory a pointer
+            to the first Image, used for not selected state. In file it should be any non-zero
+            value. Zero here should not happen.</td>
+        </tr>
+        <tr class="greyed">
+            <td>0026</td><td>uint32</td><td>do_Gadget.SelectRender</td><td class="lc">In memory a pointer
+            to the second Image, used for selected state. In file non-zero value means that the
+            icon has the second Image and raster data.</td>
+        </tr>
+        <tr>
+            <td>0030</td><td>uint32</td><td>do_Gadget.GadgetText</td><td class="lc">Unused. Usually 0.</td>
+        </tr>
+        <tr>
+            <td>0034</td><td>uint32</td><td>do_Gadget.MutualExclude</td><td class="lc">Unused. Usually 0.</td>
+        </tr>
+        <tr>
+            <td>0038</td><td>uint32</td><td>do_Gadget.SpecialInfo</td><td class="lc">Unused. Usually 0.</td>
+        </tr>
+        <tr>
+            <td>0042</td><td>uint16</td><td>do_Gadget.GadgetID</td><td class="lc">Unused. Usually 0.</td>
+        </tr>
+        <tr class="greyed">
+            <td>0044</td><td>uint32</td><td>do_Gadget.UserData</td><td class="lc">Used for icon revision. 0 for
+            OS 1.x icons. 1 for OS 2.x/3.x icons.</td>
+        </tr>
+        <tr class="greyed">
+            <td>0048</td><td>uint8</td><td>do_Type</td><td class="lc">A type of icon:
+            <ul style="margin: 0px;"><li>1 &ndash; disk or volume.</li>
+                <li>2 &ndash; drawer (folder).</li>
+                <li>3 &ndash; tool (executable).</li>
+                <li>4 &ndash; project (data file).</li>
+                <li>5 &ndash; trashcan.</li>
+                <li>6 &ndash; device.</li>
+                <li>7 &ndash; Kickstart ROM image.</li>
+                <li>8 &ndash; an appicon (placed on the desktop by application).</li></ul></td>
+        </tr>
+        <tr>
+            <td>0049</td><td>uint8</td><td>padding</td><td class="lc">Just padding byte.</td>
+        </tr>
+        <tr>
+            <td>0050</td><td>uint32</td><td>do_DefaultTool</td><td class="lc">In memory a pointer to a
+            default tool path string. In file should be interpreted as boolean field indicating
+            default tool presence.</td>
+        </tr>
+        <tr>
+            <td>0054</td><td>uint32</td><td>do_ToolTypes</td><td class="lc">In memory a pointer to a table
+            containing pointers to tooltype strings. In file should be interptered as boolean
+            field indicating tooltypes table presence.</td>
+        </tr>
+        <tr>
+            <td>0058</td><td>int32</td><td>do_CurrentX</td><td class="lc">Virtual horizontal position of
+            the icon in the drawer window.</td>
+        </tr>
+        <tr>
+            <td>0062</td><td>int32</td><td>do_CurrentY</td><td class="lc">Virtual vertical position of the
+            icon in the drawer window.</td>
+        </tr>
+        <tr class="greyed">
+            <td>0066</td><td>uint32</td><td>do_DrawerData</td><td class="lc">In memory a pointer to
+            DrawerData structure. In file should be interpreted as a boolean field indicating
+            DrawerData presence.</td>
+        </tr>
+        <tr>
+            <td>0070</td><td>uint32</td><td>do_ToolWindow</td><td class="lc">Unused.</td>
+        </tr>
+        <tr>
+            <td>0074</td><td>uint32</td><td>do_StackSize</td><td class="lc">Task stack size for an application.
+            (in case of project file, this size is for default tool application).</td>
+        </tr>
+        <tr><td colspan="4" class="lc lr">Total size: 78 bytes.</td></tr>
+    </table>
+
+    <h3>3.3. DrawerData structure</h3>
+
+    <p>The structure starts from a NewWindow structure. Note that DrawerData may be just skipped when
+        only icon image is to be decoded. I've put the information here just for completness.</p>
+
+    <table style="width: 100%;" cellspacing="0" cellpadding="3">
+        <tr>
+            <td>0000</td><td>int16</td><td style="width: 20%">dd_NewWindow.LeftEdge</td><td class="lc" style="width: 80%;">Drawer
+            window left edge relative to the Workbench screen.</td>
+        </tr>
+        <tr>
+            <td>0002</td><td>int16</td><td>dd_NewWindow.TopEdge</td><td class="lc">Drawer window top edge relative to the
+            Workbench screen.</td>
+        </tr>
+        <tr>
+            <td>0004</td><td>int16</td><td>dd_NewWindow.Width</td><td class="lc">Drawer window width.</td>
+        </tr>
+        <tr>
+            <td>0006</td><td>int16</td><td>dd_NewWindow.Height</td><td class="lc">Drawer window height.</td>
+        </tr>
+        <tr>
+            <td>0008</td><td>uint8</td><td>dd_NewWindow.DetailPen</td><td class="lc">Number of graphics pen used to render
+            window details.</td>
+        </tr>
+        <tr>
+            <td>0009</td><td>uint8</td><td>dd_NewWindow.BlockPen</td><td class="lc">Number of graphics pen used to
+            render window frame background.</td>
+        </tr>
+        <tr>
+            <td>0010</td><td>uint32</td><td>dd_NewWindow.IDCMPFlags</td><td class="lc">Kinds of IDCMP (GUI -&gt; application)
+            events requested.</td>
+        </tr>
+        <tr>
+            <td>0014</td><td>uint32</td><td>dd_NewWindow.Flags</td><td class="lc">Various window flags (borders, system
+            gadgets etc.).</td>
+        </tr>
+        <tr>
+            <td>0018</td><td>uint32</td><td>dd_NewWindow.FirstGadget</td><td class="lc">In memory a pointer to the first
+            window gadget in a linked list. Unused in an icon file.</td>
+        </tr>
+        <tr>
+            <td>0022</td><td>uint32</td><td>dd_NewWindow.CheckMark</td><td class="lc">In memory a pointer to checkmark
+            imagery for the window. Unused in an icon file.</td>
+        </tr>
+        <tr>
+            <td>0026</td><td>uint32</td><td>dd_NewWindow.Title</td><td class="lc">In memory a pointer to the window title
+            string. Unused in an icon file.</td>
+        </tr>
+        <tr>
+            <td>0030</td><td>uint32</td><td>dd_NewWindow.Screen</td><td class="lc">In memory a pointer to system Screen
+            a window is to be opened on. Unused in an icon file.</td>
+        </tr>
+        <tr>
+            <td>0034</td><td>uint32</td><td>dd_NewWindow.BitMap</td><td class="lc">In memory points to a system BitMap
+            for the window. Unused in an icon file.</td>
+        </tr>
+        <tr>
+            <td>0038</td><td>int16</td><td>dd_NewWindow.MinWidth</td><td class="lc">Minimum width for the window.</td>
+        </tr>
+        <tr>
+            <td>0040</td><td>int16</td><td>dd_NewWindow.MinHeight</td><td class="lc">Minimum height for the window.</td>
+        </tr>
+        <tr>
+            <td>0042</td><td>uint16</td><td>dd_NewWindow.MaxWidth</td><td class="lc">Maximum width for the window.</td>
+        </tr>
+        <tr>
+            <td>0044</td><td>uint16</td><td>dd_NewWindow.MaxHeight</td><td class="lc">Maximum height for the window.</td>
+        </tr>
+        <tr>
+            <td>0046</td><td>uint16</td><td>dd_NewWindow.Type</td><td class="lc">Window type (public/custom screen).</td>
+        </tr>
+        <tr>
+            <td>0048</td><td>int32</td><td>dd_CurrentX</td><td class="lc">Horizontal position of originating icon.</td>
+        </tr>
+        <tr>
+            <td>0052</td><td>int32</td><td>dd_CurrentY</td><td class="lc">Vertical position of originating icon.</td>
+        </tr>
+        <tr><td colspan="4" class="lc lr">Total size: 56 bytes.</td></tr>
+    </table>
+
+    <h3>3.4. Image structure</h3>
+
+    <table style="width: 100%;" cellspacing="0" cellpadding="3">
+        <tr class="greyed">
+            <td>0000</td><td>int16</td><td style="width: 20%;">LeftEdge</td><td class="lc" style="width: 80%;">Image
+            left edge position relative to the icon left edge. Image clipping should be done for negative
+            values.</td>
+        </tr>
+        <tr class="greyed">
+            <td>0002</td><td>int16</td><td>TopEdge</td><td class="lc">Image top edge position relative to
+            the icon top edge. Image clipping should be done for negative values.</td>
+        </tr>
+        <tr class="greyed">
+            <td>0004</td><td>uint16</td><td>Width</td><td class="lc">Image width in pixels. May be less
+            than icon width (stored in DiskObject.Gadget), missing columns use color 0. If it is
+            bigger than icon width I recommend to clip the image.</td>
+        </tr>
+        <tr class="greyed">
+            <td>0006</td><td>uint16</td><td>Height</td><td class="lc">Image height in pixels. May be less
+            than icon height (stored in DiskObject.Gadget), missing rows use color 0. If it is
+            bigger than icon height I recommend to clip the image.</td>
+        </tr>
+        <tr class="greyed">
+            <td>0008</td><td>uint16</td><td>Depth</td><td class="lc">Number of image bitplanes (see chapter
+            3.5.).</td>
+        </tr>
+        <tr class="greyed">
+            <td>0010</td><td>uint32</td><td>ImageData</td><td class="lc">In memory it is a pointer to
+            bitplanes, in file it should be treated as a boolean value (if not zero, bitplane
+            data are stored as shown on fig. 1.).</td>
+        </tr>
+        <tr>
+            <td>0014</td><td>uint8</td><td>PlanePick</td><td class="lc">A bitfield controlling which
+            image bitplane is copied to which screen bitplane. Used only by classic Amiga
+            graphics chipset. Meaningless in a file, as it is interpreted in Amiga chipset
+            context displaying particular screen.</td>
+        </tr>
+        <tr>
+            <td>0015</td><td>uint8</td><td>PlaneOnOff</td><td class="lc">A bitfield controlling
+            screen bitplanes not fed with icon data. They may be either filled by zeros or
+            by ones. Used only by classic Amiga graphics chipset. Meaningless in a file,
+            as it is interpreted in Amiga chipset context displaying particular screen.</td>
+        </tr>
+        <tr>
+            <td>0016</td><td>uint32</td><td>NextImage</td><td class="lc">Unused. Usually 0.</td>
+        </tr>
+        <tr><td colspan="4" class="lc lr">Total size: 20 bytes.</td></tr>
+    </table>
+
+
+    <h3>3.5. Image data and palette</h3>
+
+    <p>Icon image data are stored as bitplanes. While a bit cumbersome for nowadays display devices,
+        this format is a native one for Amiga graphics chipsets. The image data, once loaded into
+        graphics ("chip") memory, can be directly blitted to a screen. On bitplanes, every pixel
+        occupies one bit, regardless of number of palette colors. Palette size is determined by a
+        number of bitplanes, for <i>N</i> bitplanes there are 2<sup><i>N</i></sup> colors available.
+        To determine a pixel color, one has to gather this pixel bits from all bitplanes (bitplane 0,
+        which comes first in the data, is the most significant one) as shown on fig. 2, form a number
+        and use it as an index to the palette table.</p>
+
+    <center><img width="368" height="191" src="bitplanes.png" alt="Bitplaned image data"><br>
+        <br><i>Fig. 2. Bitplaned image data.</i>
+    </center>
+
+    <p>Amiga icon bitplanes are not interleaved, complete planes are stored one after one. Pixel
+        scanning order is usual left-to-right, top-to-bottom. Plane rows are padded to 16-bit words,
+        there is no vertical padding.</p>
+
+    <p>In spite of image data are palette-based, there is no palette stored in
+        the icon, just some standard palette is assumed. Unfortunately there are a few
+        "standard" palettes used:
+    <ol><li class="t">Standard AmigaOS 1.x palette, 4 colors.<br>
+        <span class="cblock" style="background-color: #0055aa;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>
+        color 0, R=0, G=85, B=170 (0x0055AA)<br>
+        <span class="cblock" style="background-color: #ffffff;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>
+        color 1, R=255, G=255, B=255 (0xFFFFFF)<br>
+        <span class="cblock" style="background-color: #000000;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>
+        color 2, R=0, G=0, B=0 (0x000000)<br>
+        <span class="cblock" style="background-color: #ff8800;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>
+        color 3, R=255, G=136, B=0 (0xFF8800)
+    </li>
+        <li class="t">Standard AmigaOS 2.x palette, 4 colors.<br>
+            <span class="cblock" style="background-color: #959595;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>
+            color 0, R=149, G=149, B=149 (0x959595)<br>
+            <span class="cblock" style="background-color: #000000;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>
+            color 1, R=0, G=0, B=0 (0x000000)<br>
+            <span class="cblock" style="background-color: #ffffff;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>
+            color 2, R=255, G=255, B=255 (0xFFFFFF)<br>
+            <span class="cblock" style="background-color: #3b67a2;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>
+            color 3, R=59, G=103, B=162 (0x3B67A2)
+        </li>
+        <li class="t">MagicWB palette, 8 colors. It extends AmigaOS 2.x palette with 4 additional colors.<br>
+            <span class="cblock" style="background-color: #7b7b7b;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>
+            color 4, R=123, G=123, B=123 (0x7B7B7B)<br>
+            <span class="cblock" style="background-color: #afafaf;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>
+            color 5, R=175, G=175, B=175 (0xAFAFAF)<br>
+            <span class="cblock" style="background-color: #aa907c;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>
+            color 6, R=170, G=144, B=124 (0xAA907C)<br>
+            <span class="cblock" style="background-color: #ffa997;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>
+            color 7, R=255, G=169, B=151 (0xFFA997)
+        </li></ol>
+    <p>There were some other palettes proposed, usually extending MagicWB with more colors, but
+        they have not gained popularity. NewIcons format solved the problem finally, storing a palette
+        inside an icon. Which palette one should use converting the icon image to RGB color space?
+        If we limit possibilities to palettes shown above, icon revision allows to choose between OS 1.x and OS 2.x
+        palette. Then if revision is 1 and number of bitplanes is 3, the icon is MagicWB one.</p>
+
+    <h2>4. Decoding icon images</h2>
+
+    <p>Usually you will be only interested in extracting images from an icon, and convert them to
+        the RGB color space (unless you are writing an Amiga Workbench replacement...). Here is a short guide
+        how to do it:
+
+    <ol>
+
+        <li class="t">
+            Take into account, that most of information in the icon is unused. All fields in <i>DiskObject</i> and <i>Image</i>
+            structures really needed to decode imagery are marked <span style="background-color: #D0D0D0;">gray</span>
+            in the above tables. White entries may be ignored. If you are on x86 or other little-endian platform,
+            do not forget about byte-swapping.
+        </li>
+
+        <li class="t">
+            Start from loading a fixed size <i>DiskObject</i> structure. Verify <i>do_Magic</i> and <i>do_Version</i>. Then
+            check for presence of DrawerData. Non zero <i>do_DrawerData</i> is the primary indicator, <i>do_Type</i> of
+            1, 2 or 5 is the secondary one. Check for presence of the first image (<i>do_Gadget.GadgetRender</i>). The
+            second image primary indicator is <i>do_Gadget.SelectRender</i>, the secondary one is that gadget highlight
+            bits are set to 2 (<i>do_Gadget.Flags</i> &amp; 0x0003 == 0x0002).
+        </li>
+
+        <li class="t">
+            If DrawerData is present, skip it.
+        </li>
+
+        <li class="t">
+            Read the first <i>Image</i> structure. Extract offsets, width, height and number of bitplanes. Calculate bitplane width
+            in bytes taking horizontal padding into account. It may be calculated as
+            ((<i>Width</i> + 15) &gt;&gt; 4) &lt;&lt; 1.
+        </li>
+
+        <li class="t">
+            Check for <i>ImageData</i>. If it is 0, it may mean that the image is empty, or the file is damaged. If not,
+            load bitplanes to memory.
+        </li>
+
+        <li class="t">
+            If you've detected the second <i>Image</i>, repeat 4. and 5. Be prepared for different offsets and dimensions (may
+            happen often) or different bitplanes number (very unlikely, but who knows).
+        </li>
+
+        <li class="t">
+            Select the palette for every image, based on icon revision and number of bitplanes. Convert bitplanes to
+            a RGB pixelmap, using selected palette. Note that padding bits should be ignored even if non-zero.
+        </li>
+
+        <li class="t">
+            Create an empty rectangle of icon size (<i>do_Gadget.Width</i> &times; <i>do_Gadget_Height</i>). Fill it
+            with palette color 0. Then impose the normal or selected image on it using Image <i>LeftEdge</i> and
+            <i>TopEdge</i> as offsets. Perform clipping if neccesary.
+        </li>
+
+    </ol></p>
+</div>
+
+
+
+
+</body>
+</html>

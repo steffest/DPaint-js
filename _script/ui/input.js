@@ -22,7 +22,7 @@ var Input = function(){
 		document.addEventListener("pointerdown",onPointerDown)
 		document.addEventListener("pointerup",onPointerUp)
 		document.addEventListener("pointercancel",onPointerUp)
-		document.addEventListener("pointerout",onPointerUp)
+		//document.addEventListener("pointerout",onPointerUp)
 		document.addEventListener("pointerleave",onPointerUp)
 		document.addEventListener("pointermove",onPointerMove)
 
@@ -287,7 +287,7 @@ var Input = function(){
 
 		e.preventDefault();
 		e.stopPropagation();
-		console.log(e);
+		//                                                      console.log(e);
 
 		keyDown[code] = true;
 		if (modifiers.indexOf(code)>=0){

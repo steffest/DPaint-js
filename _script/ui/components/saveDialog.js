@@ -3,10 +3,11 @@ import IFF from "../../fileformats/iff.js";
 import Icon from "../../fileformats/amigaIcon.js";
 import ImageFile from "../../image.js";
 import saveAs from "../../util/filesaver.js";
-import Modal from "../modal.js";
+import Modal, {DIALOG} from "../modal.js";
 import Palette from "../palette.js";
 import EventBus from "../../util/eventbus.js";
 import {COMMAND, EVENT} from "../../enum.js";
+import ImageProcessing from "../../util/imageProcessing.js";
 
 var SaveDialog = function(){
     let me ={};
@@ -103,6 +104,19 @@ var SaveDialog = function(){
     }
 
     function writeIFF(){
+        let check = validate({
+            maxColors: 32
+        })
+
+        if (!check.valid){
+            Modal.show(DIALOG.OPTION,{
+                title: "Save as IFF",
+                text: ["Sorry, this image can't be saved as IFF."].concat(check.errors),
+                buttons: [{label:"OK"}]
+            });
+            return;
+        }
+
         var buffer = IFF.write(ImageFile.getCanvas());
 
         var blob = new Blob([buffer], {type: "application/octet-stream"});
@@ -129,7 +143,66 @@ var SaveDialog = function(){
         });
     }
 
-    function writeAmigaClassicIcon(){
+    function writeAmigaClassicIcon(config){
+        config = config || {};
+        config.title = "Save as Amiga Classic Icon";
+
+        let check = validate({maxColors: 32});
+
+        if (!check.valid){
+            Modal.show(DIALOG.OPTION,{
+                title: config.title,
+                text: ["Sorry, this image has too many colors. Please reduce them to 16 or even better: 8 or less using the MUI palette"],
+                buttons: [{label:"OK"}]
+            });
+            return;
+        }
+
+        check = validate({maxWidth: 1024, maxHeight: 1024});
+        if (!check.valid){
+            Modal.show(DIALOG.OPTION,{
+                title: config.title,
+                text: ["Sorry, this image is too big. Please reduce it to 1024x1024 pixels or less."],
+                buttons: [{label:"OK"}]
+            });
+            return;
+        }
+
+
+        if (!config.skipColorCheck){
+            check = validate({maxColors: 8})
+
+            if (!check.valid){
+                Modal.show(DIALOG.OPTION,{
+                    title: config.title,
+                    text: "Are you sure you want to save this image as Amiga Classic Icon? It has more than 8 colors which means it probably won't display correctly",
+                    onOk:()=>{
+                        config.skipColorCheck = true;
+                        writeAmigaClassicIcon(config);
+                    }
+                });
+                return;
+            }
+        }
+
+        if (!config.skipSizeCheck){
+            check = validate({maxWidth: 256, maxHeight: 256});
+
+            if (!check.valid){
+                Modal.show(DIALOG.OPTION,{
+                    title: config.title,
+                    text: "Are you sure you want to save this image as Amiga Classic Icon? It's kind of big... Allthough technically possible, it's not recommended to use icons bigger than 256x256 pixels",
+                    onOk:()=>{
+                        config.skipSizeCheck = true;
+                        writeAmigaClassicIcon(config);
+                    }
+                });
+                return;
+            }
+        }
+
+
+
         let canvas1 = ImageFile.getCanvas(0);
         let canvas2 = ImageFile.getCanvas(1) || canvas1;
         let ctx1 = canvas1.getContext("2d");
@@ -148,10 +221,12 @@ var SaveDialog = function(){
         icon.img.width = w;
         icon.img.height = h;
         icon.img.depth = 3; // 8 colors
+        icon.img.planePick = 7 // color count - 1 (?)
         icon.img.pixels = [];
         icon.img2.width = w;
         icon.img2.height = h;
         icon.img2.depth = 3; // 8 colors
+        icon.img2.planePick = 7 // color count - 1 (?)
         icon.img2.pixels = [];
 
         function fillPixels(_ctx,pixels){
@@ -186,6 +261,7 @@ var SaveDialog = function(){
                         if (colorIndex<0){
                             console.error("No MUI color: " + rgb);
                             colorIndex = 0;
+                            // TODO: allow for arbitrary color palletes
                         }
                         //console.error(rgb);
                         //icon.img.pixels.push(colorIndex);
@@ -235,6 +311,24 @@ var SaveDialog = function(){
     };
 
     function writeAmigaColorIcon(){
+        let check = validate({
+            maxColors: 256,
+            maxWidth: 256,
+            maxHeight: 256
+        })
+
+        console.error(check);
+
+        if (!check.valid){
+            Modal.show(DIALOG.OPTION,{
+                title: "Save as Amiga Color Icon",
+                text: ["Sorry, this image can't be saved as Amiga Color Icon."].concat(check.errors),
+                buttons: [{label:"OK"}]
+            });
+            return;
+        }
+
+
         // save as ColorIcon
         let canvas1 = ImageFile.getCanvas(0);
         var palette = [];
@@ -386,6 +480,31 @@ var SaveDialog = function(){
 
         });
     });
+
+    function validate(config){
+        let result = {
+            valid: true,
+            errors: []
+        };
+        if (config.maxColors){
+            let colors = ImageProcessing.getColors(ImageFile.getCanvas(),config.maxColors).length;
+            if (colors > config.maxColors){
+                result.valid = false;
+                result.errors.push("Please reduce the number of colors to maximum  " + config.maxColors + ".");
+            }
+        }
+
+        if (config.maxWidth && config.maxHeight){
+            let width = ImageFile.getCurrentFile().width
+            let height = ImageFile.getCurrentFile().height;
+            if (width > config.maxWidth || height > config.maxHeight){
+                result.valid = false;
+                result.errors.push("Please reduce the image size to maximum " + config.maxWidth + "x" + config.maxHeight + " pixels.");
+            }
+        }
+
+        return result;
+    }
 
     return me;
 }();

@@ -404,6 +404,14 @@ input[type=range]:focus::-ms-fill-upper {
   background-image: url("../_img/poly.svg");
   background-size: 80% 80%;
 }
+.toolbar .button.pan {
+  background-image: url("../_img/hand.svg");
+  background-size: 80% 80%;
+}
+.toolbar .button.picker {
+  background-image: url("../_img/pipette_white.svg");
+  background-size: 80% 80%;
+}
 .toolbar .button.floodselect {
   background-image: url("../_img/magicwand.svg");
   background-size: 80% 80%;
@@ -1156,9 +1164,13 @@ body.withsidepanel .sidepanel {
 .splitpanel .splitter:hover {
   background-color: rgba(0, 0, 0, 0.2);
 }
-.splitpanel .canvascontainer {
+.splitpanel .canvaswrapper {
   display: block;
   margin: auto;
+  position: relative;
+}
+.splitpanel .canvascontainer {
+  display: block;
   position: relative;
   border: 1px solid black;
   background-image: url("../_img/checkers.png");
@@ -1456,7 +1468,7 @@ body.hovericonEditorCanvas.mousedown.colorpicker.mousedown .cursor .mark {
   border-bottom: 1px solid black;
   position: relative;
   height: 20px;
-  background-color: rgba(0, 0, 0, 0.2196078431);
+  background-color: #00000038;
   cursor: move;
   user-select: none;
 }
@@ -1529,6 +1541,9 @@ body.hovericonEditorCanvas.mousedown.colorpicker.mousedown .cursor .mark {
   bottom: 0;
   right: 0;
   padding: 10px 8px;
+}
+.modalwindow .inner .buttons.relative {
+  position: relative;
 }
 .modalwindow .inner .buttons .button {
   width: 150px;
@@ -1882,14 +1897,14 @@ body.hovericonEditorCanvas.mousedown.colorpicker.mousedown .cursor .mark {
   margin-top: -2px;
 }
 .modalwindow .inner .effects .sliders .slider input[type=range]::-webkit-slider-runnable-track {
-  background: linear-gradient(90deg, rgb(0, 0, 0) 0%, rgb(200, 200, 200) 100%);
+  background: linear-gradient(90deg, black 0%, #c8c8c8 100%);
   border: 1px solid #010101;
   width: 100%;
   height: 4px;
   cursor: pointer;
 }
 .modalwindow .inner .effects .sliders .slider input[type=range]::-moz-range-track {
-  background: linear-gradient(90deg, rgb(0, 0, 0) 0%, rgb(200, 200, 200) 100%);
+  background: linear-gradient(90deg, black 0%, #c8c8c8 100%);
   border: 1px solid #010101;
   width: 100%;
   height: 2px;

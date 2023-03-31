@@ -39,7 +39,9 @@ let Menu = function(){
                 {label: "Rectangle",command: COMMAND.SQUARE,shortKey: "R"},
                 {label: "Circle",command: COMMAND.CIRCLE,shortKey: "C"},
                 {label: "Gradient",command: COMMAND.GRADIENT,shortKey: "G"},
-                {label: "Erase",command: COMMAND.ERASE,shortKey: "E"}
+                {label: "Erase",command: COMMAND.ERASE,shortKey: "E"},
+                {label: "Hand",command: COMMAND.PAN,shortKey: "H"},
+                {label: "Color Picker",command: COMMAND.COLORPICKER,shortKey: "I"}
             ]},
         {label: "Layer", items:[
                 {label: "New",command: COMMAND.NEWLAYER},

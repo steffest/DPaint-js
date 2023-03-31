@@ -137,6 +137,16 @@
       background-size: 80% 80%;
     }
 
+    &.pan{
+      background-image: url("../_img/hand.svg");
+      background-size: 80% 80%;
+    }
+
+    &.picker{
+      background-image: url("../_img/pipette_white.svg");
+      background-size: 80% 80%;
+    }
+
     &.floodselect{
       background-image: url("../_img/magicwand.svg");
       background-size: 80% 80%;

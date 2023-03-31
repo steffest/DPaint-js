@@ -181,10 +181,15 @@
       background-color: rgba(0, 0, 0, 0.2);
     }
   }
+
+  .canvaswrapper{
+    display: block;
+    margin: auto;
+    position: relative;
+  }
   
   .canvascontainer{
     display: block;
-    margin: auto;
     position: relative;
     border: 1px solid black;
     background-image: url("../_img/checkers.png");

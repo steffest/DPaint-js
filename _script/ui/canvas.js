@@ -26,10 +26,10 @@ let Canvas = function(parent){
     let touchData={};
     let zoom=1;
     let prevZoom;
-    let onChange;
     var panelParent;
     var selectBox;
     let drawFunction;
+    let containerTransform = {x:0,y:0,startX:0,startY:0};
 
     canvas = document.createElement("canvas");
     overlayCanvas = document.createElement("canvas");
@@ -42,16 +42,19 @@ let Canvas = function(parent){
     ctx = canvas.getContext("2d",{willReadFrequently: true, antialias:false, desynchronized: false});
     overlayCtx = overlayCanvas.getContext("2d",{willReadFrequently: true});
 
-    let c = $div("canvascontainer");
+    let wrapper = $div("canvaswrapper");
+    let container = $div("canvascontainer");
+
 
     overlayCanvas.className = "overlaycanvas";
     canvas.className = "maincanvas info";
-    c.appendChild(canvas);
-    c.appendChild(overlayCanvas);
-    c.appendChild(selectBox.getBox());
+    container.appendChild(canvas);
+    container.appendChild(overlayCanvas);
+    container.appendChild(selectBox.getBox());
+    wrapper.appendChild(container)
     
     panelParent = parent.getViewPort();
-    panelParent.appendChild(c);
+    panelParent.appendChild(wrapper);
 
     panelParent.addEventListener('scroll',(e)=>{handle('scroll', e)},false);
 
@@ -218,6 +221,8 @@ let Canvas = function(parent){
                     touchData.startDragY =  e.clientY;
                     touchData.startScrollX = panelParent.scrollLeft;
                     touchData.startScrollY = panelParent.scrollTop;
+                    containerTransform.startX = containerTransform.x;
+                    containerTransform.startY = containerTransform.y;
                     return;
                 }else if ((Input.isShiftDown() || Input.isAltDown()) && canPickColor() || Editor.getCurrentTool() === COMMAND.COLORPICKER){
                     var pixel = ctx.getImageData(point.x, point.y, 1, 1).data;
@@ -505,8 +510,21 @@ let Canvas = function(parent){
                     if (Input.isSpaceDown() || touchData.button===1 || Editor.getCurrentTool() === COMMAND.PAN){
                         var dx = (touchData.startDragX-e.clientX);
                         var dy = touchData.startDragY-e.clientY;
-                        panelParent.scrollLeft = touchData.startScrollX+dx;
-                        panelParent.scrollTop = touchData.startScrollY+dy;
+                        let tx = touchData.startScrollX+dx;
+                        let ty = touchData.startScrollY+dy;
+                        panelParent.scrollLeft = tx;
+                        panelParent.scrollTop = ty;
+                        let fx = parseInt(panelParent.scrollLeft);
+                        let fy = parseInt(panelParent.scrollTop);
+
+                        if (fx !== tx){
+                            containerTransform.x = containerTransform.startX+fx-tx;
+                            setContainer();
+                        }
+                        if (fy !== ty){
+                            containerTransform.y = containerTransform.startY+fy-ty ;
+                            setContainer();
+                        }
                         return;
                     }
 
@@ -594,6 +612,10 @@ let Canvas = function(parent){
         // TODO this is crap - FIXME !
         let ct = Editor.getCurrentTool();
         return !(ct === COMMAND.SELECT || ct === COMMAND.SQUARE || ct === COMMAND.GRADIENT || ct === COMMAND.CIRCLE  ||  ct === COMMAND.TRANSFORMLAYER);
+    }
+
+    function setContainer(){
+        container.style.transform = "translate(" + containerTransform.x + "px," + containerTransform.y + "px)";
     }
 
     //Bresenham's_line_algorithm

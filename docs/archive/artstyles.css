@@ -1,0 +1,277 @@
+html {
+    -webkit-text-size-adjust: none;
+}
+
+body {
+    font-family: "Arial","Helvetica",sans-serif;
+    font-size: 16px;
+    background-color: white;
+    color: black;
+    padding: 0px;
+    margin: 0px;
+}
+
+div.main {
+    max-width: 1200px;
+    width: 80%;
+    margin: 2em auto;
+    border: 1px solid #B2B2B2;
+    background-color: #F4F4F4;
+    background-image: url('https://web.archive.org/web/20220120040355im_/http://teleinfo.pb.edu.pl/krashan/images/bg453.png');
+    padding: 3.5em 4em;
+    border-radius: 12px;
+    box-shadow: 5px 5px 10px #B9B9B9;
+}
+
+div.author {
+    margin-top: 0.5em;
+    margin-bottom: 1.2em;
+    font-size: 114%;
+}
+
+div.author a {
+    color: #500000;
+    text-decoration: none;
+    transition: color 0.5s;
+}
+
+div.author a:hover {
+    color: #C00000;
+}
+
+div.footer {
+    margin-top: 1em;
+    padding-top: 0.5em;
+    border-top: 1px solid #C0C0C0;
+    text-align: justify;
+    font-size: 87%;
+}
+
+a.text {
+    color: #500000;
+    text-decoration: none;
+    background-color: rgba(200,80,0,0.2);
+    padding: 0em 0.2em;
+    transition: color 0.5s;
+    border-radius: 2px;
+}
+
+a.text:hover {
+    color: #C00000;
+}
+
+div.footer a {
+    color: #500000;
+    text-decoration: none;
+    transition: color 0.5s;
+    background: none;
+}
+
+div.footer a:hover {
+    color: #C00000;
+}
+
+p {
+    line-height: 130%;
+    text-align: justify;
+}
+
+p.date {
+    font-style: italic;
+    text-align: right;
+}
+
+pre {
+    font-family: "Menlo",monospace;
+    text-align: left;
+    font-weight: normal;
+    border: 1px dotted #9C9C9C;
+    background-color: #F5F5F5;
+    padding: 0.3em 0.4em;
+    font-size: 80%;
+}
+
+p.leadin {
+    font-size: 114%;
+}
+
+
+h1 {
+    font-size: 160%;
+    font-weight: bold;
+    margin-top: 1.5em;
+    text-shadow: 0.08em 0.08em 0.1em #C0C0C0;
+}
+
+h2 {
+    font-size: 130%;
+    font-weight: bold;
+    margin-top: 1.5em;
+    text-shadow: 0.08em 0.08em 0.1em #C0C0C0;
+}
+
+h3 {
+    font-size: 110%;
+    font-weight: bold;
+    margin-top: 1.5em;
+    text-shadow: 0.08em 0.08em 0.1em #C0C0C0;
+}
+
+div.math { text-align: center; }
+
+div.hd1 {
+    clear: both;
+    margin-bottom: 2em;
+}
+
+div.hd2 {
+    float: right;
+    margin: 0em 0em 0.7em 1.5em;
+}
+
+img.hd2 {
+    background-color: white;
+    padding: 0.4em;
+    border: 1px solid #C0C0C0;
+}
+
+div.hd3 {
+    font-size: 200%;
+    text-shadow: 0.08em 0.08em 0.12em #C0C0C0;
+    margin-bottom: 0.6em;
+}
+
+div.hd4 {
+    font-style: italic;
+    padding-bottom: 0.5em;
+    line-height: 130%;
+    text-align: justify;
+    color: #606060;
+}
+
+div.hd5 {
+    font-size: 200%;
+    text-shadow: 0.08em 0.08em 0.12em #C0C0C0;
+    margin-top: 0.75em;
+}
+
+table {
+    border: 1px solid #808080;
+    border-spacing: 0px;
+    border-collapse: collapse;
+}
+
+td {
+    border: 1px solid #808080;
+    font-size: 75%;
+    padding: 1px 2px;
+}
+
+th {
+    border: 1px solid #808080;
+    font-size: 75%;
+    padding: 1px 2px;
+    font-weight: bold;
+    text-align: center;
+}
+
+td.number {
+    text-align: right;
+}
+
+sub {
+    vertical-align: baseline;
+    position: relative;
+    font-size: 70%;
+    bottom: -0.33em;
+    margin-left: 0.04em;
+    line-height: 100%;
+}
+
+sup {
+    vertical-align: baseline;
+    position: relative;
+    font-size: 70%;
+    bottom: 0.5em;
+    margin-left: 1px;
+    line-height: 100%;
+}
+
+li { text-align: justify; line-height: 135%; }
+ul { margin: 0.2em 0em; }
+
+div.last_updated {
+    font-size: 90%;
+    border-top: 1px solid rgba(0,0,0,0.15);
+    padding-top: 0.3em;
+    margin-top: 1.0em;
+    font-style: italic;
+    color: #606060;
+}
+
+/* Division for "+1" and "Like it" buttons */
+
+div.sharebuttons { }
+div.gplusadjust { display: inline-block; }
+div.fbookadjust { display: inline-block; position: relative; top: 2px; }
+div.profilebutton { text-align: right; }
+
+/* mobile tweaks */
+
+
+@media all and (max-width: 1023px)
+{
+    body {
+        font-size: 14px;
+    }
+
+    div.main {
+        margin: 0em;
+        border: none;
+        box-shadow: none;
+        border-radius: 0px;
+        width: auto;
+    }
+}
+
+@media all and (max-width: 567px)
+{
+    body {
+        font-size: 13px;
+    }
+
+    div.main {
+        padding: 1.7em 2em;
+    }
+
+    div.hd2 {
+        display: none;
+    }
+
+    ul {
+        padding-left: 1.5em;
+    }
+
+    ol {
+        padding-left: 1.5em;
+    }
+
+    pre {
+        font-size: 70%;
+    }
+
+
+    @media all and (max-width: 399px)
+    {
+        pre {
+            font-size: 62%;
+        }
+    }
+
+    @media all and (max-width: 359px)
+    {
+        pre {
+            font-size: 57%;
+        }
+    }
+}

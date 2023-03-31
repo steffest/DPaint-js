@@ -119,6 +119,10 @@
       right: 0;
       padding: 10px 8px;
 
+      &.relative{
+        position: relative;
+      }
+
       .button{
         width: 150px;
         text-align: center;
