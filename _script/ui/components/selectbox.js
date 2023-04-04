@@ -71,10 +71,11 @@ let SelectBox = (()=>{
     }
 
     me.endPolySelect = (fromClick)=>{
+        if (!selecting) return;
         console.error("end poly");
         setTimeout(()=>{
             selecting = false;
-            EventBus.trigger(COMMAND.ENDPOLYGONSELECT);
+            EventBus.trigger(EVENT.endPolygonSelect);
             Input.setActiveKeyHandler();
             selectionPoints = [];
         },fromClick?100:0);
@@ -298,13 +299,22 @@ let SelectBox = (()=>{
     }
 
     function keyHandler(code){
-        switch (code){
-            case "escape":
-                me.endPolySelect();
-                break;
-            case "enter":
-                me.endPolySelect();
-                break;
+        console.error(code);
+        if (selecting){
+            switch (code){
+                case "keyj":
+                    EventBus.trigger(COMMAND.TOLAYER)
+                    break;
+                case "keyk":
+                    EventBus.trigger(COMMAND.CUTTOLAYER)
+                    break;
+                case "escape":
+                    me.endPolySelect();
+                    break;
+                case "enter":
+                    me.endPolySelect();
+                    break;
+            }
         }
     }
 

@@ -988,7 +988,7 @@ var Icon = function(){
 }();
 
 if (typeof module !== 'undefined' && typeof module.exports !== 'undefined'){
-    module.exports = Icon;
+    //module.exports = Icon;
 }
 
 export default Icon;

@@ -460,9 +460,17 @@ let ImageFile = function(){
     }
     
     function addLayer(index,name){
-        currentFrame().layers.push(Layer(currentFile.width,currentFile.height,name || "Layer " + (currentFrame().layers.length+1)));
+        let newLayer = Layer(currentFile.width,currentFile.height,name || "Layer " + (currentFrame().layers.length+1));
+        let newIndex = currentFrame().layers.length;
+
+        if (typeof index === "undefined"){
+            currentFrame().layers.push(newLayer);
+        }else{
+            currentFrame().layers.splice(index,0,newLayer);
+            newIndex = index;
+        }
         EventBus.trigger(EVENT.layersChanged);
-        return currentFrame().layers.length-1;
+        return newIndex;
     }
 
     function removeLayer(index){

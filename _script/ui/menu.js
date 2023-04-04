@@ -14,8 +14,8 @@ let Menu = function(){
                 {label: "New", command: COMMAND.NEW,shortKey: "meta+N"},
                 {label: "Open", command: COMMAND.OPEN,shortKey: "meta+O",needsRealClick: true},
                 {label: "Save", command: COMMAND.SAVE,shortKey: "meta+S"},
-                {label: "Import to Frame", command: COMMAND.IMPORTFRAME,needsRealClick: true},
-                {label: "Info", command: COMMAND.INFO,shortKey: "meta+I"},
+                {label: "Import", command: COMMAND.IMPORTFRAME,shortKey: "meta+I",needsRealClick: true},
+                {label: "Info", command: COMMAND.INFO},
             ]},
         {label: "Edit", items:[
                 {label: "Copy", command: COMMAND.COPY,shortKey: "meta+C"},
@@ -51,8 +51,8 @@ let Menu = function(){
                 {label: "Move Up",command: COMMAND.LAYERUP},
                 {label: "Move Down",command: COMMAND.LAYERDOWN},
                 {label: "Merge Down",command: COMMAND.MERGEDOWN},
-                {label: "Add Layer Mask: Show",command: COMMAND.LAYERMASK},
-                {label: "Add Layer Mask: Hide",command: COMMAND.LAYERMASKHIDE},
+                {label: "Add Mask: Show",command: COMMAND.LAYERMASK, shortKey: "meta+Shift+A"},
+                {label: "Add Mask: Hide",command: COMMAND.LAYERMASKHIDE, shortKey: "meta+Shift+H"},
                 {label: "Layer to Selection",command: COMMAND.TOSELECTION}
             ]},
         {label: "Selection", items:[
@@ -66,6 +66,7 @@ let Menu = function(){
                 {label: "Edit",command: COMMAND.EDITPALETTE},
                 {label: "From Image",command: COMMAND.PALETTEFROMIMAGE},
                 {label: "Reduce",command: COMMAND.PALETTEREDUCE},
+                {label: "Show Presets",command: COMMAND.TOGGLEPALETTES},
                 {label: "Save Palette",command: COMMAND.SAVEPALETTE},
                 {label: "Load Palette",command: COMMAND.LOADPALETTE}
             ]},
@@ -75,9 +76,19 @@ let Menu = function(){
             ]},
         {label: "Help", items:[
                 {label: "About DPaint.js",command: COMMAND.ABOUT},
+                {label: "Documentation",action: ()=>{
+                        window.open('https://www.stef.be/dpaint/docs/');
+                    },needsRealClick: true},
                 {label: "SourceCode on GitHub",action: ()=>{
                     window.open('https://github.com/steffest/dpaint-js');
-                    }}
+                    },needsRealClick: true},
+                {label: "Documentation3",action: ()=>{
+                        let a = document.createElement("a");
+                        a.href="https://www.stef.be/dpaint/docs/";
+                        a.target = "_blank";
+                        a.click();
+                    },needsRealClick: true},
+
             ]}
     ]
 
@@ -147,6 +158,7 @@ let Menu = function(){
                             let meta = isMac?"Cmd":"Ctrl";
                             if (k.indexOf("+N")>1) meta = isMac?"Ctrl":"Alt";
                             k = k.replace("meta",meta);
+                            if (k.length>8)  menuItem.classList.add("ultra");
                         }
                         $div("shortkey",k,menuItem);
                     }

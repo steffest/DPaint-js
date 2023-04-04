@@ -265,6 +265,6 @@ function BinaryStream(arrayBuffer, bigEndian){
     }
 }
 
-if (typeof module !== 'undefined' && module.exports) module.exports = BinaryStream;
+//if (typeof module !== 'undefined' && module.exports) module.exports = BinaryStream;
 export default BinaryStream;
 

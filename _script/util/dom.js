@@ -33,10 +33,12 @@ export default function dom(tagName,options){
 			hasParent = true;
 			continue;
 		}
-		if (key === 'onClick'){
-			elm.classList.add("handle");
-			if (opt.className) opt.className += " handle";
-		}
+
+		// custom dpaint.js stuff
+		if (key === 'onClick') addClass(elm,opt,"handle");
+		if (key === 'info') addClass(elm,opt,"info");
+		// end custom dpaint.js stuff
+
 		elm[key] = opt[key];
 	}
 
@@ -134,6 +136,12 @@ let append = (parent, child) => {
 		}
 	}
 };
+
+let addClass=(elm,opt,className)=>{
+	elm.classList.add(className);
+	if (opt.className) opt.className += " " + className;
+}
+
 let defaultParent;
 
 // TODO move to new Dom constructor

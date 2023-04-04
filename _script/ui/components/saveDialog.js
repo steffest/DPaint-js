@@ -99,7 +99,7 @@ var SaveDialog = function(){
     }
 
     function getFileName(){
-        let name = nameInput.value.replace(/[ &\/\\#,+()$~%.'":*?<>{}]/g, "");
+        let name = nameInput ? nameInput.value.replace(/[ &\/\\#,+()$~%.'":*?<>{}]/g, ""):"";
         return name || "Untitled"
     }
 
@@ -147,7 +147,7 @@ var SaveDialog = function(){
         config = config || {};
         config.title = "Save as Amiga Classic Icon";
 
-        let check = validate({maxColors: 32});
+        let check = validate({maxColors: 32, checkAllFrames: true});
 
         if (!check.valid){
             Modal.show(DIALOG.OPTION,{
@@ -313,6 +313,7 @@ var SaveDialog = function(){
     function writeAmigaColorIcon(){
         let check = validate({
             maxColors: 256,
+            checkAllFrames: true,
             maxWidth: 256,
             maxHeight: 256
         })
@@ -488,6 +489,9 @@ var SaveDialog = function(){
         };
         if (config.maxColors){
             let colors = ImageProcessing.getColors(ImageFile.getCanvas(),config.maxColors).length;
+            if (ImageFile.getCurrentFile().frames.length>1 && config.checkAllFrames){
+                colors = Math.max(colors,ImageProcessing.getColors(ImageFile.getCanvas(1),config.maxColors).length);
+            }
             if (colors > config.maxColors){
                 result.valid = false;
                 result.errors.push("Please reduce the number of colors to maximum  " + config.maxColors + ".");

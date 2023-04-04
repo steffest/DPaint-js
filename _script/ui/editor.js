@@ -187,10 +187,15 @@ var Editor = function(){
             let canvas = ctx.canvas;
             let box = ImageFile.getLayerBoundingRect();
             let cut = ctx.getImageData(box.x, box.y, box.w, box.h);
+            if (box.w === canvas.width && box.h === canvas.height && box.x === 0) return;
 
+            HistoryService.start(EVENT.imageHistory);
             canvas.width = box.w;
             canvas.height = box.h;
             ctx.putImageData(cut, 0, 0);
+            ImageFile.getCurrentFile().width = canvas.width;
+            ImageFile.getCurrentFile().height = canvas.height;
+            HistoryService.end();
             EventBus.trigger(EVENT.imageSizeChanged);
         })
 
@@ -330,6 +335,9 @@ var Editor = function(){
             EventBus.trigger(COMMAND.CLEARSELECTION);
             currentTool = undefined;
             if (previousTool) EventBus.trigger(previousTool);
+        }
+        if (currentTool === COMMAND.POLYGONSELECT){
+            EventBus.trigger(COMMAND.ENDPOLYGONSELECT);
         }
     }
 

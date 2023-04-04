@@ -1,4 +1,4 @@
-import {$div, $link} from "../util/dom.js";
+import $,{$div, $link} from "../util/dom.js";
 import {COMMAND, EVENT} from "../enum.js";
 import EventBus from "../util/eventbus.js";
 import Palette from "./palette.js";
@@ -58,15 +58,17 @@ let Toolbar = function(){
     }
 
     function generate(){
-        let toggleButton = $div("togglepanel info","",container,()=>{
-            SidePanel.toggle();
-        });
-        toggleButton.info = "Toggle side panels"
+        let tools = $(".tools",{parent: container},
+            $(".togglepanel.sidebar",{
+                onClick: SidePanel.toggle,
+                info:"Toggle side panels"
+            })
+        );
 
+        Brush.init(tools);
 
-        Brush.init(container);
         items.forEach((item,index)=>{
-            item.element = $div("button handle info icon " + item.name,item.label,container,(e) =>{
+            item.element = $div("button handle info icon " + item.name,item.label,tools,(e) =>{
                 me.activateButton(index);
             });
 
@@ -106,8 +108,7 @@ let Toolbar = function(){
                 redo.classList.toggle("disabled",true);
             }
         });
-
-        Palette.init(container);
+        Palette.init(tools,container);
     }
 
     EventBus.on(EVENT.historyChanged,([undoCount,redoCount])=>{

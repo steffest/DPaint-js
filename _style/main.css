@@ -212,6 +212,7 @@ input[type=range]:focus::-ms-fill-upper {
   color: #BBBBBB;
   z-index: 10;
   user-select: none;
+  white-space: nowrap;
 }
 .menu a.main {
   position: relative;
@@ -239,6 +240,9 @@ input[type=range]:focus::-ms-fill-upper {
 }
 .menu a.main .sub a.wide {
   padding: 0 70px 0 10px;
+}
+.menu a.main .sub a.wide.ultra {
+  padding: 0 90px 0 10px;
 }
 .menu a.main .sub a:hover {
   background-color: #3C3F41;
@@ -292,20 +296,18 @@ input[type=range]:focus::-ms-fill-upper {
   position: absolute;
   left: 0;
   top: 27px;
-  border: 1px solid black;
   width: 64px;
-  height: 366px;
-  background-color: #313335;
-  display: flex;
-  flex-wrap: wrap;
-  align-content: flex-start;
-  justify-content: space-around;
+  bottom: 20px;
   user-select: none;
 }
 .toolbar .togglepanel {
   height: 20px;
   width: 100%;
   border-bottom: 1px solid black;
+  position: relative;
+  color: #BBBBBB;
+  font-size: 12px;
+  font-weight: 100;
 }
 .toolbar .togglepanel:after {
   content: "";
@@ -326,6 +328,20 @@ input[type=range]:focus::-ms-fill-upper {
 }
 .toolbar .togglepanel:hover:after {
   opacity: 1;
+}
+.toolbar .togglepanel.showpalettelist {
+  border-top: 1px solid black;
+  line-height: 19px;
+  text-align: left;
+  padding-left: 4px;
+}
+.toolbar .tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  justify-content: space-around;
+  background-color: #313335;
+  border: 1px solid black;
 }
 .toolbar .button {
   display: block;
@@ -470,7 +486,7 @@ input[type=range]:focus::-ms-fill-upper {
   text-align: center;
 }
 .toolbar .palette .display {
-  height: 80px;
+  height: 72px;
   position: relative;
 }
 .toolbar .palette .display div {
@@ -538,8 +554,15 @@ input[type=range]:focus::-ms-fill-upper {
 .toolbar.fill .button.square {
   background-image: url("../_img/square_fill.svg");
 }
+.toolbar .palettecanvas {
+  margin: 8px 0 0 4px;
+}
 
-body.withsidepanel .toolbar .togglepanel:after {
+body.withsidepanel .toolbar .togglepanel.sidebar:after {
+  transform: rotate(180deg);
+}
+
+body.withpalettelist .toolbar .togglepanel.showpalettelist:after {
   transform: rotate(180deg);
 }
 
@@ -1011,6 +1034,80 @@ body.withsidepanel .sidepanel {
   display: block;
 }
 
+.palettelist {
+  position: absolute;
+  left: 70px;
+  top: 27px;
+  bottom: 20px;
+  border: 1px solid black;
+  width: 100px;
+  background-color: #313335;
+  overflow: auto;
+  z-index: 10;
+  display: none;
+}
+.palettelist.active {
+  display: block;
+  box-shadow: 1px 0 2px rgba(0, 0, 0, 0.2);
+}
+.palettelist .caption {
+  background-color: #282A2C;
+  color: #BBBBBB;
+  padding: 3px 5px 3px 5px;
+  font-size: 12px;
+  height: 21px;
+  border-bottom: 1px solid black;
+  user-select: none;
+}
+.palettelist .caption .close {
+  position: absolute;
+  height: 20px;
+  width: 20px;
+  line-height: 20px;
+  right: 0;
+  top: 0;
+  text-align: center;
+  cursor: pointer;
+}
+.palettelist .palette {
+  margin-bottom: 10px;
+  border-bottom: 1px solid #46494b;
+  clear: both;
+  background-color: #313335;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.palettelist .palette .caption {
+  background-color: transparent;
+  width: 100%;
+}
+.palettelist .palette canvas {
+  display: block;
+  margin: 2px;
+}
+.palettelist .palette:hover {
+  background-color: #434548;
+  cursor: pointer;
+}
+.palettelist .palette:hover .caption {
+  color: white;
+}
+.palettelist .button {
+  line-height: 14px;
+  text-align: center;
+  border: 1px solid rgba(141, 142, 143, 0.5);
+  font-size: 12px;
+  user-select: none;
+  color: #BBBBBB;
+  padding: 3px 0;
+  margin: 4px 2px;
+}
+.palettelist .button:hover {
+  background-color: #3C3F41;
+  cursor: pointer;
+}
+
 .splitpanel {
   position: absolute;
   top: 27px;
@@ -1041,6 +1138,8 @@ body.withsidepanel .sidepanel {
   border: none;
   border-bottom: 1px solid black;
   justify-content: flex-start;
+  display: flex;
+  white-space: nowrap;
 }
 .splitpanel .panel .toolbar .button {
   height: 20px;
@@ -1468,7 +1567,7 @@ body.hovericonEditorCanvas.mousedown.colorpicker.mousedown .cursor .mark {
   border-bottom: 1px solid black;
   position: relative;
   height: 20px;
-  background-color: #00000038;
+  background-color: rgba(0, 0, 0, 0.2196078431);
   cursor: move;
   user-select: none;
 }
@@ -1897,14 +1996,14 @@ body.hovericonEditorCanvas.mousedown.colorpicker.mousedown .cursor .mark {
   margin-top: -2px;
 }
 .modalwindow .inner .effects .sliders .slider input[type=range]::-webkit-slider-runnable-track {
-  background: linear-gradient(90deg, black 0%, #c8c8c8 100%);
+  background: linear-gradient(90deg, rgb(0, 0, 0) 0%, rgb(200, 200, 200) 100%);
   border: 1px solid #010101;
   width: 100%;
   height: 4px;
   cursor: pointer;
 }
 .modalwindow .inner .effects .sliders .slider input[type=range]::-moz-range-track {
-  background: linear-gradient(90deg, black 0%, #c8c8c8 100%);
+  background: linear-gradient(90deg, rgb(0, 0, 0) 0%, rgb(200, 200, 200) 100%);
   border: 1px solid #010101;
   width: 100%;
   height: 2px;

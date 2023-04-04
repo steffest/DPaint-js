@@ -61,6 +61,7 @@ export let COMMAND={
     FULLSCREEN: 1060,
     PAN: 1061,
     COLORPICKER: 1062,
+    TOGGLEPALETTES: 1063,
 }
 
 export let EVENT={
@@ -84,5 +85,6 @@ export let EVENT={
     imageHistory:18,
     selectionHistory:19,
     paletteHistory:20,
-    historyChanged:21
+    historyChanged:21,
+    endPolygonSelect: 22
 }

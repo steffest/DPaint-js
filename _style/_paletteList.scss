@@ -1,0 +1,83 @@
+.palettelist{
+  position: absolute;
+  left: 70px;
+  top: 27px;
+  bottom: 20px;
+  border: 1px solid black;
+  width: 100px;
+  background-color: #313335;
+  overflow: auto;
+  z-index: 10;
+  display: none;
+
+  &.active{
+    display: block;
+    box-shadow: 1px 0 2px rgba(0, 0, 0, 0.2);
+  }
+
+  .caption{
+    background-color: #282A2C;
+    color: #BBBBBB;
+    padding: 3px 5px 3px 5px;
+    font-size: 12px;
+    height: 21px;
+    border-bottom: 1px solid black;
+    user-select: none;
+
+    .close{
+      position: absolute;
+      height: 20px;
+      width: 20px;
+      line-height: 20px;
+      right: 0;
+      top: 0;
+      text-align: center;
+      cursor: pointer;
+    }
+  }
+
+  .palette{
+    margin-bottom: 10px;
+    border-bottom: 1px solid #46494b;
+    clear: both;
+    background-color:#313335;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+
+    .caption{
+      background-color:transparent;
+      width: 100%;
+    }
+
+    canvas{
+      display: block;
+      margin: 2px;
+    }
+
+    &:hover{
+      background-color: #434548;
+      cursor: pointer;
+
+      .caption{
+        color: white;
+      }
+    }
+  }
+
+  .button{
+    line-height: 14px;
+    text-align: center;
+    border: 1px solid rgba(141, 142, 143, 0.5);
+    font-size: 12px;
+    user-select: none;
+    color: $menu-text-color;
+    padding: 3px 0;
+    margin: 4px 2px;
+
+    &:hover{
+      background-color: $panel-background-active;
+      cursor: pointer;
+    }
+  }
+}

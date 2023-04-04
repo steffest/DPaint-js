@@ -4,20 +4,18 @@
   position: absolute;
   left: 0;
   top: 27px;
-  border: 1px solid black;
   width: 64px;
-  height: 366px;
-  background-color: $panel-background-color;
-  display: flex;
-  flex-wrap: wrap;
-  align-content: flex-start;
-  justify-content: space-around;
+  bottom: 20px;
   user-select: none;
 
   .togglepanel{
     height: 20px;
     width: 100%;
     border-bottom: 1px solid black;
+    position: relative;
+    color: $menu-text-color;
+    font-size: 12px;
+    font-weight: 100;
 
     &:after{
       content: "";
@@ -40,6 +38,22 @@
         opacity: 1;
       }
     }
+
+    &.showpalettelist{
+      border-top: 1px solid black;
+      line-height: 19px;
+      text-align: left;
+      padding-left: 4px;
+    }
+  }
+
+  .tools{
+    display: flex;
+    flex-wrap: wrap;
+    align-content: flex-start;
+    justify-content: space-around;
+    background-color: $panel-background-color;
+    border: 1px solid black;
   }
 
   .button{
@@ -215,7 +229,7 @@
     text-align: center;
 
     .display{
-      height: 80px;
+      height: 72px;
       position: relative;
 
       div{
@@ -303,11 +317,25 @@
       }
     }
   }
+
+  .palettecanvas{
+    margin: 8px 0 0 4px;
+  }
 }
 
 body.withsidepanel{
   .toolbar {
-    .togglepanel {
+    .togglepanel.sidebar {
+      &:after {
+        transform: rotate(180deg);
+      }
+    }
+  }
+}
+
+body.withpalettelist{
+  .toolbar {
+    .togglepanel.showpalettelist {
       &:after {
         transform: rotate(180deg);
       }

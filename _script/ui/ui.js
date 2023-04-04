@@ -6,6 +6,7 @@ import Editor from "./editor.js";
 import Cursor from "./cursor.js";
 import Sidepanel from "./sidepanel.js";
 import StatusBar from "./statusbar.js";
+import PaletteList from "./components/paletteList.js";
 
 let UI = function(){
 	let me = {}
@@ -20,6 +21,7 @@ let UI = function(){
 		Toolbar.init(container);
 		StatusBar.init(container);
 		Sidepanel.init(container);
+		PaletteList.init(container);
 		Editor.init(container);
 	}
 

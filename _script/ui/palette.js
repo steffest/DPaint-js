@@ -1,13 +1,10 @@
-import {$div, $input} from "../util/dom.js";
+import $,{$div, $input} from "../util/dom.js";
 import EventBus from "../util/eventbus.js";
 import {COMMAND, EVENT} from "../enum.js";
 import Color from "../util/color.js";
-import Editor from "./editor.js";
 import ImageProcessing from "../util/imageProcessing.js";
 import ImageFile from "../image.js";
 import SidePanel from "./sidepanel.js";
-import Canvas from "./canvas.js";
-import FileDetector from "../fileformats/detect.js";
 import {duplicateCanvas} from "../util/canvasUtils.js";
 
 let Palette = function(){
@@ -152,7 +149,7 @@ let Palette = function(){
     };
     var targetPalette = null;
 
-    me.init = function(parent){
+    me.init = function(parent,paletteParent){
         container = $div("palette","",parent);
         let colorPicker = $input("color","","",()=>{
             me.setColor(colorPicker.value,colorPicker.isBack);
@@ -182,21 +179,25 @@ let Palette = function(){
         });
         noColor.info = "Select transparent color, left click to select front, right click to select back";
 
+        $(".togglepanel.showpalettelist",{
+            parent: container,
+            onClick: ()=>{EventBus.trigger(COMMAND.TOGGLEPALETTES)},
+            info:"Show palettes"
+        },"Palette");
 
-        paletteCanvas = document.createElement("canvas");
-        paletteCanvas.classList.add("handle","info");
-        paletteCanvas.info = "Color palette, left click to select front, right click to select back";
-        container.appendChild(paletteCanvas);
+        paletteCanvas = $("canvas.info.palettecanvas",{
+            parent: paletteParent,
+            info: "Color palette, left click to select front, right click to select back",
+            onClick: function(e){
+                const rect = paletteCanvas.getBoundingClientRect();
+                const x = Math.floor(e.clientX - rect.left);
+                const y = Math.floor(e.clientY - rect.top);
+                let p = paletteCtx.getImageData(x,y,1,1).data;
+                me.setColor([p[0],p[1],p[2]],e.button);
+            }
+        })
+
         paletteCtx = paletteCanvas.getContext("2d");
-
-        paletteCanvas.onClick = function(e){
-            const rect = paletteCanvas.getBoundingClientRect();
-            const x = Math.floor(e.clientX - rect.left);
-            const y = Math.floor(e.clientY - rect.top);
-            let p = paletteCtx.getImageData(x,y,1,1).data;
-            me.setColor([p[0],p[1],p[2]],e.button);
-        }
-
         me.set(colors);
 
         EventBus.on(EVENT.drawColorChanged,(color)=>{
@@ -430,6 +431,10 @@ let Palette = function(){
             }
         };
         input.click();
+    }
+
+    me.getPaletteMap = function(){
+        return paletteMap;
     }
 
 

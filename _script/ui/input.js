@@ -64,6 +64,9 @@ var Input = function(){
 	me.isMetaDown = function(){
 		return !!keyDown["meta"] || me.isControlDown() || me.isShiftDown();
 	}
+	me.isMetaAndShiftDown = function(){
+		return (!!keyDown["meta"] || me.isControlDown()) && me.isShiftDown();
+	}
 	me.isPointerDown = function(){
 		return document.body.classList.contains("pointerdown");
 	}
@@ -159,6 +162,14 @@ var Input = function(){
 		}
 
 		if (target){
+
+			if (Resizer.isActive()){
+				let sizeTarget = target.closest(".sizebox");
+				if (!sizeTarget){
+					Editor.commit();
+				}
+			}
+
 			if (target.onClick){
 				// on touch devices this is not a click, which might interfere with events that require "user input"
 				// like the file input dialog to open a file
@@ -195,14 +206,6 @@ var Input = function(){
 			}
 			if ((e.button || e.ctrlKey) && target.onContextMenu){
 				target.onContextMenu(e);
-			}
-
-
-			if (Resizer.isActive()){
-				let sizeTarget = target.closest(".sizebox");
-				if (!sizeTarget){
-					Editor.commit();
-				}
 			}
 
 		}
@@ -269,6 +272,7 @@ var Input = function(){
 	function onKeyDown(e){
 		let code = limitKeyCode(e.code);
 		let key = e.key;
+		if (key) key = key.toLowerCase();
 
 		if (me.isShiftDown() && !e.shiftKey) modifierKeyUp("shift");
 		if (me.isControlDown() && !e.ctrlKey) modifierKeyUp("control");
@@ -328,21 +332,29 @@ var Input = function(){
 		}
 
 		if (me.isMetaDown()){
-			switch (key){
-				case "a": EventBus.trigger(COMMAND.SELECTALL); break;
-				case "b": EventBus.trigger(COMMAND.EFFECTS); break;
-				case "d": EventBus.trigger(COMMAND.DUPLICATELAYER); break;
-				case "i": EventBus.trigger(COMMAND.INFO); break;
-				case "j": EventBus.trigger(COMMAND.TOLAYER); break;
-				case "n": EventBus.trigger(COMMAND.NEW); break;
-				case "o": EventBus.trigger(COMMAND.OPEN); break;
-				case "p": EventBus.trigger(COMMAND.RESIZE); break;
-				case "_r": EventBus.trigger(COMMAND.ROTATE); break;
-				case "r": EventBus.trigger(COMMAND.RESAMPLE); break;
-				case "s": EventBus.trigger(COMMAND.SAVE); break;
-				case "t": EventBus.trigger(COMMAND.TRANSFORMLAYER); break;
-				case "y": EventBus.trigger(COMMAND.REDO); break;
-				case "z": EventBus.trigger(COMMAND.UNDO); break;
+
+			if (me.isMetaAndShiftDown()){
+				switch (key){
+					case "a": EventBus.trigger(COMMAND.LAYERMASK); break;
+					case "h": EventBus.trigger(COMMAND.LAYERMASKHIDE); break;
+				}
+			}else{
+				switch (key){
+					case "a": EventBus.trigger(COMMAND.SELECTALL); break;
+					case "b": EventBus.trigger(COMMAND.EFFECTS); break;
+					case "d": EventBus.trigger(COMMAND.DUPLICATELAYER); break;
+					case "i": EventBus.trigger(COMMAND.IMPORTFRAME); break;
+					case "j": EventBus.trigger(COMMAND.TOLAYER); break;
+					case "n": EventBus.trigger(COMMAND.NEW); break;
+					case "o": EventBus.trigger(COMMAND.OPEN); break;
+					case "p": EventBus.trigger(COMMAND.RESIZE); break;
+					case "_r": EventBus.trigger(COMMAND.ROTATE); break;
+					case "r": EventBus.trigger(COMMAND.RESAMPLE); break;
+					case "s": EventBus.trigger(COMMAND.SAVE); break;
+					case "t": EventBus.trigger(COMMAND.TRANSFORMLAYER); break;
+					case "y": EventBus.trigger(COMMAND.REDO); break;
+					case "z": EventBus.trigger(COMMAND.UNDO); break;
+				}
 			}
 		}else{
 			switch (key){
@@ -398,6 +410,7 @@ var Input = function(){
 				console.error("error pasting image");
 			}
 			img.onload = ()=>{
+				console.log("pasted image", img.width, img.height);
 				ImageFile.paste(img);
 			}
 			img.src = URL.createObjectURL(blob);
@@ -458,6 +471,7 @@ var Input = function(){
 
 			const item = items[0];
 			// Get the blob of image
+			console.log("paste " + item.type)
 			const blob = item.getAsFile();
 			pasteImage(blob)
 		}

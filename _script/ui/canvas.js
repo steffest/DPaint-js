@@ -95,7 +95,11 @@ let Canvas = function(parent){
         selectBox.deActivate();
     });
 
-    EventBus.on(COMMAND.ENDPOLYGONSELECT,()=>{
+    EventBus.on(COMMAND.ENDPOLYGONSELECT,(fromClick)=>{
+        selectBox.endPolySelect(fromClick);
+    });
+
+    EventBus.on(EVENT.endPolygonSelect,()=>{
         touchData.isPolySelect = false;
     });
 
@@ -329,12 +333,13 @@ let Canvas = function(parent){
                     case COMMAND.GRADIENT:
                         // TODO move this as well to the drawLayer of the active layer ?
                         HistoryService.start(EVENT.layerHistory);
-                        let layerIndex = ImageFile.addLayer();
+                        let layerIndex = ImageFile.addLayer(ImageFile.getActiveLayerIndex()+1);
                         let drawLayer = ImageFile.getLayer(layerIndex);
                         touchData.hotDrawFunction = function(x,y){
                             drawLayer.clear();
                             let ctx = drawLayer.getContext();
-                            let lineWidth = ToolOptions.getLineSize() / (window.devicePixelRatio || 1)
+                            //let lineWidth = ToolOptions.getLineSize() / (window.devicePixelRatio || 1)
+                            let lineWidth = ToolOptions.getLineSize();
                             ctx.lineWidth = lineWidth;
                             ctx.lineCap = "square";
                             ctx.strokeStyle = Palette.getDrawColor();
@@ -374,7 +379,7 @@ let Canvas = function(parent){
                                 ctx.stroke();
                                 if (isOdd) ctx.translate(-.5,-.5);
                             }else{
-                                bLine(point.x,point.y,x,y,ctx,Color.fromString(Palette.getDrawColor()),lineWidth);
+                                bLine_(point.x,point.y,x,y,ctx,Color.fromString(Palette.getDrawColor()),lineWidth);
                             }
 
                             EventBus.trigger(EVENT.layerContentChanged);
@@ -611,7 +616,7 @@ let Canvas = function(parent){
     function canPickColor(){
         // TODO this is crap - FIXME !
         let ct = Editor.getCurrentTool();
-        return !(ct === COMMAND.SELECT || ct === COMMAND.SQUARE || ct === COMMAND.GRADIENT || ct === COMMAND.CIRCLE  ||  ct === COMMAND.TRANSFORMLAYER);
+        return !(ct === COMMAND.SELECT || ct === COMMAND.SQUARE || ct === COMMAND.GRADIENT || ct === COMMAND.LINE || ct === COMMAND.CIRCLE  ||  ct === COMMAND.TRANSFORMLAYER);
     }
 
     function setContainer(){
@@ -623,16 +628,22 @@ let Canvas = function(parent){
     function bLine_(x0, y0, x1, y1,ctx,color,lineWidth) {
         let imgData=ctx.getImageData(0,0,canvas.width,canvas.height);
         let data = imgData.data;
+        lineWidth = lineWidth || 1;
+        if (lineWidth<1) lineWidth=1;
 
         var dx = Math.abs(x1 - x0), sx = x0 < x1 ? 1 : -1;
         var dy = Math.abs(y1 - y0), sy = y0 < y1 ? 1 : -1;
         var err = (dx>dy ? dx : -dy)/2;
+
+        let lineStart = 0-Math.floor(lineWidth/2);
+        let lineEnd = parseInt(lineWidth)+lineStart;
+
         while (true) {
-            drawPixel(x0,y0);
-            //drawPixel(x0+1,y0);
-            //drawPixel(x0-1,y0);
-            //drawPixel(x0,y0+1);
-            //drawPixel(x0,y0-1);
+            for(let i=lineStart;i<lineEnd;i++){
+                for (let j=lineStart;j<lineEnd;j++){
+                    drawPixel(x0+i,y0+j);
+                }
+            }
 
             if (x0 === x1 && y0 === y1) break;
             var e2 = err;
@@ -666,7 +677,8 @@ let Canvas = function(parent){
         let thicknessX = thickness * Math.cos(angle);
         let thicknessY = thickness * Math.sin(angle);
 
-        color = "black";
+        //color = "black";
+        console.error(color);
 
         while (true) {
             for (let i = Math.floor(-thicknessX/2); i <= Math.ceil(thicknessX/2); i++) {
@@ -683,9 +695,15 @@ let Canvas = function(parent){
             if (e2 > -dy) { err -= dy; x += sx; }
             if (e2 < dx) { err += dx; y += sy; }
         }
+
+        function drawPixel(x,y){
+            let n=(y*canvas.width+x)*4;
+            data[n]=color[0];
+            data[n+1]=color[1];
+            data[n+2]=color[2];
+            data[n+3]=255;
+        }
     }
-
-
 
     return me;
 };

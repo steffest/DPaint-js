@@ -48,6 +48,7 @@ let LayerPanel = function(){
     me.generate = (parent)=>{
         $(".paneltools.multirow",{parent:parent},
             $(".rangeselect",
+                {info: "Set transparency of active layer"},
                 $(".label","Opacity"),
                 opacityRange = $("input",{type:"range",max:100,min:0,value:100,oninput:()=>{
                     ImageFile.setLayerOpacity(opacityRange.value);
@@ -59,12 +60,14 @@ let LayerPanel = function(){
                     ImageFile.setLayerBlendMode(blendSelect.value);
                 }})
             ),
-            $(".button.delete",{onclick:()=>{
-                EventBus.trigger(COMMAND.DELETELAYER);
-            }}),
-            $(".button.add",{onclick:()=>{
-                EventBus.trigger(COMMAND.NEWLAYER);
-            }})
+            $(".button.delete",{
+                onclick:()=>{EventBus.trigger(COMMAND.DELETELAYER);},
+                info:"Delete active layer"
+            }),
+            $(".button.add",{
+                onclick:()=>{EventBus.trigger(COMMAND.NEWLAYER);},
+                info:"Add new layer"
+            })
         );
 
         contentPanel = $(".panelcontent",{parent:parent});
@@ -81,7 +84,7 @@ let LayerPanel = function(){
         let max = frame.layers.length-1;
         for (let i = 0;i<=max;i++){
             let layer = frame.layers[i];
-            let elm = $div("layer" + (activeIndex === i ? " active":"") + (layer.visible?"":" hidden"),layer.name,contentPanel,()=>{
+            let elm = $div("layer info" + (activeIndex === i ? " active":"") + (layer.visible?"":" hidden"),layer.name,contentPanel,()=>{
                 if (elm.classList.contains('hasinput')){
                     let input = elm.querySelector("input");
                     if (input) input.focus();
@@ -92,6 +95,7 @@ let LayerPanel = function(){
             elm.style.top = 46 + ((max-i)*23) + "px";
             elm.currentIndex = elm.targetIndex = i;
             elm.id = "layer" + i;
+            elm.info = "Drag to reorder, double click to rename, right click for more options";
 
             elm.onDragStart = (e)=>{
                 if (elm.classList.contains('hasinput')) return;
@@ -183,15 +187,23 @@ let LayerPanel = function(){
                 elm.appendChild(input);
             }
 
-            $div("eye","",elm,()=>{
-                ImageFile.toggleLayer(i);
+            $(".eye",{
+                parent:elm,
+                onClick:()=>{
+                    ImageFile.toggleLayer(i);
+                },
+                info:"Toggle layer visibility"
             })
 
             if (layer.hasMask){
-                $div("mask" + (layer.isMaskActive()?" active":""),"",elm,()=>{
-                    layer.toggleMask();
-                    EventBus.trigger(EVENT.toolChanged);
-                    EventBus.trigger(EVENT.layersChanged);
+                $(".mask" + (layer.isMaskActive()?".active":""),{
+                    parent:elm,
+                    onClick:()=>{
+                        layer.toggleMask();
+                        EventBus.trigger(EVENT.toolChanged);
+                        EventBus.trigger(EVENT.layersChanged);
+                    },
+                    info : "Toggle layer mask"
                 })
             }
 
