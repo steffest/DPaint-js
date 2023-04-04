@@ -11,6 +11,10 @@ var ImageProcessing = function(){
 	// good explanation on dithering: https://tannerhelland.com/2012/12/28/dithering-eleven-algorithms-source-code.html
     // also: implement  https://twitter.com/lorenschmidt/status/1468671174821486594?s=20 ?
 
+	// I kind of forgot where the original code came from.
+	// maybe http://tool.anides.de/ ?
+	// if so: credits to the original author. Sorry, I forgot your name.
+
 	var dithering = [
 			{ Name: "none", label: "None", pattern: null},
 			{ Name: "checks1", label: "Checks (very low)", pattern : [ 1 * 8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 ] },
@@ -89,34 +93,34 @@ var ImageProcessing = function(){
 		
 		var ctx = canvas.getContext("2d");
 		var data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
-		var ColorCube = new Uint32Array(256 * 256 * 256);
-		var Colors = [];
+		var colorCube = new Uint32Array(256 * 256 * 256);
+		var colors = [];
 
 		for(var Y = 0; Y < canvas.height; Y++)
 		{
 			for(var X = 0; X < canvas.width; X++)
 			{
-				var PixelIndex = (X + Y * canvas.width) * 4;
+				var pixelIndex = (X + Y * canvas.width) * 4;
 
-				var red = data[PixelIndex];
-				var green = data[PixelIndex + 1];
-				var blue = data[PixelIndex + 2];
-				var alpha = data[PixelIndex + 3];
+				var red = data[pixelIndex];
+				var green = data[pixelIndex + 1];
+				var blue = data[pixelIndex + 2];
+				var alpha = data[pixelIndex + 3];
 
 				if(alpha >= alphaThreshold)
 				{
-					if(ColorCube[red * 256 * 256 + green * 256 + blue] == 0)
-						Colors.push({ Red: red, Green: green, Blue: blue });
+					if(colorCube[red * 256 * 256 + green * 256 + blue] == 0)
+						colors.push([red,green,blue]);
 
-					ColorCube[red * 256 * 256 + green * 256 + blue]++;
-					if (stopAtMax && Colors.length>stopAtMax) return Colors;
+					colorCube[red * 256 * 256 + green * 256 + blue]++;
+					if (stopAtMax && colors.length>stopAtMax) return colors;
 
 				}
 			}
 		}
 
-		Colors.sort(function (Color1, Color2) { return (SrgbToRgb(Color1.Red) * 0.21 + SrgbToRgb(Color1.Green) * 0.72 + SrgbToRgb(Color1.Blue) * 0.07) - (SrgbToRgb(Color2.Red) * 0.21 + SrgbToRgb(Color2.Green) * 0.72 + SrgbToRgb(Color2.Blue) * 0.07) });
-		return Colors;
+		colors.sort(function (c1, c2) { return (SrgbToRgb(c1[0]) * 0.21 + SrgbToRgb(c1[1]) * 0.72 + SrgbToRgb(c1[2]) * 0.07) - (SrgbToRgb(c2[0]) * 0.21 + SrgbToRgb(c2[1]) * 0.72 + SrgbToRgb(c2[2]) * 0.07) });
+		return colors;
 	};
 	
 	me.reduce = function(canvas,colors,_alphaThreshold,ditherIndex){

@@ -279,7 +279,7 @@ let Palette = function(){
 
         for (var i=0;i<max;i++){
             var c = colors[i];
-            palette.push([c.Red,c.Green,c.Blue])
+            palette.push(c);
         }
         Palette.set(palette);
     }

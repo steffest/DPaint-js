@@ -2,7 +2,7 @@
 
 	MIT License
 
-	Copyright (c) 2019-2022 Steffest - dev@stef.be
+	Copyright (c) 2019-2023 Steffest - dev@stef.be
 
 	Permission is hereby granted, free of charge, to any person obtaining a copy
 	of this software and associated documentation files (the "Software"), to deal
@@ -26,8 +26,7 @@
 
 
 import BinaryStream from "../util/binarystream.js";
-import image from "../image.js";
-import Palette from "../ui/palette.js";
+import ImageProcessing from "../util/imageProcessing.js";
 
 var FILETYPE = {
     IFF: {name: "IFF file"},
@@ -275,12 +274,12 @@ var IFF = function(){
     };
 
     // creates an ArrayBuffer with the binary data of the Icon;
-    me.write = function(canvas,palette){
+    me.write = function(canvas){
 
-        var colors = Palette.get();
-
-        var bitplaneCount = 1;
+        let colors = ImageProcessing.getColors(canvas,32);
+        let bitplaneCount = 1;
         while((1 << bitplaneCount) < colors.length) bitplaneCount++;
+        while (colors.length < (1 << bitplaneCount)) colors.push([0,0,0]);
 
         var w = canvas.width;
         var h = canvas.height;
@@ -331,20 +330,26 @@ var IFF = function(){
         file.writeString("BODY");
         file.writeDWord(bodySize);
         var bitplaneLines = [];
+
+        function getIndex(color){
+            let index = colors.findIndex((c)=>{return c[0] === color[0] && c[1] === color[1] && c[2] === color[2]});
+            if (index<0){
+                index = 0;
+                console.error("color not found in palette",color);
+            }
+            return index;
+        }
+
         for(var y=0; y<h; y++){
             for(var i = 0; i < bitplaneCount; i++) bitplaneLines[i] = new Uint8Array(bytesPerLine);
             for(var x=0; x<w; x++){
                 var colorIndex = 0;
                 var pixel = (x+y*w)*4;
                 var color = [pixels[pixel],pixels[pixel+1],pixels[pixel+2]]
-                //var r = pixels[pixel];
-                //var g =  pixels[pixel+1];
-                //var b = pixels[pixel+2];
-                var a = pixels[pixel+3];
 
-                // get Palette index;
-                colorIndex = Palette.getColorIndex(color);
+                var a = pixels[pixel+3]; // should we use an alpha threshold?
 
+                colorIndex = getIndex(color);
                 for(i = 0; i < bitplaneCount; i++){
                     if (colorIndex & (1 << i)) bitplaneLines[i][x >> 3] |= 0x80 >> (x & 7);
                 }
@@ -356,7 +361,6 @@ var IFF = function(){
 
         return file.buffer;
     }
-
 
     //if (FileType) FileType.register(me);
 

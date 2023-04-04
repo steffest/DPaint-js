@@ -19,4 +19,14 @@ Currently
    - Reads IFF ILBM images (all formats including HAM and 24-bit)
    - Writes IFF ILBM images (up to 32 colors)
 
+## Building
+DPaint.js doesn't need building.  
+It also has zero dependencies so there's no need to install anything.  
+DPaint.js is written using ES6 modules and runs out of the box in modern browsers.  
+Just serve "index.html" from a webserver and you're good to go.  
 
+There's an optional build step to create a compact version of DPaint.js if you like.  
+I'm using Parcel.js for this.  
+For convenience, I've included a "package.json" file.  
+open a terminal and run `npm install` to install Parcel.js and its dependencies.
+Then run `npm run build` to create a compact version of DPaint.js in the "dist" folder.
