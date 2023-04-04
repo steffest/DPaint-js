@@ -356,7 +356,10 @@ let ImageFile = function(){
             var file = files[0];
             var detectType;
             var isText;
-            var ext = file.name.split(".").pop().toLowerCase();
+            var fileName = file.name.split(".");
+            var ext = fileName.pop().toLowerCase();
+            fileName = fileName.join(".");
+
             if (ext === "info") detectType=true;
             if (ext === "json") isText=true;
 
@@ -368,14 +371,14 @@ let ImageFile = function(){
                     FileDetector.detect(file, reader.result).then(result => {
                         if (target === "frame") {
                             if (Array.isArray(result)) {
-                                drawFrame(result[0]);
+                                drawFrame(result[0],fileName);
                             } else {
-                                drawFrame(result);
+                                drawFrame(result,fileName);
                             }
-                            drawFrame(image);
+                            drawFrame(image,fileName);
                         } else {
                             if (Array.isArray(result)) {
-                                newFile(result[0]);
+                                newFile(result[0],fileName);
                                 addFrame(result[1]);
                             } else {
                                 newFile(result)
@@ -402,9 +405,9 @@ let ImageFile = function(){
                     image.onload = function(){
                         URL.revokeObjectURL(this.src);
                         if (target === "frame"){
-                            drawFrame(image);
+                            drawFrame(image,fileName);
                         }else{
-                            newFile(image)
+                            newFile(image,fileName)
                         }
                     };
                     image.onerror = function(){
@@ -428,7 +431,7 @@ let ImageFile = function(){
     }
     me.handleUpload = handleUpload;
     
-    function newFile(image){
+    function newFile(image,fileName){
         Historyservice.clear();
         cachedImage = undefined;
         let w = 320;
@@ -440,6 +443,7 @@ let ImageFile = function(){
         currentFile = {
             width:  w,
             height: h,
+            name: fileName || "Untitled",
             frames:[{
                 layers:[]
             }]
@@ -455,8 +459,8 @@ let ImageFile = function(){
         EventBus.trigger(EVENT.imageSizeChanged);
     }
     
-    function addLayer(index){
-        currentFrame().layers.push(Layer(currentFile.width,currentFile.height,"Layer " + (currentFrame().layers.length+1)));
+    function addLayer(index,name){
+        currentFrame().layers.push(Layer(currentFile.width,currentFile.height,name || "Layer " + (currentFrame().layers.length+1)));
         EventBus.trigger(EVENT.layersChanged);
         return currentFrame().layers.length-1;
     }
@@ -505,10 +509,12 @@ let ImageFile = function(){
         }
     }
 
-    function drawFrame(image){
-        let layer = currentFrame().layers[0];
+    function drawFrame(image,fileName){
+        let layerIndex = me.addLayer(0,fileName);
+        let layer = me.getLayer(layerIndex);
         layer.clear();
         layer.drawImage(image);
+        me.activateLayer(layerIndex);
         EventBus.trigger(EVENT.layerContentChanged);
     }
 
@@ -564,7 +570,7 @@ let ImageFile = function(){
                 ]
             })
         }else{
-
+            doPaste();
         }
     }
 
@@ -620,7 +626,16 @@ let ImageFile = function(){
         me.mergeDown(index);
     });
 
-    EventBus.on(COMMAND.FLATTEN,function(index){
+    EventBus.on(COMMAND.FLATTEN,function(){
+        currentFrame().layers.forEach(layer=>{
+            console.log(layer.hasMask);
+            if (layer.hasMask){
+                layer.removeMask(true);
+                EventBus.trigger(EVENT.layersChanged);
+            }
+        });
+
+
         if (currentFrame().layers.length>1){
             let canvas = me.getCanvas();
             currentFrame().layers.splice(0,currentFrame().layers.length-1);
