@@ -7,6 +7,7 @@ import Modal, {DIALOG} from "./ui/modal.js";
 import SidePanel from "./ui/sidepanel.js";
 import {duplicateCanvas, releaseCanvas} from "./util/canvasUtils.js";
 import Palette from "./ui/palette.js";
+import SaveDialog from "./ui/components/saveDialog.js";
 
 let ImageFile = function(){
    let me = {};
@@ -317,7 +318,7 @@ let ImageFile = function(){
         currentFile.width = image.width;
         currentFile.height = image.height;
         let mockImage = new Image(currentFile.width,currentFile.height);
-        newFile(mockImage);
+        newFile(mockImage,currentFile.name,currentFile.type);
         currentFile.name = image.name || "Untitled";
         image.frames.forEach((_frame,frameIndex)=>{
             let frame = currentFile.frames[frameIndex];
@@ -368,24 +369,7 @@ let ImageFile = function(){
             reader.onload = function(){
                 if (detectType) {
                     console.log("Detecting type");
-                    FileDetector.detect(file, reader.result).then(result => {
-                        if (target === "frame") {
-                            if (Array.isArray(result)) {
-                                drawFrame(result[0],fileName);
-                            } else {
-                                drawFrame(result,fileName);
-                            }
-                            drawFrame(image,fileName);
-                        } else {
-                            if (Array.isArray(result)) {
-                                newFile(result[0],fileName);
-                                addFrame(result[1]);
-                            } else {
-                                newFile(result)
-                            }
-                        }
-
-                    });
+                    me.handleBinary(reader.result,file.name,target);
                 }else if (isText){
                     let data={};
                     if (ext === "json"){
@@ -427,11 +411,63 @@ let ImageFile = function(){
             }else{
                 reader.readAsDataURL(file);
             }
+            SaveDialog.setFile();
         }
     }
     me.handleUpload = handleUpload;
+
+    me.handleBinary = function(data,name,target,stillTryImage){
+        name = name || "";
+        let fileName = name.split(".");
+        let ext = fileName.pop().toLowerCase();
+        fileName = fileName.join(".");
+
+        FileDetector.detect(data,name).then(result => {
+            if (result){
+                currentFile.originalType = result.type;
+                let image = result.image;
+                if (target === "frame") {
+                    if (Array.isArray(image)) {
+                        drawFrame(image[0],fileName);
+                    } else {
+                        drawFrame(image,fileName);
+                    }
+                    //drawFrame(image,fileName);
+                } else {
+                    if (Array.isArray(image)) {
+                        newFile(image[0],fileName,currentFile.originalType);
+                        addFrame(image[1]);
+                    } else {
+                        newFile(image,fileName,currentFile.originalType)
+                    }
+                }
+            }else{
+                console.log("Can't detect file type");
+                if (stillTryImage){
+                    // happens when the file is not coming from a file upload
+                    var image = new Image();
+                    image.onload = function(){
+                        URL.revokeObjectURL(this.src);
+                        if (target === "frame"){
+                            drawFrame(image,fileName);
+                        }else{
+                            newFile(image,fileName,currentFile.originalType)
+                        }
+                    };
+                    image.onerror = function(){
+                        URL.revokeObjectURL(this.src);
+                        console.log("File is not a default image type");
+                    };
+                    image.setAttribute('crossOrigin', '');
+                    var arrayBufferView = new Uint8Array( data );
+                    var blob = new Blob( [ arrayBufferView ], { type: "image/png" } );
+                    image.src = URL.createObjectURL( blob );
+                }
+            }
+        });
+    }
     
-    function newFile(image,fileName){
+    function newFile(image,fileName,type){
         Historyservice.clear();
         cachedImage = undefined;
         let w = 320;
@@ -448,6 +484,7 @@ let ImageFile = function(){
                 layers:[]
             }]
         }
+        if (type) currentFile.originalType = type;
         activeFrameIndex = 0;
         activeLayerIndex = 0;
         addLayer();

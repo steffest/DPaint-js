@@ -1,0 +1,108 @@
+.filebrowser{
+  position: absolute;
+  right: 0;
+  top: 27px;
+  width: 150px;
+  bottom: 22px;
+  background-color: $panel-background-color;
+  border: 1px solid black;
+  display: none;
+  overflow-y: auto;
+  overflow-x: hidden;
+
+  &.active{
+    display: block;
+  }
+
+  .caption{
+    color: $menu-text-color;
+    padding: 4px 5px 2px 20px;
+    font-size: 12px;
+    height: 21px;
+    border-bottom: 1px solid black;
+
+
+    .close{
+      position: absolute;
+      height: 20px;
+      width: 20px;
+      line-height: 20px;
+      left: 0;
+      top: 0;
+      text-align: center;
+      cursor: pointer;
+    }
+  }
+
+  .disk{
+    padding: 2px 2px 2px 21px;
+    border-bottom: 1px solid black;
+    color: $menu-text-color;
+    font-size: 11px;
+    line-height: 20px;
+    background-image: url("../_img/disk.svg");
+    background-size: 16px 16px;
+    background-repeat: no-repeat;
+    background-position: 2px center;
+    position: relative;
+
+    .download{
+      position: absolute;
+      height: 16px;
+      width: 16px;
+      right: 2px;
+      top: 2px;
+      cursor: pointer;
+      opacity: 0.7;
+      background-image: url("../_img/download.svg");
+      background-size: contain;
+      background-repeat: no-repeat;
+      background-position: center center;
+
+      &:hover{
+        opacity: 1;
+      }
+    }
+  }
+
+  .listitem{
+    color: $menu-text-color;
+    padding: 2px 2px 2px 21px;
+    border-bottom: 1px solid black;
+    position: relative;
+
+    &.folder{
+      background-image: url("../_img/folder.svg");
+      background-size: 16px 16px;
+      background-repeat: no-repeat;
+      background-position: 2px center;
+    }
+
+    &.file{
+      opacity: 0.5;
+      &:before{
+        content: "";
+        position: absolute;
+        left: 5px;
+        top: 5px;
+        width: 10px;
+        height: 10px;
+        border-radius: 5px;
+        background-color: grey;
+      }
+
+      &.image{
+        opacity: 1;
+        &:before{
+          background-color: #71b471;
+        }
+      }
+    }
+
+    &:hover{
+      cursor: pointer;
+      background-color: $panel-background-active;
+      color: white;
+    }
+  }
+}

@@ -279,6 +279,12 @@ var Icon = function(){
         }
     };
 
+    me.getType=function(icon){
+        if (icon.colorIcon || icon.newIcon) return "colorIcon";
+        if (icon.PNGIcon) return "PNGIcon";
+        return "classicIcon";
+    }
+
     me.setPalette = function(icon,stateIndex){
         var img = stateIndex?icon.img2:icon.img;
         if (img){

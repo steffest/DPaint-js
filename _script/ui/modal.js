@@ -128,6 +128,14 @@ var Modal = function(){
         if (blanket) blanket.classList.remove("active");
     }
 
+    me.alert = (message, title)=>{
+        Modal.show(DIALOG.OPTION,{
+            title: title || "Alert",
+            text: message,
+            buttons: [{label:"OK"}]
+        });
+    }
+
     function keyHandler(code){
         switch (code){
             case "escape":

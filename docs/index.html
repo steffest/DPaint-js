@@ -1,0 +1,259 @@
+<html>
+<head>
+    <style>
+        html {
+            box-sizing: border-box;
+        }
+        *, *:before, *:after {
+            box-sizing: inherit;
+        }
+
+        body{
+            background-color: #2B2B2B;
+            color: #c5c5c5;
+            font-family: sans-serif;
+            font-size: 16px;
+            font-weight: 300;
+        }
+
+        .panel{
+            border: 1px solid #1f1f1f;
+
+        }
+
+        .container{
+            position: relative;
+            width: 1200px;
+            max-width: 96%;
+            margin: auto;
+            background-color: #313335;
+        }
+
+        #menu{
+            position: absolute;
+            width: 200px;
+            padding: 10px;
+            border-right: 1px solid #3b3b3b;
+        }
+
+        #menu:after{
+            content: "";
+            position: absolute;
+            width: 1px;
+            right: 0;
+            top: 0;
+            bottom: 0;
+            border-right: 1px solid #151515;
+
+        }
+
+        #menu a{
+            display: block;
+            padding: 4px;
+            text-decoration: none;
+            color: #afafaf;
+            transition: all 400ms ease;
+        }
+
+        #menu a:hover,
+        #menu a.active{
+            color: white;
+            background-color: rgba(197, 190, 145, 0.1);
+        }
+
+        #content{
+            padding: 30px 30px 30px 250px;
+            min-height: 200px;
+            line-height: 130%;
+        }
+
+        #content img{
+            display: block;
+            margin: 10px 0;
+            border: 4px solid black;
+            max-width: 100%;
+        }
+
+        #content a{
+            color: white;
+        }
+
+        #content a:hover{
+            color: #72c4ff;
+        }
+
+        #content .feature{
+            display: inline-block;
+            width: 49%;
+            padding: 0 20px 0 0;
+            margin-bottom: 30px;
+        }
+
+        #content .feature p{
+            font-size: 13px;
+            line-height: 120%;
+            min-height: 40px;
+            margin-bottom: 6px;
+        }
+
+        #content .feature img{
+           margin-top: 0;
+        }
+
+
+        h1,h2,h3,h4,h5{
+            font-weight: 300;
+            margin: 0;
+        }
+
+        h1.panel{
+            background-color: #282A2C;
+            padding: 10px;
+            font-size: 24px;
+            border-bottom: none;
+            font-weight: 100;
+        }
+
+        h2{
+            padding: 0 0 4px 0;
+            margin: 0 0 10px 0;
+            border-bottom: 1px solid #e4ac45;
+            color: #e4ac45;
+            font-size: 22px;
+        }
+
+        h3{
+            padding: 4px 0;
+            margin: 20px 0 10px 0;
+            border-bottom: 1px dotted #3269a0;
+            color: #72c4ff;
+            font-size: 20px;
+        }
+
+        .padded{
+            padding: 4px 10px 4px 20px;
+        }
+
+        .blue{
+            color: #72c4ff;
+        }
+
+        .top{
+            vertical-align: top;
+        }
+        td{
+            padding: 2px;
+            border-bottom: 1px dotted #3269a0;
+        }
+
+        xmp{
+            border: 1px solid #66769a;
+            padding: 4px;
+            background-color: #3e485a;
+        }
+        
+        .faq i{
+            display: inline-block;
+            margin-top: 10px;
+            color: #c3d7ea;
+        }
+
+        .box{
+            border: 1px solid #464E61;
+            font-size: 14px;
+            color: #7f848e;
+            margin: 10px 0;
+            padding: 10px;
+            background-color: #222C42;
+
+        }
+
+        .box .tag{
+            display: inline-block;
+            font-size: 12px;
+            color: #828b8e;
+            background-color: #2F3C53;
+            padding: 2px 6px;
+            margin: -10px 0 6px -10px;
+        }
+
+        #content .box a{
+            color:  #7f848e;
+        }
+
+
+    </style>
+
+</head>
+<body>
+<div class="container">
+    <h1 class="panel">DPaint.js Documentation</h1>
+    <div id="menu">
+        <a href="?about" class="active">About</a>
+        <a href="?why">Why?</a>
+        <a href="?keyboard_commands">Keyboard commands</a>
+        <a href="?history">History</a>
+        <a href="?faq">FAQ</a>
+    </div>
+    <div id="content" class="panel">
+
+    </div>
+
+
+</div>
+
+<script>
+	var menu = document.getElementById("menu");
+	var content = document.getElementById("content");
+	var currentPage="";
+    function loadPage(url){
+		var xhr = new XMLHttpRequest();
+		xhr.onreadystatechange = function(){
+			if(xhr.readyState < 4) {
+				return;
+			}
+			if(xhr.readyState === 4) {
+				if(xhr.status !== 200 && xhr.status !== 201) {
+					console.error(xhr);
+					content.innerHTML = 'Sorry<br>The page "' + url + '" does not exist';
+				}else{
+					content.innerHTML = xhr.responseText;
+					currentPage = url;
+					window.location.hash = url;
+				}
+			}
+		};
+
+		xhr.open("GET", url + ".html", true);
+		xhr.send();
+    }
+
+	menu.addEventListener('click', function (event) {
+
+		if (!event.target.tagName.toLowerCase() === "a") return;
+		event.preventDefault();
+
+		menu.querySelectorAll("a").forEach(function(a){
+            a.classList.remove("active");
+        });
+		event.target.classList.add("active");
+
+		loadPage(event.target.href.split("?")[1]);
+
+	}, false);
+
+
+	window.onhashchange = function(){
+        if (window.location.hash.substr(1) !== currentPage){
+			window.scrollTo(0, 0);
+        	loadPage(window.location.hash.substr(1));
+        }
+    };
+
+    loadPage(window.location.hash ? window.location.hash.substr(1) : "about");
+
+</script>
+
+
+</body>
+</html>

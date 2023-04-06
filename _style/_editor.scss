@@ -3,7 +3,7 @@
   top: 27px;
   left: 70px;
   right: 0;
-  bottom: 20px;
+  bottom: 22px;
 
   .panel{
     position: absolute;
@@ -256,4 +256,10 @@ body.withsidepanel{
   .splitpanel{
     left: 250px;
   }
+}
+
+body.withfilebrowser{
+    .splitpanel{
+        right: 154px;
+    }
 }

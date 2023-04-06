@@ -23,6 +23,22 @@ let App = function(){
 			Palette.openLocal();
 		})
 
+		EventBus.on(COMMAND.ADF,()=>{
+			var input = document.createElement('input');
+			input.type = 'file';
+			input.onchange = function(e){
+				let files =  e.target.files;
+				console.error(files);
+				import("./ui/components/fileBrowser.js").then(FileBrowser=>{
+					FileBrowser.default.openAdf(files);
+				});
+			};
+			input.click();
+
+
+
+		});
+
 		EventBus.on(COMMAND.ABOUT,()=>{
 			Modal.show(DIALOG.ABOUT,me.version);
 		})

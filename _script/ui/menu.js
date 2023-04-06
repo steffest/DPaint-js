@@ -74,6 +74,10 @@ let Menu = function(){
                 {label: "Split Screen",command: COMMAND.SPLITSCREEN,shortKey: "tab"},
                 {label: "Full Screen",command: COMMAND.FULLSCREEN,needsRealClick: true},
             ]},
+        {label: "Amiga", items:[
+                {label: "Open ADF image",command: COMMAND.ADF, needsRealClick: true},
+                {label: "Preview in Deluxe Paint",command: COMMAND.DELUXE},
+            ]},
         {label: "Help", items:[
                 {label: "About DPaint.js",command: COMMAND.ABOUT},
                 {label: "Documentation",action: ()=>{
@@ -81,14 +85,7 @@ let Menu = function(){
                     },needsRealClick: true},
                 {label: "SourceCode on GitHub",action: ()=>{
                     window.open('https://github.com/steffest/dpaint-js');
-                    },needsRealClick: true},
-                {label: "Documentation3",action: ()=>{
-                        let a = document.createElement("a");
-                        a.href="https://www.stef.be/dpaint/docs/";
-                        a.target = "_blank";
-                        a.click();
-                    },needsRealClick: true},
-
+                    },needsRealClick: true}
             ]}
     ]
 

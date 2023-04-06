@@ -1113,7 +1113,7 @@ body.withsidepanel .sidepanel {
   top: 27px;
   left: 70px;
   right: 0;
-  bottom: 20px;
+  bottom: 22px;
 }
 .splitpanel .panel {
   position: absolute;
@@ -1315,6 +1315,10 @@ body.select .splitpanel .panel {
 
 body.withsidepanel .splitpanel {
   left: 250px;
+}
+
+body.withfilebrowser .splitpanel {
+  right: 154px;
 }
 
 .sizebox {
@@ -2326,6 +2330,9 @@ body.hovericonEditorCanvas.mousedown.colorpicker.mousedown .cursor .mark {
 .modalwindow .inner .saveform .platform .button .icon.iff {
   background-image: url("../_img/iff.png");
 }
+.modalwindow .inner .saveform .platform .button .icon.adf {
+  background-image: url("../_img/floppy.png");
+}
 .modalwindow .inner .saveform .platform .button .info {
   background-color: #4d5052;
   position: absolute;
@@ -2377,6 +2384,103 @@ body.hovericonEditorCanvas.mousedown.colorpicker.mousedown .cursor .mark {
 }
 .modalwindow .inner .saveform .platform.amiga .button:hover .info {
   right: 160px;
+}
+
+.filebrowser {
+  position: absolute;
+  right: 0;
+  top: 27px;
+  width: 150px;
+  bottom: 22px;
+  background-color: #313335;
+  border: 1px solid black;
+  display: none;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+.filebrowser.active {
+  display: block;
+}
+.filebrowser .caption {
+  color: #BBBBBB;
+  padding: 4px 5px 2px 20px;
+  font-size: 12px;
+  height: 21px;
+  border-bottom: 1px solid black;
+}
+.filebrowser .caption .close {
+  position: absolute;
+  height: 20px;
+  width: 20px;
+  line-height: 20px;
+  left: 0;
+  top: 0;
+  text-align: center;
+  cursor: pointer;
+}
+.filebrowser .disk {
+  padding: 2px 2px 2px 21px;
+  border-bottom: 1px solid black;
+  color: #BBBBBB;
+  font-size: 11px;
+  line-height: 20px;
+  background-image: url("../_img/disk.svg");
+  background-size: 16px 16px;
+  background-repeat: no-repeat;
+  background-position: 2px center;
+  position: relative;
+}
+.filebrowser .disk .download {
+  position: absolute;
+  height: 16px;
+  width: 16px;
+  right: 2px;
+  top: 2px;
+  cursor: pointer;
+  opacity: 0.7;
+  background-image: url("../_img/download.svg");
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center center;
+}
+.filebrowser .disk .download:hover {
+  opacity: 1;
+}
+.filebrowser .listitem {
+  color: #BBBBBB;
+  padding: 2px 2px 2px 21px;
+  border-bottom: 1px solid black;
+  position: relative;
+}
+.filebrowser .listitem.folder {
+  background-image: url("../_img/folder.svg");
+  background-size: 16px 16px;
+  background-repeat: no-repeat;
+  background-position: 2px center;
+}
+.filebrowser .listitem.file {
+  opacity: 0.5;
+}
+.filebrowser .listitem.file:before {
+  content: "";
+  position: absolute;
+  left: 5px;
+  top: 5px;
+  width: 10px;
+  height: 10px;
+  border-radius: 5px;
+  background-color: grey;
+}
+.filebrowser .listitem.file.image {
+  opacity: 1;
+}
+.filebrowser .listitem.file.image:before {
+  background-color: #71b471;
+}
+.filebrowser .listitem:hover {
+  cursor: pointer;
+  background-color: #3C3F41;
+  color: white;
 }
 
 /*# sourceMappingURL=main.css.map */

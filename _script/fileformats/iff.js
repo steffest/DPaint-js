@@ -189,7 +189,7 @@ var IFF = function(){
     };
 
     me.detect=function(file){
-        var id = file.readString(4);
+        var id = file.readString(4,0);
         if (id === "FORM"){
             var size = file.readDWord();
             if ((size + 8) <= file.length){
@@ -235,14 +235,13 @@ var IFF = function(){
         canvas.width = img.width;
         canvas.height = img.height;
         var pixelWidth = 1;
-        console.log(canvas.width,canvas.height);
+        //console.log(canvas.width,canvas.height);
         if (img.interlaced && !img.hires){
             canvas.width*=2;
             pixelWidth = 2;
         }
-        console.log(canvas.width,canvas.height);
+        //console.log(canvas.width,canvas.height);
         var ctx = canvas.getContext("2d");
-        console.error(img.pixels);
         for (var y=0;y<img.height;y++){
             var prevColor = [0,0,0];
             for (var x=0;x<img.width;x++){
