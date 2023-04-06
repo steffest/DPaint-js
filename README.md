@@ -6,7 +6,7 @@ Next to modern image formats, DPaint.js can read and write Amiga icon files and 
 
 Online version available next week.
 
-![DPaint.js](./_img/ui.png?raw=true)
+
 
 ## Main Features
  - Fully Featured image editor with a.o.
