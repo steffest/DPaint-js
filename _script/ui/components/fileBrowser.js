@@ -159,36 +159,6 @@ let FileBrowser = function(){
     });
 
 
-    me.test = function(){
-        console.log("test");
-        fetch("scrap/octa1.adf").then(r=>r.arrayBuffer()).then(buffer=>{
-            Adf.loadDisk(buffer,result=>{
-                if (result){
-                    diskInfo = Adf.getInfo();
-                    if (!container) generate();
-                    me.show();
-                    let root = Adf.readRootFolder();
-                    listFolder(root);
-
-                    let file = Adf.readFileAtSector(442);
-
-                    Adf.getFreeSize();
-                    console.error("free size: " + Adf.getDisk().free);
-
-                    Adf.deleteFileAtSector(442);
-
-                    root = Adf.readRootFolder();
-                    listFolder(root);
-
-
-
-                }else{
-                    Modal.alert("Sorry, this doesn't seem to be an ADF file.","Error reading disk file");
-                }
-            });
-        })
-    }
-
     return me;
 }
 

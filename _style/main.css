@@ -1571,7 +1571,7 @@ body.hovericonEditorCanvas.mousedown.colorpicker.mousedown .cursor .mark {
   border-bottom: 1px solid black;
   position: relative;
   height: 20px;
-  background-color: rgba(0, 0, 0, 0.2196078431);
+  background-color: #00000038;
   cursor: move;
   user-select: none;
 }
@@ -2000,14 +2000,14 @@ body.hovericonEditorCanvas.mousedown.colorpicker.mousedown .cursor .mark {
   margin-top: -2px;
 }
 .modalwindow .inner .effects .sliders .slider input[type=range]::-webkit-slider-runnable-track {
-  background: linear-gradient(90deg, rgb(0, 0, 0) 0%, rgb(200, 200, 200) 100%);
+  background: linear-gradient(90deg, black 0%, #c8c8c8 100%);
   border: 1px solid #010101;
   width: 100%;
   height: 4px;
   cursor: pointer;
 }
 .modalwindow .inner .effects .sliders .slider input[type=range]::-moz-range-track {
-  background: linear-gradient(90deg, rgb(0, 0, 0) 0%, rgb(200, 200, 200) 100%);
+  background: linear-gradient(90deg, black 0%, #c8c8c8 100%);
   border: 1px solid #010101;
   width: 100%;
   height: 2px;
@@ -2481,6 +2481,48 @@ body.hovericonEditorCanvas.mousedown.colorpicker.mousedown .cursor .mark {
   cursor: pointer;
   background-color: #3C3F41;
   color: white;
+}
+
+.uae {
+  position: absolute;
+  z-index: 1000;
+  background-color: #282A2C;
+  width: 720px;
+  height: 588px;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 0 20px 0px black;
+}
+.uae .caption {
+  height: 20px;
+  color: #BBBBBB;
+  border-bottom: 1px solid black;
+  font-size: 12px;
+  padding: 2px 2px 2px 24px;
+  background-image: url("../_img/amigatick.png");
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: 2px center;
+}
+.uae .caption .close {
+  position: absolute;
+  height: 20px;
+  width: 20px;
+  line-height: 20px;
+  right: 0;
+  top: 0;
+  text-align: center;
+  cursor: pointer;
+  opacity: 0.7;
+}
+.uae .caption .close:hover {
+  opacity: 1;
+}
+.uae iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
 }
 
 /*# sourceMappingURL=main.css.map */

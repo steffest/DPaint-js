@@ -34,9 +34,12 @@ let App = function(){
 				});
 			};
 			input.click();
+		});
 
-
-
+		EventBus.on(COMMAND.DELUXE,()=>{
+			import("./ui/components/uae.js").then(UAE=>{
+				UAE.default.preview();
+			});
 		});
 
 		EventBus.on(COMMAND.ABOUT,()=>{
