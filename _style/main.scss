@@ -31,6 +31,19 @@ body{
   }
 }
 
+h1.error{
+  text-align: center;
+  color: white;
+  font-size: 24px;
+  font-weight: 100;
+  margin: 50px auto;
+  width: 50%;
+
+  a{
+    color: white;
+  }
+}
+
 
 
 @import "scrollbar";

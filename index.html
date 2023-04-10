@@ -8,5 +8,13 @@
     <link rel="stylesheet" href="_style/main.css">
     <script type="module" src="_script/app.js"></script>
 </head>
-<body></body>
+<body>
+
+<script>
+    if (window.location.protocol==="file:"){
+        document.body.innerHTML = "<h1 class='error'>You have opened index.html from your file system. This won't work, please serve this file from a (local) webserver.<br><br><a href='https://www.stef.be/dpaint/docs/'>Documentation</a></h1";
+    }
+</script>
+
+</body>
 </html>

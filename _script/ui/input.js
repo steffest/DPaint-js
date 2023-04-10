@@ -345,13 +345,13 @@ var Input = function(){
 					case "d": EventBus.trigger(COMMAND.DUPLICATELAYER); break;
 					case "i": EventBus.trigger(COMMAND.IMPORTFRAME); break;
 					case "j": EventBus.trigger(COMMAND.TOLAYER); break;
+					case "k": EventBus.trigger(COMMAND.CUTTOLAYER); break;
 					case "n": EventBus.trigger(COMMAND.NEW); break;
 					case "o": EventBus.trigger(COMMAND.OPEN); break;
 					case "p": EventBus.trigger(COMMAND.RESIZE); break;
 					case "_r": EventBus.trigger(COMMAND.ROTATE); break;
 					case "r": EventBus.trigger(COMMAND.RESAMPLE); break;
 					case "s": EventBus.trigger(COMMAND.SAVE); break;
-					case "t": EventBus.trigger(COMMAND.TRANSFORMLAYER); break;
 					case "y": EventBus.trigger(COMMAND.REDO); break;
 					case "z": EventBus.trigger(COMMAND.UNDO); break;
 				}
@@ -369,6 +369,7 @@ var Input = function(){
 				case "p": EventBus.trigger(COMMAND.POLYGONSELECT); break;
 				case "r": EventBus.trigger(COMMAND.SQUARE); break;
 				case "s": EventBus.trigger(COMMAND.SELECT); break;
+				case "t": EventBus.trigger(COMMAND.TRANSFORMLAYER); break;
 				case "v": EventBus.trigger(COMMAND.TRANSFORMLAYER); break;
 				case "w": EventBus.trigger(COMMAND.FLOODSELECT); break;
 				case "x": EventBus.trigger(COMMAND.SWAPCOLORS); break;

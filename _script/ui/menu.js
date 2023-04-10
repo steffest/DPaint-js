@@ -45,7 +45,7 @@ let Menu = function(){
             ]},
         {label: "Layer", items:[
                 {label: "New",command: COMMAND.NEWLAYER},
-                {label: "Transform",command: COMMAND.TRANSFORMLAYER,shortKey: "meta+T"},
+                {label: "Transform",command: COMMAND.TRANSFORMLAYER,shortKey: "T / V"},
                 {label: "Duplicate",command: COMMAND.DUPLICATELAYER,shortKey: "meta+D"},
                 {label: "Effects",command: COMMAND.EFFECTS,shortKey: "meta+B"},
                 {label: "Move Up",command: COMMAND.LAYERUP},

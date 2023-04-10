@@ -293,9 +293,6 @@ let SelectBox = (()=>{
         ctx.strokeStyle = "white";
         ctx.stroke();
 
-
-
-
     }
 
     function keyHandler(code){

@@ -29,6 +29,18 @@ body {
   filter: blur(2px);
 }
 
+h1.error {
+  text-align: center;
+  color: white;
+  font-size: 24px;
+  font-weight: 100;
+  margin: 50px auto;
+  width: 50%;
+}
+h1.error a {
+  color: white;
+}
+
 /* Firefox */
 * {
   scrollbar-width: auto;

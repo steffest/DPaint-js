@@ -96,8 +96,9 @@ var EffectDialog = function() {
             {name: "Speckles", file:"speckles"},
             {name: "Lines", file:"lines"},
             {name: "Lines Curved", file:"linescurved"},
-            {name: "Webby", file:"web"},
-            {name: "Texture", file:"texture"},
+            {name: "Glow", file:"glow"},
+            //{name: "Webby", file:"web"},
+            //{name: "Texture", file:"texture"},
         ]
 
         recipes.forEach(recipe=>{

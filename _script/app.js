@@ -7,13 +7,20 @@ import Modal, {DIALOG} from "./ui/modal.js";
 
 let App = function(){
 	let me = {
-		version: "0.01 alpha"
+		version: "0.1 alpha"
 	}
 	
 	me.init = function(){
-		console.error("init");
 		UI.init();
 		EventBus.trigger(COMMAND.NEW);
+
+		// show about dialog on first run
+		if (window.localStorage.getItem("dp_about")!=="true"){
+			setTimeout(()=>{
+				EventBus.trigger(COMMAND.ABOUT);
+				window.localStorage.setItem("dp_about","true");
+			},200);
+		}
 
 		EventBus.on(COMMAND.OPEN,function(){
 			ImageFile.openLocal();
@@ -64,7 +71,11 @@ let App = function(){
 	}
 
 	window.addEventListener('DOMContentLoaded', (event) => {
-		me.init();
+		if (window.location.protocol==="http:" && window.location.hostname.indexOf("stef.be")>=0){
+			window.location.href = window.location.href.replace("http:","https:");
+		}else{
+			me.init();
+		}
 	});
 
 
@@ -72,7 +83,6 @@ let App = function(){
 	if (window.GestureEvent) {
 		document.documentElement.addEventListener('gesturestart', (e)=>{e.preventDefault()}, {passive: false, capture:true});
 	}
-
 
 /*
 	window.test = function(){
