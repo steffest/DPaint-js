@@ -55,7 +55,6 @@ let UAE = function(){
         })
         container.appendChild(iframe);
         document.body.appendChild(container);
-        console.error("preview");
     }
 
     me.hide = function(){

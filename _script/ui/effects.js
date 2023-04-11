@@ -11,7 +11,6 @@ let Effects = function(){
             sharpen(_target,_target.canvas.width,_target.canvas.height,value);
         },
         blur : function(value){
-            console.error(value);
             StackBlur.canvasRGBA(_target.canvas,0,0,_target.canvas.width,_target.canvas.height,value);
         },
         red : function(value){

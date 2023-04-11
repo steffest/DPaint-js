@@ -590,8 +590,6 @@ var ImageProcessing = function(){
 							imageInfos.QuantizedColors = e.data.Colors;
 
 
-							console.error(imageInfos.QuantizedColors);
-
 							remapImage(imageInfos.canvas, imageInfos.QuantizedColors, ditherPattern);
 
 							if (useTransparentColor && colorCount>4){
@@ -638,7 +636,7 @@ var ImageProcessing = function(){
 	
 	
 	function updateImageWindow(){
-		console.error(imageInfos);
+		//console.error(imageInfos);
 		
 		if (imageInfos.QuantizedColors){
 			var palette = [];

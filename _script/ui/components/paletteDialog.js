@@ -137,7 +137,6 @@ var PaletteDialog = function() {
     }
 
     me.onClose = function(){
-        console.error("onclose")
         removePixelHighLigts();
     }
 
@@ -175,7 +174,6 @@ var PaletteDialog = function() {
         colorCanvasCtx.fillStyle = Color.toString(color);
         colorCanvasCtx.fillRect(0,0,60,30);
         inputHex.value = colorPicker.value = Color.toHex(color);
-        console.error(color);
         sliders.forEach((slider,_index)=>{
             slider.range.value = color[_index];
             slider.input.value = color[_index];

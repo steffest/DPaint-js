@@ -2,11 +2,11 @@
 Webbased image editor modeled after the legendary [Deluxe Paint](https://en.wikipedia.org/wiki/Deluxe_Paint) with a focus on retro Amiga file formats.
 Next to modern image formats, DPaint.js can read and write Amiga icon files and IFF ILBM images.
 
-![DPaint.js](./_img/dpaint-logo.png?raw=true)
+![DPaint.js Logo](./_img/dpaint-logo.png?raw=true)
 
 Online version available next week.
 
-
+![DPaint.js UI](./_img/ui.png?raw=true)
 
 ## Main Features
  - Fully Featured image editor with a.o.
@@ -46,6 +46,9 @@ I'm using [Parcel.js](https://parceljs.org/) for this.
 For convenience, I've included a "package.json" file.  
 open a terminal and run `npm install` to install Parcel.js and its dependencies.
 Then run `npm run build` to create a compact version of DPaint.js in the "dist" folder.
+
+## Documentation
+Documentation can be found at https://www.stef.be/dpaint/docs/
 
 ## Contributing
 Current version is still alpha.  

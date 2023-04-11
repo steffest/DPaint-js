@@ -72,7 +72,6 @@ let SelectBox = (()=>{
 
     me.endPolySelect = (fromClick)=>{
         if (!selecting) return;
-        console.error("end poly");
         setTimeout(()=>{
             selecting = false;
             EventBus.trigger(EVENT.endPolygonSelect);
@@ -262,7 +261,7 @@ let SelectBox = (()=>{
         ctx.beginPath();
         selectionPoints.forEach((point,index)=>{
             let dot = $div("sizedot","",dots,()=>{
-                console.error("dd");
+
             });
             dot.onDragStart = (x,y)=>{
                 point.startX = point.x;
@@ -296,7 +295,7 @@ let SelectBox = (()=>{
     }
 
     function keyHandler(code){
-        console.error(code);
+        //console.error(code);
         if (selecting){
             switch (code){
                 case "keyj":

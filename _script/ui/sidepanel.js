@@ -84,7 +84,6 @@ var SidePanel = function(){
             }else{
                 contentPanel.innerHTML = "<small>No file present</small>";
             }
-            console.error(contentPanel,file);
         }
         FramesPanel.list();
         me.show();

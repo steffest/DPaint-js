@@ -22,7 +22,6 @@ let PaletteList = function(){
     }
 
     me.show = ()=>{
-        console.error("PaletteList.show");
         if (!container) generate();
         document.body.classList.add("withpalettelist");
         container.classList.add("active");
@@ -57,7 +56,6 @@ let PaletteList = function(){
         let colors = palette.palette;
         if (colors){
             let canvas,ctx;
-            console.error(palette);
             $(".palette",
                 {parent:container,onClick:()=>{
                         Palette.set(colors);

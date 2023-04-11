@@ -42,7 +42,6 @@ var Editor = function(){
         activePanel = panels[0];
 
         divider.onDrag = function(x,y){
-            console.error(x,y);
             let w = touchData.startWith+x;
             let w2 = touchData.startWith2-x;
             let min = 120;
@@ -134,10 +133,7 @@ var Editor = function(){
             HistoryService.start(EVENT.layerHistory);
             if (s){
                 if (s.canvas || s.points){
-                    console.error(s);
                     let canvas = Selection.getCanvas();
-                    console.error(s.canvas);
-                    console.error(canvas);
                     let layerCtx = layer.getContext();
                     layerCtx.globalCompositeOperation = "destination-out";
                     layerCtx.drawImage(canvas,0,0);
@@ -379,7 +375,7 @@ var Editor = function(){
         let ctx = touchData.transformLayer.getContext();
         ctx.imageSmoothingEnabled = false;
         if (d.rotation){
-            console.error("rotate " + d.rotation);
+            console.log("rotate " + d.rotation);
 
             let dw = (d.left + d.width/2);
             let dh = (d.top + d.height/2);

@@ -100,7 +100,6 @@ let LayerPanel = function(){
             elm.onDragStart = (e)=>{
                 if (elm.classList.contains('hasinput')) return;
                 // TODO probably more performant if we postpone this to when we actually drag
-                console.error("drag start");
                 let dupe = $div("dragelement box",elm.innerText);
                 Input.setDragElement(dupe,e);
             }
@@ -119,7 +118,6 @@ let LayerPanel = function(){
                     elm.targetIndex = newIndex;
                     if (newIndex<0) newIndex=0;
                     if (newIndex>=max) newIndex = max;
-                    console.error(distance,elm.currentIndex , newIndex);
 
 
                     for (let i = 0;i<=max;i++){

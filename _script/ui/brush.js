@@ -109,7 +109,6 @@ var Brush = function(){
         if (type === "canvas"){
             brushType = type;
             brushIndex = -1;
-            console.error(index)
             brushCanvas.width = brushBackCanvas.width = index.width;
             brushCanvas.height = brushBackCanvas.height = index.height;
             brushCtx.clearRect(0,0,brushCanvas.width,brushCanvas.height);

@@ -35,7 +35,6 @@ let App = function(){
 			input.type = 'file';
 			input.onchange = function(e){
 				let files =  e.target.files;
-				console.error(files);
 				import("./ui/components/fileBrowser.js").then(FileBrowser=>{
 					FileBrowser.default.openAdf(files);
 				});

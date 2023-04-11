@@ -164,7 +164,7 @@ var ADF = function(){
 				while (block.dataBlockExtension && sectors.length<40960){
 					block = readExtensionBlock(block.dataBlockExtension);
 					sectors = sectors.concat(block.pointers.slice().reverse());
-					console.error("appending");
+					console.log("appending block");
 				}
 				var maxSize = file.size;
 

@@ -251,7 +251,6 @@ let Palette = function(){
 
     me.set = function(palette){
         currentPalette = palette;
-        console.error("set palette",currentPalette);
         let cols = 4;
         let rows = palette.length/cols;
         paletteCanvas.width = cols*size;

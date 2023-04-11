@@ -231,7 +231,6 @@ let Layer = function(width,height,name){
     me.update = (_maskCtx)=>{
         _maskCtx = _maskCtx||maskCtx;
         if (maskActive){
-            console.error("update");
             // move mask mayer to alpha layer
             let img = _maskCtx.getImageData(0, 0, canvas.width, canvas.height);
             for (let i =0, max=img.data.length; i<max; i+=4){

@@ -89,7 +89,6 @@ var Input = function(){
 		touchData.dragElement = document.createElement("div");
 		touchData.dragElement.id="dragelement";
 		if (elm) touchData.dragElement.appendChild(elm);
-		console.error(event);
 		document.body.appendChild(touchData.dragElement);
 	}
 
@@ -248,7 +247,7 @@ var Input = function(){
 			if ((now - touchData.waitForClick.time)<2000){
 				touchData.waitForClick.target.onClick(touchData.waitForClick.event);
 			}else{
-				console.error("waitForClick timeout");
+				console.log("waitForClick timeout");
 			}
 			touchData.waitForClick = undefined;
 		}
@@ -496,7 +495,7 @@ var Input = function(){
 
 				navigator.clipboard.write(data).then(
 					() => {
-						console.error("copied");
+						console.log("copied");
 					},
 					(err) => {
 						console.error("error");
@@ -509,15 +508,15 @@ var Input = function(){
 	}
 
 	function handleCut(){
-		console.error("cut");
+		console.log("cut");
 	}
 
 	function handleUndo(){
-		console.error("undo");
+		console.log("undo");
 	}
 
 	function handleDelete(){
-		console.error("delete");
+		console.log("delete");
 	}
 
 	function handleDragEnter(e) {
