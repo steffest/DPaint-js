@@ -121,10 +121,14 @@ let Menu = function(){
     }
 
     me.close = function(){
+        if (container) container.classList.remove("active");
         me.deActivateMenu();
     }
 
     function generate(){
+        $div("hamburger menuitem","",container,()=>{
+            container.classList.toggle("active");
+        })
         items.forEach((item,index)=>{
             item.element = $link("menuitem main handle",item.label,container,(e) =>{
                 me.activateMenu(index);

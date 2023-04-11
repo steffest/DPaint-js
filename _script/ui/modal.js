@@ -71,6 +71,12 @@ var Modal = function(){
         if (dialog){
             let width = data.width || dialog.width || 440;
             let height = data.height || dialog.height || 260;
+
+            let maxWidth = window.innerWidth - 20;
+            let maxHeight = window.innerHeight - 20;
+            if (width > maxWidth) width = maxWidth;
+            if (height > maxHeight) height = maxHeight;
+
             modalWindow.style.width = width + "px";
             modalWindow.style.height = height + "px";
             let top = 'calc(50vh - ' + (height>>1) + 'px)';

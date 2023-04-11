@@ -1,0 +1,62 @@
+@media only screen and (max-width: 800px) {
+ .menu{
+   width: 100px;
+   height: auto;
+   top: 27px;
+   border: none;
+
+   .hamburger{
+     display: block;
+     background-image: url("../_img/hamburger.svg");
+     width: 32px;
+     height: 27px;
+     background-size: 24px 24px;
+     background-repeat: no-repeat;
+     background-position: center center;
+     position: absolute;
+     top: -27px;
+   }
+
+   a.main{
+     display: none;
+     font-size: 13px;
+     border: 1px solid black;
+     border-bottom: none;
+     padding: 2px 10px;
+
+     &:last-child{
+       border-bottom: 1px solid black;
+     }
+
+     .sub{
+       left: 100px;
+       top: 0;
+
+       a{
+         font-size: 13px;
+         border-bottom: 1px solid rgba(0, 0, 0, 0.4);
+         padding: 2px 20px 2px 10px;
+
+         &:last-child{
+           border-bottom: none;
+         }
+
+         &.wide{
+           padding: 2px 80px 2px 10px;
+         }
+
+         &.ultrawide{
+           padding: 2px 100px 2px 10px
+         }
+       }
+     }
+   }
+
+
+   &.active{
+     a.main{
+       display: block;
+     }
+   }
+ }
+}

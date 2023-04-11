@@ -8,9 +8,13 @@
   height: 25px;
   background-color: $panel-background-color;
   color: $menu-text-color;
-  z-index: 10;
+  z-index: 1000;
   user-select: none;
   white-space: nowrap;
+
+  .hamburger{
+    display: none;
+  }
 
   a.main{
     position: relative;

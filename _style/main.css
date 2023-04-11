@@ -222,9 +222,12 @@ input[type=range]:focus::-ms-fill-upper {
   height: 25px;
   background-color: #313335;
   color: #BBBBBB;
-  z-index: 10;
+  z-index: 1000;
   user-select: none;
   white-space: nowrap;
+}
+.menu .hamburger {
+  display: none;
 }
 .menu a.main {
   position: relative;
@@ -2537,6 +2540,57 @@ body.hovericonEditorCanvas.mousedown.colorpicker.mousedown .cursor .mark {
   width: 100%;
   height: 100%;
   border: none;
+}
+
+@media only screen and (max-width: 800px) {
+  .menu {
+    width: 100px;
+    height: auto;
+    top: 27px;
+    border: none;
+  }
+  .menu .hamburger {
+    display: block;
+    background-image: url("../_img/hamburger.svg");
+    width: 32px;
+    height: 27px;
+    background-size: 24px 24px;
+    background-repeat: no-repeat;
+    background-position: center center;
+    position: absolute;
+    top: -27px;
+  }
+  .menu a.main {
+    display: none;
+    font-size: 13px;
+    border: 1px solid black;
+    border-bottom: none;
+    padding: 2px 10px;
+  }
+  .menu a.main:last-child {
+    border-bottom: 1px solid black;
+  }
+  .menu a.main .sub {
+    left: 100px;
+    top: 0;
+  }
+  .menu a.main .sub a {
+    font-size: 13px;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.4);
+    padding: 2px 20px 2px 10px;
+  }
+  .menu a.main .sub a:last-child {
+    border-bottom: none;
+  }
+  .menu a.main .sub a.wide {
+    padding: 2px 80px 2px 10px;
+  }
+  .menu a.main .sub a.ultrawide {
+    padding: 2px 100px 2px 10px;
+  }
+  .menu.active a.main {
+    display: block;
+  }
 }
 
 /*# sourceMappingURL=main.css.map */
