@@ -54,3 +54,16 @@ Documentation can be found at https://www.stef.be/dpaint/docs/
 Current version is still alpha.  
 I'm sure there are bugs and missing features.  
 Bug reports and pull requests are welcome.
+
+### Missing Features
+Planned for a future release if there's a need for it.
+
+  - Support for non-square pixel modes such as HiRes and Interlaced
+  - Animation support (Working on it, it won't be frame based, though, but using a timeline, like e.g. Adobe Animate)
+  - Shading/transparency tools that stay within the palette.
+  - Color Cycling
+  - PSD import and export
+  - Animated GIF import/export
+  - SpriteSheet support
+  - Write HAM,SHAM and Dynamic HiRes images
+
