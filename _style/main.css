@@ -1693,9 +1693,11 @@ body.hovericonEditorCanvas.mousedown.colorpicker.mousedown .cursor .mark {
 }
 .modalwindow .inner .about .text.github {
   bottom: 24px;
+}
+.modalwindow .inner .about .text.link {
   pointer-events: all;
 }
-.modalwindow .inner .about .text.github:hover {
+.modalwindow .inner .about .text.link:hover {
   color: white;
   cursor: pointer;
   text-decoration: underline;

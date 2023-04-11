@@ -4,7 +4,7 @@ Next to modern image formats, DPaint.js can read and write Amiga icon files and 
 
 ![DPaint.js Logo](./_img/dpaint-logo.png?raw=true)
 
-Online version available next week.
+Online version available at https://www.stef.be/dpaint/
 
 ![DPaint.js UI](./_img/ui.png?raw=true)
 

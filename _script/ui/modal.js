@@ -1,4 +1,4 @@
-import {$div} from "../util/dom.js";
+import $,{$div} from "../util/dom.js";
 import UI from "./ui.js";
 import Input from "./input.js";
 import SaveDialog from "./components/saveDialog.js";
@@ -150,21 +150,15 @@ var Modal = function(){
 
     function showAbout(version){
         inner.innerHTML = "";
-        let panel = $div("about","",inner);
-        let img = new Image();
-        img.src="./_img/dpaint-about.png";
-        panel.appendChild(img);
-        img.onclick = function(){
-            me.hide();
-        }
 
-        $div("text version","version " + version,panel);
+        inner.appendChild($(".about",
+            $("img",{src:"./_img/dpaint-about.png",onclick:()=>me.hide()}),
+            $(".text.version","version " + version),
+            $(".text.info","Webbased image editor modeled after the legendary</br>Deluxe Paint with a focus on retro Amiga file formats."),
+            $(".text.copyright.link",{onClick:()=>window.open("https://www.stef.be/")},"© 2023 - Steffest"),
+            $(".text.github.link",{onClick:()=>window.open("https://github.com/steffest/dpaint-js")},"Open Source - Plain JavaScript - Fork me on GitHub")
+        ));
 
-        $div("text info","Webbased image editor modeled after the legendary</br>Deluxe Paint with a focus on retro Amiga file formats.",panel);
-        $div("text copyright","&copy; 2023 - Steffest",panel);
-        $div("text github","Open Source - Plain JavaScript - Fork me on GitHub",panel,()=>{
-            window.open("https://github.com/steffest/dpaint-js");
-        });
     }
 
     return me;
