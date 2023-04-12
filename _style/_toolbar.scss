@@ -9,7 +9,7 @@
   user-select: none;
 
   .togglepanel{
-    height: 20px;
+    height: 21px;
     width: 100%;
     border-bottom: 1px solid black;
     position: relative;
@@ -41,7 +41,8 @@
 
     &.showpalettelist{
       border-top: 1px solid black;
-      line-height: 19px;
+      border-bottom: none;
+      line-height: 20px;
       text-align: left;
       padding-left: 4px;
     }

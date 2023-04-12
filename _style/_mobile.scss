@@ -1,4 +1,4 @@
-@media only screen and (max-width: 800px) {
+@media only screen and (max-width: 600px) {
  .menu{
    width: 100px;
    height: auto;
@@ -8,13 +8,14 @@
    .hamburger{
      display: block;
      background-image: url("../_img/hamburger.svg");
-     width: 32px;
+     width: 200px;
      height: 27px;
      background-size: 24px 24px;
      background-repeat: no-repeat;
-     background-position: center center;
+     background-position: 6px center;
      position: absolute;
      top: -27px;
+     padding: 6px 4px 2px 40px;
    }
 
    a.main{

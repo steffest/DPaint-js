@@ -21,7 +21,7 @@
     padding: 3px 5px 3px 5px;
     font-size: 12px;
     height: 21px;
-    border-bottom: 1px solid black;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.4);
     user-select: none;
 
     .close{
@@ -37,8 +37,7 @@
   }
 
   .palette{
-    margin-bottom: 10px;
-    border-bottom: 1px solid #46494b;
+    padding-bottom: 10px;
     clear: both;
     background-color:#313335;
     display: flex;
@@ -47,6 +46,7 @@
 
     .caption{
       background-color:transparent;
+      border-top: 1px solid rgb(67, 69, 72);
       width: 100%;
     }
 
@@ -61,6 +61,12 @@
 
       .caption{
         color: white;
+      }
+    }
+
+    &:nth-child(2){
+      .caption{
+        border-top:none;
       }
     }
   }

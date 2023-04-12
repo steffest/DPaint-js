@@ -316,7 +316,7 @@ input[type=range]:focus::-ms-fill-upper {
   user-select: none;
 }
 .toolbar .togglepanel {
-  height: 20px;
+  height: 21px;
   width: 100%;
   border-bottom: 1px solid black;
   position: relative;
@@ -346,7 +346,8 @@ input[type=range]:focus::-ms-fill-upper {
 }
 .toolbar .togglepanel.showpalettelist {
   border-top: 1px solid black;
-  line-height: 19px;
+  border-bottom: none;
+  line-height: 20px;
   text-align: left;
   padding-left: 4px;
 }
@@ -1071,7 +1072,7 @@ body.withsidepanel .sidepanel {
   padding: 3px 5px 3px 5px;
   font-size: 12px;
   height: 21px;
-  border-bottom: 1px solid black;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.4);
   user-select: none;
 }
 .palettelist .caption .close {
@@ -1085,8 +1086,7 @@ body.withsidepanel .sidepanel {
   cursor: pointer;
 }
 .palettelist .palette {
-  margin-bottom: 10px;
-  border-bottom: 1px solid #46494b;
+  padding-bottom: 10px;
   clear: both;
   background-color: #313335;
   display: flex;
@@ -1095,6 +1095,7 @@ body.withsidepanel .sidepanel {
 }
 .palettelist .palette .caption {
   background-color: transparent;
+  border-top: 1px solid #434548;
   width: 100%;
 }
 .palettelist .palette canvas {
@@ -1107,6 +1108,9 @@ body.withsidepanel .sidepanel {
 }
 .palettelist .palette:hover .caption {
   color: white;
+}
+.palettelist .palette:nth-child(2) .caption {
+  border-top: none;
 }
 .palettelist .button {
   line-height: 14px;
@@ -2542,7 +2546,7 @@ body.hovericonEditorCanvas.mousedown.colorpicker.mousedown .cursor .mark {
   border: none;
 }
 
-@media only screen and (max-width: 800px) {
+@media only screen and (max-width: 600px) {
   .menu {
     width: 100px;
     height: auto;
@@ -2552,13 +2556,14 @@ body.hovericonEditorCanvas.mousedown.colorpicker.mousedown .cursor .mark {
   .menu .hamburger {
     display: block;
     background-image: url("../_img/hamburger.svg");
-    width: 32px;
+    width: 200px;
     height: 27px;
     background-size: 24px 24px;
     background-repeat: no-repeat;
-    background-position: center center;
+    background-position: 6px center;
     position: absolute;
     top: -27px;
+    padding: 6px 4px 2px 40px;
   }
   .menu a.main {
     display: none;

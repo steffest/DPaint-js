@@ -80,8 +80,8 @@ var Icon = function(){
 
             // read next chunk size
             var dw = file.readDWord();
-            while (!file.isEOF(4)){
-                // 4 byte Chunch Type ID and 4 byte CRC is not included
+            while (!file.isEOF(8)){
+                // 4 byte Chunk Type ID and 4 byte CRC is not included
                 dw += 8;
                 file.jump(dw);
 

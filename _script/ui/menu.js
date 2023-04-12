@@ -126,7 +126,7 @@ let Menu = function(){
     }
 
     function generate(){
-        $div("hamburger menuitem","",container,()=>{
+        $div("hamburger menuitem","DPaint.js",container,()=>{
             container.classList.toggle("active");
         })
         items.forEach((item,index)=>{
