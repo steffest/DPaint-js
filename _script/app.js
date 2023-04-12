@@ -7,7 +7,7 @@ import Modal, {DIALOG} from "./ui/modal.js";
 
 let App = function(){
 	let me = {
-		version: "0.1 alpha"
+		version: "0.1.1 alpha"
 	}
 	
 	me.init = function(){

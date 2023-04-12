@@ -215,6 +215,7 @@ let Canvas = function(parent){
         switch (action){
             case "down":
                 point = getCursorPosition(canvas,e,true);
+                let isOnCanvas = e.target && e.target.classList.contains("maincanvas");
                 touchData.isdown = true;
                 touchData.button = e.button;
                 if (e.metaKey || e.ctrlKey) touchData.button = 3;
@@ -238,6 +239,7 @@ let Canvas = function(parent){
                 switch (currentTool){
                     case COMMAND.DRAW:
                     case COMMAND.ERASE:
+                        if (!isOnCanvas) return;
                         HistoryService.start(EVENT.layerHistory);
                         draw();
                         break;
@@ -332,6 +334,7 @@ let Canvas = function(parent){
                     case COMMAND.LINE:
                     case COMMAND.GRADIENT:
                         // TODO move this as well to the drawLayer of the active layer ?
+                        if (currentTool === COMMAND.LINE && !isOnCanvas) return;
                         HistoryService.start(EVENT.layerHistory);
                         let layerIndex = ImageFile.addLayer(ImageFile.getActiveLayerIndex()+1);
                         let drawLayer = ImageFile.getLayer(layerIndex);
