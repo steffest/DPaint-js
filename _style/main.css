@@ -1504,6 +1504,13 @@ body.withfilebrowser .splitpanel {
   margin-top: -10px;
   margin-left: -10px;
 }
+.cursor.draw__ {
+  background-image: url("../_img/cross.svg");
+  width: 24px;
+  height: 24px;
+  margin-top: -12px;
+  margin-left: -12px;
+}
 
 body.customcursor.hoverviewport {
   cursor: none;
@@ -1514,14 +1521,20 @@ body.customcursor.hoverviewport .sizebox {
 body.customcursor.hoverviewport .cursor {
   display: block;
 }
+body.customcursor.hoverviewport.cursor-draw {
+  cursor: url("../_img/cursors/cross.png") 12 12, auto;
+}
+body.customcursor.hoverviewport.cursor-draw .cursor {
+  display: none;
+}
 
-body.hovericonEditorCanvas.mousedown.colorpicker canvas.mainCanvas {
+body.hovercanvas.mousedown.colorpicker canvas.mainCanvas {
   cursor: none;
 }
-body.hovericonEditorCanvas.mousedown.colorpicker .cursor {
+body.hovercanvas.mousedown.colorpicker .cursor {
   display: block;
 }
-body.hovericonEditorCanvas.mousedown.colorpicker .cursor .mark {
+body.hovercanvas.mousedown.colorpicker .cursor .mark {
   position: absolute;
   pointer-events: none;
   display: none;
@@ -1532,7 +1545,7 @@ body.hovericonEditorCanvas.mousedown.colorpicker .cursor .mark {
   border-radius: 50%;
   box-shadow: 0 0 3px 1px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.5), inset 0 0 3px 1px rgba(0, 0, 0, 0.5), inset 0 0 0 1px rgba(255, 255, 255, 0.5);
 }
-body.hovericonEditorCanvas.mousedown.colorpicker.mousedown .cursor .mark {
+body.hovercanvas.mousedown.colorpicker.mousedown .cursor .mark {
   display: block;
 }
 

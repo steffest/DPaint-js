@@ -12,6 +12,9 @@
 - filters: e.g. https://medium.com/skylar-salernos-tech-blog/mimicking-googles-pop-filter-using-canvas-blend-modes-d7da83590d1a
 
 
+- load palette directly from Lospec? https://lospec.com/palette-list/load?colorNumberFilterType=any&colorNumber=8&page=0&tag=&sortingType=default
+
+
 Bugs:
 
 Transforming a mask clears the layer ?

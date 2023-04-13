@@ -213,6 +213,7 @@ var Input = function(){
 	function onPointerMove(e){
 		if (holdPointerEvents) return;
 		if (!e.shiftKey) keyDown["shift"]=false;
+		if (!e.altKey) keyDown["alt"]=false;
 		if (!e.ctrlKey) keyDown["control"]=false;
 		if (!e.metaKey) keyDown["meta"]=false;
 

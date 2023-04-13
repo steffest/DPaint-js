@@ -69,6 +69,7 @@ var Editor = function(){
         EventBus.on(COMMAND.DRAW,function(){
             currentTool = COMMAND.DRAW;
             document.body.classList.remove("select");
+            Cursor.set("draw");
         });
         EventBus.on(COMMAND.ERASE,function(){
             currentTool = COMMAND.ERASE;

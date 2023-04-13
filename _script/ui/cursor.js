@@ -27,13 +27,16 @@ var Cursor = function(){
     }
 
     me.set = function(name){
-        document.body.classList.add("customcursor");
+        document.body.classList.add("customcursor","cursor-" + name);
         if (name === "colorpicker") document.body.classList.add("colorpicker");
         cursor.className = "cursor " + name;
     }
 
     me.reset = function(name){
         document.body.classList.remove("customcursor","colorpicker");
+        document.body.classList.forEach((c)=>{
+            if (c.startsWith("cursor-")) document.body.classList.remove(c);
+        });
         cursor.className = "cursor";
     }
 

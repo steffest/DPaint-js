@@ -17,6 +17,14 @@
     margin-top: -10px;
     margin-left: -10px;
   }
+
+  &.draw__{
+    background-image: url("../_img/cross.svg");
+    width: 24px;
+    height: 24px;
+    margin-top: -12px;
+    margin-left: -12px;
+  }
 }
 
 body.customcursor.hoverviewport{
@@ -29,9 +37,16 @@ body.customcursor.hoverviewport{
   .cursor{
     display: block;
   }
+
+  &.cursor-draw{
+    cursor: url("../_img/cursors/cross.png") 12 12, auto;
+    .cursor{
+      display: none;
+    }
+  }
 }
 
-body.hovericonEditorCanvas.mousedown.colorpicker{
+body.hovercanvas.mousedown.colorpicker{
   canvas.mainCanvas{
     cursor: none;
   }

@@ -70,10 +70,10 @@ let Canvas = function(parent){
 
     canvas.addEventListener("pointermove", function (e) {handle('over', e)}, false);
     canvas.addEventListener("pointerenter", function (e) {
-        Input.setPointerOver("iconEditorCanvas");
+        Input.setPointerOver("canvas");
     }, false);
     canvas.addEventListener("pointerleave", function (e) {
-        Input.removePointerOver("iconEditorCanvas");
+        Input.removePointerOver("canvas");
         hideOverlay();
     }, false);
 
@@ -281,21 +281,62 @@ let Canvas = function(parent){
                                 let wx = w/2;
                                 let wh = h/2;
                                 let isOdd = false;
-                                ctx.imageSmoothingEnabled = ToolOptions.isSmooth();
                                 ctx.fillStyle = color;
-                                if (!ToolOptions.isFill()){
-                                    ctx.strokeStyle = color;
-                                    ctx.lineWidth = ToolOptions.getLineSize();
-                                    isOdd = ctx.lineWidth%2===1;
-                                }
-                                ctx.beginPath();
-                                if (isOdd) ctx.translate(0.5,0.5);
-                                ctx.ellipse(cx, cy, wx, wh, 0, 0, 2 * Math.PI);
-                                if (isOdd) ctx.translate(-0.5,-0.5);
-                                if (ToolOptions.isFill()){
-                                    ctx.fill();
+
+                                if (ToolOptions.isSmooth()){
+                                    ctx.imageSmoothingEnabled = ToolOptions.isSmooth();
+                                    if (!ToolOptions.isFill()){
+                                        ctx.strokeStyle = color;
+                                        ctx.lineWidth = ToolOptions.getLineSize();
+                                        isOdd = ctx.lineWidth%2===1;
+                                    }
+                                    ctx.beginPath();
+                                    if (isOdd) ctx.translate(0.5,0.5);
+                                    ctx.ellipse(cx, cy, wx, wh, 0, 0, 2 * Math.PI);
+                                    if (isOdd) ctx.translate(-0.5,-0.5);
+                                    if (ToolOptions.isFill()){
+                                        ctx.fill();
+                                    }else{
+                                        ctx.stroke();
+                                    }
                                 }else{
-                                    ctx.stroke();
+                                    cx = Math.floor(cx);
+                                    cy = Math.floor(cy);
+                                    wx = Math.floor(wx);
+                                    wh = Math.floor(wh);
+
+                                    let isFill = ToolOptions.isFill();
+                                    let size = ToolOptions.getLineSize();
+
+                                    // calculate the size of the circle for 1 quadrant
+                                    // then scale it to fit the ellipse box
+                                    // then draw the other 3 quadrants
+                                    // ... does this make sense?
+
+                                    let r = Math.max(wx,wh);
+                                    let xScale = wx/r;
+                                    let yScale = wh/r;
+
+                                    // shift the quadrants if the width or height is even
+                                    let offsetX = 1-w%2;
+                                    let offsetY = 1-h%2;
+
+                                    for (let x = -r; x <= 0; x += 1) {
+                                        for (let y = -r; y <= 0; y += 1) {
+                                            let distance = Math.round(Math.sqrt(x * x + y * y))
+                                            let _x = Math.floor(x*xScale);
+                                            let _y = Math.floor(y*yScale);
+
+                                            let draw = isFill?distance<=r:distance===r;
+
+                                            if (draw){
+                                                ctx.fillRect(cx + _x, cy + _y, size, size);
+                                                ctx.fillRect(cx - _x - offsetX, cy + _y, size, size);
+                                                ctx.fillRect(cx + _x, cy - _y - offsetY, size, size);
+                                                ctx.fillRect(cx - _x - offsetX, cy - _y - offsetY, size, size);
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -681,7 +722,6 @@ let Canvas = function(parent){
         let thicknessY = thickness * Math.sin(angle);
 
         //color = "black";
-        console.error(color);
 
         while (true) {
             for (let i = Math.floor(-thicknessX/2); i <= Math.ceil(thicknessX/2); i++) {

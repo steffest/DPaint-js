@@ -73,6 +73,7 @@ let ToolOptions = function(){
             case COMMAND.CIRCLE:
                 options.appendChild(label("Circle:"));
                 options.appendChild(fillSetting());
+                options.appendChild(smoothSetting());
                 options.appendChild(lineSetting());
                 break;
             case COMMAND.GRADIENT:
