@@ -142,12 +142,13 @@
         height: 50px;
         border: 1px solid #626262;
         margin: 1px;
-        display: inline-block;
-        position: relative;
+        position: absolute;
+        opacity: 0.8;
 
         &:hover{
           border: 1px solid white;
           cursor: pointer;
+          opacity: 1;
         }
 
         .label{
@@ -155,9 +156,22 @@
           left: 0;
           bottom: 0;
           background-color: rgba(0, 0, 0, 0.4);
-          color: $menu-text-color;
+          color: $menu-text-color-dim;
           font-size: 12px;
           padding: 4px;
+        }
+
+        &.active{
+          box-shadow: 0 0 3px 1px rgba(255, 255, 255, 0.7);
+          opacity: 1;
+
+          .label{
+            color: $menu-text-color;
+          }
+        }
+
+        &.ghost{
+          opacity: 0.2;
         }
       }
 
@@ -173,6 +187,22 @@
 
     &.color{
 
+    }
+
+    &.frames{
+      .panelcontent{
+        position: absolute;
+        left: 0;
+        right: 0;
+        top: 22px;
+        bottom: 0;
+        overflow: auto;
+        overflow-y: hidden;
+
+        &.inactive{
+          pointer-events: none;
+        }
+      }
     }
 
     &.collapsed{

@@ -67,6 +67,7 @@ export let COMMAND={
     SAVEDISK: 1066,
     SAVEGENERIC: 1067,
     SAVEFILETOADF: 1068,
+    DUPLICATEFRAME: 1069,
 }
 
 export let EVENT={
@@ -91,5 +92,6 @@ export let EVENT={
     selectionHistory:19,
     paletteHistory:20,
     historyChanged:21,
-    endPolygonSelect: 22
+    endPolygonSelect: 22,
+    framesChanged: 23,
 }

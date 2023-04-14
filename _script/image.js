@@ -8,6 +8,7 @@ import SidePanel from "./ui/sidepanel.js";
 import {duplicateCanvas, releaseCanvas} from "./util/canvasUtils.js";
 import Palette from "./ui/palette.js";
 import SaveDialog from "./ui/components/saveDialog.js";
+import HistoryService from "./services/historyservice.js";
 
 let ImageFile = function(){
    let me = {};
@@ -282,6 +283,7 @@ let ImageFile = function(){
         activeLayer = currentFrame().layers[activeLayerIndex];
         EventBus.trigger(EVENT.layersChanged);
         EventBus.trigger(EVENT.imageContentChanged);
+        EventBus.trigger(EVENT.framesChanged);
     }
 
     me.clone = function(){
@@ -535,7 +537,7 @@ let ImageFile = function(){
     }
 
     function addFrame(image){
-        let layer = Layer(currentFile.width,currentFile.height);
+        let layer = Layer(currentFile.width,currentFile.height,"Layer 1");
         currentFile.frames.push({
             layers:[layer]
         })
@@ -547,8 +549,10 @@ let ImageFile = function(){
 
     function removeFrame(){
         if (currentFile.frames.length>1){
+            HistoryService.start(EVENT.imageHistory);
             currentFile.frames.splice(activeFrameIndex,1);
             if (activeFrameIndex>=currentFile.frames.length) activeFrameIndex--;
+            Historyservice.end();
             me.activateFrame(activeFrameIndex);
             EventBus.trigger(EVENT.imageSizeChanged);
         }
@@ -567,11 +571,43 @@ let ImageFile = function(){
         return currentFile.frames[activeFrameIndex];
     }
 
+    me.duplicateFrame = function(index){
+        HistoryService.start(EVENT.imageHistory);
+        if (typeof index !== "number") index = activeFrameIndex;
+        let layers = currentFrame().layers;
+        let newFrame = {layers:[]};
+        layers.forEach(layer => {
+            let newLayer = Layer(currentFile.width,currentFile.height,layer.name);
+            newLayer.opacity = layer.opacity;
+            newLayer.blendMode = layer.blendMode;
+            newLayer.drawImage(layer.getCanvas());
+            newFrame.layers.push(newLayer);
+        });
+        currentFile.frames.splice(index+1,0,newFrame);
+        Historyservice.end();
+        EventBus.trigger(EVENT.imageSizeChanged);
+    }
+
+    me.moveFrame = (fromIndex,toIndex)=>{
+        if (currentFile.frames.length>1){
+            if (toIndex>=currentFile.frames.length) toIndex=currentFile.frames.length-1;
+            if (toIndex<0) toIndex=0;
+            if (toIndex !== fromIndex){
+                let frame = currentFile.frames[fromIndex];
+                currentFile.frames.splice(fromIndex,1);
+                currentFile.frames.splice(toIndex,0,frame);
+            }
+            me.activateFrame(toIndex);
+            EventBus.trigger(EVENT.imageContentChanged);
+        }
+    }
+
     me.mergeDown = function(index){
         if (typeof index !== "number") index = activeLayerIndex;
         let layer = currentFrame().layers[index];
         let belowLayer = currentFrame().layers[index-1];
         if (layer && belowLayer){
+            HistoryService.start(EVENT.imageHistory);
             if (layer.hasMask){
                 layer.removeMask(true);
             }
@@ -584,9 +620,11 @@ let ImageFile = function(){
             ctx.globalAlpha = 1;
             ctx.globalCompositeOperation = "source-over";
             currentFrame().layers.splice(index,1);
+            Historyservice.end();
             EventBus.trigger(EVENT.layerContentChanged);
             me.activateLayer(index-1);
         }
+
     }
 
     me.paste = function(image){
@@ -701,6 +739,10 @@ let ImageFile = function(){
 
     EventBus.on(COMMAND.DELETEFRAME,function(){
         removeFrame();
+    });
+
+    EventBus.on(COMMAND.DUPLICATEFRAME,function(){
+        me.duplicateFrame();
     });
 
     EventBus.on(COMMAND.IMPORTFRAME,function(){

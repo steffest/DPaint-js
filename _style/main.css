@@ -733,21 +733,32 @@ body.withpalettelist .toolbar .togglepanel.showpalettelist:after {
   height: 50px;
   border: 1px solid #626262;
   margin: 1px;
-  display: inline-block;
-  position: relative;
+  position: absolute;
+  opacity: 0.8;
 }
 .sidepanel .panel .inner .frame:hover {
   border: 1px solid white;
   cursor: pointer;
+  opacity: 1;
 }
 .sidepanel .panel .inner .frame .label {
   position: absolute;
   left: 0;
   bottom: 0;
   background-color: rgba(0, 0, 0, 0.4);
-  color: #BBBBBB;
+  color: #8f8f8f;
   font-size: 12px;
   padding: 4px;
+}
+.sidepanel .panel .inner .frame.active {
+  box-shadow: 0 0 3px 1px rgba(255, 255, 255, 0.7);
+  opacity: 1;
+}
+.sidepanel .panel .inner .frame.active .label {
+  color: #BBBBBB;
+}
+.sidepanel .panel .inner .frame.ghost {
+  opacity: 0.2;
 }
 .sidepanel .panel h2 {
   font-size: 14px;
@@ -755,6 +766,18 @@ body.withpalettelist .toolbar .togglepanel.showpalettelist:after {
   font-weight: 100;
   padding: 2px;
   margin: 0;
+}
+.sidepanel .panel.frames .panelcontent {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 22px;
+  bottom: 0;
+  overflow: auto;
+  overflow-y: hidden;
+}
+.sidepanel .panel.frames .panelcontent.inactive {
+  pointer-events: none;
 }
 .sidepanel .panel.collapsed .caption i {
   transform: rotate(0deg);
@@ -1504,13 +1527,6 @@ body.withfilebrowser .splitpanel {
   margin-top: -10px;
   margin-left: -10px;
 }
-.cursor.draw__ {
-  background-image: url("../_img/cross.svg");
-  width: 24px;
-  height: 24px;
-  margin-top: -12px;
-  margin-left: -12px;
-}
 
 body.customcursor.hoverviewport {
   cursor: none;
@@ -1525,6 +1541,16 @@ body.customcursor.hoverviewport.cursor-draw {
   cursor: url("../_img/cursors/cross.png") 12 12, auto;
 }
 body.customcursor.hoverviewport.cursor-draw .cursor {
+  display: none;
+}
+
+/* cursors that also apply to main UI */
+body.customcursor.cursor-drag,
+body.customcursor.hoverviewport.cursor-drag {
+  cursor: grabbing !important;
+}
+body.customcursor.cursor-drag .cursor,
+body.customcursor.hoverviewport.cursor-drag .cursor {
   display: none;
 }
 
@@ -1568,6 +1594,15 @@ body.hovercanvas.mousedown.colorpicker.mousedown .cursor .mark {
   background-color: #313335;
   border: 1px solid #000000;
   box-shadow: 1px 1px 2px 0 rgba(0, 0, 0, 0.63);
+}
+#dragelement .dragelement.box.frame {
+  width: 50px;
+  height: 50px;
+  font-size: 12px;
+  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .blanket {
