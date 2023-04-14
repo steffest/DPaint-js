@@ -253,9 +253,8 @@ let Palette = function(){
     }
 
     me.set = function(palette){
-        currentPalette = palette;
         let cols = 4;
-        let rows = palette.length/cols;
+        let rows = Math.ceil(palette.length/cols);
         paletteCanvas.width = cols*size;
         paletteCanvas.height = rows*size;
 
@@ -264,11 +263,18 @@ let Palette = function(){
             //    me.setColor(color,e.button);
             //});
 
+            if (typeof color === "string"){
+                color = Color.fromString(color);
+                palette[index] = color;
+            }
+
             let x = index%cols * size;
             let y = Math.floor(index/cols) * size;
             paletteCtx.fillStyle = "rgb(" + color[0] + "," + color[1] + "," + color[2] + ")";
             paletteCtx.fillRect(x,y,size,size);
         })
+
+        currentPalette = palette;
     }
 
     me.get = function(){
