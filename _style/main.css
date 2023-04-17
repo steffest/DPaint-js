@@ -1705,6 +1705,28 @@ body.hovercanvas.mousedown.colorpicker.mousedown .cursor .mark {
   margin-right: 8px;
   margin-bottom: 4px;
 }
+.modalwindow .inner select {
+  color: #BBBBBB;
+  width: 100%;
+  border: 1px solid black;
+  background-color: transparent;
+  margin: 4px 0;
+}
+.modalwindow .inner select:focus {
+  outline: none;
+}
+.modalwindow .inner select option {
+  color: #BBBBBB;
+  background-color: #2B2B2B;
+  border-radius: 0;
+}
+.modalwindow .inner select.resize {
+  width: 100px;
+  padding: 2px;
+  position: absolute;
+  left: 198px;
+  top: 120px;
+}
 .modalwindow .inner .buttons {
   position: absolute;
   display: flex;

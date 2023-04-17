@@ -186,24 +186,56 @@ let ImageFile = function(){
         }else{
             let w = properties.width;
             let h = properties.height;
+            if (w === currentFile.width && h === currentFile.height) return;
+            let quality = properties.quality || "pixelated";
+            HistoryService.start(EVENT.imageHistory);
             currentFile.width = w;
             currentFile.height = h;
             console.log("Resampling image to " +w + "x" + h);
+            let todo = 0;
+            let done = 0;
+            currentFile.frames.forEach(frame=>{todo += frame.layers.length;});
+
             currentFile.frames.forEach(frame=>{
                 frame.layers.forEach(layer=>{
                     let canvas = layer.getCanvas();
                     let ctx = layer.getContext();
-                    let d = duplicateCanvas(canvas,true);
-                    canvas.width = w;
-                    canvas.height = h;
-                    ctx.webkitImageSmoothingEnabled = false;
-                    ctx.mozImageSmoothingEnabled = false;
-                    ctx.imageSmoothingEnabled = false;
-                    ctx.drawImage(d,0,0,d.width,d.height,0,0,w,h);
-                    releaseCanvas(d);
+
+                    if (quality === "pixelated"){
+                        let d = duplicateCanvas(canvas,true);
+                        canvas.width = w;
+                        canvas.height = h;
+                        ctx.webkitImageSmoothingEnabled = false;
+                        ctx.mozImageSmoothingEnabled = false;
+                        ctx.imageSmoothingEnabled = false;
+                        ctx.drawImage(d,0,0,d.width,d.height,0,0,w,h);
+                        releaseCanvas(d);
+                        done++;
+                        if (done >= todo){
+                            HistoryService.end();
+                            EventBus.trigger(EVENT.imageSizeChanged);
+                        }
+                    }else{
+                        // TODO: investigate: scaling a canvas doesn't always apply smoothing?
+                        // loading it into an image and then drawing it on the canvas does.
+
+                        let img = new Image();
+                        img.onload = function(){
+                            canvas.width = w;
+                            canvas.height = h;
+                            ctx.imageSmoothingEnabled = true;
+                            ctx.imageSmoothingQuality = "high";
+                            ctx.drawImage(img,0,0,w,h);
+                            done++;
+                            if (done >= todo){
+                                HistoryService.end();
+                                EventBus.trigger(EVENT.imageSizeChanged);
+                            }
+                        }
+                        img.src = canvas.toDataURL();
+                    }
                 })
             })
-            EventBus.trigger(EVENT.imageSizeChanged);
         }
     }
 

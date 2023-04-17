@@ -112,6 +112,32 @@
       }
     }
 
+    select{
+      color: $menu-text-color;
+      width: 100%;
+      border: 1px solid black;
+      background-color: transparent;
+      margin: 4px 0;
+
+      &:focus{
+        outline: none;
+      }
+
+      option{
+        color: $menu-text-color;
+        background-color: #2B2B2B;
+        border-radius: 0;
+      }
+
+      &.resize{
+        width: 100px;
+        padding: 2px;
+        position: absolute;
+        left: 198px;
+        top: 120px;
+      }
+    }
+
     .buttons{
       position: absolute;
       display: flex;

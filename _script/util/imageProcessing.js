@@ -1,5 +1,5 @@
 import EventBus from "./eventbus.js";
-import {EVENT} from "../enum.js";
+import {COMMAND, EVENT} from "../enum.js";
 import Palette from "../ui/palette.js";
 import ImageFile from "../image.js";
 
@@ -650,6 +650,7 @@ var ImageProcessing = function(){
 			ctx.drawImage(imageInfos.canvas,0,0);
 			EventBus.trigger(EVENT.layerContentChanged,true);
 			Palette.set(palette);
+			EventBus.trigger(COMMAND.INFO);
 			//IconEditor.setPalette(palette);
 			//IconEditor.updateIcon();
 		}

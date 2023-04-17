@@ -1,4 +1,4 @@
-import {$div, $elm, $title} from "../../util/dom.js";
+import $,{$div, $elm, $title} from "../../util/dom.js";
 import ImageFile from "../../image.js";
 
 var ResampleDialog = function() {
@@ -10,49 +10,55 @@ var ResampleDialog = function() {
         let image = ImageFile.getCurrentFile();
         aspectRatio = image.width/image.height;
         container.innerHTML = "";
-        $title(3, "Resize Image to:", container);
+        let inputW;
+        let inputH;
+        let lock;
+        let qbuttons;
+        let qualitySelect;
 
-        let panel = $div("panel form","",container);
+        $("h3",{parent:container},"Resize Image to:");
+        $(".panel.form",{parent:container},
+            $("span.label","width"),
+            inputW = $("input",{type:"number",value:image.width, onkeydown:modal.inputKeyDown, oninput:()=>{
+                if (lockAspectRatio){
+                    let w = parseInt(inputW.value);
+                    if (isNaN(w)) w=image.width;
+                    inputH.value = Math.round(w/aspectRatio);
+                }}}),
+            $("span","pixels"),
+            $("br"),
+            $("span.label","height"),
+            inputH = $("input",{type:"number",value:image.height, onkeydown:modal.inputKeyDown, oninput:()=>{
+                    if (lockAspectRatio){
+                        let h = parseInt(inputH.value);
+                        if (isNaN(h)) w=image.height;
+                        inputW.value = Math.round(h*aspectRatio);
+                    }}}),
+            $("span","pixels"),
+            lock = $(".lock.active",$(".link",{onClick:()=>{
+                    lockAspectRatio = !lockAspectRatio;
+                    lock.classList.toggle("active",lockAspectRatio);
+                }})),
+            qbuttons = $(".quick"),
+            qualitySelect = $("select.resize",$("option","Pixelated"),$("option","Smooth"))
+        );
 
-        let inputW = document.createElement("input");
-        inputW.value = image.width;
-        inputW.type = "number";
-        let inputH = document.createElement("input");
-        inputH.type = "number";
-        inputH.value = image.height;
-        inputW.onkeydown = modal.inputKeyDown;
-        inputH.onkeydown = modal.inputKeyDown;
-        inputW.oninput = ()=>{
-            if (lockAspectRatio){
-                let w = parseInt(inputW.value);
-                if (isNaN(w)) w=image.width;
-                inputH.value = Math.round(w/aspectRatio);
-            }
-        }
-        inputH.oninput = ()=>{
-            if (lockAspectRatio){
-                let h = parseInt(inputH.value);
-                if (isNaN(h)) w=image.height;
-                inputW.value = Math.round(h*aspectRatio);
-            }
-        }
+        $(".buttons",{parent:container},
+            $(".button.ghost",{onClick:modal.hide},"Cancel"),
+            $(".button.primary",{onClick:()=>{
+                    let w = parseInt(inputW.value);
+                    if (isNaN(w)) w = image.width;
+                    let h = parseInt(inputH.value);
+                    if (isNaN(h)) w = image.height;
+                    if (w<1)w=1;
+                    if (h<1)h=1;
+                    let quality = qualitySelect.value === "Pixelated" ? "pixelated" : "smooth";
+                    modal.hide();
+                    ImageFile.resample({width:w,height: h,quality:quality});
+                }},"Update")
+        );
 
-        $elm("span","width",panel,"label");
-        panel.appendChild(inputW);
-        $elm("span","pixels",panel);
-        $elm("br","",panel);
 
-        $elm("span","height",panel,"label");
-        panel.appendChild(inputH);
-        $elm("span","pixels",panel);
-
-        let lock = $div("lock active","",panel);
-        $div("link","",lock,()=>{
-            lockAspectRatio = !lockAspectRatio;
-            lock.classList.toggle("active",lockAspectRatio);
-        });
-
-        let qbuttons=$div("quick","",panel);
         let labels = ["x2","/2","x3","/3"];
         for (let i = 0;i<4;i++){
             $div("button calc",labels[i],qbuttons,()=>{
@@ -69,19 +75,6 @@ var ResampleDialog = function() {
             });
         }
 
-
-        let buttons = $div("buttons","",container);
-        $div("button ghost","Cancel",buttons,modal.hide);
-        $div("button primary","Update",buttons,()=>{
-            let w = parseInt(inputW.value);
-            if (isNaN(w)) w = image.width;
-            let h = parseInt(inputH.value);
-            if (isNaN(h)) w = image.height;
-            if (w<1)w=1;
-            if (h<1)h=1;
-            modal.hide();
-            ImageFile.resample({width:w,height: h});
-        });
     }
     return me;
 }();
