@@ -1,3 +1,0 @@
-V 0.1.2
-
-- Resize image: option for smooth rescale or pixelated rescale

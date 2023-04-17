@@ -20,6 +20,7 @@ Bugs:
 Transforming a mask clears the layer ?
 resizing sizebox negatively, makes the sizebox 0 width/height
 resize image to larger doesn't clear all cached data (like the drawlayer?)
+copy/paste/undo shortcut doesn't work on Firefox
 
 
 transform layer in touch screens?

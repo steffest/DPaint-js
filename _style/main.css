@@ -2576,13 +2576,10 @@ body.hovercanvas.mousedown.colorpicker.mousedown .cursor .mark {
 
 .uae {
   position: absolute;
+  left: 0;
+  top: 0;
   z-index: 1000;
   background-color: #282A2C;
-  width: 720px;
-  height: 588px;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
   box-shadow: 0 0 20px 0px black;
 }
 .uae .caption {
@@ -2595,6 +2592,7 @@ body.hovercanvas.mousedown.colorpicker.mousedown .cursor .mark {
   background-size: contain;
   background-repeat: no-repeat;
   background-position: 2px center;
+  cursor: move;
 }
 .uae .caption .close {
   position: absolute;
@@ -2610,10 +2608,24 @@ body.hovercanvas.mousedown.colorpicker.mousedown .cursor .mark {
 .uae .caption .close:hover {
   opacity: 1;
 }
+.uae .resizer {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  right: 0;
+  bottom: 0;
+  border: 10px solid transparent;
+  border-bottom-color: #313335;
+  border-right-color: #313335;
+  cursor: nwse-resize;
+}
 .uae iframe {
   width: 100%;
-  height: 100%;
+  height: calc(100% - 21px);
   border: none;
+}
+.uae.dragging iframe {
+  pointer-events: none;
 }
 
 @media only screen and (max-width: 600px) {

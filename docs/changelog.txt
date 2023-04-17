@@ -1,0 +1,13 @@
+V 0.1.0
+    - Initial release
+
+V 0.1.1
+    - Bugfixes
+    - Additional palettes
+    - Duplicate Frame
+    - ReOrder Frame
+    - pixelated circle tool
+
+V 0.1.2
+    - Resize image: option for smooth rescale or pixelated rescale
+    - UAE window is now draggable and resizable

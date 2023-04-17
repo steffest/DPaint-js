@@ -1,12 +1,9 @@
 .uae{
   position: absolute;
+  left:0;
+  top: 0;
   z-index: 1000;
   background-color: $button-background-dark;
-  width: 720px;
-  height: 588px;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
   box-shadow: 0 0 20px 0px black;
 
   .caption{
@@ -19,6 +16,7 @@
     background-size: contain;
     background-repeat: no-repeat;
     background-position: 2px center;
+    cursor: move;
 
     .close{
       position: absolute;
@@ -37,9 +35,27 @@
     }
   }
 
+  .resizer{
+    position: absolute;
+    width: 20px;
+    height: 20px;
+    right: 0;
+    bottom: 0;
+    border:10px solid transparent;
+    border-bottom-color: #313335;
+    border-right-color: #313335;
+    cursor: nwse-resize;
+  }
+
   iframe{
     width: 100%;
-    height: 100%;
+    height: calc(100% - 21px);
     border: none;
+  }
+
+  &.dragging{
+    iframe{
+      pointer-events: none;
+    }
   }
 }
