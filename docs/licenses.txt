@@ -25,6 +25,10 @@ Sharpen Algorithm
     mikecao and jaredatdannyronsrescue
     https://gist.github.com/mikecao/65d9fc92dc7197cb8a7c?permalink_comment_id=4314200#gistcomment-4314200
 
+Image Scale Algorithm
+    MIT License - Copyright (c) 2017 Eugene Tiurin
+    https://github.com/ytiurin/downscale/blob/master/src/downsample.js
+
 FileSaver.js - used as fallback for older browsers
     MIT License - Copyright © 2016 Eli Grey
     https://github.com/eligrey/FileSaver.js

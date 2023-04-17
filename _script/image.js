@@ -9,6 +9,7 @@ import {duplicateCanvas, releaseCanvas} from "./util/canvasUtils.js";
 import Palette from "./ui/palette.js";
 import SaveDialog from "./ui/components/saveDialog.js";
 import HistoryService from "./services/historyservice.js";
+import ImageProcessing from "./util/imageProcessing.js";
 
 let ImageFile = function(){
    let me = {};
@@ -216,23 +217,21 @@ let ImageFile = function(){
                             EventBus.trigger(EVENT.imageSizeChanged);
                         }
                     }else{
-                        // TODO: investigate: scaling a canvas doesn't always apply smoothing?
-                        // loading it into an image and then drawing it on the canvas does.
-
-                        let img = new Image();
-                        img.onload = function(){
-                            canvas.width = w;
-                            canvas.height = h;
-                            ctx.imageSmoothingEnabled = true;
-                            ctx.imageSmoothingQuality = "high";
-                            ctx.drawImage(img,0,0,w,h);
-                            done++;
-                            if (done >= todo){
-                                HistoryService.end();
-                                EventBus.trigger(EVENT.imageSizeChanged);
-                            }
+                        let imageData = ctx.getImageData(0,0,canvas.width,canvas.height);
+                        let result;
+                        if (imageData.width > w && imageData.height > h){
+                            result = ImageProcessing.downScale(imageData,w,h);
+                        }else{
+                            result = ImageProcessing.biCubic(imageData,w,h);
                         }
-                        img.src = canvas.toDataURL();
+                        canvas.width = w;
+                        canvas.height = h;
+                        ctx.putImageData(result,0,0);
+                        done++;
+                        if (done >= todo){
+                            HistoryService.end();
+                            EventBus.trigger(EVENT.imageSizeChanged);
+                        }
                     }
                 })
             })

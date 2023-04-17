@@ -703,6 +703,191 @@ var ImageProcessing = function(){
 
 	}
 
+
+	// https://github.com/ytiurin/downscale/blob/master/src/downsample.js
+	// MIT License - Copyright (c) 2017 Eugene Tiurin
+	// seems "good enough" for our purpose and reasonable fast
+	// TODO: implement in webworker
+	// good article: https://stackoverflow.com/questions/18922880/html5-canvas-resize-downscale-image-high-quality
+	// also checkout https://github.com/nodeca/pica
+	me.downScale = function(sourceImageData,destWidth, destHeight){
+		function round(val)
+		{
+			return (val + 0.49) << 0
+		}
+
+		function downsample(sourceImageData, destWidth, destHeight, sourceX, sourceY,
+							sourceWidth, sourceHeight)
+		{
+			var dest = new ImageData(destWidth, destHeight)
+
+			var SOURCE_DATA  = new Int32Array(sourceImageData.data.buffer)
+			var SOURCE_WIDTH = sourceImageData.width
+
+			var DEST_DATA  = new Int32Array(dest.data.buffer)
+			var DEST_WIDTH = dest.width
+
+			var SCALE_FACTOR_X  = destWidth  / sourceWidth
+			var SCALE_FACTOR_Y  = destHeight / sourceHeight
+			var SCALE_RANGE_X   = round(1 / SCALE_FACTOR_X)
+			var SCALE_RANGE_Y   = round(1 / SCALE_FACTOR_Y)
+			var SCALE_RANGE_SQR = SCALE_RANGE_X * SCALE_RANGE_Y
+
+			for (var destRow = 0; destRow < dest.height; destRow++) {
+				for (var destCol = 0; destCol < DEST_WIDTH; destCol++) {
+
+					var sourceInd = sourceX + round(destCol / SCALE_FACTOR_X) +
+						(sourceY + round(destRow / SCALE_FACTOR_Y)) * SOURCE_WIDTH
+
+					var destRed   = 0
+					var destGreen = 0
+					var destBlue  = 0
+					var destAlpha = 0
+
+					for (var sourceRow = 0; sourceRow < SCALE_RANGE_Y; sourceRow++)
+						for (var sourceCol = 0; sourceCol < SCALE_RANGE_X; sourceCol++) {
+							var sourcePx = SOURCE_DATA[sourceInd + sourceCol + sourceRow * SOURCE_WIDTH]
+							destRed   += sourcePx <<  24 >>> 24
+							destGreen += sourcePx <<  16 >>> 24
+							destBlue  += sourcePx <<  8  >>> 24
+							destAlpha += sourcePx >>> 24
+						}
+
+					destRed   = round(destRed   / SCALE_RANGE_SQR)
+					destGreen = round(destGreen / SCALE_RANGE_SQR)
+					destBlue  = round(destBlue  / SCALE_RANGE_SQR)
+					destAlpha = round(destAlpha / SCALE_RANGE_SQR)
+
+					DEST_DATA[destCol + destRow * DEST_WIDTH] =
+						(destAlpha << 24) |
+						(destBlue  << 16) |
+						(destGreen << 8)  |
+						(destRed)
+				}
+			}
+
+			return dest
+		}
+
+		return downsample(sourceImageData, destWidth, destHeight, 0, 0, sourceImageData.width, sourceImageData.height);
+	}
+
+
+
+	// http://jsfiddle.net/HZewg/1/
+	me.biCubic = function(sourceImageData,destWidth, destHeight){
+
+		function TERP(t, a, b, c, d){
+			return 0.5 * (c - a + (2.0*a - 5.0*b + 4.0*c - d + (3.0*(b - c) + d - a)*t)*t)*t + b;
+		}
+
+		function ivect(ix, iy, w) {
+			// byte array, r,g,b,a
+			return((ix + w * iy) * 4);
+		}
+
+		function BicubicInterpolation(x, y, values){
+			var i0, i1, i2, i3;
+
+			i0 = TERP(x, values[0][0], values[1][0], values[2][0], values[3][0]);
+			i1 = TERP(x, values[0][1], values[1][1], values[2][1], values[3][1]);
+			i2 = TERP(x, values[0][2], values[1][2], values[2][2], values[3][2]);
+			i3 = TERP(x, values[0][3], values[1][3], values[2][3], values[3][3]);
+			return TERP(y, i0, i1, i2, i3);
+		}
+
+
+		var dest = new ImageData(destWidth, destHeight);
+
+		bicubic(sourceImageData, dest);
+		return dest;
+		function bicubic(srcImg, destImg) {
+
+			let scaleX =  destWidth/sourceImageData.width;
+			let scaleY =  destHeight/sourceImageData.height;
+
+			var i, j;
+			var dx, dy;
+			var repeatX, repeatY;
+			var offset_row0, offset_row1, offset_row2, offset_row3;
+			var offset_col0, offset_col1, offset_col2, offset_col3;
+			var red_pixels, green_pixels, blue_pixels, alpha_pixels;
+			for (i = 0; i < destImg.height; ++i) {
+				let iyv = i / scaleY;
+				let iy0 = Math.floor(iyv);
+
+				// We have to special-case the pixels along the border and repeat their values if necessary
+				repeatY = 0;
+				if(iy0 < 1) repeatY = -1;
+				else if(iy0 > srcImg.height - 3) repeatY = iy0 - (srcImg.height - 3);
+
+				for (j = 0; j < destImg.width; ++j) {
+					let ixv = j / scaleX;
+					let ix0 = Math.floor(ixv);
+
+					// We have to special-case the pixels along the border and repeat their values if necessary
+					repeatX = 0;
+					if(ix0 < 1) repeatX = -1;
+					else if(ix0 > srcImg.width - 3) repeatX = ix0 - (srcImg.width - 3);
+
+					offset_row1 = ((iy0)   * srcImg.width + ix0) * 4;
+					offset_row0 = repeatY < 0 ? offset_row1 : ((iy0-1) * srcImg.width + ix0) * 4;
+					offset_row2 = repeatY > 1 ? offset_row1 : ((iy0+1) * srcImg.width + ix0) * 4;
+					offset_row3 = repeatY > 0 ? offset_row2 : ((iy0+2) * srcImg.width + ix0) * 4;
+
+					offset_col1 = 0;
+					offset_col0 = repeatX < 0 ? offset_col1 : -4;
+					offset_col2 = repeatX > 1 ? offset_col1 : 4;
+					offset_col3 = repeatX > 0 ? offset_col2 : 8;
+
+					//Each offset is for the start of a row's red pixels
+					red_pixels = [[srcImg.data[offset_row0+offset_col0], srcImg.data[offset_row1+offset_col0], srcImg.data[offset_row2+offset_col0], srcImg.data[offset_row3+offset_col0]],
+						[srcImg.data[offset_row0+offset_col1], srcImg.data[offset_row1+offset_col1], srcImg.data[offset_row2+offset_col1], srcImg.data[offset_row3+offset_col1]],
+						[srcImg.data[offset_row0+offset_col2], srcImg.data[offset_row1+offset_col2], srcImg.data[offset_row2+offset_col2], srcImg.data[offset_row3+offset_col2]],
+						[srcImg.data[offset_row0+offset_col3], srcImg.data[offset_row1+offset_col3], srcImg.data[offset_row2+offset_col3], srcImg.data[offset_row3+offset_col3]]];
+					offset_row0++;
+					offset_row1++;
+					offset_row2++;
+					offset_row3++;
+					//Each offset is for the start of a row's green pixels
+					green_pixels = [[srcImg.data[offset_row0+offset_col0], srcImg.data[offset_row1+offset_col0], srcImg.data[offset_row2+offset_col0], srcImg.data[offset_row3+offset_col0]],
+						[srcImg.data[offset_row0+offset_col1], srcImg.data[offset_row1+offset_col1], srcImg.data[offset_row2+offset_col1], srcImg.data[offset_row3+offset_col1]],
+						[srcImg.data[offset_row0+offset_col2], srcImg.data[offset_row1+offset_col2], srcImg.data[offset_row2+offset_col2], srcImg.data[offset_row3+offset_col2]],
+						[srcImg.data[offset_row0+offset_col3], srcImg.data[offset_row1+offset_col3], srcImg.data[offset_row2+offset_col3], srcImg.data[offset_row3+offset_col3]]];
+					offset_row0++;
+					offset_row1++;
+					offset_row2++;
+					offset_row3++;
+					//Each offset is for the start of a row's blue pixels
+					blue_pixels = [[srcImg.data[offset_row0+offset_col0], srcImg.data[offset_row1+offset_col0], srcImg.data[offset_row2+offset_col0], srcImg.data[offset_row3+offset_col0]],
+						[srcImg.data[offset_row0+offset_col1], srcImg.data[offset_row1+offset_col1], srcImg.data[offset_row2+offset_col1], srcImg.data[offset_row3+offset_col1]],
+						[srcImg.data[offset_row0+offset_col2], srcImg.data[offset_row1+offset_col2], srcImg.data[offset_row2+offset_col2], srcImg.data[offset_row3+offset_col2]],
+						[srcImg.data[offset_row0+offset_col3], srcImg.data[offset_row1+offset_col3], srcImg.data[offset_row2+offset_col3], srcImg.data[offset_row3+offset_col3]]];
+					offset_row0++;
+					offset_row1++;
+					offset_row2++;
+					offset_row3++;
+					//Each offset is for the start of a row's alpha pixels
+					alpha_pixels =[[srcImg.data[offset_row0+offset_col0], srcImg.data[offset_row1+offset_col0], srcImg.data[offset_row2+offset_col0], srcImg.data[offset_row3+offset_col0]],
+						[srcImg.data[offset_row0+offset_col1], srcImg.data[offset_row1+offset_col1], srcImg.data[offset_row2+offset_col1], srcImg.data[offset_row3+offset_col1]],
+						[srcImg.data[offset_row0+offset_col2], srcImg.data[offset_row1+offset_col2], srcImg.data[offset_row2+offset_col2], srcImg.data[offset_row3+offset_col2]],
+						[srcImg.data[offset_row0+offset_col3], srcImg.data[offset_row1+offset_col3], srcImg.data[offset_row2+offset_col3], srcImg.data[offset_row3+offset_col3]]];
+
+					// overall coordinates to unit square
+					dx = ixv - ix0; dy = iyv - iy0;
+
+					let idxD = ivect(j, i, destImg.width);
+
+					destImg.data[idxD] = BicubicInterpolation(dx, dy, red_pixels);
+					destImg.data[idxD+1] =  BicubicInterpolation(dx, dy, green_pixels);
+					destImg.data[idxD+2] = BicubicInterpolation(dx, dy, blue_pixels);
+					destImg.data[idxD+3] = BicubicInterpolation(dx, dy, alpha_pixels);
+				}
+			}
+		}
+
+	}
+
 	return me;
 }();
 
