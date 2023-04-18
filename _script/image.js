@@ -633,12 +633,12 @@ let ImageFile = function(){
         }
     }
 
-    me.mergeDown = function(index){
+    me.mergeDown = function(index,skipHistory){
         if (typeof index !== "number") index = activeLayerIndex;
         let layer = currentFrame().layers[index];
         let belowLayer = currentFrame().layers[index-1];
         if (layer && belowLayer){
-            HistoryService.start(EVENT.imageHistory);
+            if (!skipHistory) HistoryService.start(EVENT.imageHistory);
             if (layer.hasMask){
                 layer.removeMask(true);
             }
@@ -651,7 +651,7 @@ let ImageFile = function(){
             ctx.globalAlpha = 1;
             ctx.globalCompositeOperation = "source-over";
             currentFrame().layers.splice(index,1);
-            Historyservice.end();
+            if (!skipHistory) Historyservice.end();
             EventBus.trigger(EVENT.layerContentChanged);
             me.activateLayer(index-1);
         }

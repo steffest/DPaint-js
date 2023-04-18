@@ -489,7 +489,8 @@ let Canvas = function(parent){
 
                                 EventBus.trigger(EVENT.layerContentChanged);
                             }
-                            ImageFile.mergeDown(layerIndex);
+                            // TODO: move this to the drawLayer of the active layer instead of a new layer
+                            ImageFile.mergeDown(layerIndex,true);
                             HistoryService.end(EVENT.layerHistory);
                         }
                         break;
