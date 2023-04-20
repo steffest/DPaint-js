@@ -16,6 +16,7 @@ import DitherPanel from "./components/ditherPanel.js";
 import Color from "../util/color.js";
 import {duplicateCanvas} from "../util/canvasUtils.js";
 import HistoryService from "../services/historyservice.js";
+import Cursor from "./cursor.js";
 
 let Canvas = function(parent){
 	let me = {};
@@ -221,7 +222,7 @@ let Canvas = function(parent){
                 if (e.metaKey || e.ctrlKey) touchData.button = 3;
                 if (Input.isSpaceDown() || e.button===1 || Editor.getCurrentTool() === COMMAND.PAN){
                     hideOverlay();
-                    document.body.classList.add("space");
+                    Cursor.override("pan");
                     touchData.startDragX = e.clientX;
                     touchData.startDragY =  e.clientY;
                     touchData.startScrollX = panelParent.scrollLeft;
@@ -229,7 +230,8 @@ let Canvas = function(parent){
                     containerTransform.startX = containerTransform.x;
                     containerTransform.startY = containerTransform.y;
                     return;
-                }else if ((Input.isShiftDown() || Input.isAltDown()) && canPickColor() || Editor.getCurrentTool() === COMMAND.COLORPICKER){
+                }else if ((Input.isShiftDown() || Input.isAltDown()) && Editor.canPickColor() || Editor.getCurrentTool() === COMMAND.COLORPICKER){
+                    Cursor.override("colorpicker");
                     var pixel = ctx.getImageData(point.x, point.y, 1, 1).data;
                     Palette.setColor(pixel);
                     return;
@@ -583,7 +585,7 @@ let Canvas = function(parent){
                         return;
                     }
 
-                    if ((Input.isShiftDown() || Input.isAltDown()) && canPickColor()){
+                    if ((Input.isShiftDown() || Input.isAltDown()) && Editor.canPickColor()){
                         var pixel = ctx.getImageData(point.x, point.y, 1, 1).data;
                         Palette.setColor(pixel);
                         return;
@@ -655,13 +657,6 @@ let Canvas = function(parent){
 
     function drawOverlay(point){
         EventBus.trigger(EVENT.drawCanvasOverlay,point);
-    }
-
-
-    function canPickColor(){
-        // TODO this is crap - FIXME !
-        let ct = Editor.getCurrentTool();
-        return !(ct === COMMAND.SELECT || ct === COMMAND.SQUARE || ct === COMMAND.GRADIENT || ct === COMMAND.LINE || ct === COMMAND.CIRCLE  ||  ct === COMMAND.TRANSFORMLAYER);
     }
 
     function setContainer(){

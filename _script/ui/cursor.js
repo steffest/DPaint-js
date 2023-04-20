@@ -9,6 +9,9 @@ var Cursor = function(){
     var cursor;
     var cursorMark;
     let position = {x:0,y:0}
+    let defaultCursor = "default";
+    let currentCursor = undefined;
+    let overrideCursor = undefined;
     
     me.init = function(){
         cursor = $div("cursor");
@@ -27,33 +30,47 @@ var Cursor = function(){
     }
 
     me.set = function(name){
-        document.body.classList.add("customcursor","cursor-" + name);
-        if (name === "colorpicker") document.body.classList.add("colorpicker");
-        cursor.className = "cursor " + name;
+        currentCursor = name;
+        setCursor();
     }
 
-    me.reset = function(name){
-        document.body.classList.remove("customcursor","colorpicker");
-        document.body.classList.forEach((c)=>{
-            if (c.startsWith("cursor-")) document.body.classList.remove(c);
-        });
-        cursor.className = "cursor";
+    me.reset = function(){
+        currentCursor = undefined;
+        setCursor();
+    }
+
+    me.override = function(name){
+        overrideCursor = name;
+        setCursor();
+    }
+
+    me.resetOverride = function(name){
+        overrideCursor = undefined;
+        setCursor();
     }
 
     me.getPosition = ()=>{
         return position;
     }
 
+    function setCursor(){
+        document.body.classList.forEach((c)=>{
+            if (c.startsWith("cursor-")) document.body.classList.remove(c);
+        });
+        let cursorName = overrideCursor || currentCursor || defaultCursor;
+        document.body.classList.add("cursor-" + cursorName);
+    }
+
     Eventbus.on(EVENT.modifierKeyChanged,()=>{
-        let ct = Editor.getCurrentTool();
-        if (ct===COMMAND.DRAW){
-            if (Input.isShiftDown() || Input.isAltDown()){
-                me.set("colorpicker");
-            }else{
-                me.reset();
-            }
+        if ((Input.isShiftDown() || Input.isAltDown()) && Editor.canPickColor()){
+            me.override("colorpicker");
+        }else{
+            me.resetOverride();
         }
 
+        if (Input.isSpaceDown()){
+            me.override("pan");
+        }
     })
     
     return me;

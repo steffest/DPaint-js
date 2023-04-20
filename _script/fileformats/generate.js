@@ -56,9 +56,10 @@ let Generate = function(){
         }
     }
 
-    me.iff=()=>{
+    me.iff=(maxColors)=>{
+        maxColors = maxColors || 32;
         let check = me.validate({
-            maxColors: 32
+            maxColors: maxColors
         })
 
         if (!check.valid){

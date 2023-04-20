@@ -31,17 +31,35 @@ body.customcursor.hoverviewport{
     display: block;
   }
 
+
+}
+
+body.hoverviewport{
   &.cursor-draw{
     cursor: url("../_img/cursors/cross.png") 12 12, auto;
-    .cursor{
-      display: none;
-    }
+  }
+
+  &.cursor-colorpicker{
+    cursor: url("../_img/cursors/pipette.png") 0 24, auto;
+  }
+
+  &.cursor-rotate{
+    cursor: url("../_img/cursors/rotate.png") 0 0, auto;
+  }
+
+  &.cursor-select{
+    cursor: crosshair;
+  }
+
+  &.cursor-pan{
+    cursor: grab;
   }
 }
 
 /* cursors that also apply to main UI */
-body.customcursor,
-body.customcursor.hoverviewport{
+body,
+body.hoverviewport{
+
   &.cursor-drag{
     cursor: grabbing !important;
     .cursor{

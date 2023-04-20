@@ -222,21 +222,8 @@
 
 }
 
-body.space,
-body.space.select{
-  .splitpanel{
-    .panel{
-      cursor: grab;
-    }
 
-    .overlaycanvas{
-      display: none;
-    }
-  }
-}
-
-body.shift.mousedown,
-body.select{
+body.shift.mousedown{
   .splitpanel{
     .overlaycanvas{
       display: none;
@@ -244,13 +231,6 @@ body.select{
   }
 }
 
-body.select{
-  .splitpanel{
-    .panel{
-      cursor: crosshair;
-    }
-  }
-}
 
 body.withsidepanel{
   .splitpanel{

@@ -1118,7 +1118,7 @@ body.withsidepanel .sidepanel {
 }
 .palettelist .palette .caption {
   background-color: transparent;
-  border-top: 1px solid #434548;
+  border-top: 1px solid rgb(67, 69, 72);
   width: 100%;
 }
 .palettelist .palette canvas {
@@ -1337,22 +1337,8 @@ body.withsidepanel .sidepanel {
   pointer-events: none;
 }
 
-body.space .splitpanel .panel,
-body.space.select .splitpanel .panel {
-  cursor: grab;
-}
-body.space .splitpanel .overlaycanvas,
-body.space.select .splitpanel .overlaycanvas {
+body.shift.mousedown .splitpanel .overlaycanvas {
   display: none;
-}
-
-body.shift.mousedown .splitpanel .overlaycanvas,
-body.select .splitpanel .overlaycanvas {
-  display: none;
-}
-
-body.select .splitpanel .panel {
-  cursor: crosshair;
 }
 
 body.withsidepanel .splitpanel {
@@ -1493,7 +1479,7 @@ body.withfilebrowser .splitpanel {
   width: 20px;
   height: 20px;
   margin: -20px 0 0 -20px;
-  /*background-color: red;*/
+  cursor: url("../_img/cursors/rotate.png") 0 0, auto;
 }
 .rotatedot.d2 {
   margin: -20px -20px 0 0;
@@ -1537,20 +1523,30 @@ body.customcursor.hoverviewport .sizebox {
 body.customcursor.hoverviewport .cursor {
   display: block;
 }
-body.customcursor.hoverviewport.cursor-draw {
+
+body.hoverviewport.cursor-draw {
   cursor: url("../_img/cursors/cross.png") 12 12, auto;
 }
-body.customcursor.hoverviewport.cursor-draw .cursor {
-  display: none;
+body.hoverviewport.cursor-colorpicker {
+  cursor: url("../_img/cursors/pipette.png") 0 24, auto;
+}
+body.hoverviewport.cursor-rotate {
+  cursor: url("../_img/cursors/rotate.png") 0 0, auto;
+}
+body.hoverviewport.cursor-select {
+  cursor: crosshair;
+}
+body.hoverviewport.cursor-pan {
+  cursor: grab;
 }
 
 /* cursors that also apply to main UI */
-body.customcursor.cursor-drag,
-body.customcursor.hoverviewport.cursor-drag {
+body.cursor-drag,
+body.hoverviewport.cursor-drag {
   cursor: grabbing !important;
 }
-body.customcursor.cursor-drag .cursor,
-body.customcursor.hoverviewport.cursor-drag .cursor {
+body.cursor-drag .cursor,
+body.hoverviewport.cursor-drag .cursor {
   display: none;
 }
 
@@ -1638,7 +1634,7 @@ body.hovercanvas.mousedown.colorpicker.mousedown .cursor .mark {
   border-bottom: 1px solid black;
   position: relative;
   height: 20px;
-  background-color: #00000038;
+  background-color: rgba(0, 0, 0, 0.2196078431);
   cursor: move;
   user-select: none;
 }
@@ -2091,14 +2087,14 @@ body.hovercanvas.mousedown.colorpicker.mousedown .cursor .mark {
   margin-top: -2px;
 }
 .modalwindow .inner .effects .sliders .slider input[type=range]::-webkit-slider-runnable-track {
-  background: linear-gradient(90deg, black 0%, #c8c8c8 100%);
+  background: linear-gradient(90deg, rgb(0, 0, 0) 0%, rgb(200, 200, 200) 100%);
   border: 1px solid #010101;
   width: 100%;
   height: 4px;
   cursor: pointer;
 }
 .modalwindow .inner .effects .sliders .slider input[type=range]::-moz-range-track {
-  background: linear-gradient(90deg, black 0%, #c8c8c8 100%);
+  background: linear-gradient(90deg, rgb(0, 0, 0) 0%, rgb(200, 200, 200) 100%);
   border: 1px solid #010101;
   width: 100%;
   height: 2px;

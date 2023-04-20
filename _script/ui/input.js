@@ -236,8 +236,8 @@ var Input = function(){
 		}
 
 		// Meh ...
-		if (document.body.classList.contains("colorpicker") && !me.isShiftDown() && !me.isAltDown() && Editor.getCurrentTool() !== COMMAND.COLORPICKER){
-			Cursor.reset();
+		if (!me.isShiftDown() && !me.isAltDown() && !me.isSpaceDown()){
+			Cursor.resetOverride();
 		}
 	}
 
@@ -391,7 +391,6 @@ var Input = function(){
 	function modifierKeyUp(code){
 		keyDown[code] = false;
 		document.body.classList.remove(code);
-		if (code === "space" && Editor.getCurrentTool() === COMMAND.PAN) document.body.classList.add(code);
 		EventBus.trigger(EVENT.modifierKeyChanged);
 	}
 

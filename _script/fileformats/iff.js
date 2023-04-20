@@ -275,7 +275,7 @@ var IFF = function(){
     // creates an ArrayBuffer with the binary data of the Icon;
     me.write = function(canvas){
 
-        let colors = ImageProcessing.getColors(canvas,32);
+        let colors = ImageProcessing.getColors(canvas,256);
         let bitplaneCount = 1;
         while((1 << bitplaneCount) < colors.length) bitplaneCount++;
         while (colors.length < (1 << bitplaneCount)) colors.push([0,0,0]);

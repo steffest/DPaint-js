@@ -68,36 +68,34 @@ var Editor = function(){
         //TODO: move these to ToolOptions
         EventBus.on(COMMAND.DRAW,function(){
             currentTool = COMMAND.DRAW;
-            document.body.classList.remove("select");
             Cursor.set("draw");
         });
         EventBus.on(COMMAND.ERASE,function(){
             currentTool = COMMAND.ERASE;
-            document.body.classList.remove("select");
+            Cursor.set("draw");
         });
         EventBus.on(COMMAND.SELECT,function(){
             currentTool = COMMAND.SELECT;
-            document.body.classList.add("select");
+            Cursor.set("select");
         });
         EventBus.on(COMMAND.POLYGONSELECT,function(){
             currentTool = COMMAND.POLYGONSELECT;
-            document.body.classList.add("select");
+            Cursor.set("select");
         });
         EventBus.on(COMMAND.FLOODSELECT,function(){
             currentTool = COMMAND.FLOODSELECT;
-            document.body.classList.add("select");
+            Cursor.set("select");
         });
         EventBus.on(COMMAND.FLOOD,function(){
             currentTool = COMMAND.FLOOD;
-            document.body.classList.add("select");
         });
         EventBus.on(COMMAND.SQUARE,function(){
             currentTool = COMMAND.SQUARE;
-            document.body.classList.add("select");
+            Cursor.set("select");
         });
         EventBus.on(COMMAND.CIRCLE,function(){
             currentTool = COMMAND.CIRCLE;
-            document.body.classList.add("select");
+            Cursor.set("select");
         });
         EventBus.on(COMMAND.LINE,function(){
             currentTool = COMMAND.LINE;
@@ -107,7 +105,7 @@ var Editor = function(){
         });
         EventBus.on(COMMAND.PAN,function(){
             currentTool = COMMAND.PAN;
-            document.body.classList.add("space");
+            Cursor.set("pan");
         });
         EventBus.on(COMMAND.COLORPICKER, function(){
             currentTool = COMMAND.COLORPICKER;
@@ -279,7 +277,6 @@ var Editor = function(){
         EventBus.on(EVENT.toolChanged,(tool)=>{
             me.commit();
             Cursor.reset();
-            if (!Input.isShiftDown()) document.body.classList.remove("space");
         });
 
     }
@@ -366,6 +363,11 @@ var Editor = function(){
 
     me.setZoom = function(factor,center){
         activePanel.setZoom(factor,center);
+    }
+
+    me.canPickColor = ()=>{
+        let ct = Editor.getCurrentTool();
+        return !(ct === COMMAND.SELECT || ct === COMMAND.SQUARE || ct === COMMAND.GRADIENT || ct === COMMAND.LINE || ct === COMMAND.CIRCLE  ||  ct === COMMAND.TRANSFORMLAYER);
     }
 
     function updateTransform(){

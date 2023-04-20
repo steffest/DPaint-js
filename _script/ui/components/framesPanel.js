@@ -94,7 +94,7 @@ let FramesPanel = function(){
                     }
                     let currentTarget = contentPanel.querySelector("#frame" + elm.currentIndex);
                     if (currentTarget) currentTarget.classList.remove("ghost");
-                    Cursor.reset("drag");
+                    Cursor.reset();
                     contentPanel.classList.remove("inactive");
                 }
 
