@@ -56,8 +56,8 @@ let Generate = function(){
         }
     }
 
-    me.iff=(maxColors)=>{
-        maxColors = maxColors || 32;
+    me.iff=(maxColors,tooManyColorMessage)=>{
+        maxColors = maxColors || 256;
         let check = me.validate({
             maxColors: maxColors
         })
@@ -65,7 +65,7 @@ let Generate = function(){
         if (!check.valid){
             Modal.show(DIALOG.OPTION,{
                 title: "Save as IFF",
-                text: ["Sorry, this image can't be saved as IFF."].concat(check.errors),
+                text: [tooManyColorMessage||"Sorry, this image can't be saved as IFF."].concat(check.errors),
                 buttons: [{label:"OK"}]
             });
             return;

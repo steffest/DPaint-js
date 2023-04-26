@@ -1503,7 +1503,6 @@ body.withfilebrowser .splitpanel {
   margin-top: -18px;
   margin-left: -2px;
   pointer-events: none;
-  background-image: url("../_img/pipette.svg");
   background-size: contain;
   z-index: 100;
   display: none;
@@ -1530,6 +1529,9 @@ body.hoverviewport.cursor-draw {
 body.hoverviewport.cursor-colorpicker {
   cursor: url("../_img/cursors/pipette.png") 0 24, auto;
 }
+body.hoverviewport.cursor-colorpicker canvas.overlaycanvas {
+  display: none;
+}
 body.hoverviewport.cursor-rotate {
   cursor: url("../_img/cursors/rotate.png") 0 0, auto;
 }
@@ -1538,6 +1540,9 @@ body.hoverviewport.cursor-select {
 }
 body.hoverviewport.cursor-pan {
   cursor: grab;
+}
+body.hoverviewport.cursor-pan canvas.overlaycanvas {
+  display: none;
 }
 
 /* cursors that also apply to main UI */
@@ -1550,13 +1555,10 @@ body.hoverviewport.cursor-drag .cursor {
   display: none;
 }
 
-body.hovercanvas.mousedown.colorpicker canvas.mainCanvas {
-  cursor: none;
-}
-body.hovercanvas.mousedown.colorpicker .cursor {
+body.hovercanvas.pointerdown.cursor-colorpicker .cursor {
   display: block;
 }
-body.hovercanvas.mousedown.colorpicker .cursor .mark {
+body.hovercanvas.pointerdown.cursor-colorpicker .cursor .mark {
   position: absolute;
   pointer-events: none;
   display: none;
@@ -1566,9 +1568,6 @@ body.hovercanvas.mousedown.colorpicker .cursor .mark {
   border: 8px solid green;
   border-radius: 50%;
   box-shadow: 0 0 3px 1px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.5), inset 0 0 3px 1px rgba(0, 0, 0, 0.5), inset 0 0 0 1px rgba(255, 255, 255, 0.5);
-}
-body.hovercanvas.mousedown.colorpicker.mousedown .cursor .mark {
-  display: block;
 }
 
 #dragelement {

@@ -33,7 +33,7 @@ var Input = function(){
 		document.addEventListener("keydown",onKeyDown)
 		document.addEventListener("keyup",onKeyUp)
 
-		document.body.oncontextmenu = function(){return me.isShiftDown();}
+		document.body.oncontextmenu = function(e){return me.isShiftDown() && !(e.target && e.target.classList.contains("maincanvas"));}
 
 
 		window.addEventListener("paste", handlePaste,false);
@@ -236,12 +236,16 @@ var Input = function(){
 		}
 
 		// Meh ...
-		if (!me.isShiftDown() && !me.isAltDown() && !me.isSpaceDown()){
+		if (!me.isShiftDown() && !me.isAltDown() && !me.isSpaceDown() && !document.body.classList.contains("cursor-pan")){
 			Cursor.resetOverride();
 		}
 	}
 
 	function onPointerUp(e){
+
+		if (e.button===1 && document.body.classList.contains("cursor-pan")){
+			Cursor.resetOverride();
+		}
 
 		if (touchData.waitForClick){
 			let now = performance.now();

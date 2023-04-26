@@ -49,6 +49,10 @@ var Cursor = function(){
         setCursor();
     }
 
+    me.attach = function(name){
+        cursor.style.display = "block";
+        cursorMark.style.display = "block";
+    }
     me.getPosition = ()=>{
         return position;
     }

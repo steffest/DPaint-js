@@ -60,7 +60,7 @@ let Menu = function(){
                 {label: "Select All",command: COMMAND.SELECTALL,shortKey: "meta+A"},
                 {label: "Copy To Layer",command: COMMAND.TOLAYER,shortKey: "meta+J"},
                 {label: "Cut To Layer",command: COMMAND.CUTTOLAYER,shortKey: "meta+K"},
-                {label: "To Stencil",command: COMMAND.STAMP}
+                {label: "To Brush",command: COMMAND.STAMP}
             ]},
         {label: "Palette", items:[
                 {label: "Edit",command: COMMAND.EDITPALETTE},

@@ -23,7 +23,7 @@ let UAE = function(){
                             if (root && root.files){
                                 let pictureFile = root.files.find(f=>f.name === "picture.iff");
                                 if (pictureFile){
-                                    let image = Generate.iff(32);
+                                    let image = Generate.iff(32,"Sorry, Deluxe Paint II supports a maximum of 32 colors.");
                                     if (image){
                                         image.arrayBuffer().then(buffer=>{
                                             Adf.deleteFileAtSector(pictureFile.sector);

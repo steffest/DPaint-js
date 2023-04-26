@@ -7,6 +7,7 @@
 - small screen support
 - copy image larger than canvas => keep entire image?
 - deselect after resize
+- show grid function
 
 
 - filters: e.g. https://medium.com/skylar-salernos-tech-blog/mimicking-googles-pop-filter-using-canvas-blend-modes-d7da83590d1a
@@ -21,6 +22,7 @@ Transforming a mask clears the layer ?
 resizing sizebox negatively, makes the sizebox 0 width/height
 resize image to larger doesn't clear all cached data (like the drawlayer?)
 copy/paste/undo shortcut doesn't work on Firefox
+fill tool is active when scrollbar is clicked
 
 
 transform layer in touch screens?

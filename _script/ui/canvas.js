@@ -221,7 +221,6 @@ let Canvas = function(parent){
                 touchData.button = e.button;
                 if (e.metaKey || e.ctrlKey) touchData.button = 3;
                 if (Input.isSpaceDown() || e.button===1 || Editor.getCurrentTool() === COMMAND.PAN){
-                    hideOverlay();
                     Cursor.override("pan");
                     touchData.startDragX = e.clientX;
                     touchData.startDragY =  e.clientY;
@@ -232,8 +231,9 @@ let Canvas = function(parent){
                     return;
                 }else if ((Input.isShiftDown() || Input.isAltDown()) && Editor.canPickColor() || Editor.getCurrentTool() === COMMAND.COLORPICKER){
                     Cursor.override("colorpicker");
+                    Cursor.attach("colorpicker");
                     var pixel = ctx.getImageData(point.x, point.y, 1, 1).data;
-                    Palette.setColor(pixel);
+                    Palette.setColor(pixel,!!e.button);
                     return;
                 }
 
@@ -547,11 +547,7 @@ let Canvas = function(parent){
                     if (touchData.isPolySelect){
                         selectBox.updatePoint(point);
                     }else{
-                        if (Input.isSpaceDown() || Editor.getCurrentTool() === COMMAND.PAN){
-                            hideOverlay();
-                        }else{
-                            drawOverlay(point);
-                        }
+                        drawOverlay(point);
                     }
                 }
                 break;
@@ -568,6 +564,8 @@ let Canvas = function(parent){
                         panelParent.scrollTop = ty;
                         let fx = parseInt(panelParent.scrollLeft);
                         let fy = parseInt(panelParent.scrollTop);
+
+                        console.error("éé");
 
                         if (fx !== tx){
                             containerTransform.x = containerTransform.startX+fx-tx;

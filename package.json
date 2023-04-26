@@ -18,6 +18,7 @@
   },
   "scripts": {
     "clean": "rm -rf dist && rm -rf .parcel-cache",
+    "cleanwin": "del /q .\\.parcel-cache\\* && del /q .\\dist\\*",
     "build": "parcel build --public-url ./",
     "start": "parcel index.html"
   },

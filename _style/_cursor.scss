@@ -7,7 +7,6 @@
   margin-top: -18px;
   margin-left: -2px;
   pointer-events: none;
-  background-image: url("../_img/pipette.svg");
   background-size: contain;
   z-index: 100;
   display: none;
@@ -41,6 +40,10 @@ body.hoverviewport{
 
   &.cursor-colorpicker{
     cursor: url("../_img/cursors/pipette.png") 0 24, auto;
+
+    canvas.overlaycanvas{
+      display: none;
+    }
   }
 
   &.cursor-rotate{
@@ -53,6 +56,10 @@ body.hoverviewport{
 
   &.cursor-pan{
     cursor: grab;
+
+    canvas.overlaycanvas{
+      display: none;
+    }
   }
 }
 
@@ -68,10 +75,7 @@ body.hoverviewport{
   }
 }
 
-body.hovercanvas.mousedown.colorpicker{
-  canvas.mainCanvas{
-    cursor: none;
-  }
+body.hovercanvas.pointerdown.cursor-colorpicker{
   .cursor{
     display: block;
 
@@ -85,14 +89,6 @@ body.hovercanvas.mousedown.colorpicker{
       border: 8px solid green;
       border-radius: 50%;
       box-shadow: 0 0 3px 1px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.5), inset 0 0 3px 1px rgba(0, 0, 0, 0.5), inset 0 0 0 1px rgba(255, 255, 255, 0.5);
-    }
-  }
-
-  &.mousedown{
-    .cursor{
-      .mark{
-        display: block;
-      }
     }
   }
 }
