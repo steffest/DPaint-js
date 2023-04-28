@@ -197,6 +197,24 @@ let Canvas = function(parent){
         let {x,y} = touchData;
         touchData.drawLayer = ImageFile.getActiveLayer();
         touchData.drawLayer.draw(x,y,color,touchData);
+
+        if (touchData.previousDrawPoint){
+            // fill in gaps
+            let p1 = touchData.previousDrawPoint
+            let delta = {x: x - p1.x, y: y - p1.y};
+            if (Math.abs(delta.x) > 1 || Math.abs(delta.y) > 1){
+                let steps = Math.max(Math.abs(delta.x), Math.abs(delta.y));
+                delta.x /= steps;
+                delta.y /= steps;
+                for (let i = 0; i < steps; i++){
+                    let _x = p1.x + Math.round(delta.x*i);
+                    let _y = p1.y + Math.round(delta.y*i);
+                    touchData.drawLayer.draw(_x,_y,color,touchData);
+                }
+            }
+        }
+        touchData.previousDrawPoint = {x,y};
+
         touchData.isDrawing = true;
         EventBus.trigger(EVENT.layerContentChanged);
     }
@@ -536,6 +554,7 @@ let Canvas = function(parent){
                 touchData.isDrawing = false;
                 touchData.isSelecting = false;
                 touchData.selection = undefined;
+                touchData.previousDrawPoint = undefined;
 
                 break;
             case "over":
@@ -564,8 +583,6 @@ let Canvas = function(parent){
                         panelParent.scrollTop = ty;
                         let fx = parseInt(panelParent.scrollLeft);
                         let fy = parseInt(panelParent.scrollTop);
-
-                        console.error("éé");
 
                         if (fx !== tx){
                             containerTransform.x = containerTransform.startX+fx-tx;
