@@ -289,6 +289,50 @@
     }
   }
 
+  .palettenav{
+    position: absolute;
+    bottom: 2px;
+    left: 0;
+    right: 0;
+    .nav{
+      height: 20px;
+      background-color: $panel-background-color;
+      border: 1px solid black;
+      margin: 2px auto 0 auto;
+      display: flex;
+      color: $menu-text-color;
+
+      .prev,.next{
+        width: 20px;
+        background-image: url("../_img/caret.svg");
+        background-size: 16px 16px;
+        background-repeat: no-repeat;
+        background-position: center center;
+        opacity: 0.1;
+        pointer-events: none;
+
+        &.active{
+          opacity: 0.5;
+          pointer-events: all;
+        }
+
+        &:hover{
+          opacity: 1;
+          cursor: pointer;
+        }
+      }
+
+      .prev{
+        transform: rotate(180deg);
+      }
+
+      .page{
+        width: 20px;
+        text-align: center;
+      }
+    }
+  }
+
   .viewstyle{
     display: flex;
     margin-left: 20px;

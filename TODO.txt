@@ -1,5 +1,6 @@
 - Improve Undo/redo
 - Add/Remove from selection
+- invert selection
 - dragging of panels?
 - improve rotate layer/selection
 - polygon mask - deduplicate points

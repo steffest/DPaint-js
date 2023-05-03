@@ -210,6 +210,7 @@ let Canvas = function(parent){
                     let _x = p1.x + Math.round(delta.x*i);
                     let _y = p1.y + Math.round(delta.y*i);
                     touchData.drawLayer.draw(_x,_y,color,touchData);
+                    // TODO: avoid duplicate _x,_y draws
                 }
             }
         }

@@ -94,4 +94,5 @@ export let EVENT={
     historyChanged:21,
     endPolygonSelect: 22,
     framesChanged: 23,
+    UIresize: 24,
 }

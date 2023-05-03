@@ -551,6 +551,44 @@ input[type=range]:focus::-ms-fill-upper {
   height: 14px;
   display: inline-block;
 }
+.toolbar .palettenav {
+  position: absolute;
+  bottom: 2px;
+  left: 0;
+  right: 0;
+}
+.toolbar .palettenav .nav {
+  height: 20px;
+  background-color: #313335;
+  border: 1px solid black;
+  margin: 2px auto 0 auto;
+  display: flex;
+  color: #BBBBBB;
+}
+.toolbar .palettenav .nav .prev, .toolbar .palettenav .nav .next {
+  width: 20px;
+  background-image: url("../_img/caret.svg");
+  background-size: 16px 16px;
+  background-repeat: no-repeat;
+  background-position: center center;
+  opacity: 0.1;
+  pointer-events: none;
+}
+.toolbar .palettenav .nav .prev.active, .toolbar .palettenav .nav .next.active {
+  opacity: 0.5;
+  pointer-events: all;
+}
+.toolbar .palettenav .nav .prev:hover, .toolbar .palettenav .nav .next:hover {
+  opacity: 1;
+  cursor: pointer;
+}
+.toolbar .palettenav .nav .prev {
+  transform: rotate(180deg);
+}
+.toolbar .palettenav .nav .page {
+  width: 20px;
+  text-align: center;
+}
 .toolbar .viewstyle {
   display: flex;
   margin-left: 20px;
@@ -1081,7 +1119,6 @@ body.withsidepanel .sidepanel {
   border: 1px solid black;
   width: 100px;
   background-color: #313335;
-  overflow: auto;
   z-index: 10;
   display: none;
 }
@@ -1108,6 +1145,44 @@ body.withsidepanel .sidepanel {
   text-align: center;
   cursor: pointer;
 }
+.palettelist .inner {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 20px;
+  bottom: 0;
+  overflow: auto;
+  overflow-x: hidden;
+}
+.palettelist .group {
+  color: #BBBBBB;
+  padding: 3px 5px 3px 16px;
+  position: relative;
+  font-size: 12px;
+  border-bottom: 1px solid black;
+}
+.palettelist .group:before {
+  content: "";
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  background-image: url("../_img/caret.svg");
+  background-repeat: no-repeat;
+  background-size: contain;
+  left: 1px;
+  top: 2px;
+  opacity: 0.7;
+}
+.palettelist .group.active:before {
+  transform: rotate(90deg);
+}
+.palettelist .group:hover {
+  cursor: pointer;
+  background-color: #434548;
+}
+.palettelist .group:hover:before {
+  opacity: 1;
+}
 .palettelist .palette {
   padding-bottom: 10px;
   clear: both;
@@ -1118,8 +1193,11 @@ body.withsidepanel .sidepanel {
 }
 .palettelist .palette .caption {
   background-color: transparent;
-  border-top: 1px solid rgb(67, 69, 72);
+  border-top: 1px solid #434548;
   width: 100%;
+  height: auto;
+  font-size: 11px;
+  white-space: nowrap;
 }
 .palettelist .palette canvas {
   display: block;
@@ -1633,7 +1711,7 @@ body.hovercanvas.pointerdown.cursor-colorpicker .cursor .mark {
   border-bottom: 1px solid black;
   position: relative;
   height: 20px;
-  background-color: rgba(0, 0, 0, 0.2196078431);
+  background-color: #00000038;
   cursor: move;
   user-select: none;
 }
@@ -2086,14 +2164,14 @@ body.hovercanvas.pointerdown.cursor-colorpicker .cursor .mark {
   margin-top: -2px;
 }
 .modalwindow .inner .effects .sliders .slider input[type=range]::-webkit-slider-runnable-track {
-  background: linear-gradient(90deg, rgb(0, 0, 0) 0%, rgb(200, 200, 200) 100%);
+  background: linear-gradient(90deg, black 0%, #c8c8c8 100%);
   border: 1px solid #010101;
   width: 100%;
   height: 4px;
   cursor: pointer;
 }
 .modalwindow .inner .effects .sliders .slider input[type=range]::-moz-range-track {
-  background: linear-gradient(90deg, rgb(0, 0, 0) 0%, rgb(200, 200, 200) 100%);
+  background: linear-gradient(90deg, black 0%, #c8c8c8 100%);
   border: 1px solid #010101;
   width: 100%;
   height: 2px;

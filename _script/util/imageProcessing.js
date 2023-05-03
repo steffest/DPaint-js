@@ -2,6 +2,7 @@ import EventBus from "./eventbus.js";
 import {COMMAND, EVENT} from "../enum.js";
 import Palette from "../ui/palette.js";
 import ImageFile from "../image.js";
+import Color from "./color.js";
 
 var ImageProcessing = function(){
 	var me = {};
@@ -540,31 +541,31 @@ var ImageProcessing = function(){
 
 
 	function processImage(colorCount, bitsPerColor, ditherPattern, Id) {
-		var Colors = [];
+		var colors = [];
 		var useTransparentColor = true;
 
 		var transparentColor = useTransparentColor?Palette.getBackgroundColor():undefined;
 
 		if(colorCount === "Palette") {
 			for(var i = 0; i < imageInfos.palette.length; i++){
-				var color = imageInfos.palette[i];
-				Colors.push({ Red: color[0], Green: color[1], Blue: color[2], Alpha: 255 });
+				var color = Color.fromString(imageInfos.palette[i]);
+				colors.push({ Red: color[0], Green: color[1], Blue: color[2], Alpha: 255 });
 			}
-			imageInfos.QuantizedColors = Colors;
-			remapImage(imageInfos.canvas, Colors, ditherPattern);
+			imageInfos.QuantizedColors = colors;
+			remapImage(imageInfos.canvas, colors, ditherPattern);
 		}else{
 			if(!imageInfos.Colors || imageInfos.Colors.length > colorCount) {
 				if(colorCount === 2){
 					if (useTransparentColor){
-						Colors.push({ Red: transparentColor[0], Green: transparentColor[1], Blue: transparentColor[2] });
+						colors.push({ Red: transparentColor[0], Green: transparentColor[1], Blue: transparentColor[2] });
 					}else{
-						Colors.push({ Red: 255, Green: 255, Blue: 255 });
+						colors.push({ Red: 255, Green: 255, Blue: 255 });
 					}
-					Colors.push({ Red: 0, Green: 0, Blue: 0 });
+					colors.push({ Red: 0, Green: 0, Blue: 0 });
 
-					imageInfos.QuantizedColors = Colors;
+					imageInfos.QuantizedColors = colors;
 
-					remapImage(imageInfos.canvas, Colors, ditherPattern);
+					remapImage(imageInfos.canvas, colors, ditherPattern);
 
 					updateImageWindow(Id);
 				}
@@ -607,19 +608,19 @@ var ImageProcessing = function(){
 				return;
 			}else{
 				for (var Index = 0; Index < imageInfos.Colors.length; Index++)
-					Colors.push({ Red: imageInfos.Colors[Index].Red, Green: imageInfos.Colors[Index].Green, Blue: imageInfos.Colors[Index].Blue });
+					colors.push({ Red: imageInfos.Colors[Index].Red, Green: imageInfos.Colors[Index].Green, Blue: imageInfos.Colors[Index].Blue });
 			}
 
 			var ShadesPerColor = 1 << bitsPerColor;
 
-			for(var Index = 0; Index < Colors.length; Index++)
+			for(var Index = 0; Index < colors.length; Index++)
 			{
 				var ShadesScale = (ShadesPerColor - 1) / 255;
 				var InverseShadesScale = 1 / ShadesScale;
 
-				Colors[Index].Red = Math.round(Math.round(Colors[Index].Red * ShadesScale) * InverseShadesScale);
-				Colors[Index].Green = Math.round(Math.round(Colors[Index].Green * ShadesScale) * InverseShadesScale);
-				Colors[Index].Blue = Math.round(Math.round(Colors[Index].Blue * ShadesScale) * InverseShadesScale);
+				colors[Index].Red = Math.round(Math.round(colors[Index].Red * ShadesScale) * InverseShadesScale);
+				colors[Index].Green = Math.round(Math.round(colors[Index].Green * ShadesScale) * InverseShadesScale);
+				colors[Index].Blue = Math.round(Math.round(colors[Index].Blue * ShadesScale) * InverseShadesScale);
 			}
 		}
 
@@ -629,7 +630,7 @@ var ImageProcessing = function(){
 			remapFullPaletteImage(imageInfos.canvas, bitsPerColor, ditherPattern);
 		}
 
-		imageInfos.QuantizedColors = Colors;
+		imageInfos.QuantizedColors = colors;
 		
 		updateImageWindow(Id);
 	}

@@ -6,7 +6,6 @@
   border: 1px solid black;
   width: 100px;
   background-color: #313335;
-  overflow: auto;
   z-index: 10;
   display: none;
 
@@ -36,6 +35,52 @@
     }
   }
 
+  .inner{
+    position: absolute;
+    left:0;
+    right: 0;
+    top: 20px;
+    bottom: 0;
+    overflow: auto;
+    overflow-x: hidden;
+  }
+
+  .group{
+    color: #BBBBBB;
+    padding: 3px 5px 3px 16px;
+    position: relative ;
+    font-size: 12px;
+    border-bottom: 1px solid black;
+
+    &:before{
+      content: "";
+      position: absolute;
+      width: 16px;
+      height: 16px;
+      background-image: url("../_img/caret.svg");
+      background-repeat: no-repeat;
+      background-size: contain;
+      left: 1px;
+      top: 2px;
+      opacity: 0.7;
+    }
+
+    &.active{
+      &:before{
+        transform: rotate(90deg);
+      }
+    }
+
+    &:hover{
+        cursor: pointer;
+        background-color: #434548;
+
+      &:before{
+        opacity: 1;
+      }
+    }
+  }
+
   .palette{
     padding-bottom: 10px;
     clear: both;
@@ -48,6 +93,9 @@
       background-color:transparent;
       border-top: 1px solid rgb(67, 69, 72);
       width: 100%;
+      height: auto;
+      font-size: 11px;
+      white-space: nowrap;
     }
 
     canvas{

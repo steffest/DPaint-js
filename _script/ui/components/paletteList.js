@@ -7,6 +7,9 @@ let PaletteList = function(){
     let me = {};
     let container;
     let parent;
+    let inner;
+    let showGeneral = true;
+    let showPlatform = false;
 
     me.init = function(_parent){
         parent = _parent;
@@ -33,43 +36,62 @@ let PaletteList = function(){
     }
 
     function generate(){
-        container = $(".palettelist",
-            $(".caption","Palettes",
+        if (!container){
+            container = $(".palettelist",$(".caption","Palettes",
                 $(".close",{
                     onClick:me.hide
                 },"x")
-            )
-        );
+            ),inner = $(".inner"));
+            parent.appendChild(container);
+        }
+        inner.innerHTML = "";
 
         let list = Palette.getPaletteMap();
-        for (let key in list){
-            renderPalette(list[key]);
+
+        inner.appendChild($(".group" + (showGeneral?".active":""),{onClick:()=>{showGeneral=!showGeneral; generate()}},"General"));
+
+        if (showGeneral){
+            for (let key in list){
+                if (!list[key].platform) renderPalette(list[key]);
+            }
         }
-        container.appendChild($(".buttons",
+
+        inner.appendChild($(".group" + (showPlatform?".active":""),{onClick:()=>{showPlatform=!showPlatform; generate()}},"Retro platforms"));
+        if (showPlatform){
+            for (let key in list){
+                if (list[key].platform) renderPalette(list[key]);
+            }
+        }
+
+        inner.appendChild($(".buttons",
             $(".button",{onClick:()=>{Eventbus.trigger(COMMAND.LOADPALETTE)}}, "Load Palette"),
             $(".button",{onClick:()=>{Eventbus.trigger(COMMAND.SAVEPALETTE)}}, "Save Palette")
         ));
-        parent.appendChild(container);
     }
 
     function renderPalette(palette){
-        let colors = palette.palette;
-        if (colors){
-            let canvas,ctx;
+        let preset = palette.palette;
+        if (preset){
+            let canvas,ctx,colors;
             $(".palette",
-                {parent:container,onClick:()=>{
+                {parent:inner,onClick:()=>{
                         Palette.set(colors);
                     }},
                 $(".caption",palette.label),
                 canvas = $("canvas")
             );
 
-            canvas.width = 80;
-            canvas.height = Math.ceil(colors.length/8) * 10;
-            ctx = canvas.getContext("2d");
-            colors.forEach((color,index)=>{
-                ctx.fillStyle = Color.toString(color);
-                ctx.fillRect((index%8)*10,Math.floor(index/8)*10,10,10);
+            Palette.loadPreset(palette).then(_colors=>{
+                colors = _colors;
+                canvas.width = 80;
+                let size = colors.length>32 ? 5:10;
+                let colorsPerRow = Math.floor(canvas.width/size);
+                canvas.height = Math.ceil(colors.length/colorsPerRow) * size;
+                ctx = canvas.getContext("2d");
+                colors.forEach((color,index)=>{
+                    ctx.fillStyle = Color.toString(color);
+                    ctx.fillRect((index%colorsPerRow)*size,Math.floor(index/colorsPerRow)*size,size,size);
+                });
             });
         }
     }

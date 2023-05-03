@@ -11,3 +11,5 @@ V 0.1.1
 V 0.1.2
     - Resize image: option for smooth rescale or pixelated rescale
     - UAE window is now draggable and resizable
+    - fill in gaps in draw tool on fast mouse moves
+    - Additional palettes and pagination for long palettes

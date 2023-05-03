@@ -12,11 +12,15 @@ let Palette = function(){
     var container;
     var paletteCanvas;
     var paletteCtx;
+    var paletteNav;
     var size = 14;
     var currentPalette;
     var alphaThreshold = 44;
     var ditherIndex = 0;
     var targetColorCount = 32;
+    let palettePageIndex = 0;
+    let palettePageCount = 1;
+    let currentHeight;
 
     var drawColor = "black";
     var backgroundColor = "white";
@@ -42,36 +46,6 @@ let Palette = function(){
         [175,175,175],
         [170,144,124],
         [255,169,151]
-    ];
-
-    var sketchPalette = [
-        [149,149,149],
-        [58,65,67],
-        [255,255,255],
-        [141,174,198],
-        [230,213,144],
-        [231,227,216],
-        [90,171,119],
-        [171,57,57]
-    ];
-
-    var spotifyPalette = [
-        [244, 228, 205],
-        [237, 201, 156],
-        [227, 179, 114],
-        [219, 163, 80],
-        [200, 114, 58],
-        [137, 72, 44],
-        [90, 44, 23],
-        [54, 22, 13],
-        [5, 3, 4],
-        [187, 186, 155],
-        [179, 176, 142],
-        [171, 168, 135],
-        [156, 151, 124],
-        [151, 141, 113],
-        [133, 123, 102],
-        [124, 111, 93],
     ];
 
     // https://pixeljoint.com/forum/forum_posts.asp?TID=12795
@@ -138,17 +112,23 @@ let Palette = function(){
         optimized: {label: "Optimized", palette: null},
         current: {label: "Current", palette: null},
         mui: {label: "MUI", palette:muiPalette},
-        sketch: {label: "Sketch", palette:sketchPalette},
         db8: {label: "DawnBringer 8", palette:[[20, 12, 28],[85, 65, 95],[100, 105, 100],[215, 115, 85],[80, 140, 215],[100, 185, 100],[230, 200, 110],[220, 245, 255]]},
         db16: {label: "DawnBringer 16", palette:db16Palette},
         db32: {label: "DawnBringer 32", palette:db32Palette},
-        gfxk: {label: "Grafxkid 32", palette:gfxkPalette},
         gfxk16: {label: "Grafxkid 16", palette:[[26, 28, 44],[93, 39, 93],[177, 62, 83],[239, 125, 87],[255, 205, 117],[167, 240, 112],[56, 183, 100],[37, 113, 121],[41, 54, 111],[59, 93, 201],[65, 166, 246],[115, 239, 247],[244, 244, 244],[148, 176, 194],[86, 108, 134],[51, 60, 87]]},
+        gfxk: {label: "Grafxkid 32", palette:gfxkPalette},
         pico8: {label: "PICO-8", palette:[[0, 0, 0],[29, 43, 83],[126, 37, 83],[0, 135, 81],[171, 82, 54],[95, 87, 79],[194, 195, 199],[255, 241, 232],[255, 0, 77],[255, 163, 0],[255, 236, 39],[0, 228, 54],[41, 173, 255],[131, 118, 156],[255, 119, 168],[255, 204, 170]]},
-        pepto: {label: "Pepto (C64)", palette:[[0, 0, 0],[255, 255, 255],[104,55,43],[112 ,164 ,178 ],[111 ,61 ,134 ],[88 ,141 ,67],[53 ,40 ,121],[184 ,199 ,111],[111 ,79 ,37],[67 ,57 ,0],[154 ,103 ,89],[68 ,68 ,68],[108 ,108 ,108],[154 ,210 ,132],[108 ,94 ,181],[149 ,149 ,149]]},
-        spectrum: {label: "ZX Spectrum", palette:[[0,0,0],[0,0,128],[0,0,255],[128,0,0],[255,0,0],[128,0,128],[255,0,255],[0,128,0],[0,255,0],[0,128,128],[0,255,255],[128,128,0],[255,255,0],[128,128,128],[255,255,255]]},
-        amstrad: {label: "Amstrad CPC", palette:[[0,0,0],[0,0,128],[0,0,255],[128,0,0],[128,0,128],[128,0,255],[255,0,0],[255,0,128],[255,0,255],[0,128,0],[0,128,128],[0,128,255],[128,128,0],[128,128,128],[128,128,255],[255,128,0],[255,128,128],[255,128,255],[0,255,0],[0,255,128],[0,255,255],[128,255,0],[128,255,128],[128,255,255],[255,255,0],[255,255,128],[255,255,255]]},
-        micro: {label: "BBC Micro", palette:[[0,0,0],[255,0,0],[0,255,0],[255,255,0],[0,0,255],[255,0,255],[0,255,255],[255,255,255]]}
+        dga:{label: "DGA-16",palette:["#010101","#031b75","#108c00","#17bbd3","#720c0a","#6c1c9e","#b25116","#b8b0a8","#4a4842","#0b63c4","#9bce00","#73f5d5","#e89e00","#ff7bdb","#fef255","#fffffe"]},
+        micro: {label: "BBC Micro", platform: true, palette:[[0,0,0],[255,0,0],[0,255,0],[255,255,0],[0,0,255],[255,0,255],[0,255,255],[255,255,255]]},
+        pepto: {label: "Pepto (C64)", platform: true, palette:[[0, 0, 0],[255, 255, 255],[104,55,43],[112 ,164 ,178 ],[111 ,61 ,134 ],[88 ,141 ,67],[53 ,40 ,121],[184 ,199 ,111],[111 ,79 ,37],[67 ,57 ,0],[154 ,103 ,89],[68 ,68 ,68],[108 ,108 ,108],[154 ,210 ,132],[108 ,94 ,181],[149 ,149 ,149]]},
+        spectrum: {label: "ZX Spectrum", platform: true, palette:[[0,0,0],[0,0,128],[0,0,255],[128,0,0],[255,0,0],[128,0,128],[255,0,255],[0,128,0],[0,255,0],[0,128,128],[0,255,255],[128,128,0],[255,255,0],[128,128,128],[255,255,255]]},
+        msx:{label: "MSX",platform:true,palette:"MSX.json"},
+        cga:{label: "CGA (IBM PC)",platform:true,palette:"CGA.json"},
+        amstrad: {label: "Amstrad CPC", platform: true, palette:"Amstrad-CPC.json"},
+        ted:{label: "C= TED/+4/16",platform:true,palette:"TED-Plus4-C16.json"},
+        atari2600pal:{label: "Atari 2600 PAL",platform:true,palette:"Atari-2600-PAL.json"},
+        atari2600ntsc:{label: "Atari 2600 NTSC",platform:true,palette:"Atari-2600-NTSC.json"},
+        atari:{label: "Atari GTIA",platform:true,palette:"Atari-GTIA.json"},
     };
     var targetPalette = null;
 
@@ -199,6 +179,8 @@ let Palette = function(){
                 me.setColor([p[0],p[1],p[2]],e.button);
             }
         })
+
+        paletteNav = $div("palettenav","",paletteParent);
 
         paletteCtx = paletteCanvas.getContext("2d");
         me.set(colors);
@@ -257,25 +239,59 @@ let Palette = function(){
         let rows = Math.ceil(palette.length/cols);
         paletteCanvas.width = cols*size;
         paletteCanvas.height = rows*size;
+        palettePageIndex = 0;
+        palettePageCount = 1;
+        paletteNav.innerHTML = "";
+        let pageNumber,pageNext,pagePrev;
 
-        palette.forEach((color,index)=>{
-            //let c = $div("color","",container,(e)=>{
-            //    me.setColor(color,e.button);
-            //});
 
+        let box = paletteCanvas.getBoundingClientRect();
+        let parentBox = paletteCanvas.parentElement.getBoundingClientRect();
+        let availableHeight = parentBox.height + parentBox.top - box.top;
+        currentHeight = availableHeight;
+        if (availableHeight < paletteCanvas.height){
+            let rows = Math.floor((availableHeight-22)/size);
+            paletteCanvas.height = rows*size;
+            palettePageCount = Math.ceil(palette.length/(cols*rows));
+            paletteNav.appendChild($(".nav",
+                pagePrev = $(".prev",{onClick:()=>{setPage(-1)}}),
+                pageNumber = $(".page","1"),
+                pageNext = $(".next.active",{onClick:()=>{setPage(1)}})));
+        }
+        currentPalette = palette;
+        drawPalette();
+
+        function setPage(index){
+            palettePageIndex += index;
+            if (palettePageIndex < 0) palettePageIndex = 0;
+            if (palettePageIndex >= palettePageCount) palettePageIndex = palettePageCount-1;
+            pageNumber.innerHTML = palettePageIndex+1;
+            pagePrev.classList.toggle("active",palettePageIndex > 0);
+            pageNext.classList.toggle("active",palettePageIndex < palettePageCount-1);
+            drawPalette();
+        }
+    }
+
+    function drawPalette(){
+        let cols = 4;
+        let rows = Math.floor(paletteCanvas.height/size);
+        let start = palettePageIndex * cols * rows;
+        let end = start + cols * rows;
+        if (end > currentPalette.length) end = currentPalette.length;
+        paletteCtx.clearRect(0,0,paletteCanvas.width,paletteCanvas.height);
+        for (let i=start;i<end;i++){
+            let color = currentPalette[i];
             if (typeof color === "string"){
                 color = Color.fromString(color);
-                palette[index] = color;
+                currentPalette[i] = color;
             }
-
-            let x = index%cols * size;
-            let y = Math.floor(index/cols) * size;
+            let x = ((i-start)%cols) * size;
+            let y = Math.floor((i-start)/cols) * size;
             paletteCtx.fillStyle = "rgb(" + color[0] + "," + color[1] + "," + color[2] + ")";
             paletteCtx.fillRect(x,y,size,size);
-        })
-
-        currentPalette = palette;
+        }
     }
+
 
     me.get = function(){
         return currentPalette;
@@ -338,8 +354,17 @@ let Palette = function(){
         });
         pselect.onchange = function(){
             targetPalette = paletteMap[pselect.value].palette;
-            if (pselect.value === "current")targetPalette = currentPalette;
-            me.reduce();
+            if (pselect.value === "current") targetPalette = currentPalette;
+            if (typeof targetPalette === "string"){
+                me.loadPreset(paletteMap[pselect.value]).then(palette=>{
+                    paletteMap[pselect.value].palette = palette;
+                    targetPalette = palette;
+                    me.reduce();
+                })
+            }else{
+                me.reduce();
+            }
+
         }
         palettePanel.appendChild(pselect);
 
@@ -445,6 +470,31 @@ let Palette = function(){
         return paletteMap;
     }
 
+    me.loadPreset = function(preset){
+        return new Promise((resolve)=>{
+            if (preset && preset.palette){
+                if (typeof preset.palette === "object"){
+                    resolve(preset.palette);
+                    return;
+                }
+                if (typeof preset.palette === "string"){
+                    console.log("loading palette",preset.palette);
+                    fetch("_data/palettes/"+preset.palette).then(r=>r.json()).then(data=>{
+                        if (data && data.palette){
+                            preset.palette = data.palette;
+                            resolve(data.palette);
+                        }else{
+                            console.error("Error loading palette",preset.palette);
+                            resolve([]);
+                        }
+                    });
+                    return;
+                }
+            }
+            resolve([])
+        });
+    }
+
 
     EventBus.on(COMMAND.PALETTEFROMIMAGE,me.fromImage);
     EventBus.on(COMMAND.PALETTEREDUCE,me.reduce);
@@ -453,6 +503,14 @@ let Palette = function(){
         me.setColor(backgroundColor);
         me.setColor(c,1);
     })
+    EventBus.on(EVENT.UIresize,()=>{
+        let box = paletteCanvas.getBoundingClientRect();
+        let parentBox = paletteCanvas.parentElement.getBoundingClientRect();
+        let availableHeight = parentBox.height + parentBox.top - box.top;
+        if (availableHeight !== currentHeight){
+            me.set(currentPalette);
+        }
+    });
 
     return me;
 }();

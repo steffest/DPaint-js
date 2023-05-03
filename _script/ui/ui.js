@@ -7,6 +7,8 @@ import Cursor from "./cursor.js";
 import Sidepanel from "./sidepanel.js";
 import StatusBar from "./statusbar.js";
 import PaletteList from "./components/paletteList.js";
+import EventBus from "../util/eventbus.js";
+import {EVENT} from "../enum.js";
 
 let UI = function(){
 	let me = {}
@@ -23,6 +25,10 @@ let UI = function(){
 		Sidepanel.init(container);
 		PaletteList.init(container);
 		Editor.init(container);
+
+		window.addEventListener("resize",()=>{
+			EventBus.trigger(EVENT.UIresize);
+		},{passive:true});
 	}
 
 	me.fuzzy = function(value){

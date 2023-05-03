@@ -32,3 +32,5 @@ Image Scale Algorithm
 FileSaver.js - used as fallback for older browsers
     MIT License - Copyright © 2016 Eli Grey
     https://github.com/eligrey/FileSaver.js
+
+Additional Retro Platform palettes by Zeb Elwood
