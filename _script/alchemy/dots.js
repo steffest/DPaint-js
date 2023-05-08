@@ -1,4 +1,11 @@
 let process = function(source,target){
+    let expose = {
+        dotRadius:{min:1,max:50,value:5},
+        radiusJitter:{min:0,max:50,value:5},
+        positionJitter:{min:0,max:100,value:50},
+        alpha:{min:0,max:100,value:10}
+    };
+
     let ctx=source.getContext("2d");
     let w = source.width;
     let h = source.height;
@@ -12,8 +19,8 @@ let process = function(source,target){
         let x = Math.floor(Math.random()*w);
         let y = Math.floor(Math.random()*h);
         let color = getColor(x,y);
-        target.fillStyle = toRGBA(color,0.1);
-        splash(x,y,5,50,5);
+        target.fillStyle = toRGBA(color,expose.alpha.value/100);
+        splash(x,y,expose.dotRadius.value,expose.positionJitter.value,expose.radiusJitter.value);
     }
 
     function getColor(x,y){

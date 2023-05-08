@@ -36,6 +36,10 @@ let SyntaxEdit = function(parent,onChange){
         highlight();
     }
 
+    me.onChange =()=>{
+        onChange(editor.innerText);
+    }
+
     function highlight(){
         textarea.innerText=editor.innerText;
         let text = textarea.innerHTML;

@@ -2149,77 +2149,78 @@ body.hovercanvas.pointerdown.cursor-colorpicker .cursor .mark {
 .modalwindow .inner .effects .sliders.active {
   display: block;
 }
-.modalwindow .inner .effects .sliders .slider {
+.modalwindow .inner .effects .slider {
   position: relative;
   margin: 4px 0;
 }
-.modalwindow .inner .effects .sliders .slider label {
+.modalwindow .inner .effects .slider label {
   display: block;
   font-size: 12px;
+  text-transform: capitalize;
 }
-.modalwindow .inner .effects .sliders .slider input[type=range] {
+.modalwindow .inner .effects .slider input[type=range] {
   width: 200px;
   position: relative;
   z-index: 10;
   margin-top: -2px;
 }
-.modalwindow .inner .effects .sliders .slider input[type=range]::-webkit-slider-runnable-track {
+.modalwindow .inner .effects .slider input[type=range]::-webkit-slider-runnable-track {
   background: linear-gradient(90deg, black 0%, #c8c8c8 100%);
   border: 1px solid #010101;
   width: 100%;
   height: 4px;
   cursor: pointer;
 }
-.modalwindow .inner .effects .sliders .slider input[type=range]::-moz-range-track {
+.modalwindow .inner .effects .slider input[type=range]::-moz-range-track {
   background: linear-gradient(90deg, black 0%, #c8c8c8 100%);
   border: 1px solid #010101;
   width: 100%;
   height: 2px;
   cursor: pointer;
 }
-.modalwindow .inner .effects .sliders .slider input[type=range].saturation::-webkit-slider-runnable-track {
+.modalwindow .inner .effects .slider input[type=range].saturation::-webkit-slider-runnable-track {
   background: linear-gradient(90deg, #7F7F7F 0%, #F50A0A 100%);
 }
-.modalwindow .inner .effects .sliders .slider input[type=range].saturation::-moz-range-track {
+.modalwindow .inner .effects .slider input[type=range].saturation::-moz-range-track {
   background: linear-gradient(90deg, #7F7F7F 0%, #F50A0A 100%);
 }
-.modalwindow .inner .effects .sliders .slider input[type=range].contrast::-webkit-slider-runnable-track {
+.modalwindow .inner .effects .slider input[type=range].contrast::-webkit-slider-runnable-track {
   background: linear-gradient(90deg, #7F7F7F 0%, #000000 100%);
 }
-.modalwindow .inner .effects .sliders .slider input[type=range].contrast::-moz-range-track {
+.modalwindow .inner .effects .slider input[type=range].contrast::-moz-range-track {
   background: linear-gradient(90deg, #7F7F7F 0%, #000000 100%);
 }
-.modalwindow .inner .effects .sliders .slider input[type=range].hue::-webkit-slider-runnable-track {
+.modalwindow .inner .effects .slider input[type=range].hue::-webkit-slider-runnable-track {
   background: linear-gradient(90deg, #FF3A00 0%, #F0FF00 20%, #00FF1D 40%, #0007FF 60%, #FF00F1 80%, #FA0505 100%);
 }
-.modalwindow .inner .effects .sliders .slider input[type=range].hue::-moz-range-track {
+.modalwindow .inner .effects .slider input[type=range].hue::-moz-range-track {
   background: linear-gradient(90deg, #FF3A00 0%, #F0FF00 20%, #00FF1D 40%, #0007FF 60%, #FF00F1 80%, #FA0505 100%);
 }
-.modalwindow .inner .effects .sliders .slider input[type=range].sepia::-webkit-slider-runnable-track {
+.modalwindow .inner .effects .slider input[type=range].sepia::-webkit-slider-runnable-track {
   background: linear-gradient(90deg, #313335 0%, #8A4F38 100%);
 }
-.modalwindow .inner .effects .sliders .slider input[type=range].sepia::-moz-range-track {
+.modalwindow .inner .effects .slider input[type=range].sepia::-moz-range-track {
   background: linear-gradient(90deg, #313335 0%, #8A4F38 100%);
 }
-.modalwindow .inner .effects .sliders .slider input[type=range].cyan::-webkit-slider-runnable-track {
+.modalwindow .inner .effects .slider input[type=range].cyan::-webkit-slider-runnable-track {
   background: linear-gradient(90deg, #0AF5F5 0%, #F50A0A 100%);
 }
-.modalwindow .inner .effects .sliders .slider input[type=range].cyan::-moz-range-track {
+.modalwindow .inner .effects .slider input[type=range].cyan::-moz-range-track {
   background: linear-gradient(90deg, #0AF5F5 0%, #F50A0A 100%);
 }
-.modalwindow .inner .effects .sliders .slider input[type=range].magenta::-webkit-slider-runnable-track {
+.modalwindow .inner .effects .slider input[type=range].magenta::-webkit-slider-runnable-track {
   background: linear-gradient(90deg, #F50AF5 0%, #0AF50A 100%);
 }
-.modalwindow .inner .effects .sliders .slider input[type=range].magenta::-moz-range-track {
+.modalwindow .inner .effects .slider input[type=range].magenta::-moz-range-track {
   background: linear-gradient(90deg, #F50AF5 0%, #0AF50A 100%);
 }
-.modalwindow .inner .effects .sliders .slider input[type=range].yellow::-webkit-slider-runnable-track {
+.modalwindow .inner .effects .slider input[type=range].yellow::-webkit-slider-runnable-track {
   background: linear-gradient(90deg, #F5F50A 0%, #0A0AF5 100%);
 }
-.modalwindow .inner .effects .sliders .slider input[type=range].yellow::-moz-range-track {
+.modalwindow .inner .effects .slider input[type=range].yellow::-moz-range-track {
   background: linear-gradient(90deg, #F5F50A 0%, #0A0AF5 100%);
 }
-.modalwindow .inner .effects .sliders .slider input[type=text] {
+.modalwindow .inner .effects .slider input[type=text] {
   position: absolute;
   width: 40px;
   right: 0;
@@ -2303,6 +2304,22 @@ body.hovercanvas.pointerdown.cursor-colorpicker .cursor .mark {
   left: 0;
   top: 176px;
   user-select: none;
+}
+.modalwindow .inner .effects .code .params {
+  position: absolute;
+  background-color: #313335;
+  z-index: 1;
+  right: 0;
+  top: -242px;
+  width: 256px;
+  height: 206px;
+}
+.modalwindow .inner .effects .code .params h3 {
+  padding-left: 0;
+}
+.modalwindow .inner .effects .code .params .slider {
+  margin-left: 20px;
+  margin-right: 36px;
 }
 .modalwindow .inner .effects .previewpanel {
   position: absolute;

@@ -15,6 +15,7 @@ var EffectDialog = function() {
     let livePreview;
     let codePanel;
     let currentSource;
+    let currentRecipeSource;
     let mainPanel;
 
     me.render = function (container,modal) {
@@ -97,13 +98,13 @@ var EffectDialog = function() {
             {name: "Lines", file:"lines"},
             {name: "Lines Curved", file:"linescurved"},
             {name: "Glow", file:"glow"},
-            //{name: "Webby", file:"web"},
+            {name: "Webby", file:"web"},
             //{name: "Texture", file:"texture"},
         ]
 
         recipes.forEach(recipe=>{
             $div("recipe",recipe.name,alchemy,()=>{
-                loadRecipe(recipe.file);
+                loadRecipe(recipe.file,recipe.name);
             })
         })
 
@@ -153,7 +154,7 @@ var EffectDialog = function() {
 
     }
 
-    function createSlider(parent,label,value,min,max,onInput){
+    function createSlider(parent,label,value,min,max,onInput,isCustom,onChange){
         let result = $div("slider");
         let labelElm = $elm("label",label,result);
         let range = $input("range",value,result);
@@ -178,8 +179,9 @@ var EffectDialog = function() {
             range.value = p;
             if (onInput) onInput(range.value);
         }
+        if (onChange) range.onchange = onChange;
         if (parent) parent.appendChild(result);
-        effects.push(range);
+        if (!isCustom) effects.push(range);
     }
 
     function update(){
@@ -191,7 +193,7 @@ var EffectDialog = function() {
         }
     }
 
-    async function loadRecipe(recipe){
+    async function loadRecipe(recipe,name){
         let textarea;
         let button;
         let process;
@@ -209,8 +211,7 @@ var EffectDialog = function() {
         })
 
 
-        $div("button primary","Run",codePanel,()=>{
-            console.error(typeof process);
+        let run = $div("button primary","Run",codePanel,()=>{
             if (typeof process === "function"){
                 let source = currentSource;
                 //let target = ImageFile.getActiveLayer().getContext();
@@ -227,8 +228,80 @@ var EffectDialog = function() {
 
         process = (await import("../../alchemy/"+recipe+".js")).default
         if (typeof process === "function"){
-            textarea.setValue(process.toString());
+            let value = process.toString();
+
+            let exposeIndex = value.indexOf("expose=");
+            let exposeIndexEnd = 0;
+            if (exposeIndex<0) exposeIndex = value.indexOf("expose =");
+            if (exposeIndex>=0){
+                let expose = value.substring(exposeIndex);
+                let bracketCount = 0;
+                let bracketFound = false;
+                for (let i=1;i<expose.length;i++){
+                    if (expose[i]==="{") bracketCount++;
+                    if (expose[i]==="}") {bracketCount--;bracketFound=true;}
+                    if (bracketFound && bracketCount===0){
+                        exposeIndexEnd = i;
+                        let endOfLine = expose.indexOf("\n",exposeIndexEnd);
+                        if (endOfLine>=0) exposeIndexEnd = endOfLine;
+                        expose = expose.substring(0,i+1);
+                        break;
+                    }
+                }
+                try {
+                    let exposed = eval(expose);
+                    if (exposed && typeof exposed==="object" && Object.keys(exposed).length>0){
+                        renderRecipeParams (exposed);
+                    }
+                }   catch (e){
+                    console.error(e);
+                }
+            }
+
+            textarea.setValue(value);
+            currentRecipeSource = value;
+
+            if (exposeIndex>0 && exposeIndexEnd>0){
+                currentRecipeSource = value.substring(0,exposeIndex)+ "###exposed###" + value.substring(exposeIndex+exposeIndexEnd);
+            }
+
         }
+
+        function renderRecipeParams(params){
+            let paramPanel = $div("params","<h3>Parameters for '" + name + "'</h3>",codePanel);
+
+            Object.keys(params).forEach(key=>{
+                let param = params[key];
+                // parent,label,value,min,max,onInput,isCustom
+                createSlider(paramPanel,camelCaseToSpace(key),param.value,param.min,param.max,(value)=>{
+                    params[key].value = parseFloat(value);
+                    let expose = "expose = {\n";
+                    Object.keys(params).forEach(key=>{
+                        expose += "        "+key+": "+ JSON.stringify(params[key])+",\n";
+                    });
+                    expose += "    };";
+                    textarea.setValue(currentRecipeSource.replace("###exposed###",expose));
+                },true,()=>{
+                    textarea.onChange();
+                    run.onClick();
+                });
+            });
+
+
+        }
+    }
+
+    function camelCaseToSpace(str){
+        let result = "";
+        for (let i=0;i<str.length;i++){
+            let c = str[i];
+            if (c===c.toUpperCase()){
+                result += " "+c;
+            }else{
+                result += c;
+            }
+        }
+        return result;
     }
 
 
