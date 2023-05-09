@@ -98,7 +98,7 @@ var EffectDialog = function() {
             {name: "Lines", file:"lines"},
             {name: "Lines Curved", file:"linescurved"},
             {name: "Glow", file:"glow"},
-            {name: "Webby", file:"web"},
+            {name: "Frost", file:"web"},
             //{name: "Texture", file:"texture"},
         ]
 
