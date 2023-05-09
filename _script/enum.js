@@ -68,6 +68,7 @@ export let COMMAND={
     SAVEGENERIC: 1067,
     SAVEFILETOADF: 1068,
     DUPLICATEFRAME: 1069,
+    SMUDGE: 1070,
 }
 
 export let EVENT={

@@ -17,6 +17,8 @@ import Color from "../util/color.js";
 import {duplicateCanvas} from "../util/canvasUtils.js";
 import HistoryService from "../services/historyservice.js";
 import Cursor from "./cursor.js";
+import Smudge from "../paintTools/smudge.js";
+import historyservice from "../services/historyservice.js";
 
 let Canvas = function(parent){
 	let me = {};
@@ -220,6 +222,7 @@ let Canvas = function(parent){
         EventBus.trigger(EVENT.layerContentChanged);
     }
 
+
     let defaultDrawFunction = function(){
         let box = Resizer.get();
         let w = box.width;
@@ -263,6 +266,11 @@ let Canvas = function(parent){
                         if (!isOnCanvas) return;
                         HistoryService.start(EVENT.layerHistory);
                         draw();
+                        break;
+                    case COMMAND.SMUDGE:
+                        HistoryService.start(EVENT.layerHistory);
+                        Smudge.start(touchData);
+                        if (!isOnCanvas) return;
                         break;
                     case COMMAND.SELECT:
                         touchData.isSelecting = true;
@@ -524,6 +532,11 @@ let Canvas = function(parent){
                     EventBus.trigger(EVENT.layerContentChanged);
                 }
 
+                if (touchData.isSmudging){
+                    historyservice.end();
+                    EventBus.trigger(EVENT.layerContentChanged);
+                }
+
                 if (touchData.isSelecting){
                     if (touchData.selection){
                         Selection.set(touchData.selection);
@@ -553,6 +566,7 @@ let Canvas = function(parent){
 
                 touchData.isdown = false;
                 touchData.isDrawing = false;
+                touchData.isSmudging = false;
                 touchData.isSelecting = false;
                 touchData.selection = undefined;
                 touchData.previousDrawPoint = undefined;
@@ -611,6 +625,12 @@ let Canvas = function(parent){
                         hideOverlay();
                         getCursorPosition(canvas,e,true);
                         draw();
+                    }
+
+                    if (touchData.isSmudging){
+                        hideOverlay();
+                        getCursorPosition(canvas,e,true);
+                        Smudge.draw(touchData);
                     }
 
                     if (touchData.isSelecting){

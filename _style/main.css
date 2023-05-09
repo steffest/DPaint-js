@@ -424,6 +424,10 @@ input[type=range]:focus::-ms-fill-upper {
   background-image: url("../_img/eraser.svg");
   background-size: 80% 80%;
 }
+.toolbar .button.smudge {
+  background-image: url("../_img/smudge.svg");
+  background-size: 80% 80%;
+}
 .toolbar .button.stamp {
   background-image: url("../_img/stamp.svg");
   background-size: 80% 80%;

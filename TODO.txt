@@ -4,7 +4,7 @@
 - dragging of panels?
 - improve rotate layer/selection
 - polygon mask - deduplicate points
-- pen support
+- pen support (TouchData force => https://developer.mozilla.org/en-US/docs/Web/API/Touch/force )
 - small screen support
 - copy image larger than canvas => keep entire image?
 - deselect after resize

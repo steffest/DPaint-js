@@ -62,11 +62,15 @@ var Brush = function(){
     }
 
     me.getSettings=()=>{
-        return{
+        let settings = {
             width:width,
             height:height,
             opacity: opacity
         };
+        if (dynamicSettings){
+            settings.softness = dynamicSettings.softness;
+        }
+        return settings;
     }
 
     me.set = function(type,index){

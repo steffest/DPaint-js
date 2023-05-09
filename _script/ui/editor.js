@@ -74,6 +74,9 @@ var Editor = function(){
             currentTool = COMMAND.ERASE;
             Cursor.set("draw");
         });
+        EventBus.on(COMMAND.SMUDGE,function(){
+            currentTool = COMMAND.SMUDGE;
+        });
         EventBus.on(COMMAND.SELECT,function(){
             currentTool = COMMAND.SELECT;
             Cursor.set("select");

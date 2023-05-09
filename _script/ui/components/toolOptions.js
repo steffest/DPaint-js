@@ -60,6 +60,10 @@ let ToolOptions = function(){
                 options.appendChild(brushSetting());
                 options.appendChild(ditherSetting());
                 break;
+            case COMMAND.SMUDGE:
+                options.appendChild(label("Brush:"));
+                options.appendChild(brushSetting());
+                break;
             case COMMAND.LINE:
                 options.appendChild(label("Line:"));
                 options.appendChild(smoothSetting());
@@ -159,7 +163,7 @@ let ToolOptions = function(){
                 brushSettings.sizeInput.innerText = settings.width + "px" ;
                 brushSettings.opacityRange.value = settings.opacity;
                 brushSettings.opacityInput.innerText = settings.opacity + "%" ;
-                ditherCheckbox.setState(DitherPanel.getDitherState());
+                if (ditherCheckbox) ditherCheckbox.setState(DitherPanel.getDitherState());
             })
 
         }

@@ -40,6 +40,7 @@ let Menu = function(){
                 {label: "Circle",command: COMMAND.CIRCLE,shortKey: "C"},
                 {label: "Gradient",command: COMMAND.GRADIENT,shortKey: "G"},
                 {label: "Erase",command: COMMAND.ERASE,shortKey: "E"},
+                {label: "Smudge",command: COMMAND.SMUDGE,shortKey: "M"},
                 {label: "Hand",command: COMMAND.PAN,shortKey: "H"},
                 {label: "Color Picker",command: COMMAND.COLORPICKER,shortKey: "I"}
             ]},

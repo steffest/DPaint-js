@@ -370,6 +370,7 @@ var Input = function(){
 				case "h": EventBus.trigger(COMMAND.PAN); break;
 				case "i": EventBus.trigger(COMMAND.COLORPICKER); break;
 				case "l": EventBus.trigger(COMMAND.LINE); break;
+				case "m": EventBus.trigger(COMMAND.SMUDGE); break;
 				case "p": EventBus.trigger(COMMAND.POLYGONSELECT); break;
 				case "r": EventBus.trigger(COMMAND.SQUARE); break;
 				case "s": EventBus.trigger(COMMAND.SELECT); break;
