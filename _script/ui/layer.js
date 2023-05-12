@@ -104,7 +104,11 @@ let Layer = function(width,height,name){
     }
     
     me.clear = function(){
-        ctx.clearRect(0,0, canvas.width, canvas.height);
+        if (maskActive){
+            maskCtx.clearRect(0,0, canvas.width, canvas.height);
+        }else{
+            ctx.clearRect(0,0, canvas.width, canvas.height);
+        }
     }
 
     me.drawImage = function(image,x,y){
