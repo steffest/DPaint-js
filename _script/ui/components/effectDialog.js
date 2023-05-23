@@ -12,7 +12,7 @@ var EffectDialog = function() {
     let me = {};
     let effects = [];
     let previewCanvas;
-    let livePreview;
+    let livePreview = true;
     let codePanel;
     let currentSource;
     let currentRecipeSource;
@@ -96,7 +96,6 @@ var EffectDialog = function() {
             {name: "Dabble", file:"dots"},
             {name: "Speckles", file:"speckles"},
             {name: "Lines", file:"lines"},
-            {name: "Lines Curved", file:"linescurved"},
             {name: "Glow", file:"glow"},
             {name: "Frost", file:"web"},
             //{name: "Texture", file:"texture"},
@@ -118,7 +117,7 @@ var EffectDialog = function() {
         $checkbox("Preview",previewPanel,"",checked=>{
             livePreview = checked;
             update();
-        });
+        },livePreview);
 
         let buttons = $div("buttons","",mainPanel);
         $div("button ghost left","Reset",buttons,()=>{
@@ -179,9 +178,13 @@ var EffectDialog = function() {
             range.value = p;
             if (onInput) onInput(range.value);
         }
+        valueElm.onchange = ()=>{
+            if (onChange) onChange();
+        }
         if (onChange) range.onchange = onChange;
         if (parent) parent.appendChild(result);
         if (!isCustom) effects.push(range);
+        return result;
     }
 
     function update(){
@@ -269,11 +272,13 @@ var EffectDialog = function() {
 
         function renderRecipeParams(params){
             let paramPanel = $div("params","<h3>Parameters for '" + name + "'</h3>",codePanel);
+            let keys = Object.keys(params);
+            if (keys.length>5) paramPanel.classList.add("columns");
 
-            Object.keys(params).forEach(key=>{
+            keys.forEach(key=>{
                 let param = params[key];
                 // parent,label,value,min,max,onInput,isCustom
-                createSlider(paramPanel,camelCaseToSpace(key),param.value,param.min,param.max,(value)=>{
+                let slider = createSlider(paramPanel,camelCaseToSpace(key),param.value,param.min,param.max,(value)=>{
                     params[key].value = parseFloat(value);
                     let expose = "expose = {\n";
                     Object.keys(params).forEach(key=>{
@@ -285,6 +290,7 @@ var EffectDialog = function() {
                     textarea.onChange();
                     run.onClick();
                 });
+                if (param.main) slider.classList.add("main");
             });
 
 

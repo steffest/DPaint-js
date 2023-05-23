@@ -4,6 +4,7 @@ import {COMMAND, EVENT} from "../enum.js";
 import Palette from "./palette.js";
 import Color from "../util/color.js";
 import Editor from "./editor.js";
+import ImageFile from "../image.js";
 
 var Brush = function(){
     var me = {};
@@ -142,7 +143,7 @@ var Brush = function(){
     }
 
 
-    me.draw = function(ctx,x,y,color,onBackground){
+    me.draw = function(ctx,x,y,color,onBackground,blendColor){
 
         let w,h,cFrom;
 
@@ -164,8 +165,30 @@ var Brush = function(){
                 ctx.drawImage(brushCanvas,x,y);
             }
         }else{
-            ctx.fillStyle = color;
-            ctx.fillRect(x,y,w,h);
+            if (blendColor && Palette.isLocked()){
+                let c = Color.fromString(color);
+                let imageCtx = ImageFile.getContext();
+                let data = imageCtx.getImageData(x,y,w,h);
+                let opacity2 = opacity/100;
+                let opacity1 = 1-opacity2;
+
+                for (let i = 0; i<data.data.length;i+=4){
+                    let r = data.data[i]*opacity1 + c[0]*opacity2;
+                    let g = data.data[i+1]*opacity1 + c[1]*opacity2;
+                    let b = data.data[i+2]*opacity1 + c[2]*opacity2;
+                    let finalColor = Palette.matchColor([r,g,b]);
+                    console.error(finalColor,r,g,b);
+                    data.data[i] = finalColor[0];
+                    data.data[i+1] = finalColor[1];
+                    data.data[i+2] = finalColor[2];
+                    data.data[i+3] = 255;
+                }
+                ctx.putImageData(data,x,y);
+            }else{
+                ctx.fillStyle = color;
+                ctx.fillRect(x,y,w,h);
+            }
+
         }
 
     }

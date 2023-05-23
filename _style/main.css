@@ -2243,8 +2243,13 @@ body.hovercanvas.pointerdown.cursor-colorpicker .cursor .mark {
   display: block;
 }
 .modalwindow .inner .effects .alchemy .recipe {
-  padding: 8px;
+  padding: 6px 6px 6px 24px;
   border-bottom: 1px solid black;
+  background-image: url("../_img/flask.svg");
+  background-repeat: no-repeat;
+  background-position: 2px center;
+  background-size: 16px 16px;
+  font-size: 12px;
 }
 .modalwindow .inner .effects .alchemy .recipe:hover {
   cursor: pointer;
@@ -2324,6 +2329,41 @@ body.hovercanvas.pointerdown.cursor-colorpicker .cursor .mark {
 .modalwindow .inner .effects .code .params .slider {
   margin-left: 20px;
   margin-right: 36px;
+}
+.modalwindow .inner .effects .code .params .slider label,
+.modalwindow .inner .effects .code .params .slider input[type=text] {
+  font-size: 11px;
+}
+.modalwindow .inner .effects .code .params .slider input[type=text] {
+  padding: 1px 2px;
+}
+.modalwindow .inner .effects .code .params .slider input[type=range]::-webkit-slider-thumb {
+  height: 12px;
+  margin-top: -5px;
+}
+.modalwindow .inner .effects .code .params .slider input[type=range]::-ms-thumb {
+  height: 12px;
+}
+.modalwindow .inner .effects .code .params .slider input[type=range]::-moz-range-thumb {
+  height: 10px;
+}
+.modalwindow .inner .effects .code .params.columns .slider {
+  margin-left: 10px;
+  margin-right: 0;
+  width: 110px;
+  display: inline-block;
+}
+.modalwindow .inner .effects .code .params.columns .slider.main {
+  width: 230px;
+}
+.modalwindow .inner .effects .code .params.columns .slider.main input[type=range] {
+  width: 230px;
+}
+.modalwindow .inner .effects .code .params.columns .slider input[type=range] {
+  width: 110px;
+}
+.modalwindow .inner .effects .code .params.columns .slider input[type=text] {
+  width: 30px;
 }
 .modalwindow .inner .effects .previewpanel {
   position: absolute;

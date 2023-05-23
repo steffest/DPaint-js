@@ -149,8 +149,13 @@
     }
 
     .recipe{
-      padding: 8px;
+      padding: 6px 6px 6px 24px;
       border-bottom: 1px solid black;
+      background-image: url("../_img/flask.svg");
+      background-repeat: no-repeat;
+      background-position: 2px center;
+      background-size: 16px 16px;
+      font-size: 12px;
 
       &:hover{
         cursor: pointer;
@@ -218,6 +223,51 @@
       .slider{
         margin-left: 20px;
         margin-right: 36px;
+
+        label,
+        input[type="text"]{
+          font-size: 11px;
+        }
+
+        input[type="text"]{
+          padding: 1px 2px;
+        }
+
+        input[type=range]::-webkit-slider-thumb{
+          height: 12px;
+          margin-top: -5px;
+        }
+        input[type=range]::-ms-thumb {
+          height: 12px;
+        }
+        input[type=range]::-moz-range-thumb {
+          height: 10px;
+        }
+      }
+
+      &.columns{
+        .slider{
+          margin-left: 10px;
+          margin-right: 0;
+          width: 110px;
+          display: inline-block;
+
+          &.main{
+            width: 230px;
+
+            input[type="range"]{
+              width: 230px;
+            }
+          }
+
+          input[type="range"]{
+            width: 110px;
+          }
+
+          input[type="text"]{
+            width: 30px;
+          }
+        }
       }
     }
   }

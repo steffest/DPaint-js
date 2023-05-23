@@ -13,3 +13,5 @@ V 0.1.2
     - UAE window is now draggable and resizable
     - fill in gaps in draw tool on fast mouse moves
     - Additional palettes and pagination for long palettes
+    - UI to change Alchemy script parameters
+    - smudge tool

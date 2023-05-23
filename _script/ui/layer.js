@@ -5,6 +5,7 @@ import Brush from "./brush.js";
 import HistoryService from "../services/historyservice.js";
 import DitherPanel from "./components/ditherPanel.js";
 import historyservice from "../services/historyservice.js";
+import Palette from "./palette.js";
 
 let Layer = function(width,height,name){
     let me = {
@@ -125,7 +126,7 @@ let Layer = function(width,height,name){
             drawCtx = drawLayer.getContext("2d");
         }
         if (!touchData.isDrawing){
-            drawOpacity = Brush.getOpacity();
+            drawOpacity = Palette.isLocked() ? 1 : Brush.getOpacity();
         }
         isDrawing = true;
         currentColor = color;
@@ -134,7 +135,7 @@ let Layer = function(width,height,name){
             drawColor = "black";
         }
         //Brush.draw(me.getContext(),x,y,color,true);
-        Brush.draw(drawCtx,x,y,drawColor,touchData.button); // TODO: color should not be part of the brush?
+        Brush.draw(drawCtx,x,y,drawColor,touchData.button,true); // TODO: color should not be part of the brush?
 
         if (DitherPanel.getDitherState()){
             let pattern = DitherPanel.getDitherPattern();

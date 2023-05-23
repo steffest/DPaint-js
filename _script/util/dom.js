@@ -85,7 +85,7 @@ export function $elm(type,innerHTML,parent,classname){
 	if (parent) parent.appendChild(result);
 	return result;
 }
-export function $checkbox(label,parent,classname,onToggle){
+export function $checkbox(label,parent,classname,onToggle,checked){
 
 	let result = document.createElement("span");
 	result.className = "checkbox";
@@ -93,6 +93,7 @@ export function $checkbox(label,parent,classname,onToggle){
 	let labelElm = document.createElement("label");
 	let checkbox = document.createElement("input");
 	checkbox.type="checkbox";
+	checkbox.checked = !!checked;
 	let textElm = document.createElement("span");
 	labelElm.appendChild(checkbox);
 	labelElm.appendChild(textElm);

@@ -234,6 +234,10 @@ let Palette = function(){
         return backgroundColor;
     }
 
+    me.isLocked = function(){
+        return false;
+    }
+
     me.set = function(palette){
         let cols = 4;
         let rows = Math.ceil(palette.length/cols);
@@ -334,6 +338,32 @@ let Palette = function(){
         var index = currentPalette.findIndex((c)=>{return c[0] === color[0] && c[1] === color[1] && c[2] === color[2]});
         if (index<0) index=0;
         return index;
+    }
+
+    me.matchColor = function(color){
+        // find the closest color in the palette
+        var index = currentPalette.findIndex((c)=>{return c[0] === color[0] && c[1] === color[1] && c[2] === color[2]});
+
+        if (index<0){
+            var min = 100000;
+            var match = 0;
+            for (var i=0;i<currentPalette.length;i++){
+                var c = currentPalette[i];
+
+                // simple distance
+                //let dist = Color.distance(c,color);
+
+                // LAB distance - should be fast enough
+                let dist = Color.distanceLAB(c,color);
+
+                if (dist<min){
+                    min = dist;
+                    match = i;
+                }
+            }
+            index = match;
+        }
+        return currentPalette[index];
     }
 
     me.updateColor = function(index,color){
