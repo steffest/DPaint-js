@@ -137,6 +137,20 @@ var IFF = function(){
                     }
                     img.colourRange.push(range);
                     break;
+                case "CCRT":
+                    // Graphicraft Color Cycle chunk
+                    // https://wiki.amigaos.net/wiki/ILBM_IFF_Interleaved_Bitmap#ILBM.CCRT
+                    // examples: https://amiga.lychesis.net/applications/Graphicraft.html
+                    img.colourRange = img.colourRange || [];
+                    img.colourRange.push({
+                        direction: file.readWord(),
+                        low: file.readUbyte(),
+                        high: file.readUbyte(),
+                        seconds: file.readLong(),
+                        microseconds: file.readLong(),
+                        padding: file.readWord()
+                    });
+                    break;
                 case "CAMG":
                     var v = file.readLong();
                     img.interlaced = v & 0x4;
