@@ -34,7 +34,7 @@ let FileDetector = function(){
                 if (result){
                     let data = IFF.parse(file,true);
                     if (data && data.width){
-                        next({image:IFF.toCanvas(data),type:"IFF"});
+                        next({image:IFF.toCanvas(data),type:"IFF",data:data});
                     }else{
                         next(false);
                     }

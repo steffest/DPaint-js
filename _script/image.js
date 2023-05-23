@@ -458,6 +458,21 @@ let ImageFile = function(){
         FileDetector.detect(data,name).then(result => {
             if (result){
                 currentFile.originalType = result.type;
+                currentFile.originalData = result.data;
+                if (result.data){
+                    if (result.data.xAspect && result.data.yAspect && result.data.xAspect !== result.data.yAspect){
+                        console.log("Aspect ratio is not square! -> " + (result.data.xAspect/result.data.yAspect));
+                    }
+
+                    if (result.data.palette){
+                        Palette.set(result.data.palette);
+                    }
+
+                    if (result.data.colourRange){
+                        console.log("Image has color cycling: ", result.data.colourRange);
+                    }
+                }
+                console.log(result.data);
                 let image = result.image;
                 if (target === "frame") {
                     if (Array.isArray(image)) {

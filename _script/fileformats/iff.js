@@ -55,7 +55,7 @@ var IFF = function(){
         };
         var index = 12;
 
-        function readChunck(){
+        function readChunk(){
             var chunk = {};
             chunk.name = file.readString(4);
             chunk.size = file.readDWord();
@@ -64,11 +64,11 @@ var IFF = function(){
 
         while (index<file.length-4){
             file.goto(index);
-            var chunck = readChunck();
-            index += chunck.size + 8;
-            if (chunck.size%2 === 1) index++;
+            var chunk = readChunk();
+            index += chunk.size + 8;
+            if (chunk.size%2 === 1) index++;
 
-            switch (chunck.name){
+            switch (chunk.name){
                 case "BMHD":
                     img.width = file.readWord();
                     img.height = file.readWord();
@@ -83,14 +83,14 @@ var IFF = function(){
                     img.yAspect = file.readUbyte();
                     img.pageWidth = file.readWord();
                     img.pageHeight = file.readWord();
-                    console.error(img.numPlanes);
+                    console.log(img.numPlanes + " planes");
                     if (img.numPlanes && img.numPlanes<9) img.colors = 1<<img.numPlanes;
                     if (img.numPlanes==24){
                         img.trueColor = true
                     }
                     break;
                 case "CMAP":
-                    for (var i = 0, max=chunck.size/3;i<max;i++){
+                    for (var i = 0, max=chunk.size/3;i<max;i++){
                         img.palette.push([file.readUbyte(),file.readUbyte(),file.readUbyte()]);
                     }
                     break;
@@ -98,11 +98,44 @@ var IFF = function(){
                     img.colourRange = img.colourRange || [];
                     file.readShort(); // padding
                     img.colourRange.push({
-                        rate: file.readShort(),
+                        rate: file.readShort(), // 16384 = 60 steps/second
                         flags: file.readShort(),
                         low: file.readUbyte(),
-                        hight: file.readUbyte()
+                        high: file.readUbyte()
                     });
+                    break;
+                case "DRNG":
+                    // Dpaint IV enhanced color cycle chunk.
+                    // https://wiki.amigaos.net/wiki/ILBM_IFF_Interleaved_Bitmap#ILBM.DRNG
+                    img.colourRange = img.colourRange || [];
+                    let range = {
+                        min: file.readUbyte(),
+                        max: file.readUbyte(),
+                        rate: file.readShort(),
+                        flags: file.readShort(),
+                        numberOfDColors: file.readUbyte(),
+                        colors:[],
+                        numberOfDIndexes: file.readUbyte(),
+                        indexes:[],
+                    }
+                    for (let i=0;i<range.numberOfDColors;i++){
+                        // true color RGB values. (Is this used? I've never seen it in the wild)
+                        range.colors.push({
+                            index: file.readUbyte(),
+                            red: file.readUbyte(),
+                            green: file.readUbyte(),
+                            blue: file.readUbyte()
+                        });
+                    }
+
+                    for (let i=0;i<range.numberOfDIndexes;i++){
+                        // index values
+                        range.indexes.push({
+                            index: file.readUbyte(),
+                            colorIndex: file.readUbyte()
+                        });
+                    }
+                    img.colourRange.push(range);
                     break;
                 case "CAMG":
                     var v = file.readLong();
@@ -180,7 +213,7 @@ var IFF = function(){
                     }
                     break;
                 default:
-                    console.log("unhandled IFF chunck: " + chunck.name);
+                    console.log("unhandled IFF chunk: " + chunk.name);
                     break;
             }
         }
