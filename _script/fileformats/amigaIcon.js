@@ -902,6 +902,12 @@ var Icon = function(){
                             }
                         }
                     }
+                    if (state.palette.length === 0 && state.flags<3){
+                        // no palette, using the palette from the previous state if present;
+                        if (img.states.length>0){
+                            state.palette = img.states[img.states.length-1].palette;
+                        }
+                    }
 
                     img.states.push(state);
 
