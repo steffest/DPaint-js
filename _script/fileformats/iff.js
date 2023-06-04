@@ -29,6 +29,7 @@ import ImageProcessing from "../util/imageProcessing.js";
 
 const FILETYPE = {
     IFF: { name: "IFF file" },
+    PBM: { name: "PBM Image" },
     ILBM: { name: "ILBM Image", actions: ["show"], inspect: true },
     ANIM: { name: "IFF ILBM Animation" },
 };
@@ -48,7 +49,7 @@ const IFF = (function () {
         ANIM: { name: "IFF ILBM Animation" },
     };
 
-    me.parse = function (file, decodeBody) {
+    me.parse = function (file, decodeBody, fileType) {
         const img = {
             palette: [],
         };
@@ -189,64 +190,113 @@ const IFF = (function () {
                     if (img.hires && !img.interlaced && img.height >= 400) {
                         img.interlaced = true;
                     }
+
                     if (decodeBody) {
-                        const pixels = [];
-                        let lineWidth = (img.width + 15) >> 4; // in words
-                        lineWidth *= 2; // in bytes
+                        if (fileType === FILETYPE.PBM) {
+                            let pixelData = [];
 
-                        for (let y = 0; y < img.height; y++) {
-                            pixels[y] = [];
-                            if (img.ham) img.hamPixels[y] = [];
+                            if (img.compression) {
+                                // Decompress the data
+                                for (let i = 0; i < chunk.size; i++) {
+                                    const byte = file.readUbyte();
 
-                            for (
-                                let plane = 0;
-                                plane < img.numPlanes;
-                                plane++
-                            ) {
-                                const line = [];
-                                if (img.compression) {
-                                    // RLE compression
-                                    while (line.length < lineWidth) {
-                                        var b = file.readUbyte();
-                                        if (b === 128) break;
-                                        if (b > 128) {
-                                            const b2 = file.readUbyte();
-                                            for (var k = 0; k < 257 - b; k++) {
-                                                line.push(b2);
-                                            }
-                                        } else {
-                                            for (k = 0; k <= b; k++) {
-                                                line.push(file.readUbyte());
-                                            }
+                                    if (byte > 128) {
+                                        const nextByte = file.readUbyte();
+                                        for (let i = 0; i < 257 - byte; i++) {
+                                            pixelData.push(nextByte);
                                         }
-                                    }
-                                } else {
-                                    for (var x = 0; x < lineWidth; x++) {
-                                        line.push(file.readUbyte());
+                                    } else if (byte < 128) {
+                                        for (let i = 0; i < byte + 1; i++) {
+                                            pixelData.push(file.readUbyte());
+                                        }
+                                    } else {
+                                        break;
                                     }
                                 }
+                            } else {
+                                // Just copy the data
+                                // FIXME: Use BinaryStream.readBytes() ?
+                                for (let i = 0; i < chunk.size; i++) {
+                                    pixelData.push(file.readUbyte());
+                                }
+                            }
 
-                                // add bitplane line to pixel values;
-                                for (b = 0; b < lineWidth; b++) {
-                                    const val = line[b];
-                                    for (i = 7; i >= 0; i--) {
-                                        x = b * 8 + (7 - i);
-                                        const bit = val & (1 << i) ? 1 : 0;
-                                        if (plane < img.colorPlanes) {
-                                            var p = pixels[y][x] || 0;
-                                            pixels[y][x] = p + (bit << plane);
-                                        } else {
-                                            p = img.hamPixels[y][x] || 0;
-                                            img.hamPixels[y][x] =
-                                                p +
-                                                (bit <<
-                                                    (plane - img.colorPlanes));
+                            // Rearrange pixel data in the right format for rendering?
+                            // FIXME: Figure out why this needs to happen
+                            let pixels = [];
+                            for (let y = 0; y < img.height; y++) {
+                                pixels[y] = [];
+                                for (let x = 0; x < img.width; x++) {
+                                    pixels[y][x] = pixelData[y * img.width + x];
+                                }
+                            }
+
+                            img.pixels = pixels;
+                        } else {
+                            const pixels = [];
+                            let lineWidth = (img.width + 15) >> 4; // in words
+                            lineWidth *= 2; // in bytes
+
+                            for (let y = 0; y < img.height; y++) {
+                                pixels[y] = [];
+                                if (img.ham) img.hamPixels[y] = [];
+
+                                for (
+                                    let plane = 0;
+                                    plane < img.numPlanes;
+                                    plane++
+                                ) {
+                                    const line = [];
+                                    if (img.compression) {
+                                        // RLE compression
+                                        while (line.length < lineWidth) {
+                                            var b = file.readUbyte();
+                                            if (b === 128) break;
+                                            if (b > 128) {
+                                                const b2 = file.readUbyte();
+                                                for (
+                                                    var k = 0;
+                                                    k < 257 - b;
+                                                    k++
+                                                ) {
+                                                    line.push(b2);
+                                                }
+                                            } else {
+                                                for (k = 0; k <= b; k++) {
+                                                    line.push(file.readUbyte());
+                                                }
+                                            }
+                                        }
+                                    } else {
+                                        for (var x = 0; x < lineWidth; x++) {
+                                            line.push(file.readUbyte());
+                                        }
+                                    }
+
+                                    // add bitplane line to pixel values;
+                                    for (b = 0; b < lineWidth; b++) {
+                                        const val = line[b];
+                                        for (i = 7; i >= 0; i--) {
+                                            x = b * 8 + (7 - i);
+                                            const bit = val & (1 << i) ? 1 : 0;
+                                            if (plane < img.colorPlanes) {
+                                                var p = pixels[y][x] || 0;
+                                                pixels[y][x] =
+                                                    p + (bit << plane);
+                                            } else {
+                                                p = img.hamPixels[y][x] || 0;
+                                                img.hamPixels[y][x] =
+                                                    p +
+                                                    (bit <<
+                                                        (plane -
+                                                            img.colorPlanes));
+                                            }
                                         }
                                     }
                                 }
                             }
+                            img.pixels = pixels;
                         }
-                        img.pixels = pixels;
                     }
                     break;
                 default:
@@ -267,6 +317,9 @@ const IFF = (function () {
                 const format = file.readString(4);
                 if (format === "ILBM") {
                     return FILETYPE.ILBM;
+                }
+                if (format === "PBM ") {
+                    return FILETYPE.PBM;
                 }
                 if (format === "ANIM") {
                     return FILETYPE.ANIM;

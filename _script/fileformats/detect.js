@@ -30,9 +30,9 @@ let FileDetector = (function () {
             }
 
             function detectIFF() {
-                let result = IFF.detect(file);
-                if (result) {
-                    let data = IFF.parse(file, true);
+                let fileType = IFF.detect(file);
+                if (fileType) {
+                    let data = IFF.parse(file, true, fileType);
                     if (data && data.width) {
                         next({
                             image: IFF.toCanvas(data),
