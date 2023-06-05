@@ -1,12 +1,12 @@
-export let COMMAND={
+export let COMMAND = {
     NEW: 1001,
     OPEN: 1002,
-    LINE:1003,
-    SQUARE:1004,
-    ZOOMIN:1005,
-    ZOOMOUT:1006,
+    LINE: 1003,
+    SQUARE: 1004,
+    ZOOMIN: 1005,
+    ZOOMOUT: 1006,
     SELECT: 1007,
-    DRAW:1008,
+    DRAW: 1008,
     SPLITSCREEN: 1009,
     UNDO: 1010,
     REDO: 1011,
@@ -71,10 +71,10 @@ export let COMMAND={
     SMUDGE: 1070,
     CYCLEPALETTE: 1071,
     LOCKPALETTE: 1072,
-}
+};
 
-export let EVENT={
-    drawColorChanged:1,
+export let EVENT = {
+    drawColorChanged: 1,
     backgroundColorChanged: 2,
     drawCanvasOverlay: 3,
     hideCanvasOverlay: 4,
@@ -85,16 +85,16 @@ export let EVENT={
     sizerChanged: 9,
     toolDeActivated: 10,
     layersChanged: 11,
-    modifierKeyChanged:12,
+    modifierKeyChanged: 12,
     toolChanged: 13,
     toolOptionsChanged: 14,
     brushOptionsChanged: 15,
-    colorCount:16,
-    layerHistory:17,
-    imageHistory:18,
-    selectionHistory:19,
-    paletteHistory:20,
-    historyChanged:21,
+    colorCount: 16,
+    layerHistory: 17,
+    imageHistory: 18,
+    selectionHistory: 19,
+    paletteHistory: 20,
+    historyChanged: 21,
     endPolygonSelect: 22,
     framesChanged: 23,
     UIresize: 24,
@@ -103,4 +103,4 @@ export let EVENT={
     colorCycleToggled: 27,
     colorRangeChanged: 28,
     colorRangesChanged: 29,
-}
+};

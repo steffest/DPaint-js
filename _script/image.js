@@ -1,17 +1,17 @@
 import FileDetector from "./fileformats/detect.js";
 import EventBus from "./util/eventbus.js";
-import { COMMAND, EVENT } from "./enum.js";
+import {COMMAND,EVENT} from "./enum.js";
 import Historyservice from "./services/historyservice.js";
 import Layer from "./ui/layer.js";
-import Modal, { DIALOG } from "./ui/modal.js";
+import Modal,{DIALOG} from "./ui/modal.js";
 import SidePanel from "./ui/sidepanel.js";
-import { duplicateCanvas, releaseCanvas } from "./util/canvasUtils.js";
+import {duplicateCanvas,releaseCanvas} from "./util/canvasUtils.js";
 import Palette from "./ui/palette.js";
 import SaveDialog from "./ui/components/saveDialog.js";
 import HistoryService from "./services/historyservice.js";
 import ImageProcessing from "./util/imageProcessing.js";
 
-let ImageFile = (function () {
+let ImageFile = function(){
     let me = {};
     let activeLayer;
     let activeLayerIndex = 0;
@@ -22,19 +22,19 @@ let ImageFile = (function () {
         layers: [],
     };
 
-    me.getCurrentFile = function () {
+    me.getCurrentFile = function(){
         return currentFile;
     };
 
-    me.getName = function () {
+    me.getName = function(){
         return currentFile.name || "Untitled";
     };
 
-    me.setName = function (name) {
+    me.setName = function(name){
         currentFile.name = name;
     };
 
-    me.getOriginal = function () {
+    me.getOriginal = function(){
         if (!cachedImage) {
             console.error("caching image");
             cachedImage = document.createElement("canvas");
@@ -46,7 +46,7 @@ let ImageFile = (function () {
         return cachedImage;
     };
 
-    me.restoreOriginal = function () {
+    me.restoreOriginal = function(){
         if (cachedImage) {
             let ctx = me.getActiveContext();
             ctx.clearRect(0, 0, currentFile.width, currentFile.height);
@@ -55,7 +55,7 @@ let ImageFile = (function () {
         }
     };
 
-    me.getCanvas = function (frameIndex) {
+    me.getCanvas = function(frameIndex){
         let frame =
             typeof frameIndex === "number"
                 ? currentFile.frames[frameIndex]
@@ -89,30 +89,30 @@ let ImageFile = (function () {
         }
     };
 
-    me.getContext = function () {
+    me.getContext = function(){
         if (currentFrame().layers.length === 1 && activeLayer) {
             return activeLayer.getContext();
         }
     };
 
-    me.getActiveContext = function () {
+    me.getActiveContext = function(){
         if (activeLayer) return activeLayer.getContext();
     };
 
-    me.getActiveLayerIndex = function () {
+    me.getActiveLayerIndex = function(){
         return activeLayerIndex;
     };
 
-    me.getActiveLayer = function () {
+    me.getActiveLayer = function(){
         return activeLayer;
     };
 
-    me.getLayer = function (index) {
+    me.getLayer = function(index){
         let frame = currentFile.frames[activeFrameIndex];
         return frame ? frame.layers[index] : undefined;
     };
 
-    me.getLayerIndexesOfType = function (type) {
+    me.getLayerIndexesOfType = function(type){
         let frame = currentFile.frames[activeFrameIndex];
         let result = [];
         if (frame) {
@@ -123,11 +123,11 @@ let ImageFile = (function () {
         return result;
     };
 
-    me.getActiveFrameIndex = function () {
+    me.getActiveFrameIndex = function(){
         return activeFrameIndex;
     };
 
-    me.getActiveFrame = function () {
+    me.getActiveFrame = function(){
         return currentFrame();
     };
 
@@ -137,7 +137,7 @@ let ImageFile = (function () {
         }
     }
 
-    me.openLocal = function () {
+    me.openLocal = function(){
         var input = document.createElement("input");
         input.type = "file";
         input.onchange = function (e) {
@@ -146,11 +146,11 @@ let ImageFile = (function () {
         input.click();
     };
 
-    me.save = function () {
+    me.save = function(){
         Modal.show(DIALOG.SAVE);
     };
 
-    me.resize = function (properties) {
+    me.resize = function(properties){
         if (!properties) {
             Modal.show(DIALOG.RESIZE);
         } else {
@@ -184,7 +184,7 @@ let ImageFile = (function () {
         }
     };
 
-    me.resample = function (properties) {
+    me.resample = function(properties){
         if (!properties) {
             Modal.show(DIALOG.RESAMPLE);
         } else {
@@ -247,20 +247,20 @@ let ImageFile = (function () {
         }
     };
 
-    me.activateLayer = function (index) {
+    me.activateLayer = function(index){
         activeLayerIndex = index;
         activeLayer = currentFrame().layers[activeLayerIndex];
         EventBus.trigger(EVENT.layersChanged);
     };
 
-    me.toggleLayer = function (index) {
+    me.toggleLayer = function(index){
         currentFrame().layers[index].visible =
             !currentFrame().layers[index].visible;
         EventBus.trigger(EVENT.layersChanged);
         EventBus.trigger(EVENT.imageContentChanged);
     };
 
-    me.duplicateLayer = function (index) {
+    me.duplicateLayer = function(index){
         if (typeof index !== "number") index = activeLayerIndex;
         let layer = currentFrame().layers[index];
         let newLayer = Layer(
@@ -275,21 +275,21 @@ let ImageFile = (function () {
         me.activateLayer(index + 1);
     };
 
-    me.setLayerOpacity = function (value) {
+    me.setLayerOpacity = function(value){
         if (activeLayer) {
             activeLayer.opacity = value;
             EventBus.trigger(EVENT.imageContentChanged);
         }
     };
 
-    me.setLayerBlendMode = function (value) {
+    me.setLayerBlendMode = function(value){
         if (activeLayer) {
             activeLayer.blendMode = value;
             EventBus.trigger(EVENT.imageContentChanged);
         }
     };
 
-    me.getLayerBoundingRect = function (layerIndex) {
+    me.getLayerBoundingRect = function(layerIndex){
         let layer = activeLayer;
         if (typeof layerIndex === "number") {
             layer = currentFrame().layers[layerIndex];
@@ -328,7 +328,7 @@ let ImageFile = (function () {
         return { x: pix.x[0], y: pix.y[0], w: w, h: h };
     };
 
-    me.activateFrame = function (index) {
+    me.activateFrame = function(index){
         activeFrameIndex = index;
         activeLayerIndex = 0;
         cachedImage = undefined;
@@ -338,7 +338,7 @@ let ImageFile = (function () {
         EventBus.trigger(EVENT.framesChanged);
     };
 
-    me.clone = function () {
+    me.clone = function(){
         let struct = {
             type: "dpaint",
             image: {},
@@ -367,7 +367,7 @@ let ImageFile = (function () {
         return struct;
     };
 
-    me.restore = function (data) {
+    me.restore = function(data){
         let image = data.image;
         currentFile.width = image.width;
         currentFile.height = image.height;
@@ -391,7 +391,7 @@ let ImageFile = (function () {
                 layer.blendMode = _layer.blendMode;
                 layer.visible = _layer.visible;
                 let _image = new Image();
-                _image.onload = function () {
+                _image.onload = function(){
                     layer.drawImage(_image);
                     EventBus.trigger(EVENT.layersChanged);
                     EventBus.trigger(EVENT.imageSizeChanged);
@@ -414,7 +414,7 @@ let ImageFile = (function () {
     me.removeLayer = removeLayer;
     me.moveLayer = moveLayer;
 
-    function handleUpload(files, target) {
+    function handleUpload(files,target){
         if (files.length) {
             var file = files[0];
             var detectType;
@@ -427,7 +427,7 @@ let ImageFile = (function () {
             if (ext === "json") isText = true;
 
             var reader = new FileReader();
-            reader.onload = function () {
+            reader.onload = function(){
                 if (detectType) {
                     me.handleBinary(reader.result, file.name, target);
                 } else if (isText) {
@@ -459,7 +459,7 @@ let ImageFile = (function () {
                 } else {
                     // load as Image, fallback to detectType if it fails
                     var image = new Image();
-                    image.onload = function () {
+                    image.onload = function(){
                         URL.revokeObjectURL(this.src);
                         if (target === "frame") {
                             drawFrame(image, fileName);
@@ -467,7 +467,7 @@ let ImageFile = (function () {
                             newFile(image, fileName);
                         }
                     };
-                    image.onerror = function () {
+                    image.onerror = function(){
                         URL.revokeObjectURL(this.src);
                         detectType = true;
                         reader.readAsArrayBuffer(file);
@@ -488,7 +488,7 @@ let ImageFile = (function () {
     }
     me.handleUpload = handleUpload;
 
-    me.handleBinary = function (data, name, target, stillTryImage) {
+    me.handleBinary = function (data,name,target,stillTryImage){
         name = name || "";
         let fileName = name.split(".");
         fileName = fileName.join(".");
@@ -540,7 +540,7 @@ let ImageFile = (function () {
                 if (stillTryImage) {
                     // happens when the file is not coming from a file upload
                     var image = new Image();
-                    image.onload = function () {
+                    image.onload = function(){
                         URL.revokeObjectURL(this.src);
                         if (target === "frame") {
                             drawFrame(image, fileName);
@@ -548,7 +548,7 @@ let ImageFile = (function () {
                             newFile(image,fileName,currentFile.originalType,currentFile.originalData)
                         }
                     };
-                    image.onerror = function () {
+                    image.onerror = function(){
                         URL.revokeObjectURL(this.src);
                         console.error("File is not a default image type");
                     };
@@ -599,7 +599,7 @@ let ImageFile = (function () {
         EventBus.trigger(EVENT.imageSizeChanged);
     }
 
-    function addLayer(index, name) {
+    function addLayer(index,name){
         let newLayer = Layer(
             currentFile.width,
             currentFile.height,
@@ -617,7 +617,7 @@ let ImageFile = (function () {
         return newIndex;
     }
 
-    function removeLayer(index) {
+    function removeLayer(index){
         if (typeof index === "undefined") index = activeLayerIndex;
         if (currentFrame().layers.length > 1) {
             currentFrame().layers.splice(index, 1);
@@ -629,7 +629,7 @@ let ImageFile = (function () {
         }
     }
 
-    function moveLayer(fromIndex, toIndex) {
+    function moveLayer(fromIndex,toIndex){
         if (currentFrame().layers.length > 1) {
             if (toIndex >= currentFrame().layers.length) {
                 toIndex = currentFrame().layers.length - 1;
@@ -645,7 +645,7 @@ let ImageFile = (function () {
         }
     }
 
-    function addFrame(image) {
+    function addFrame(image){
         let layer = Layer(currentFile.width, currentFile.height, "Layer 1");
         currentFile.frames.push({
             layers: [layer],
@@ -656,7 +656,7 @@ let ImageFile = (function () {
         EventBus.trigger(EVENT.imageSizeChanged);
     }
 
-    function removeFrame() {
+    function removeFrame(){
         if (currentFile.frames.length > 1) {
             HistoryService.start(EVENT.imageHistory);
             currentFile.frames.splice(activeFrameIndex, 1);
@@ -669,7 +669,7 @@ let ImageFile = (function () {
         }
     }
 
-    function drawFrame(image, fileName) {
+    function drawFrame(image,fileName){
         let layerIndex = me.addLayer(0, fileName);
         let layer = me.getLayer(layerIndex);
         layer.clear();
@@ -678,11 +678,11 @@ let ImageFile = (function () {
         EventBus.trigger(EVENT.layerContentChanged);
     }
 
-    function currentFrame() {
+    function currentFrame(){
         return currentFile.frames[activeFrameIndex];
     }
 
-    me.duplicateFrame = function (index) {
+    me.duplicateFrame = function(index){
         HistoryService.start(EVENT.imageHistory);
         if (typeof index !== "number") index = activeFrameIndex;
         let layers = currentFrame().layers;
@@ -703,7 +703,7 @@ let ImageFile = (function () {
         EventBus.trigger(EVENT.imageSizeChanged);
     };
 
-    me.moveFrame = (fromIndex, toIndex) => {
+    me.moveFrame = (fromIndex,toIndex) => {
         if (currentFile.frames.length > 1) {
             if (toIndex >= currentFile.frames.length) {
                 toIndex = currentFile.frames.length - 1;
@@ -719,7 +719,7 @@ let ImageFile = (function () {
         }
     };
 
-    me.mergeDown = function (index, skipHistory) {
+    me.mergeDown = function (index,skipHistory){
         if (typeof index !== "number") index = activeLayerIndex;
         let layer = currentFrame().layers[index];
         let belowLayer = currentFrame().layers[index - 1];
@@ -743,7 +743,7 @@ let ImageFile = (function () {
         }
     };
 
-    me.paste = function (image) {
+    me.paste = function(image){
         let w = ImageFile.getCurrentFile().width;
         let h = ImageFile.getCurrentFile().height;
 
@@ -836,58 +836,58 @@ let ImageFile = (function () {
 
     window.generateIndexedPixels = me.generateIndexedPixels;
 
-    EventBus.on(COMMAND.NEW, function () {
+    EventBus.on(COMMAND.NEW, function(){
         newFile();
     });
 
-    EventBus.on(COMMAND.SAVE, function () {
+    EventBus.on(COMMAND.SAVE, function(){
         me.save();
     });
 
-    EventBus.on(COMMAND.RESIZE, function () {
+    EventBus.on(COMMAND.RESIZE, function(){
         me.resize();
     });
 
-    EventBus.on(COMMAND.RESAMPLE, function () {
+    EventBus.on(COMMAND.RESAMPLE, function(){
         me.resample();
     });
 
-    EventBus.on(COMMAND.INFO, function () {
+    EventBus.on(COMMAND.INFO, function(){
         SidePanel.showInfo(currentFile);
     });
 
-    EventBus.on(COMMAND.NEWLAYER, function () {
+    EventBus.on(COMMAND.NEWLAYER, function(){
         SidePanel.show();
         addLayer();
     });
 
-    EventBus.on(COMMAND.DELETELAYER, function () {
+    EventBus.on(COMMAND.DELETELAYER, function(){
         removeLayer();
     });
 
-    EventBus.on(COMMAND.DUPLICATELAYER, function () {
+    EventBus.on(COMMAND.DUPLICATELAYER, function(){
         me.duplicateLayer();
     });
 
-    EventBus.on(COMMAND.LAYERUP, function (index) {
+    EventBus.on(COMMAND.LAYERUP, function(index){
         if (typeof index === "undefined") index = activeLayerIndex;
         let fromIndex = index;
         let toIndex = fromIndex + 1;
         moveLayer(fromIndex, toIndex);
     });
 
-    EventBus.on(COMMAND.LAYERDOWN, function (index) {
+    EventBus.on(COMMAND.LAYERDOWN, function(index){
         if (typeof index === "undefined") index = activeLayerIndex;
         let fromIndex = index;
         let toIndex = fromIndex - 1;
         moveLayer(fromIndex, toIndex);
     });
 
-    EventBus.on(COMMAND.MERGEDOWN, function (index) {
+    EventBus.on(COMMAND.MERGEDOWN, function(index){
         me.mergeDown(index);
     });
 
-    EventBus.on(COMMAND.FLATTEN, function () {
+    EventBus.on(COMMAND.FLATTEN, function(){
         currentFrame().layers.forEach((layer) => {
             if (layer.hasMask) {
                 layer.removeMask(true);
@@ -908,20 +908,20 @@ let ImageFile = (function () {
         }
     });
 
-    EventBus.on(COMMAND.ADDFRAME, function () {
+    EventBus.on(COMMAND.ADDFRAME, function(){
         SidePanel.show();
         addFrame();
     });
 
-    EventBus.on(COMMAND.DELETEFRAME, function () {
+    EventBus.on(COMMAND.DELETEFRAME, function(){
         removeFrame();
     });
 
-    EventBus.on(COMMAND.DUPLICATEFRAME, function () {
+    EventBus.on(COMMAND.DUPLICATEFRAME, function(){
         me.duplicateFrame();
     });
 
-    EventBus.on(COMMAND.IMPORTFRAME, function () {
+    EventBus.on(COMMAND.IMPORTFRAME, function(){
         var input = document.createElement("input");
         input.type = "file";
         input.onchange = function (e) {
@@ -930,7 +930,7 @@ let ImageFile = (function () {
         input.click();
     });
 
-    EventBus.on(EVENT.layerContentChanged, function (keepImageCache) {
+    EventBus.on(EVENT.layerContentChanged, function(keepImageCache){
         if (!keepImageCache) cachedImage = undefined;
         if (activeLayer) activeLayer.update();
         me.render();
@@ -942,6 +942,6 @@ let ImageFile = (function () {
     });
 
     return me;
-})();
+}();
 
 export default ImageFile;
