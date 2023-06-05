@@ -1,26 +1,28 @@
 {
-  "name": "DPaintJS",
-  "version": "0.1.1 alpha",
-  "description": "Webbased image editor with a focus on retro Amiga file formats in plain JavaScript",
-  "repository": "https://github.com/steffest/dpaint-js",
-  "author": "Steffest",
-  "license": "MIT",
-  "devDependencies": {
-    "@parcel/packager-raw-url": "2.8.3",
-    "@parcel/transformer-webmanifest": "2.8.3",
-    "assert": "^2.0.0",
-    "browserify-zlib": "^0.2.0",
-    "buffer": "^5.5.0",
-    "events": "^3.1.0",
-    "process": "^0.11.10",
-    "stream-browserify": "^3.0.0",
-    "util": "^0.12.3"
-  },
-  "scripts": {
-    "clean": "rm -rf dist && rm -rf .parcel-cache",
-    "cleanwin": "del /q .\\.parcel-cache\\* && del /q .\\dist\\*",
-    "build": "parcel build --public-url ./",
-    "start": "parcel index.html"
-  },
-  "source": "index.html"
+    "name": "DPaintJS",
+    "version": "0.1.3 alpha",
+    "description": "Webbased image editor with a focus on retro Amiga file formats in plain JavaScript",
+    "repository": "https://github.com/steffest/dpaint-js",
+    "author": "Steffest",
+    "license": "MIT",
+    "devDependencies": {
+        "@parcel/packager-raw-url": "2.8.3",
+        "@parcel/transformer-webmanifest": "2.8.3",
+        "assert": "^2.0.0",
+        "browserify-zlib": "^0.2.0",
+        "buffer": "^5.5.0",
+        "eslint": "^8.41.0",
+        "eslint-config-prettier": "^8.8.0",
+        "events": "^3.1.0",
+        "process": "^0.11.10",
+        "stream-browserify": "^3.0.0",
+        "util": "^0.12.3"
+    },
+    "scripts": {
+        "clean": "rm -rf dist && rm -rf .parcel-cache",
+        "cleanwin": "del /q .\\.parcel-cache\\* && del /q .\\dist\\*",
+        "build": "parcel build --public-url ./",
+        "start": "parcel index.html"
+    },
+    "source": "index.html"
 }

@@ -84,7 +84,7 @@ let ColorRange = function(){
                         }
                     });
                     drawRange(canvas.getContext("2d"),range);
-                    colorRangeContext.push(canvas.getContext("2d"));
+                    colorRangeContext[index] = (canvas.getContext("2d"));
                 }
             });
 
