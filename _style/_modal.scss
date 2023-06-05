@@ -87,6 +87,11 @@
         margin: 10px;
         text-align: center;
       }
+
+      &.highlight{
+        border: 1px solid #ded293;
+        color: #ded293;
+      }
     }
 
     h3{

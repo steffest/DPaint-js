@@ -2,7 +2,7 @@ import $ from "../../util/dom.js";
 import Palette from "../palette.js";
 import Color from "../../util/color.js";
 import Eventbus from "../../util/eventbus.js";
-import {COMMAND} from "../../enum.js";
+import {COMMAND, EVENT} from "../../enum.js";
 let PaletteList = function(){
     let me = {};
     let container;
@@ -76,6 +76,7 @@ let PaletteList = function(){
             $(".palette",
                 {parent:inner,onClick:()=>{
                         Palette.set(colors);
+                        Eventbus.trigger(EVENT.paletteChanged);
                     }},
                 $(".caption",palette.label),
                 canvas = $("canvas")

@@ -37,7 +37,7 @@ var Color = function(){
         }
     }
 
-    me.toHSV = function(color){
+    me.toHSV = function(color,maxRange){
         if (typeof color==="string"){
             color = me.fromString(color);
         }
@@ -60,8 +60,31 @@ var Color = function(){
                 }
                 h /= 6;
             }
+            if (maxRange){
+                h = Math.round(h*360);
+                s = Math.round(s*100);
+                v = Math.round(v*100);
+            }
             return [h,s,v];
         }
+    }
+
+    me.fromHSV = function(h,s,v){
+        let r,g,b;
+        let i = Math.floor(h*6);
+        let f = h*6-i;
+        let p = v*(1-s);
+        let q = v*(1-f*s);
+        let t = v*(1-(1-f)*s);
+        switch (i%6){
+            case 0: r=v; g=t; b=p; break;
+            case 1: r=q; g=v; b=p; break;
+            case 2: r=p; g=v; b=t; break;
+            case 3: r=p; g=q; b=v; break;
+            case 4: r=t; g=p; b=v; break;
+            case 5: r=v; g=p; b=q; break;
+        }
+        return [Math.round(r*255),Math.round(g*255),Math.round(b*255)];
     }
 
     me.toLAB = function(color){
@@ -117,6 +140,21 @@ var Color = function(){
         let a = c1[1] - c2[1];
         let b = c1[2] - c2[2];
         return Math.sqrt(l*l + a*a + b*b);
+    }
+
+    me.hue = function (color){
+        let c = me.toHSV(color);
+        return c[0];
+    }
+
+    me.lightness = function(color){
+        let c = me.toHSV(color);
+        return c[2];
+    }
+
+    me.saturation = function(color){
+        let c = me.toHSV(color);
+        return c[1];
     }
 
     function hexByte(nr){

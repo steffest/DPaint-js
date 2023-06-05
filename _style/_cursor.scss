@@ -8,7 +8,7 @@
   margin-left: -2px;
   pointer-events: none;
   background-size: contain;
-  z-index: 100;
+  z-index: 1002;
   display: none;
 
   &.rotate{
@@ -95,7 +95,7 @@ body.hovercanvas.pointerdown.cursor-colorpicker{
 
 #dragelement{
   position: absolute;
-  z-index: 1000;
+  z-index: 1002;
   pointer-events: none;
   opacity: 0;
   top: 0;
@@ -125,7 +125,19 @@ body.hovercanvas.pointerdown.cursor-colorpicker{
         justify-content: center;
       }
     }
+
+    &.tooltip{
+      background-color: #d0c5b1;
+      padding: 4px 8px;
+      border: 1px solid black;
+      font-size: 12px;
+      white-space: nowrap;
+      pointer-events: none;
+      margin: 12px 0 0 12px;
+    }
   }
+
+
 }
 
 

@@ -380,6 +380,15 @@ let ImageFile = function(){
         })
     }
 
+    me.export = function(){
+        let struct = me.clone();
+        struct.palette = Palette.get();
+        if (currentFile.colorRange) struct.colorRange = currentFile.colorRange;
+        if (currentFile.indexedPixels) struct.indexedPixels = currentFile.indexedPixels;
+        console.error(struct);
+        return struct;
+    }
+
     me.addLayer = addLayer;
     me.removeLayer = removeLayer;
     me.moveLayer = moveLayer;
@@ -411,6 +420,15 @@ let ImageFile = function(){
                     if (data){
                         if (data.type==="dpaint"){
                             me.restore(data);
+                            if (data.palette){
+                                Palette.set(data.palette);
+                            }
+                            if (data.colorRange){
+                                currentFile.colorRange = data.colorRange;
+                            }
+                            if (data.indexedPixels){
+                                currentFile.indexedPixels = data.indexedPixels;
+                            }
                         }
                         if (data.type==="palette"){
                             Palette.set(data.palette);
@@ -483,10 +501,10 @@ let ImageFile = function(){
                     //drawFrame(image,fileName);
                 } else {
                     if (Array.isArray(image)) {
-                        newFile(image[0],fileName,currentFile.originalType);
+                        newFile(image[0],fileName,currentFile.originalType,currentFile.originalData);
                         addFrame(image[1]);
                     } else {
-                        newFile(image,fileName,currentFile.originalType)
+                        newFile(image,fileName,currentFile.originalType,currentFile.originalData)
                     }
                 }
             }else{
@@ -499,7 +517,7 @@ let ImageFile = function(){
                         if (target === "frame"){
                             drawFrame(image,fileName);
                         }else{
-                            newFile(image,fileName,currentFile.originalType)
+                            newFile(image,fileName,currentFile.originalType,currentFile.originalData)
                         }
                     };
                     image.onerror = function(){
@@ -515,7 +533,7 @@ let ImageFile = function(){
         });
     }
     
-    function newFile(image,fileName,type){
+    function newFile(image,fileName,type,originalData){
         Historyservice.clear();
         cachedImage = undefined;
         let w = 320;
@@ -530,9 +548,16 @@ let ImageFile = function(){
             name: fileName || "Untitled",
             frames:[{
                 layers:[]
-            }]
+            }],
+            colorRange:[]
         }
         if (type) currentFile.originalType = type;
+        if (originalData){
+            if (originalData.palette) currentFile.palette = originalData.palette;
+            if (originalData.colourRange) currentFile.colorRange = originalData.colourRange;
+            if (originalData.pixels) currentFile.indexedPixels = originalData.pixels;
+            currentFile.originalData = originalData;
+        }
         activeFrameIndex = 0;
         activeLayerIndex = 0;
         addLayer();
@@ -703,6 +728,55 @@ let ImageFile = function(){
         }
     }
 
+    me.addRange = function(){
+        currentFile.colorRange = currentFile.colorRange || [];
+        currentFile.colorRange.push({
+            active: true,
+            high:1,
+            low:0,
+            fps:10
+        });
+        EventBus.trigger(EVENT.colorRangesChanged);
+    }
+
+    me.generateIndexedPixels = function(){
+        let ctx = me.getCanvas().getContext("2d");
+        let width = currentFile.width;
+        let height = currentFile.height;
+        let pixels = [];
+        let data = ctx.getImageData(0,0,width,height).data;
+        let colors = Palette.get();
+
+        function getIndex(color){
+            let index = colors.findIndex((c)=>{return c[0] === color[0] && c[1] === color[1] && c[2] === color[2]});
+            if (index<0){
+                index = 0;
+                console.error("color not found in palette",color);
+            }
+            return index;
+        }
+
+        for (let i=0;i<data.length;i+=4){
+            let x = (i/4)%width;
+            let y = Math.floor((i/4)/width);
+            let r = data[i];
+            let g = data[i+1];
+            let b = data[i+2];
+            let a = data[i+3];
+            pixels[y] = pixels[y] || [];
+            if (a){
+                pixels[y][x] = getIndex([r,g,b,a]);
+            }else{
+                pixels[y][x] = 0;
+            }
+        }
+
+        currentFile.indexedPixels = pixels;
+
+    }
+
+    window.generateIndexedPixels = me.generateIndexedPixels;
+
     EventBus.on(COMMAND.NEW,function(){
         newFile();
         //panels.forEach(panel=>panel.clear());
@@ -810,6 +884,10 @@ let ImageFile = function(){
     EventBus.on(EVENT.imageSizeChanged,()=>{
         cachedImage = undefined;
     })
+
+    window.getFile = function(){
+        return currentFile;
+    }
 
     return me;
 }();

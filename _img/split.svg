@@ -1,14 +1,14 @@
 
 <svg xmlns="http://www.w3.org/2000/svg" version="1.1" xmlns:xlink="http://www.w3.org/1999/xlink" preserveAspectRatio="none" x="0px" y="0px" width="100px" height="100px" viewBox="0 0 100 100">
 <defs>
-<path id="Layer0_0_1_STROKES" stroke="#FFFFFF" stroke-width="4" stroke-linejoin="miter" stroke-linecap="butt" stroke-miterlimit="3" fill="none" d="
-M 17.05 15.7
-L 43.45 15.7 43.45 84.1 17.05 84.1
-M 83.65 84.1
-L 57.25 84.1 57.25 15.7 83.65 15.7"/>
+<path id="Layer32_0_1_STROKES" stroke="#FFFFFF" stroke-width="5" stroke-linejoin="miter" stroke-linecap="butt" stroke-miterlimit="3" fill="none" d="
+M 85 82.5
+L 57.5 82.5 57.5 17.5 85 17.5
+M 15 17.5
+L 42.5 17.5 42.5 82.5 15 82.5"/>
 </defs>
 
 <g transform="matrix( 1, 0, 0, 1, 0,0) ">
-<use xlink:href="#Layer0_0_1_STROKES"/>
+<use xlink:href="#Layer32_0_1_STROKES"/>
 </g>
 </svg>

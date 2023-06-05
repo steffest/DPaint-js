@@ -69,6 +69,8 @@ export let COMMAND={
     SAVEFILETOADF: 1068,
     DUPLICATEFRAME: 1069,
     SMUDGE: 1070,
+    CYCLEPALETTE: 1071,
+    LOCKPALETTE: 1072,
 }
 
 export let EVENT={
@@ -96,4 +98,9 @@ export let EVENT={
     endPolygonSelect: 22,
     framesChanged: 23,
     UIresize: 24,
+    paletteChanged: 25,
+    colorCycleChanged: 26,
+    colorCycleToggled: 27,
+    colorRangeChanged: 28,
+    colorRangesChanged: 29,
 }

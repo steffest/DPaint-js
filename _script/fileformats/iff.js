@@ -97,12 +97,16 @@ var IFF = function(){
                 case "CRNG":
                     img.colourRange = img.colourRange || [];
                     file.readShort(); // padding
-                    img.colourRange.push({
+                    let CRNGrange = {
                         rate: file.readShort(), // 16384 = 60 steps/second
                         flags: file.readShort(),
                         low: file.readUbyte(),
                         high: file.readUbyte()
-                    });
+                    }
+                    CRNGrange.fps = CRNGrange.rate/16384*60;
+                    CRNGrange.active = CRNGrange.flags & 1;
+                    CRNGrange.reverse = CRNGrange.flags & 2;
+                    img.colourRange.push(CRNGrange);
                     break;
                 case "DRNG":
                     // Dpaint IV enhanced color cycle chunk.
@@ -142,14 +146,17 @@ var IFF = function(){
                     // https://wiki.amigaos.net/wiki/ILBM_IFF_Interleaved_Bitmap#ILBM.CCRT
                     // examples: https://amiga.lychesis.net/applications/Graphicraft.html
                     img.colourRange = img.colourRange || [];
-                    img.colourRange.push({
+                    let CCRTRange = {
                         direction: file.readWord(),
                         low: file.readUbyte(),
                         high: file.readUbyte(),
                         seconds: file.readLong(),
                         microseconds: file.readLong(),
                         padding: file.readWord()
-                    });
+                    }
+                    CCRTRange.active = CCRTRange.direction !== 0;
+                    CCRTRange.fps = 1/(CCRTRange.seconds + CCRTRange.microseconds/1000000);
+                    img.colourRange.push(CCRTRange);
                     break;
                 case "CAMG":
                     var v = file.readLong();

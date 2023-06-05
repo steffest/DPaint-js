@@ -1,28 +1,26 @@
 
 <svg xmlns="http://www.w3.org/2000/svg" version="1.1" xmlns:xlink="http://www.w3.org/1999/xlink" preserveAspectRatio="none" x="0px" y="0px" width="100px" height="100px" viewBox="0 0 100 100">
 <defs>
-<linearGradient id="Gradient_1" gradientUnits="userSpaceOnUse" x1="10.449999999999996" y1="49.3" x2="89.75" y2="49.3" spreadMethod="pad">
+<linearGradient id="Gradient_1" gradientUnits="userSpaceOnUse" x1="11.187499999999993" y1="50.4" x2="87.4125" y2="50.4" spreadMethod="pad">
 <stop  offset="0%" stop-color="#FFFFFF"/>
 
 <stop  offset="100%" stop-color="#000000"/>
 </linearGradient>
+
+<g id="Layer24_0_FILL">
+<path fill="url(#Gradient_1)" stroke="none" d="
+M 87.5 77.5
+L 87.5 22.5 12.5 22.5 12.5 77.5 87.5 77.5 Z"/>
+</g>
+
+<path id="Layer24_0_1_STROKES" stroke="#FFFFFF" stroke-width="5" stroke-linejoin="round" stroke-linecap="round" fill="none" d="
+M 87.5 22.5
+L 87.5 77.5 12.5 77.5 12.5 22.5 87.5 22.5 Z"/>
 </defs>
 
-<g id="Layer_10">
-<g>
-<g>
-<g>
-<path fill="url(#Gradient_1)" stroke="none" d="
-M 89.8 75.7
-L 89.8 22.95 10.5 22.95 10.5 75.7 89.8 75.7 Z"/>
-</g>
-</g>
+<g transform="matrix( 1, 0, 0, 1, 0,0) ">
+<use xlink:href="#Layer24_0_FILL"/>
 
-<g>
-<path stroke="#FFFFFF" stroke-width="4" stroke-linejoin="round" stroke-linecap="round" fill="none" d="
-M 10.5 22.95
-L 89.8 22.95 89.8 75.7 10.5 75.7 10.5 22.95 Z"/>
-</g>
-</g>
+<use xlink:href="#Layer24_0_1_STROKES"/>
 </g>
 </svg>

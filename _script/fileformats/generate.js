@@ -76,7 +76,7 @@ let Generate = function(){
     }
 
     me.dPaint=()=>{
-        return new Blob([JSON.stringify(ImageFile.clone(),null,2)], { type: 'application/json' })
+        return new Blob([JSON.stringify(ImageFile.export())], { type: 'application/json' })
     }
 
     me.classicIcon=(config)=>{

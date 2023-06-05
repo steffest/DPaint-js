@@ -6,6 +6,7 @@ import ImageProcessing from "../util/imageProcessing.js";
 import ImageFile from "../image.js";
 import SidePanel from "./sidepanel.js";
 import {duplicateCanvas} from "../util/canvasUtils.js";
+import Animator from "../util/animator.js";
 
 let Palette = function(){
     let me = {};
@@ -21,6 +22,8 @@ let Palette = function(){
     let palettePageIndex = 0;
     let palettePageCount = 1;
     let currentHeight;
+    let colorLayers = {};
+    let cycleButton;
 
     var drawColor = "black";
     var backgroundColor = "white";
@@ -168,6 +171,12 @@ let Palette = function(){
             info:"Show palettes"
         },"Palette");
 
+        $('.palettebuttons',{parent: paletteParent},
+            $(".edit",{onClick: ()=>{EventBus.trigger(COMMAND.EDITPALETTE)}, info:"Edit palette"},$(".icon")),
+            cycleButton = $(".cycle",{onClick: ()=>{EventBus.trigger(COMMAND.CYCLEPALETTE)}, info:"Toggle Color Cycle"},$(".icon")),
+            $(".lock",{onClick: ()=>{EventBus.trigger(COMMAND.LOCKPALETTE)}, info:"Lock Palette"},$(".icon")),
+        );
+
         paletteCanvas = $("canvas.info.palettecanvas",{
             parent: paletteParent,
             info: "Color palette, left click to select front, right click to select back",
@@ -251,7 +260,7 @@ let Palette = function(){
 
         let box = paletteCanvas.getBoundingClientRect();
         let parentBox = paletteCanvas.parentElement.getBoundingClientRect();
-        let availableHeight = parentBox.height + parentBox.top - box.top;
+        let availableHeight = parentBox.height + parentBox.top - box.top - 2;
         currentHeight = availableHeight;
         if (availableHeight < paletteCanvas.height){
             let rows = Math.floor((availableHeight-22)/size);
@@ -371,6 +380,88 @@ let Palette = function(){
         me.set(currentPalette);
     }
 
+    me.swapColors = function(index1,index2){
+        let c = currentPalette[index1];
+        currentPalette[index1] = currentPalette[index2];
+        currentPalette[index2] = c;
+        me.set(currentPalette);
+        EventBus.trigger(EVENT.paletteChanged);
+    }
+
+    me.spreadColors = function(index1,index2){
+        if (index1 === index2) return;
+        if (index1 > index2){
+            let t = index1;
+            index1 = index2;
+            index2 = t;
+        }
+        if (index2-index1 === 1) return;
+
+        let steps = index2-index1-1;
+        let c1 = currentPalette[index1];
+        let c2 = currentPalette[index2];
+        let delta = [c2[0]-c1[0],c2[1]-c1[1],c2[2]-c1[2]];
+        for (let i=1;i<=steps;i++){
+            let color = [c1[0]+Math.floor(delta[0]*i/(steps+1)),c1[1]+Math.floor(delta[1]*i/(steps+1)),c1[2]+Math.floor(delta[2]*i/(steps+1))];
+            currentPalette[index1+i] = color;
+        }
+        me.set(currentPalette);
+        EventBus.trigger(EVENT.paletteChanged);
+    }
+
+    me.removeColor = function(index){
+        currentPalette.splice(index,1);
+        me.set(currentPalette);
+        EventBus.trigger(EVENT.paletteChanged);
+    }
+
+    me.addColor = function(color){
+        currentPalette.push(color);
+        me.set(currentPalette);
+        EventBus.trigger(EVENT.paletteChanged);
+    }
+
+
+    me.sortByHue = function(){
+        currentPalette.sort((a,b)=>{
+            let h1 = Color.hue(a);
+            let h2 = Color.hue(b);
+            if (h1<h2) return 1;
+            if (h1>h2) return -1;
+            let l1 = Color.lightness(a);
+            let l2 = Color.lightness(b);
+            return l1<l2?1:l1>l2?-1:0;
+        });
+        me.set(currentPalette);
+        EventBus.trigger(EVENT.paletteChanged);
+    }
+
+    me.sortByLightness = function(){
+        currentPalette.sort((a,b)=>{
+            let l1 = Color.lightness(a);
+            let l2 = Color.lightness(b);
+            return l1<l2?1:l1>l2?-1:0;
+        });
+        me.set(currentPalette);
+        EventBus.trigger(EVENT.paletteChanged);
+    }
+
+    me.sortBySaturation = function(){
+        currentPalette.sort((a,b)=>{
+            let s1 = Color.saturation(a);
+            let s2 = Color.saturation(b);
+            return s1<s2?1:s1>s2?-1:0;
+        });
+        me.set(currentPalette);
+        EventBus.trigger(EVENT.paletteChanged);
+    }
+
+    me.reverse = function(){
+        currentPalette.reverse();
+        me.set(currentPalette);
+        EventBus.trigger(EVENT.paletteChanged);
+    }
+
     me.generateControlPanel = function(parent){
 
         let palettePanel = $div("subpanel","",parent);
@@ -486,6 +577,7 @@ let Palette = function(){
                         };
                         if (data && data.type === "palette" && data.palette){
                             me.set(data.palette);
+                            EventBus.trigger(EVENT.paletteChanged);
                         }
 
                     }
@@ -525,6 +617,94 @@ let Palette = function(){
         });
     }
 
+    me.cycle = function(){
+
+        let image = ImageFile.getCurrentFile();
+        if (image && image.colorRange && image.colorRange.length){
+
+            let imageData = ImageFile.getContext().getImageData(0,0,image.width,image.height);
+            let data = imageData.data;
+
+            if (Animator.isRunning()){
+                Animator.stop();
+                image.colorRange.forEach((range,index)=>{
+                    if (range.active){
+                        range.index = 0;
+                        updateRangeColors(range,data);
+                        EventBus.trigger(EVENT.colorCycleChanged,index);
+                        ImageFile.getContext().putImageData(imageData,0,0);
+                        EventBus.trigger (EVENT.imageContentChanged);
+                    }
+                });
+            }else{
+                generateColorLayers();
+                image.colorRange.forEach((range,index)=>{
+                    if (range.active) Animator.start(()=>{
+                        range.index++;
+                        if (range.index>=range.max) range.index=0;
+
+                        updateRangeColors(range,data);
+                        EventBus.trigger(EVENT.colorCycleChanged,index);
+                        ImageFile.getContext().putImageData(imageData,0,0);
+                        EventBus.trigger (EVENT.imageContentChanged);
+
+                    },range.fps || 10);
+                });
+
+
+            }
+            EventBus.trigger (EVENT.colorCycleToggled);
+        }
+    }
+
+    function generateColorLayers(){
+        colorLayers = {};
+        let image = ImageFile.getCurrentFile();
+        let pixels = image.indexedPixels || [];
+
+        image.colorRange.forEach(range=>{
+            range.index = 0;
+            range.max = range.high-range.low+1;
+        })
+
+        function isInRange(pixel){
+            let inRange = false;
+            image.colorRange.forEach(range=>{
+                if (range.active && pixel>=range.low && pixel<=range.high){
+                    inRange = true;
+                }
+            });
+            return inRange;
+        }
+
+
+        // put every active pixel in a color layer
+        pixels.forEach((line,y)=>{
+            line.forEach((pixel,x)=>{
+                if (isInRange(pixel)){
+                    colorLayers[pixel] = colorLayers[pixel] || [];
+                    colorLayers[pixel].push(y*image.width+x);
+                }
+            })
+        })
+    }
+
+    function updateRangeColors(range,data){
+        for (let i=range.low;i<=range.high;i++){
+            let colorIndex = i - range.index;
+            if (colorIndex<range.low)colorIndex+=range.max;
+            let color = currentPalette[colorIndex];
+            let pixels = colorLayers[i] || [];
+            pixels.forEach(index=>{
+                let offset = index*4;
+                data[offset] = color[0];
+                data[offset+1] = color[1];
+                data[offset+2] = color[2];
+                data[offset+3] = 255;
+            });
+        }
+    }
+
 
     EventBus.on(COMMAND.PALETTEFROMIMAGE,me.fromImage);
     EventBus.on(COMMAND.PALETTEREDUCE,me.reduce);
@@ -536,11 +716,40 @@ let Palette = function(){
     EventBus.on(EVENT.UIresize,()=>{
         let box = paletteCanvas.getBoundingClientRect();
         let parentBox = paletteCanvas.parentElement.getBoundingClientRect();
-        let availableHeight = parentBox.height + parentBox.top - box.top;
+        let availableHeight = parentBox.height + parentBox.top - box.top - 2;
         if (availableHeight !== currentHeight){
             me.set(currentPalette);
         }
     });
+
+    EventBus.on(EVENT.colorCycleChanged,(index)=>{
+        let image = ImageFile.getCurrentFile();
+        let range = image.colorRange[index];
+        for (let i=range.low;i<=range.high;i++){
+            let index = i-(range.index || 0);
+            if (index<range.low) index += range.max;
+            let color = Palette.get()[index];
+
+            let cols = 4;
+            let rows = Math.floor(paletteCanvas.height/size);
+            let start = palettePageIndex * cols * rows;
+
+            if (i>=start && i<start+cols*rows){
+                let x = ((i-start)%cols) * size;
+                let y = Math.floor((i-start)/cols) * size;
+                paletteCtx.fillStyle = Color.toString(color);
+                paletteCtx.fillRect(x,y,size,size);
+            }
+        }
+    });
+
+    EventBus.on(EVENT.colorCycleToggled,()=>{
+        if (cycleButton){
+            cycleButton.classList.toggle("active",Animator.isRunning());
+        }
+    })
+
+    EventBus.on(COMMAND.CYCLEPALETTE,me.cycle);
 
     return me;
 }();

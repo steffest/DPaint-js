@@ -50,7 +50,7 @@ let FramesPanel = function(){
 
                 elm.onDragStart = (e)=>{
                     let dupe = $div("dragelement box frame","Frame " + index);
-                    Input.setDragElement(dupe,e);
+                    Input.setDragElement(dupe);
                     let currentTarget = contentPanel.querySelector("#frame" + elm.currentIndex);
                     if (currentTarget){
                         currentTarget.startDragX = (currentTarget.currentIndex*52) + e.clientX - currentTarget.getBoundingClientRect().left;

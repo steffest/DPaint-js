@@ -80,6 +80,7 @@
       image-rendering: -webkit-crisp-edges;
       image-rendering: pixelated;
       image-rendering: crisp-edges;
+      background-size: 20px 20px;
       color: white;
 
       &:hover{
@@ -99,7 +100,6 @@
 
     &.select{
       background-image: url("../_img/select.svg");
-      background-size: 80% 80%;
     }
 
     &.zoomout{
@@ -114,17 +114,14 @@
 
     &.split{
       background-image: url("../_img/split.svg");
-      background-size: 80% 80%;
     }
 
     &.circle{
       background-image: url("../_img/circle.svg");
-      background-size: 60% 60%;
     }
 
     &.square{
       background-image: url("../_img/square.svg");
-      background-size: 60% 60%;
     }
 
     &.line{
@@ -149,7 +146,6 @@
 
     &.gradient{
       background-image: url("../_img/gradient.svg");
-      background-size: 80% 80%;
     }
 
     &.polygonselect{
@@ -294,6 +290,70 @@
     }
   }
 
+  .palettebuttons{
+    height: 22px;
+    background-color: $panel-background-color;
+    border: 1px solid black;
+    margin: 2px auto 0 auto;
+    display: flex;
+
+    >div{
+      width: 100%;
+      text-align: center;
+      color: white;
+      opacity: 0.4;
+
+      &:hover{
+        background-color: $panel-background-active;
+        cursor: pointer;
+        opacity: 1;
+      }
+
+      &.active{
+
+      }
+
+      .icon{
+        width: 16px;
+        height: 20px;
+        display: inline-block;
+        vertical-align: middle;
+        background-color: transparent;
+        background-size: 16px 16px;
+        background-repeat: no-repeat;
+        background-position: center center;
+      }
+
+
+      &.edit{
+        .icon{
+          background-image: url("../_img/palette.svg");
+        }
+      }
+
+      &.lock{
+        .icon{
+          background-image: url("../_img/lock_open.svg");
+        }
+      }
+
+      &.cycle{
+        .icon{
+          background-image: url("../_img/cycle.svg");
+        }
+
+        &.active{
+          opacity: 1;
+          .icon{
+            animation: spin 1s infinite linear;
+            filter: brightness(0) saturate(100%) invert(91%) sepia(54%) saturate(6141%) hue-rotate(14deg) brightness(92%) contrast(90%);
+          }
+        }
+
+      }
+    }
+  }
+
   .palettenav{
     position: absolute;
     bottom: 2px;
@@ -390,5 +450,14 @@ body.withpalettelist{
         transform: rotate(180deg);
       }
     }
+  }
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(359deg);
   }
 }

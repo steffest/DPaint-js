@@ -101,7 +101,7 @@ let LayerPanel = function(){
                 if (elm.classList.contains('hasinput')) return;
                 // TODO probably more performant if we postpone this to when we actually drag
                 let dupe = $div("dragelement box",elm.innerText);
-                Input.setDragElement(dupe,e);
+                Input.setDragElement(dupe);
             }
 
             elm.onDrag = (x,y)=>{

@@ -83,11 +83,17 @@ var Input = function(){
 		activeKeyHandler = handler;
 	}
 
-	me.setDragElement = function(elm,event){
+	me.setDragElement = function(elm,activate){
 		if (touchData.dragElement) me.removeDragElement();
 
 		touchData.dragElement = document.createElement("div");
 		touchData.dragElement.id="dragelement";
+		if (activate){
+			touchData.dragElement.classList.add("active");
+			let pos = Cursor.getPosition();
+			touchData.dragElement.style.left =  pos.x  + "px";
+			touchData.dragElement.style.top =  pos.y  + "px";
+		}
 		if (elm) touchData.dragElement.appendChild(elm);
 		document.body.appendChild(touchData.dragElement);
 	}
@@ -270,7 +276,6 @@ var Input = function(){
 			//Cursor.reset();
 		}
 
-		//console.error("szzz");
 	}
 
 	function onKeyDown(e){

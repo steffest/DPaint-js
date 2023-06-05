@@ -8,6 +8,7 @@ var Cursor = function(){
     var me = {}
     var cursor;
     var cursorMark;
+    var toolTip;
     let position = {x:0,y:0}
     let defaultCursor = "default";
     let currentCursor = undefined;
@@ -16,6 +17,7 @@ var Cursor = function(){
     me.init = function(){
         cursor = $div("cursor");
         cursorMark = $div("mark","",cursor);
+        toolTip = $div("tooltip","",cursor);
         document.body.appendChild(cursor);
 
         document.body.addEventListener("pointermove", function (e) {
@@ -53,6 +55,8 @@ var Cursor = function(){
         cursor.style.display = "block";
         cursorMark.style.display = "block";
     }
+
+
     me.getPosition = ()=>{
         return position;
     }

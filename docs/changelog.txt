@@ -15,3 +15,4 @@ V 0.1.2
     - Additional palettes and pagination for long palettes
     - UI to change Alchemy script parameters
     - smudge tool
+    - bugfixes for Amiga Color Icons

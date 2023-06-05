@@ -1,0 +1,118 @@
+<html>
+<body>
+
+<button onclick="perfTest()">Run</button><br>
+<textarea id="output" style="height: 100px; width: 500px" ></textarea><br>
+
+<script>
+    let palette = [
+        [0, 0, 0],
+        [255, 255, 255],
+        [255, 0, 0],
+        [0, 255, 0],
+        [0, 0, 255],
+        [255,255,0],
+        [0, 255, 255],
+        [255, 0, 255]
+    ];
+
+    let width = 500;
+    let height = 500;
+
+    let canvas = document.createElement('canvas');
+    canvas.width = 500;
+    canvas.height = 500;
+    document.body.appendChild(canvas);
+
+    let ctx = canvas.getContext('2d');
+
+
+    function generateCanvas(){
+        for (let i = 0; i < 1000; i++) {
+            for (let j = 0; j < 1000; j++) {
+                let color = palette[Math.floor(Math.random() * palette.length)];
+                ctx.fillStyle = `rgb(${color[0]}, ${color[1]}, ${color[2]})`;
+                ctx.fillRect(i, j, 1, 1);
+            }
+        }
+    }
+
+    function generateCanvas2(){
+        let imageData = ctx.getImageData(0,0,width,height);
+        for (let i = 0; i < 1000; i++) {
+            for (let j = 0; j < 1000; j++) {
+                let color = palette[Math.floor(Math.random() * palette.length)];
+                let index = (i + j * width) * 4;
+                imageData.data[index] = color[0];
+                imageData.data[index+1] = color[1];
+                imageData.data[index+2] = color[2];
+                imageData.data[index+3] = 255;
+            }
+        }
+        ctx.putImageData(imageData,0,0);
+    }
+
+    function perfTest(){
+        let output = document.getElementById("output");
+        let now = performance.now();
+        generateCanvas();
+        output.value += "Generating canvas using fillRect:" + (performance.now()-now) + "\n";
+        ctx.clearRect(0,0,width,height);
+        now = performance.now();
+        generateCanvas2();
+        output.value += "Generating canvas using imageData:" + (performance.now()-now) + "\n";
+        function getIndex(color){
+            let index = palette.findIndex((c)=>{return c[0] === color[0] && c[1] === color[1] && c[2] === color[2]});
+            if (index<0){
+                index = 0;
+                console.error("color not found in palette",color);
+            }
+            return index;
+        }
+
+        let pixels = [];
+        now = performance.now();
+        for (let y=0;y<height;y++){
+            for (let x=0;x<width;x++){
+                let color = ctx.getImageData(x,y,1,1).data;
+                let index = getIndex(color);
+                pixels.push(index);
+            }
+        }
+        output.value += "Building indexes using findIndex:" + (performance.now()-now) + " (" + pixels.length + ")\n";
+
+        let map={};
+        for (let i=0;i<palette.length;i++){
+            map[palette[i][0]+","+palette[i][1]+","+palette[i][2]] = i;
+        }
+        pixels = [];
+        now = performance.now();
+        for(let y=0;y<height;y++){
+            for (let x=0;x<width;x++){
+                let color = ctx.getImageData(x,y,1,1).data;
+                let index = map[color[0]+","+color[1]+","+color[2]];
+                if (index === undefined){
+                    index = 0;
+                    console.error("color not found in palette",color);
+                }
+                pixels.push(index);
+            }
+        }
+        output.value += "Building indexes using map:" + (performance.now()-now) + " (" + pixels.length + ")\n";
+
+        let imageData = ctx.getImageData(0,0,width,height);
+        let data = imageData.data;
+        pixels = [];
+        now = performance.now();
+        for (let i=0;i<data.length;i+=4){
+            let index = getIndex([data[i],data[i+1],data[i+2]]);
+            pixels.push(index);
+        }
+        output.value += "Building indexes using imageData:" + (performance.now()-now) + " (" + pixels.length + ")\n";
+
+
+    }
+
+</script>
+</body>
+</html>
