@@ -71,6 +71,8 @@ export let COMMAND = {
     SMUDGE: 1070,
     CYCLEPALETTE: 1071,
     LOCKPALETTE: 1072,
+    FLIPHORIZONTAL: 1073,
+    FLIPVERTICAL: 1074,
 };
 
 export let EVENT = {

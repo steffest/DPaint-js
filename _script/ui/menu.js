@@ -46,14 +46,20 @@ let Menu = function(){
             ]},
         {label: "Layer", items:[
                 {label: "New",command: COMMAND.NEWLAYER},
-                {label: "Transform",command: COMMAND.TRANSFORMLAYER,shortKey: "T / V"},
+                {label: "Transform",items:[
+                        {label: "Free Transform",command: COMMAND.TRANSFORMLAYER,shortKey: "T / V"},
+                        {label: "Flip Horizontal",command: COMMAND.FLIPHORIZONTAL},
+                        {label: "Flip Vertical",command: COMMAND.FLIPVERTICAL}
+                    ]},
                 {label: "Duplicate",command: COMMAND.DUPLICATELAYER,shortKey: "meta+D"},
                 {label: "Effects",command: COMMAND.EFFECTS,shortKey: "meta+B"},
                 {label: "Move Up",command: COMMAND.LAYERUP},
                 {label: "Move Down",command: COMMAND.LAYERDOWN},
                 {label: "Merge Down",command: COMMAND.MERGEDOWN},
-                {label: "Add Mask: Show",command: COMMAND.LAYERMASK, shortKey: "meta+Shift+A"},
-                {label: "Add Mask: Hide",command: COMMAND.LAYERMASKHIDE, shortKey: "meta+Shift+H"},
+                {label: "Add Mask",items:[
+                        {label: "Show All",command: COMMAND.LAYERMASK, shortKey: "meta+Shift+A"},
+                        {label: "Hide All",command: COMMAND.LAYERMASKHIDE, shortKey: "meta+Shift+H"},
+                    ]},
                 {label: "Layer to Selection",command: COMMAND.TOSELECTION}
             ]},
         {label: "Selection", items:[
@@ -126,6 +132,39 @@ let Menu = function(){
         me.deActivateMenu();
     }
 
+
+    function buildMenuItem(item,parent){
+        let menuItem = $link("handle",item.label,parent,(e) =>{
+            if (item.command){
+                EventBus.trigger(item.command);
+                me.deActivateMenu();
+            }
+            if (item.action){
+                me.deActivateMenu();
+                item.action();
+            }
+        });
+        if (item.items){
+            menuItem.classList.add("caret");
+            let sub = $div("menuitem subsub","",menuItem);
+            item.items.forEach(subitem=>{
+                buildMenuItem(subitem,sub);
+            });
+        }
+        if (item.needsRealClick) menuItem.waitForClick = true;
+        if (item.shortKey){
+            let k = item.shortKey;
+            if (k.length>2){
+                menuItem.classList.add("wide");
+                let meta = isMac?"Cmd":"Ctrl";
+                if (k.indexOf("+N")>1) meta = isMac?"Ctrl":"Alt";
+                k = k.replace("meta",meta);
+                if (k.length>8)  menuItem.classList.add("ultra");
+            }
+            $div("shortkey",k,menuItem);
+        }
+    }
+
     function generate(){
         $div("hamburger menuitem","DPaint.js",container,()=>{
             container.classList.toggle("active");
@@ -142,28 +181,7 @@ let Menu = function(){
             if (item.items){
                 let sub = $div("menuitem sub","",item.element);
                 item.items.forEach(subitem=>{
-                    let menuItem = $link("handle",subitem.label,sub,(e) =>{
-                        if (subitem.command){
-                            EventBus.trigger(subitem.command);
-                            me.deActivateMenu();
-                        }
-                        if (subitem.action){
-                            me.deActivateMenu();
-                            subitem.action();
-                        }
-                    });
-                    if (subitem.needsRealClick) menuItem.waitForClick = true;
-                    if (subitem.shortKey){
-                        let k = subitem.shortKey;
-                        if (k.length>2){
-                            menuItem.classList.add("wide");
-                            let meta = isMac?"Cmd":"Ctrl";
-                            if (k.indexOf("+N")>1) meta = isMac?"Ctrl":"Alt";
-                            k = k.replace("meta",meta);
-                            if (k.length>8)  menuItem.classList.add("ultra");
-                        }
-                        $div("shortkey",k,menuItem);
-                    }
+                    buildMenuItem(subitem,sub);
                 });
             }
         })

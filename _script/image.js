@@ -275,6 +275,27 @@ let ImageFile = function(){
         me.activateLayer(index + 1);
     };
 
+    me.flipLayer = function(index, horizontal){
+        if (typeof index !== "number") index = activeLayerIndex;
+        let layer = currentFrame().layers[index];
+        if (layer) {
+            let canvas = duplicateCanvas(layer.getCanvas(), true);
+            let ctx = layer.getContext();
+            layer.clear();
+            if (horizontal) {
+                ctx.translate(canvas.width, 0);
+                ctx.scale(-1, 1);
+            }else{
+                ctx.translate(0, canvas.height);
+                ctx.scale(1, -1);
+            }
+            ctx.drawImage(canvas, 0, 0);
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+            releaseCanvas(canvas);
+            EventBus.trigger(EVENT.layerContentChanged);
+        }
+    }
+
     me.setLayerOpacity = function(value){
         if (activeLayer) {
             activeLayer.opacity = value;
@@ -867,6 +888,13 @@ let ImageFile = function(){
 
     EventBus.on(COMMAND.DUPLICATELAYER, function(){
         me.duplicateLayer();
+    });
+
+    EventBus.on(COMMAND.FLIPHORIZONTAL, function(){
+        me.flipLayer(undefined,true);
+    });
+    EventBus.on(COMMAND.FLIPVERTICAL, function(){
+        me.flipLayer(undefined,false);
     });
 
     EventBus.on(COMMAND.LAYERUP, function(index){

@@ -238,7 +238,7 @@ input[type=range]:focus::-ms-fill-upper {
 }
 .menu a.main .sub {
   left: 0;
-  margin-top: 0px;
+  margin-top: 0;
   position: absolute;
   background-color: #313335;
   color: #BBBBBB;
@@ -259,9 +259,24 @@ input[type=range]:focus::-ms-fill-upper {
 .menu a.main .sub a.wide.ultra {
   padding: 0 90px 0 10px;
 }
+.menu a.main .sub a.caret:after {
+  content: "";
+  position: absolute;
+  right: 2px;
+  width: 16px;
+  height: 23px;
+  background-image: url("../_img/caret.svg");
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+  opacity: 0.5;
+}
 .menu a.main .sub a:hover {
   background-color: #3C3F41;
   cursor: pointer;
+}
+.menu a.main .sub a:hover .subsub {
+  display: block;
 }
 .menu a.main .sub a .shortkey {
   position: absolute;
@@ -269,6 +284,15 @@ input[type=range]:focus::-ms-fill-upper {
   top: 1px;
   color: #8f8f8f;
   font-size: 11px;
+}
+.menu a.main .sub .subsub {
+  position: absolute;
+  background-color: #313335;
+  border: 1px solid black;
+  z-index: 100;
+  top: 0;
+  left: 50%;
+  display: none;
 }
 .menu a.main:hover, .menu a.main.active {
   background-color: #3C3F41;
