@@ -75,10 +75,12 @@ let Menu = function(){
                 {label: "Reduce",command: COMMAND.PALETTEREDUCE},
                 {label: "Show Presets",command: COMMAND.TOGGLEPALETTES},
                 {label: "Save Palette",command: COMMAND.SAVEPALETTE},
-                {label: "Load Palette",command: COMMAND.LOADPALETTE}
+                {label: "Load Palette",command: COMMAND.LOADPALETTE},
+                {label: "Toggle Color Cycle",command: COMMAND.CYCLEPALETTE,shortKey: "tab"},
             ]},
         {label: "View", items:[
-                {label: "Split Screen",command: COMMAND.SPLITSCREEN,shortKey: "tab"},
+                {label: "Split Screen",command: COMMAND.SPLITSCREEN,shortKey: "Z"},
+                {label: "Presentation mode",command: COMMAND.PRESENTATION},
                 {label: "Full Screen",command: COMMAND.FULLSCREEN,needsRealClick: true},
             ]},
         {label: "Amiga", items:[

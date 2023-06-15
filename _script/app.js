@@ -14,12 +14,32 @@ let App = function(){
 		UI.init();
 		EventBus.trigger(COMMAND.NEW);
 
-		// show about dialog on first run
-		if (window.localStorage.getItem("dp_about")!=="true"){
-			setTimeout(()=>{
-				EventBus.trigger(COMMAND.ABOUT);
-				window.localStorage.setItem("dp_about","true");
-			},200);
+		let urlParams = new URLSearchParams(window.location.search);
+
+		if (urlParams.has("file")){
+			let file = urlParams.get("file");
+			if (file){
+
+				if (urlParams.has("presentation")){
+					EventBus.trigger(COMMAND.PRESENTATION);
+				}
+
+				ImageFile.openUrl(file).then(()=>{
+					setTimeout(()=>{
+						if (urlParams.has("play")){
+							EventBus.trigger(COMMAND.CYCLEPALETTE);
+						}
+					},200);
+				}).catch((err)=>{});
+			}
+		}else{
+			// show about dialog on first run
+			if (window.localStorage.getItem("dp_about")!=="true"){
+				setTimeout(()=>{
+					EventBus.trigger(COMMAND.ABOUT);
+					window.localStorage.setItem("dp_about","true");
+				},200);
+			}
 		}
 
 		EventBus.on(COMMAND.OPEN,function(){

@@ -8,7 +8,7 @@ import Sidepanel from "./sidepanel.js";
 import StatusBar from "./statusbar.js";
 import PaletteList from "./components/paletteList.js";
 import EventBus from "../util/eventbus.js";
-import {EVENT} from "../enum.js";
+import {COMMAND, EVENT} from "../enum.js";
 
 let UI = function(){
 	let me = {}
@@ -35,9 +35,18 @@ let UI = function(){
 		if (container) container.classList.toggle("fuzzy",value)
 	}
 
+
 	me.getContainer = function(){
 		return container;
 	}
+
+	me.inPresentation = function(){
+		return document.body.classList.contains("presentation");
+	}
+
+	EventBus.on(COMMAND.PRESENTATION,()=>{
+		document.body.classList.toggle("presentation");
+	})
 	
 	return me;
 }();

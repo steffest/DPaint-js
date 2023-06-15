@@ -92,6 +92,8 @@ let ImageFile = function(){
     me.getContext = function(){
         if (currentFrame().layers.length === 1 && activeLayer) {
             return activeLayer.getContext();
+        }else{
+            return me.getCanvas().getContext("2d");
         }
     };
 
@@ -145,6 +147,37 @@ let ImageFile = function(){
         };
         input.click();
     };
+
+    me.openUrl = function(url,useProxy){
+        return new Promise((resolve,reject)=>{
+            let fileName = url.substring(url.lastIndexOf("/")+1);
+            let extension = fileName.substring(fileName.lastIndexOf(".")+1).toLowerCase();
+            fetch(url).then(response=>{
+                if (extension === "json"){
+                    response.json().then(json=>{
+                        me.handleJSON(json);
+                        resolve();
+                    })
+                }else{
+                    response.blob().then(blob=>{
+                        blob.arrayBuffer().then(buffer=>{
+                            me.handleBinary(buffer, fileName, "file",true);
+                            resolve();
+                        })
+                    })
+                }
+            }).catch(err=>{
+                if (!useProxy){
+                    // probably a CORS error
+                    url = "https://www.stef.be/bassoontracker/api/proxy/?"+encodeURIComponent(url);
+                    me.openUrl(url,true).then(resolve).catch(reject);
+                }else{
+                    console.error(err);
+                    reject(err);
+                }
+            })
+        });
+    }
 
     me.save = function(){
         Modal.show(DIALOG.SAVE);
@@ -461,21 +494,7 @@ let ImageFile = function(){
                         }
                     }
                     if (data) {
-                        if (data.type === "dpaint") {
-                            me.restore(data);
-                            if (data.palette){
-                                Palette.set(data.palette);
-                            }
-                            if (data.colorRange){
-                                currentFile.colorRange = data.colorRange;
-                            }
-                            if (data.indexedPixels){
-                                currentFile.indexedPixels = data.indexedPixels;
-                            }
-                        }
-                        if (data.type === "palette") {
-                            Palette.set(data.palette);
-                        }
+                        me.handleJSON(data);
                     }
                 } else {
                     // load as Image, fallback to detectType if it fails
@@ -583,6 +602,25 @@ let ImageFile = function(){
             }
         });
     };
+
+    me.handleJSON = function(data,next){
+        if (data.type === "dpaint") {
+            me.restore(data);
+            if (data.palette){
+                Palette.set(data.palette);
+            }
+            if (data.colorRange){
+                currentFile.colorRange = data.colorRange;
+            }
+            if (data.indexedPixels){
+                currentFile.indexedPixels = data.indexedPixels;
+            }
+        }
+        if (data.type === "palette") {
+            Palette.set(data.palette);
+        }
+        if (next) next();
+    }
 
     function newFile(image,fileName,type,originalData){
         Historyservice.clear();
@@ -820,6 +858,7 @@ let ImageFile = function(){
     }
 
     me.generateIndexedPixels = function(){
+        console.log("generate indexed pixels");
         let ctx = me.getCanvas().getContext("2d");
         let width = currentFile.width;
         let height = currentFile.height;

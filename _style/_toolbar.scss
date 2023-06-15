@@ -335,6 +335,14 @@
         .icon{
           background-image: url("../_img/lock_open.svg");
         }
+
+        &.active{
+          opacity: 1;
+          .icon{
+            background-image: url("../_img/lock_closed.svg");
+            filter: brightness(0) saturate(100%) invert(91%) sepia(54%) saturate(6141%) hue-rotate(14deg) brightness(92%) contrast(90%);
+          }
+        }
       }
 
       &.cycle{
@@ -450,6 +458,12 @@ body.withpalettelist{
         transform: rotate(180deg);
       }
     }
+  }
+}
+
+body.presentation{
+  .toolbar {
+    display: none;
   }
 }
 
