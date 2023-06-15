@@ -8,6 +8,7 @@ import ToolOptions from "./components/toolOptions.js";
 import Input from "./input.js";
 import Brush from "./brush.js";
 import BrushPanel from "./components/brushPanel.js";
+import UI from "./ui.js";
 
 var EditPanel = function(parent,type){
     var me = {};
@@ -154,6 +155,7 @@ var EditPanel = function(parent,type){
         let sx = rect.width/canvas.getCanvas().width;
         let sy = rect.height/canvas.getCanvas().height;
         canvas.setZoom(Math.min(sx,sy));
+        canvas.resetPan();
         syncZoomLevel();
     }
 
@@ -234,6 +236,9 @@ var EditPanel = function(parent,type){
     zoomFitButton.info = "Zoom to fit screen";
 
     if (thisPanel === 0){
+        $div("button closepresentation","x",toolbar,()=>{
+            EventBus.trigger(COMMAND.PRESENTATION);
+        });
         toolPanel = $div("toolpanel","",toolbar);
         EventBus.on(EVENT.toolChanged,(tool)=>{
             tool = tool || Editor.getCurrentTool();
@@ -307,6 +312,12 @@ var EditPanel = function(parent,type){
         }
         if (currentView === "tiles"){
             updateTiles();
+        }
+    })
+
+    EventBus.on(COMMAND.PRESENTATION,()=>{
+        if (me.isVisible()){
+            me.zoomToFit();
         }
     })
     

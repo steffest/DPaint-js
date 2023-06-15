@@ -8,6 +8,7 @@ import ImageFile from "../image.js";
 import Selection from "./selection.js";
 import Resizer from "./components/resizer.js";
 import Cursor from "./cursor.js";
+import UI from "./ui.js";
 
 var Input = function(){
 	let me = {}
@@ -310,8 +311,8 @@ var Input = function(){
 
 
 		if (activeKeyHandler){
-			activeKeyHandler(code);
-			return;
+			let handled = activeKeyHandler(code);
+			if (handled) return;
 		}
 
 		//console.log(code);
@@ -325,9 +326,11 @@ var Input = function(){
 				Menu.close();
 				ContextMenu.hide();
 				Editor.reset();
+				if (UI.inPresentation()) EventBus.trigger(COMMAND.PRESENTATION);
 				break;
 			case "tab":
-				EventBus.trigger(COMMAND.SPLITSCREEN);
+				//EventBus.trigger(COMMAND.SPLITSCREEN);
+				EventBus.trigger(COMMAND.CYCLEPALETTE);
 				break;
 			case "enter":
 				Editor.commit();
@@ -383,6 +386,7 @@ var Input = function(){
 				case "v": EventBus.trigger(COMMAND.TRANSFORMLAYER); break;
 				case "w": EventBus.trigger(COMMAND.FLOODSELECT); break;
 				case "x": EventBus.trigger(COMMAND.SWAPCOLORS); break;
+				case "z": EventBus.trigger(COMMAND.SPLITSCREEN); break;
 				case "-": EventBus.trigger(COMMAND.ZOOMOUT); break;
 				case "+": EventBus.trigger(COMMAND.ZOOMIN); break;
 			}

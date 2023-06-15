@@ -25,6 +25,8 @@ resizing sizebox negatively, makes the sizebox 0 width/height
 resize image to larger doesn't clear all cached data (like the drawlayer?)
 copy/paste/undo shortcut doesn't work on Firefox
 fill tool is active when scrollbar is clicked
+when aplying color palette changes - they get applied to the top layer instead of the active layer
+scrolling removes selection mask
 
 
 transform layer in touch screens?

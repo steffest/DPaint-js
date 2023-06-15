@@ -73,6 +73,7 @@ export let COMMAND = {
     LOCKPALETTE: 1072,
     FLIPHORIZONTAL: 1073,
     FLIPVERTICAL: 1074,
+    PRESENTATION: 1075,
 };
 
 export let EVENT = {

@@ -384,19 +384,7 @@ var PaletteDialog = function() {
     function setColor(color,index){
         if (index>=Palette.get().length) return;
         currentIndex = index;
-        colorCanvasCtx.fillStyle = Color.toString(color);
-        colorCanvasCtx.fillRect(0,0,60,30);
-        inputHex.value = colorPicker.value = Color.toHex(color);
         Palette.setColor(color);
-        if (hsv) color = Color.toHSV(color,true);
-        sliders.forEach((slider,_index)=>{
-            slider.range.value = color[_index];
-            slider.input.value = color[_index];
-        });
-        setPixelHighLights();
-        setColorSelection();
-        buttons.classList.remove("active");
-        //buttons.forEach(button=>{button.classList.remove("active")})
     }
 
     function setColorSelection(){
@@ -498,6 +486,26 @@ var PaletteDialog = function() {
 
     EventBus.on(EVENT.colorRangeChanged,()=>{
         if (paletteCanvas) renderPalette(paletteCanvas.parentNode);
+    });
+
+    EventBus.on(EVENT.drawColorChanged,()=>{
+        if (paletteCanvas){
+            let color = Palette.getDrawColor();
+            currentIndex = Palette.getDrawColorIndex();
+
+            colorCanvasCtx.fillStyle = Color.toString(color);
+            colorCanvasCtx.fillRect(0,0,60,30);
+            inputHex.value = colorPicker.value = Color.toHex(color);
+
+            if (hsv) color = Color.toHSV(color,true);
+            sliders.forEach((slider,_index)=>{
+                slider.range.value = color[_index];
+                slider.input.value = color[_index];
+            });
+            setPixelHighLights();
+            setColorSelection();
+            buttons.classList.remove("active");
+        }
     });
 
 

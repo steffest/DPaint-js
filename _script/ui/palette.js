@@ -7,6 +7,7 @@ import ImageFile from "../image.js";
 import SidePanel from "./sidepanel.js";
 import {duplicateCanvas} from "../util/canvasUtils.js";
 import Animator from "../util/animator.js";
+import ColorRange from "./components/colorRange.js";
 
 let Palette = function(){
     let me = {};
@@ -24,9 +25,12 @@ let Palette = function(){
     let currentHeight;
     let colorLayers = {};
     let cycleButton;
+    let lockButton;
+    let isLocked = false;
 
     var drawColor = "black";
     var backgroundColor = "white";
+    var drawColorIndex = 1;
 
     var colors = [
         [149,149,149],
@@ -173,8 +177,8 @@ let Palette = function(){
 
         $('.palettebuttons',{parent: paletteParent},
             $(".edit",{onClick: ()=>{EventBus.trigger(COMMAND.EDITPALETTE)}, info:"Edit palette"},$(".icon")),
-            cycleButton = $(".cycle",{onClick: ()=>{EventBus.trigger(COMMAND.CYCLEPALETTE)}, info:"Toggle Color Cycle"},$(".icon")),
-            $(".lock",{onClick: ()=>{EventBus.trigger(COMMAND.LOCKPALETTE)}, info:"Lock Palette"},$(".icon")),
+            cycleButton = $(".cycle",{onClick: ()=>{EventBus.trigger(COMMAND.CYCLEPALETTE)}, info:"<b>tab</b> Toggle Color Cycle"},$(".icon")),
+            lockButton = $(".lock",{onClick: ()=>{EventBus.trigger(COMMAND.LOCKPALETTE)}, info:"Lock Palette"},$(".icon")),
         );
 
         paletteCanvas = $("canvas.info.palettecanvas",{
@@ -231,6 +235,7 @@ let Palette = function(){
             EventBus.trigger(EVENT.backgroundColorChanged,color);
         }else{
             drawColor = Color.toString(color);
+            drawPalette();
             EventBus.trigger(EVENT.drawColorChanged,color);
         }
     }
@@ -243,8 +248,39 @@ let Palette = function(){
         return backgroundColor;
     }
 
+    me.next = function(){
+       me.setColorIndex(drawColorIndex+1);
+    }
+
+    me.prev = function(){
+        me.setColorIndex(drawColorIndex-1);
+    }
+
+    me.setColorIndex = function(index){
+        if (currentPalette){
+            drawColorIndex = index;
+            let rangeIndex = ColorRange.getActiveRange();
+            if (rangeIndex !== undefined){
+                let range = ImageFile.getCurrentFile().colorRange[rangeIndex];
+                if (range){
+                    if (drawColorIndex < range.low) drawColorIndex = range.high;
+                    if (drawColorIndex > range.high) drawColorIndex = range.low;
+                }
+            }
+
+            if (drawColorIndex < 0) drawColorIndex = currentPalette.length-1;
+            if (drawColorIndex >= currentPalette.length) drawColorIndex = 0;
+
+            me.setColor(currentPalette[drawColorIndex],false);
+        }
+    }
+
+    me.getDrawColorIndex = function(){
+        return drawColorIndex;
+    }
+
     me.isLocked = function(){
-        return false;
+        return isLocked;
     }
 
     me.set = function(palette){
@@ -292,6 +328,7 @@ let Palette = function(){
         let end = start + cols * rows;
         if (end > currentPalette.length) end = currentPalette.length;
         paletteCtx.clearRect(0,0,paletteCanvas.width,paletteCanvas.height);
+        let current = Color.fromString(drawColor);
         for (let i=start;i<end;i++){
             let color = currentPalette[i];
             if (typeof color === "string"){
@@ -302,6 +339,14 @@ let Palette = function(){
             let y = Math.floor((i-start)/cols) * size;
             paletteCtx.fillStyle = "rgb(" + color[0] + "," + color[1] + "," + color[2] + ")";
             paletteCtx.fillRect(x,y,size,size);
+
+            if (color[0] === current[0] && color[1] === current[1] && color[2] === current[2]){
+                paletteCtx.fillStyle = "black";
+                paletteCtx.fillRect(x+2,y+2,4,4);
+                paletteCtx.fillStyle = "white";
+                paletteCtx.fillRect(x+3,y+3,2,2);
+                drawColorIndex = i;
+            }
         }
     }
 
@@ -625,18 +670,31 @@ let Palette = function(){
             let imageData = ImageFile.getContext().getImageData(0,0,image.width,image.height);
             let data = imageData.data;
 
+            let hasLayers = ImageFile.getActiveFrame().layers && ImageFile.getActiveFrame().layers.length>1;
+
+
             if (Animator.isRunning()){
                 Animator.stop();
+                if (hasLayers) ImageFile.removeLayer(ImageFile.getActiveFrame().layers.length-1);
                 image.colorRange.forEach((range,index)=>{
                     if (range.active){
                         range.index = 0;
                         updateRangeColors(range,data);
                         EventBus.trigger(EVENT.colorCycleChanged,index);
-                        ImageFile.getContext().putImageData(imageData,0,0);
+                        if (!hasLayers){
+                            ImageFile.getContext().putImageData(imageData,0,0);
+                        }
                         EventBus.trigger (EVENT.imageContentChanged);
                     }
                 });
             }else{
+
+                if (hasLayers){
+                    // add temporary layer to combine all layers and use for color cycling
+                    ImageFile.addLayer(undefined,"Colour Cycling");
+                }
+                let renderContext = ImageFile.getLayer(ImageFile.getActiveFrame().layers.length-1).getContext();
+
                 generateColorLayers();
                 image.colorRange.forEach((range,index)=>{
                     if (range.active) Animator.start(()=>{
@@ -645,7 +703,7 @@ let Palette = function(){
 
                         updateRangeColors(range,data);
                         EventBus.trigger(EVENT.colorCycleChanged,index);
-                        ImageFile.getContext().putImageData(imageData,0,0);
+                        renderContext.putImageData(imageData,0,0);
                         EventBus.trigger (EVENT.imageContentChanged);
 
                     },range.fps || 10);
@@ -660,6 +718,7 @@ let Palette = function(){
     function generateColorLayers(){
         colorLayers = {};
         let image = ImageFile.getCurrentFile();
+        ImageFile.generateIndexedPixels();
         let pixels = image.indexedPixels || [];
 
         image.colorRange.forEach(range=>{
@@ -748,6 +807,11 @@ let Palette = function(){
             cycleButton.classList.toggle("active",Animator.isRunning());
         }
     })
+
+    EventBus.on(COMMAND.LOCKPALETTE,()=>{
+        isLocked = !isLocked;
+        lockButton.classList.toggle("active",isLocked);
+    });
 
     EventBus.on(COMMAND.CYCLEPALETTE,me.cycle);
 

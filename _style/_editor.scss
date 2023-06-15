@@ -54,6 +54,10 @@
           background-position: center center;
           background-repeat: no-repeat;
         }
+
+        &.closepresentation{
+          display: none;
+        }
       }
 
       .toolpanel{
@@ -242,4 +246,26 @@ body.withfilebrowser{
     .splitpanel{
         right: 154px;
     }
+}
+
+body.presentation{
+  .splitpanel{
+    left: 0;
+    top: 0;
+    bottom: 0;
+
+    .toolbar{
+      .button{
+        display: none;
+
+        &.closepresentation{
+          display: block;
+        }
+      }
+
+      .toolpanel{
+        display: none;
+      }
+    }
+  }
 }

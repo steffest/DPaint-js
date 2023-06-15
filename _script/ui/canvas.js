@@ -699,6 +699,18 @@ let Canvas = function(parent){
         container.style.transform = "translate(" + containerTransform.x + "px," + containerTransform.y + "px)";
     }
 
+    function resetContainer(){
+        containerTransform.x = 0;
+        containerTransform.y = 0;
+        setContainer();
+    }
+
+    me.resetPan = function(){
+        resetContainer();
+        panelParent.scrollLeft = 0;
+        panelParent.scrollTop = 0;
+    }
+
     //Bresenham's_line_algorithm
     //http://rosettacode.org/wiki/Bitmap/Bresenham's_line_algorithm
     function bLine_(x0, y0, x1, y1,ctx,color,lineWidth) {

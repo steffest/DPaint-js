@@ -8,6 +8,7 @@ import PaletteDialog from "./components/paletteDialog.js";
 import EffectDialog from "./components/effectDialog.js";
 import DitherDialog from "./components/ditherDialog.js";
 import OptionDialog from "./components/optionDialog.js";
+import Editor from "./editor.js";
 
 export let DIALOG={
     SAVE: 1,
@@ -146,11 +147,11 @@ var Modal = function(){
         switch (code){
             case "escape":
                 me.hide();
-                break;
+                return true;
             case "enter":
                 let button = inner.querySelector(".button.primary");
                 if (button && button.onClick) button.onClick();
-                break;
+                return true;
         }
     }
 

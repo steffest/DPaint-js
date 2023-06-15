@@ -198,9 +198,13 @@ var Editor = function(){
         })
 
         EventBus.on(COMMAND.TRANSFORMLAYER,()=>{
+
+            let box = ImageFile.getLayerBoundingRect();
+            if (!box.w || !box.h) return;
+
             previousTool = currentTool;
             currentTool = COMMAND.TRANSFORMLAYER;
-            let box = ImageFile.getLayerBoundingRect();
+
             Resizer.set(box.x,box.y,box.w,box.h,0,false,activePanel.getViewPort(),box.w/box.h);
 
             touchData.transformBox = box;
@@ -361,6 +365,11 @@ var Editor = function(){
             x*=10;
             y*=10;
         }
+        if (currentTool === COMMAND.DRAW){
+            if (x>0) Palette.next();
+            if (x<0) Palette.prev();
+            return;
+        }
         Resizer.move(x,y);
     }
 
@@ -378,6 +387,7 @@ var Editor = function(){
         console.log("update transform layer");
         let d = Resizer.get();
         touchData.transformLayer.clear();
+        if (d.width === 0 || d.height === 0) return;
         let ctx = touchData.transformLayer.getContext();
         ctx.imageSmoothingEnabled = false;
         if (d.rotation){

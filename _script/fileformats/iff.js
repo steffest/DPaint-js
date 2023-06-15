@@ -26,6 +26,7 @@
 
 import BinaryStream from "../util/binarystream.js";
 import ImageProcessing from "../util/imageProcessing.js";
+import Palette from "../ui/palette.js";
 
 const FILETYPE = {
     IFF: { name: "IFF file" },
@@ -406,7 +407,12 @@ const IFF = (function () {
 
     // creates an ArrayBuffer with the binary data of the Icon;
     me.write = function (canvas) {
-        const colors = ImageProcessing.getColors(canvas, 256);
+        let colors = ImageProcessing.getColors(canvas, 256);
+
+        if (Palette.isLocked()){
+            colors = Palette.get();
+        }
+
         let bitplaneCount = 1;
         while (1 << bitplaneCount < colors.length) bitplaneCount++;
         while (colors.length < 1 << bitplaneCount) colors.push([0, 0, 0]);

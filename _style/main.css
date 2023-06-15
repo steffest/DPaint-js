@@ -302,6 +302,10 @@ input[type=range]:focus::-ms-fill-upper {
   display: block;
 }
 
+body.presentation .menu {
+  display: none;
+}
+
 .contextmenu {
   position: absolute;
   z-index: 999;
@@ -609,6 +613,13 @@ input[type=range]:focus::-ms-fill-upper {
 .toolbar .palettebuttons > div.lock .icon {
   background-image: url("../_img/lock_open.svg");
 }
+.toolbar .palettebuttons > div.lock.active {
+  opacity: 1;
+}
+.toolbar .palettebuttons > div.lock.active .icon {
+  background-image: url("../_img/lock_closed.svg");
+  filter: brightness(0) saturate(100%) invert(91%) sepia(54%) saturate(6141%) hue-rotate(14deg) brightness(92%) contrast(90%);
+}
 .toolbar .palettebuttons > div.cycle .icon {
   background-image: url("../_img/cycle.svg");
 }
@@ -688,6 +699,10 @@ body.withpalettelist .toolbar .togglepanel.showpalettelist:after {
   transform: rotate(180deg);
 }
 
+body.presentation .toolbar {
+  display: none;
+}
+
 @keyframes spin {
   from {
     transform: rotate(0deg);
@@ -717,6 +732,10 @@ body.withpalettelist .toolbar .togglepanel.showpalettelist:after {
   height: 14px;
   padding: 0 3px;
   text-align: center;
+}
+
+body.presentation .statusbar {
+  display: none;
 }
 
 .sidepanel {
@@ -1357,6 +1376,9 @@ body.withsidepanel .sidepanel {
   background-position: center center;
   background-repeat: no-repeat;
 }
+.splitpanel .panel .toolbar .button.closepresentation {
+  display: none;
+}
 .splitpanel .panel .toolbar .toolpanel .options {
   display: flex;
   padding: 3px 2px 0 2px;
@@ -1501,6 +1523,21 @@ body.withsidepanel .splitpanel {
 
 body.withfilebrowser .splitpanel {
   right: 154px;
+}
+
+body.presentation .splitpanel {
+  left: 0;
+  top: 0;
+  bottom: 0;
+}
+body.presentation .splitpanel .toolbar .button {
+  display: none;
+}
+body.presentation .splitpanel .toolbar .button.closepresentation {
+  display: block;
+}
+body.presentation .splitpanel .toolbar .toolpanel {
+  display: none;
 }
 
 .sizebox {

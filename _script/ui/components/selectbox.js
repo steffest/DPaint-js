@@ -300,16 +300,16 @@ let SelectBox = (()=>{
             switch (code){
                 case "keyj":
                     EventBus.trigger(COMMAND.TOLAYER)
-                    break;
+                    return true;
                 case "keyk":
                     EventBus.trigger(COMMAND.CUTTOLAYER)
-                    break;
+                    return true;
                 case "escape":
                     me.endPolySelect();
-                    break;
+                    return true;
                 case "enter":
                     me.endPolySelect();
-                    break;
+                    return true;
             }
         }
     }
