@@ -33,6 +33,7 @@ let Canvas = function(parent){
     var selectBox;
     let drawFunction;
     let containerTransform = {x:0,y:0,startX:0,startY:0};
+    let currentCursorPoint;
 
     canvas = document.createElement("canvas");
     overlayCanvas = document.createElement("canvas");
@@ -91,7 +92,16 @@ let Canvas = function(parent){
         overlayCtx.globalAlpha = Brush.getOpacity();
         Brush.draw(overlayCtx,point.x,point.y,Palette.getDrawColor(),(Input.isControlDown() || Input.isMetaDown()));
         overlayCtx.globalAlpha = 1;
+        currentCursorPoint = point;
 
+    });
+
+    EventBus.on(EVENT.drawColorChanged,()=>{
+        if (overlayCanvas.style.opacity>0 && currentCursorPoint){
+            overlayCtx.globalAlpha = Brush.getOpacity();
+            Brush.draw(overlayCtx,currentCursorPoint.x,currentCursorPoint.y,Palette.getDrawColor(),(Input.isControlDown() || Input.isMetaDown()));
+            overlayCtx.globalAlpha = 1;
+        }
     });
     
     EventBus.on(COMMAND.CLEARSELECTION,()=>{

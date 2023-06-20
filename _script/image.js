@@ -392,6 +392,14 @@ let ImageFile = function(){
         EventBus.trigger(EVENT.framesChanged);
     };
 
+    me.nextFrame = function(offset){
+        offset = offset || 1;
+        let frame = activeFrameIndex + offset;
+        if (frame < 0) frame = currentFile.frames.length - 1;
+        if (frame >= currentFile.frames.length) frame = 0;
+        me.activateFrame(frame);
+    }
+
     me.clone = function(){
         let struct = {
             type: "dpaint",

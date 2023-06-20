@@ -335,6 +335,12 @@ var Input = function(){
 			case "enter":
 				Editor.commit();
 				break;
+			case "numpad4":
+				ImageFile.nextFrame(-1);
+				break;
+			case "numpad6":
+				ImageFile.nextFrame();
+				break;
 			case "arrowleft":
 			case "arrowup":
 			case "arrowright":
