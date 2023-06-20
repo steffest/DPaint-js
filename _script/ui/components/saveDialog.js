@@ -191,6 +191,14 @@ var SaveDialog = function(){
         saveFile(blob,fileName,filetypes.FILE).then(()=>{});
     })
 
+    window.png8 = function(){
+        Generate.file("PNG8").then((blob)=>{
+            if (blob){
+                saveFile(blob,getFileName() + ".png",filetypes.PNG).then(()=>{});
+            }
+        });
+    }
+
 
     return me;
 }();

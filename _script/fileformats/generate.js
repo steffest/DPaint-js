@@ -4,6 +4,7 @@ import ImageFile from "../image.js";
 import ImageProcessing from "../util/imageProcessing.js";
 import Icon from "./amigaIcon.js";
 import Palette from "../ui/palette.js";
+import IndexedPng from "./png.js";
 
 let Generate = function(){
     let me = {};
@@ -49,6 +50,8 @@ let Generate = function(){
                 return me.iff();
             case "PNG":
                 return await new Promise(resolve => ImageFile.getCanvas().toBlob(resolve));
+            case "PNG8":
+                return me.png8();
             case "DPAINT":
                 return me.dPaint();
             default:
@@ -73,6 +76,26 @@ let Generate = function(){
 
         let buffer = IFF.write(ImageFile.getCanvas());
         return new Blob([buffer], {type: "application/octet-stream"});
+    }
+
+    me.png8=()=>{
+        let maxColors = 256;
+        let check = me.validate({
+            maxColors: maxColors
+        });
+        if (!check.valid){
+            Modal.show(DIALOG.OPTION,{
+                title: "Save as PNG8",
+                text: ["Sorry, this image can't be saved as PNG8."].concat(check.errors),
+                buttons: [{label:"OK"}]
+            });
+            return;
+        }
+
+        let buffer = IndexedPng.write(ImageFile.getCanvas());
+        console.log(buffer);
+        return new Blob([buffer], {type: "application/octet-stream"});
+
     }
 
     me.dPaint=()=>{

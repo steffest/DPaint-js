@@ -200,6 +200,14 @@ function BinaryStream(arrayBuffer, bigEndian){
 		}
 	};
 
+	obj.writeByteArray = function(array,position){
+		setIndex(position);
+		for (let i = 0; i<array.length; i++){
+			this.dataView.setUint8(this.index,array[i]);
+			this.index++;
+		}
+	}
+
 	obj.clear = function(length){
 		obj.fill(0,length);
 	};
