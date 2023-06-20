@@ -501,6 +501,25 @@ let Palette = function(){
         EventBus.trigger(EVENT.paletteChanged);
     }
 
+    me.sortByUseCount = function(){
+        ImageFile.generateIndexedPixels();
+        let image = ImageFile.getCurrentFile();
+        let pixels = image.indexedPixels || [];
+        let counts = {};
+        pixels.forEach(line=>{
+            line.forEach(pixel=>{
+                counts[pixel] = counts[pixel] || 0;
+                counts[pixel]++;
+            })
+        });
+        let sorted = Object.keys(counts).sort((a,b)=>counts[b]-counts[a]);
+        let palette = [];
+        sorted.forEach(pixel=>{
+            palette.push(currentPalette[pixel]);
+        });
+        me.set(palette);
+    }
+
     me.reverse = function(){
         currentPalette.reverse();
         me.set(currentPalette);
@@ -814,6 +833,7 @@ let Palette = function(){
     });
 
     EventBus.on(COMMAND.CYCLEPALETTE,me.cycle);
+
 
     return me;
 }();
