@@ -16,6 +16,12 @@ V 0.1.2
     - UI to change Alchemy script parameters
     - smudge tool
     - bugfixes for Amiga Color Icons
+
 V 0.1.3
     - color cycling support
+    - HSV mode and other palette editing improvements
     - PBM support (Thanks Michael)
+    - navigate palette and frames with arrow keys
+    - load files from url and other url parameter commands
+    - presentation mode
+    - support for saving indexed color PNGs

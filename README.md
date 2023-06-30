@@ -22,7 +22,7 @@ Online version available at https://www.stef.be/dpaint/
  - Amiga focus
    - Read/write/convert Amiga icon files (all formats)
    - Reads IFF ILBM images (all formats including HAM and 24-bit)
-   - Writes IFF ILBM images (up to 32 colors)
+   - Writes IFF ILBM images (up to 256 colors)
    - Read and write directly from Amiga Disk Files (ADF)
    - Embedded Amiga Emulator to preview your work in the real Deluxe Paint.
 

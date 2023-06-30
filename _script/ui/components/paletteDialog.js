@@ -498,7 +498,8 @@ var PaletteDialog = function() {
             colorCanvasCtx.fillRect(0,0,60,30);
             inputHex.value = colorPicker.value = Color.toHex(color);
 
-            if (hsv) color = Color.toHSV(color,true);
+            color = hsv ? Color.toHSV(color,true) : Color.fromString(color);
+
             sliders.forEach((slider,_index)=>{
                 slider.range.value = color[_index];
                 slider.input.value = color[_index];
