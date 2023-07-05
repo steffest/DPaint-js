@@ -50,20 +50,28 @@ Then run `npm run build` to create a compact version of DPaint.js in the "dist" 
 ## Documentation
 Documentation can be found at https://www.stef.be/dpaint/docs/
 
+## Running offline
+Dpaint.js is a web application, not an app that you install on your computer.
+That being said: DPaint.js has no online dependencies and runs fine offline if you want.
+One caveat: you have to serve the index.html file from a webserver, not just open it in your browser.  
+A quick way to do this is - for example - using the [Spark](https://github.com/rif/spark/releases) app.  
+[Download the binary](https://github.com/rif/spark/releases) for your platform, drop the Spark executable in the folder where you downloaded the Dpaint.js source files and run it.
+If you then point your browser to http://localhost:8080/ it should work.  
+
 ## Contributing
 Current version is still alpha.  
 I'm sure there are bugs and missing features.  
 Bug reports and pull requests are welcome.
 
 ### Missing Features
-Planned for a future release if there's a need for it.
+Planned for the next release, already in the works:
+   - Color Cycling
+   - Animation support (GIf and Amiga ANIM files)
+   - Shading/transparency tools that stay within the palette.
 
+Planned for a future release if there's a need for it.
   - Support for non-square pixel modes such as HiRes and Interlaced
-  - Animation support (Working on it, it won't be frame based, though, but using a timeline, like e.g. Adobe Animate)
-  - Shading/transparency tools that stay within the palette.
-  - Color Cycling
   - PSD import and export
-  - Animated GIF import/export
   - SpriteSheet support
   - Write HAM,SHAM and Dynamic HiRes images
 
