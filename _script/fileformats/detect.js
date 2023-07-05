@@ -33,9 +33,19 @@ let FileDetector = (function () {
                 let fileType = IFF.detect(file);
                 if (fileType) {
                     let data = IFF.parse(file, true, fileType);
-                    if (data && data.width) {
+                    let img;
+                    if (data && data.frames && data.frames.length) {
+                        img = data.frames.map((frame) => {
+                            //TODO: maybe defer rendering all frames until needed?
+                            return IFF.toCanvas(frame);
+                        });
+                        //img = IFF.toCanvas(data.frames[0]);
+                    }else{
+                        if (data && data.width) img = IFF.toCanvas(data);
+                    }
+                    if (img) {
                         next({
-                            image: IFF.toCanvas(data),
+                            image: img,
                             type: "IFF",
                             data: data,
                         });

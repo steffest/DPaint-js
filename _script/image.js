@@ -537,6 +537,7 @@ let ImageFile = function(){
     me.handleUpload = handleUpload;
 
     me.handleBinary = function (data,name,target,stillTryImage){
+        let now = performance.now();
         name = name || "";
         let fileName = name.split(".");
         fileName = fileName.join(".");
@@ -562,7 +563,6 @@ let ImageFile = function(){
                     }
 
                     if (result.data.colourRange) {
-                        // eslint-disable-next-line no-console
                         console.log(
                             "Image has color cycling: ",
                             result.data.colourRange
@@ -579,11 +579,14 @@ let ImageFile = function(){
                 } else {
                     if (Array.isArray(image)) {
                         newFile(image[0],fileName,currentFile.originalType,currentFile.originalData);
-                        addFrame(image[1]);
+                        for (let i = 1; i < image.length; i++) addFrame(image[i]);
                     } else {
                         newFile(image,fileName,currentFile.originalType,currentFile.originalData)
                     }
                 }
+
+                let time = performance.now() - now;
+                console.log("File loaded in " + time + "ms");
             } else {
                 if (stillTryImage) {
                     // happens when the file is not coming from a file upload
@@ -717,7 +720,7 @@ let ImageFile = function(){
         currentFile.frames.push({
             layers: [layer],
         });
-        if (image) {
+        if (image && image.width) {
             layer.getContext().drawImage(image, 0, 0);
         }
         EventBus.trigger(EVENT.imageSizeChanged);

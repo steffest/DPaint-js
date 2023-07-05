@@ -50,8 +50,8 @@ const IFF = (function () {
         ANIM: { name: "IFF ILBM Animation" },
     };
 
-    me.parse = function (file, decodeBody, fileType) {
-        const img = {
+    me.parse = function (file, decodeBody, fileType,parent) {
+        let img = {
             palette: [],
         };
         let index = 12;
@@ -242,6 +242,7 @@ const IFF = (function () {
                             img.pixels = pixels;
                         } else {
                             const pixels = [];
+                            const planes = [];
                             let lineWidth = (img.width + 15) >> 4; // in words
                             lineWidth *= 2; // in bytes
 
@@ -249,24 +250,19 @@ const IFF = (function () {
                                 pixels[y] = [];
                                 if (img.ham) img.hamPixels[y] = [];
 
-                                for (
-                                    let plane = 0;
-                                    plane < img.numPlanes;
-                                    plane++
-                                ) {
+                                for (let plane = 0; plane < img.numPlanes; plane++) {
+                                    planes[plane] = planes[plane] || [];
+                                    planes[plane][y] = planes[plane][y] || [];
                                     const line = [];
                                     if (img.compression) {
+
                                         // RLE compression
                                         while (line.length < lineWidth) {
                                             var b = file.readUbyte();
                                             if (b === 128) break;
                                             if (b > 128) {
-                                                const b2 = file.readUbyte();
-                                                for (
-                                                    var k = 0;
-                                                    k < 257 - b;
-                                                    k++
-                                                ) {
+                                                let b2 = file.readUbyte();
+                                                for (var k = 0; k < 257 - b; k++) {
                                                     line.push(b2);
                                                 }
                                             } else {
@@ -289,23 +285,197 @@ const IFF = (function () {
                                             const bit = val & (1 << i) ? 1 : 0;
                                             if (plane < img.colorPlanes) {
                                                 var p = pixels[y][x] || 0;
-                                                pixels[y][x] =
-                                                    p + (bit << plane);
+                                                pixels[y][x] = p + (bit << plane);
+                                                planes[plane][y][x] = bit;
                                             } else {
                                                 p = img.hamPixels[y][x] || 0;
-                                                img.hamPixels[y][x] =
-                                                    p +
-                                                    (bit <<
-                                                        (plane -
-                                                            img.colorPlanes));
+                                                img.hamPixels[y][x] = p + (bit << (plane - img.colorPlanes));
                                             }
                                         }
                                     }
                                 }
                             }
                             img.pixels = pixels;
+                            img.planes = planes;
                         }
                     }
+                    break;
+                case "FORM": // ANIM or other embedded IFF structure
+                    img.frames = img.frames || [];
+                    let buffer = new ArrayBuffer(chunk.size+8);
+                    const view = new DataView(buffer);
+                    file.readBytes(chunk.size+8,file.index-8,view);
+                    let subFile = new BinaryStream(buffer,true);
+                    let subImg = me.parse(subFile, true,fileType,img);
+                    if (subImg){
+                        img.frames.push(subImg);
+                        if (img.frames.length === 1) {
+                            img.width = subImg.width;
+                            img.height = subImg.height;
+                            img.numPlanes = subImg.numPlanes;
+                            img.palette = subImg.palette;
+                        }
+                    }
+                    //console.error(subImg);
+                    break;
+                case "ANHD": // https://wiki.amigaos.net/wiki/ANIM_IFF_CEL_Animations#ANHD_Chunk
+                    img.animHeader = {
+                        compression: file.readUbyte(),
+                        mask: file.readUbyte(),
+                        width: file.readWord(),
+                        height: file.readWord(),
+                        x: file.readWord(),
+                        y: file.readWord(),
+                        absTime: file.readDWord(),
+                        relTime: file.readDWord(),
+                        interleave: file.readUbyte(),
+                        pad: file.readUbyte(),
+                        bits: file.readUbyte(),
+                        future: file.readUbyte(),
+                    }
+                    break;
+                case "DLTA": // https://wiki.amigaos.net/wiki/ANIM_IFF_CEL_Animations#DLTA_Chunk
+
+                    if (!parent){
+                        console.error("Error: DLTA chunk without parent structure");
+                        return;
+                    }
+
+                    img.animHeader = img.animHeader || {};
+
+                    let sourceFrameIndex = Math.max(parent.frames.length - 2,0);
+                    let frame = parent.frames[sourceFrameIndex];
+                    if (!frame){
+                        console.error("Error: No frame to apply DLTA chunk to");
+                        return;
+                    }
+                    // copy reference frame;
+                    img.width = frame.width;
+                    img.height = frame.height;
+                    img.palette = frame.palette;
+                    img.planes = [];
+
+                    // TODO: this is slow...
+                    frame.planes.forEach(plane=>{
+                        let newPlane = [];
+                        plane.forEach(line=>newPlane.push(line.slice()));
+                        img.planes.push(newPlane);
+                    });
+
+                    if (sourceFrameIndex>0){
+                        //parent.frames[sourceFrameIndex-1].planes = undefined;
+                    }
+
+
+                    switch (img.animHeader.compression) {
+                        case 0: // No compression
+                            break;
+                        case 1: // XOR compression
+                            console.warn("unhandled ANIM compression: XOR");
+                            break;
+                        case 2: // long Delta compression
+                            console.warn("unhandled ANIM compression: long Delta");
+                            break;
+                        case 3: // short Delta compression
+                            console.warn("unhandled ANIM compression: short Delta");
+                            break;
+                        case 4: // Generalized Delta compression
+                            console.warn("unhandled ANIM compression: Generalized Delta");
+                            break;
+                        case 5: // Byte Vertical Delta compression
+                            // This is the default compression method for Deluxe Paint Animations.
+
+                            let startIndex = file.index;
+                            let pointers = [];
+                            for (let i =0;i<8;i++) pointers.push(file.readDWord());
+                            let colCount = parent.width + 15 >>> 4 << 1;
+                            let bitPlaneCount = Math.min(parent.numPlanes,8);
+
+                            for (let bitPlaneIndex = 0; bitPlaneIndex < bitPlaneCount; bitPlaneIndex++) {
+                                let pointer = pointers[bitPlaneIndex];
+                                if (pointer){
+                                    //console.log('handling bitPlaneIndex ' + bitPlaneIndex + ' at ' + pointer);
+                                    file.goto(startIndex+pointer);
+
+                                    for (let colIndex = 0; colIndex < colCount; colIndex++) {
+                                        let opCount = file.readUbyte();
+                                        if (opCount === 0) continue;
+                                        //console.warn(opCount + " opCounts in column " + colIndex);
+                                        let destinationIndex = 0;
+                                        for (let opIndex = 0; opIndex < opCount; opIndex++) {
+                                            let opCode = file.readUbyte();
+                                            //console.warn("opCode", opCode);
+                                            if (opCode === 0) {
+                                                //Same ops
+                                                let copyCount = file.readUbyte();
+                                                let byteToCopy = file.readUbyte();
+                                                //console.warn("copy",byteToCopy,copyCount);
+                                                for (let i = 0; i < copyCount; i++) {
+                                                    let y = destinationIndex;
+                                                    //data[(destinationIndex * bitPlaneCount + bitPlaneIndex) * colCount + colIndex] = byteToCopy;
+                                                    for (let bi = 7; bi >= 0; bi--) {
+                                                        x =  (colIndex*8) + 7 - bi;
+                                                        const bit = byteToCopy & (1 << bi) ? 1 : 0;
+                                                        img.planes[bitPlaneIndex][y][x] = bit;
+                                                    }
+                                                    destinationIndex++
+                                                }
+                                            } else if (opCode < 128) {
+                                                // Skip ops: jump over opCode pixels
+                                                destinationIndex += opCode;
+                                                //console.warn("skip to line",destinationIndex);
+                                            } else {
+                                                // Uniq ops: read opCode pixels
+                                                opCode -= 128;
+                                                for (let i = 0; i < opCode; i++) {
+                                                    let b = file.readUbyte();
+                                                    let y = destinationIndex;
+                                                    let bits = [];
+
+                                                    if (destinationIndex < img.height) {
+                                                        for (let bi = 7; bi >= 0; bi--) {
+                                                            x =  (colIndex*8) + 7 - bi;
+                                                            const bit = b & (1 << bi) ? 1 : 0;
+                                                            img.planes[bitPlaneIndex][y][x] = bit;
+                                                            bits.push(bit);
+                                                        }
+
+                                                        destinationIndex++;
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            break;
+                        case 6: // Stereo op 5 compression
+                            console.warn("unhandled ANIM compression: Stereo op 5");
+                            break;
+                        case 7: // short/long Vertical Delta mode
+                            console.warn("unhandled ANIM compression: short/long Vertical Delta");
+                            break;
+                        default:
+                            console.error(`unhandled ANIM compression: ${img.animHeader.compression}`);
+                    }
+
+                    let now = performance.now();
+                    // planes to pixels
+                    img.pixels = [];
+                    for (let y = 0; y < img.height; y++) {
+                        let line = [];
+                        for (let x = 0; x < img.width; x++) {
+                            let pixel = 0;
+                            for (let bitPlaneIndex = 0; bitPlaneIndex < parent.numPlanes; bitPlaneIndex++) {
+                                let bit = img.planes[bitPlaneIndex][y][x];
+                                pixel += bit << bitPlaneIndex;
+                            }
+                            line.push(pixel);
+                        }
+                        img.pixels.push(line);
+                    }
+                    //console.log("to pixels", performance.now() - now);
+
                     break;
                 default:
                     console.warn(`unhandled IFF chunk: ${chunk.name}`);
@@ -357,8 +527,7 @@ const IFF = (function () {
     me.handle = function (file, action) {
         if (action === "show") {
             const img = me.parse(file, true);
-            // eslint-disable-next-line no-undef
-            if (AdfViewer) AdfViewer.showImage(me.toCanvas(img));
+            //if (AdfViewer) AdfViewer.showImage(me.toCanvas(img));
         }
     };
 
@@ -372,6 +541,7 @@ const IFF = (function () {
             pixelWidth = 2;
         }
         const ctx = canvas.getContext("2d");
+        let imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
         for (let y = 0; y < img.height; y++) {
             let prevColor = [0, 0, 0];
             for (let x = 0; x < img.width; x++) {
@@ -398,10 +568,17 @@ const IFF = (function () {
                 }
                 prevColor = color;
 
-                ctx.fillStyle = `rgba(${color[0]},${color[1]},${color[2]},1)`;
-                ctx.fillRect(x * pixelWidth, y, pixelWidth, 1);
+                for (let i = 0; i < pixelWidth; i++) {
+                    const index = (y * canvas.width + x * pixelWidth + i) * 4;
+                    imageData.data[index] = color[0];
+                    imageData.data[index + 1] = color[1];
+                    imageData.data[index + 2] = color[2];
+                    imageData.data[index + 3] = 255;
+                }
+
             }
         }
+        ctx.putImageData(imageData, 0, 0);
         return canvas;
     };
 

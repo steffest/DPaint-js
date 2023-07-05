@@ -82,7 +82,6 @@ function BinaryStream(arrayBuffer, bigEndian){
 
 
 		var i = this.index;
-		var src = this.dataView;
 		if ((len += i) > this.length) len = this.length;
 		var offset = 0;
 
