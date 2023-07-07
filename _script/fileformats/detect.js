@@ -1,6 +1,7 @@
 import BinaryStream from "../util/binarystream.js";
 import AmigaIcon from "./amigaIcon.js";
 import IFF from "./iff.js";
+import GIF from "./gif.js";
 
 let FileDetector = (function () {
     let me = {};
@@ -8,10 +9,11 @@ let FileDetector = (function () {
     me.detect = function (data, name) {
         return new Promise((next) => {
             name = name || "";
-            let file = BinaryStream(data.slice(0, data.byteLength), true);
-            file.goto(0);
+            let ext = name.split(".").pop().toLowerCase();
 
-            if (name.indexOf(".info") > 0) {
+            if (ext === ".info") {
+                let file = BinaryStream(data.slice(0, data.byteLength), true);
+                file.goto(0);
                 // Note: this can be Async!
                 AmigaIcon.parse(file, function (icon) {
                     if (icon) {
@@ -25,7 +27,18 @@ let FileDetector = (function () {
                         detectIFF();
                     }
                 });
+            } else if (ext === "gif"){
+                let file = BinaryStream(data.slice(0, data.byteLength), false);
+                file.goto(0);
+                let result = GIF.detect(file);
+                if (result) {
+                    next(GIF.toFrames(file));
+                }else{
+                    next(false);
+                }
             } else {
+                let file = BinaryStream(data.slice(0, data.byteLength), true);
+                file.goto(0);
                 detectIFF();
             }
 

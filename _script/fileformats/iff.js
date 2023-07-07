@@ -257,22 +257,25 @@ const IFF = (function () {
                                     if (img.compression) {
 
                                         // RLE compression
-                                        while (line.length < lineWidth) {
+                                        let pCount = 0;
+                                        while (pCount < lineWidth) {
                                             var b = file.readUbyte();
                                             if (b === 128) break;
                                             if (b > 128) {
                                                 let b2 = file.readUbyte();
                                                 for (var k = 0; k < 257 - b; k++) {
                                                     line.push(b2);
+                                                    pCount++;
                                                 }
                                             } else {
                                                 for (k = 0; k <= b; k++) {
                                                     line.push(file.readUbyte());
                                                 }
+                                                pCount += b + 1;
                                             }
                                         }
                                     } else {
-                                        for (var x = 0; x < lineWidth; x++) {
+                                        for (let x = 0; x < lineWidth; x++) {
                                             line.push(file.readUbyte());
                                         }
                                     }
@@ -281,7 +284,7 @@ const IFF = (function () {
                                     for (b = 0; b < lineWidth; b++) {
                                         const val = line[b];
                                         for (i = 7; i >= 0; i--) {
-                                            x = b * 8 + (7 - i);
+                                            let x = b * 8 + (7 - i);
                                             const bit = val & (1 << i) ? 1 : 0;
                                             if (plane < img.colorPlanes) {
                                                 var p = pixels[y][x] || 0;
@@ -302,6 +305,10 @@ const IFF = (function () {
                     break;
                 case "FORM": // ANIM or other embedded IFF structure
                     img.frames = img.frames || [];
+                    if (img.animFrameCount && img.frames.length >= img.animFrameCount){
+                        console.log("ANIM: frame count exceeded, skipping frame");
+                        break;
+                    }
                     let buffer = new ArrayBuffer(chunk.size+8);
                     const view = new DataView(buffer);
                     file.readBytes(chunk.size+8,file.index-8,view);
@@ -314,6 +321,7 @@ const IFF = (function () {
                             img.height = subImg.height;
                             img.numPlanes = subImg.numPlanes;
                             img.palette = subImg.palette;
+                            img.animFrameCount = subImg.animFrameCount;
                         }
                     }
                     //console.error(subImg);
@@ -333,6 +341,10 @@ const IFF = (function () {
                         bits: file.readUbyte(),
                         future: file.readUbyte(),
                     }
+                    break;
+                case "DPAN":
+                    img.animVersion = file.readWord();
+                    img.animFrameCount = file.readWord();
                     break;
                 case "DLTA": // https://wiki.amigaos.net/wiki/ANIM_IFF_CEL_Animations#DLTA_Chunk
 
@@ -688,6 +700,8 @@ const IFF = (function () {
 
         return file.buffer;
     };
+
+
 
     return me;
 })();

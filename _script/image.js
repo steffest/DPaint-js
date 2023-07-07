@@ -486,6 +486,7 @@ let ImageFile = function(){
             fileName = fileName.join(".");
 
             if (ext === "info") detectType = true;
+            if (ext === "gif") detectType = true;
             if (ext === "json") isText = true;
 
             var reader = new FileReader();
@@ -541,8 +542,10 @@ let ImageFile = function(){
         name = name || "";
         let fileName = name.split(".");
         fileName = fileName.join(".");
+        console.log("Loading file: ", fileName);
 
         FileDetector.detect(data, name).then((result) => {
+            console.log(" FileDetector: ", result);
             if (result) {
                 currentFile.originalType = result.type;
                 currentFile.originalData = result.data;
