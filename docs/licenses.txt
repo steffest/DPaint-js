@@ -33,4 +33,8 @@ FileSaver.js - used as fallback for older browsers
     MIT License - Copyright © 2016 Eli Grey
     https://github.com/eligrey/FileSaver.js
 
+LZWDecoder - used for GIF decoding
+    MIT License - Copyright (c) 2011 Shachaf Ben-Kiki
+    https://github.com/shachaf/jsgif/blob/master/gif.js
+
 Additional Retro Platform palettes by Zeb Elwood

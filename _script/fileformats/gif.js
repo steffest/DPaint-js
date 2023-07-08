@@ -177,12 +177,18 @@ const GIF = (()=>{
             img = [];
             data.frames.forEach((frame,index) => {
                 let frameCanvas = GIF.toCanvas(frame);
+
                 let canvas = document.createElement("canvas");
                 canvas.width = data.width;
                 canvas.height = data.height;
                 let ctx = canvas.getContext("2d");
+                ctx.fillStyle = frame.palette[data.bgColorIndex || 0];
                 if (data.disposalMethod === 0 || data.disposalMethod === 1){
                     if (index>0) ctx.drawImage(img[index-1], 0, 0);
+                }
+                if (data.disposalMethod === 2){
+                    // restore to background color
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
                 }
                 if (data.disposalMethod === 3){
                     if (index>0) ctx.drawImage(img[0], 0, 0);
@@ -205,7 +211,9 @@ const GIF = (()=>{
 
 
     var lzwDecode2 = function(data,minCodeSize) {
-        //TODO: optimize
+        // this part is taken from https://github.com/shachaf/jsgif/blob/master/gif.js
+        // available under MIT license
+        // TODO: optimize
 
         var pos = 0;
 
@@ -270,8 +278,6 @@ const GIF = (()=>{
 
         return output;
     };
-
-
 
 
     return me;

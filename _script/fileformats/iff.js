@@ -426,7 +426,7 @@ const IFF = (function () {
                                                     let y = destinationIndex;
                                                     //data[(destinationIndex * bitPlaneCount + bitPlaneIndex) * colCount + colIndex] = byteToCopy;
                                                     for (let bi = 7; bi >= 0; bi--) {
-                                                        x =  (colIndex*8) + 7 - bi;
+                                                        let x =  (colIndex*8) + 7 - bi;
                                                         const bit = byteToCopy & (1 << bi) ? 1 : 0;
                                                         img.planes[bitPlaneIndex][y][x] = bit;
                                                     }
@@ -446,7 +446,7 @@ const IFF = (function () {
 
                                                     if (destinationIndex < img.height) {
                                                         for (let bi = 7; bi >= 0; bi--) {
-                                                            x =  (colIndex*8) + 7 - bi;
+                                                            let x =  (colIndex*8) + 7 - bi;
                                                             const bit = b & (1 << bi) ? 1 : 0;
                                                             img.planes[bitPlaneIndex][y][x] = bit;
                                                             bits.push(bit);

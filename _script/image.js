@@ -539,6 +539,7 @@ let ImageFile = function(){
 
     me.handleBinary = function (data,name,target,stillTryImage){
         let now = performance.now();
+
         name = name || "";
         let fileName = name.split(".");
         fileName = fileName.join(".");
@@ -582,7 +583,10 @@ let ImageFile = function(){
                 } else {
                     if (Array.isArray(image)) {
                         newFile(image[0],fileName,currentFile.originalType,currentFile.originalData);
+                        EventBus.hold();
                         for (let i = 1; i < image.length; i++) addFrame(image[i]);
+                        EventBus.release();
+                        EventBus.trigger(EVENT.framesChanged);
                     } else {
                         newFile(image,fileName,currentFile.originalType,currentFile.originalData)
                     }
@@ -723,8 +727,12 @@ let ImageFile = function(){
         currentFile.frames.push({
             layers: [layer],
         });
-        if (image && image.width) {
-            layer.getContext().drawImage(image, 0, 0);
+        if (image) {
+            if (image.placeholder){
+                layer.placeholder = true;
+            }else{
+                if (image.width) layer.getContext().drawImage(image, 0, 0);
+            }
         }
         EventBus.trigger(EVENT.imageSizeChanged);
     }
@@ -1021,6 +1029,9 @@ let ImageFile = function(){
     EventBus.on(EVENT.imageSizeChanged, () => {
         cachedImage = undefined;
     });
+
+
+    window.getCurrentFile = me.getCurrentFile
 
     return me;
 }();

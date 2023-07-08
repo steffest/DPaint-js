@@ -10,9 +10,10 @@ let FileDetector = (function () {
         return new Promise((next) => {
             name = name || "";
             let ext = name.split(".").pop().toLowerCase();
+            let file;
 
             if (ext === ".info") {
-                let file = BinaryStream(data.slice(0, data.byteLength), true);
+                file = BinaryStream(data.slice(0, data.byteLength), true);
                 file.goto(0);
                 // Note: this can be Async!
                 AmigaIcon.parse(file, function (icon) {
@@ -28,7 +29,7 @@ let FileDetector = (function () {
                     }
                 });
             } else if (ext === "gif"){
-                let file = BinaryStream(data.slice(0, data.byteLength), false);
+                file = BinaryStream(data.slice(0, data.byteLength), false);
                 file.goto(0);
                 let result = GIF.detect(file);
                 if (result) {
@@ -37,7 +38,7 @@ let FileDetector = (function () {
                     next(false);
                 }
             } else {
-                let file = BinaryStream(data.slice(0, data.byteLength), true);
+                file = BinaryStream(data.slice(0, data.byteLength), true);
                 file.goto(0);
                 detectIFF();
             }
