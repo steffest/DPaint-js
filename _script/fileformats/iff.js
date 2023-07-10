@@ -38,6 +38,7 @@ const FILETYPE = {
 const IFF = (function () {
     // Detect and Decode IFF Files
     // handles ILBM images, including EHB (Extra Half-Bright) and HAM (Hold and Modify)
+    // and ANIM animations
     // TODO: Brushes and other masked images
 
     // image format info on https://en.wikipedia.org/wiki/ILBM
@@ -547,13 +548,15 @@ const IFF = (function () {
         const canvas = document.createElement("canvas");
         canvas.width = img.width;
         canvas.height = img.height;
+        const ctx = canvas.getContext("2d");
         let pixelWidth = 1;
         if (img.interlaced && !img.hires) {
             canvas.width *= 2;
             pixelWidth = 2;
         }
-        const ctx = canvas.getContext("2d");
-        let imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        //const ctx = canvas.getContext("2d");
+        //let imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        let imageData = new ImageData(img.width, img.height);
         for (let y = 0; y < img.height; y++) {
             let prevColor = [0, 0, 0];
             for (let x = 0; x < img.width; x++) {
@@ -594,13 +597,9 @@ const IFF = (function () {
         return canvas;
     };
 
-    // creates an ArrayBuffer with the binary data of the Icon;
+    // creates an ArrayBuffer with the binary data of the image;
     me.write = function (canvas) {
-        let colors = ImageProcessing.getColors(canvas, 256);
-
-        if (Palette.isLocked()){
-            colors = Palette.get();
-        }
+        let colors = Palette.isLocked()?Palette.get():ImageProcessing.getColors(canvas, 256);
 
         let bitplaneCount = 1;
         while (1 << bitplaneCount < colors.length) bitplaneCount++;
@@ -700,8 +699,6 @@ const IFF = (function () {
 
         return file.buffer;
     };
-
-
 
     return me;
 })();

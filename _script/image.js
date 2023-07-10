@@ -879,7 +879,7 @@ let ImageFile = function(){
         EventBus.trigger(EVENT.colorRangesChanged);
     }
 
-    me.generateIndexedPixels = function(){
+    me.generateIndexedPixels = function(oneDimensional){
         console.log("generate indexed pixels");
         let ctx = me.getCanvas().getContext("2d");
         let width = currentFile.width;
@@ -904,11 +904,13 @@ let ImageFile = function(){
             let g = data[i+1];
             let b = data[i+2];
             let a = data[i+3];
-            pixels[y] = pixels[y] || [];
-            if (a){
-                pixels[y][x] = getIndex([r,g,b,a]);
+
+            let index = a?getIndex([r,g,b,a]):0;
+            if (oneDimensional){
+                 pixels.push(index);
             }else{
-                pixels[y][x] = 0;
+                pixels[y] = pixels[y] || [];
+                pixels[y][x] = index;
             }
         }
 

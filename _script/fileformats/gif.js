@@ -1,3 +1,8 @@
+import BinaryStream from "../util/binarystream.js";
+import Palette from "../ui/palette.js";
+import lzw from "../util/lzw.js";
+import ImageFile from "../image.js";
+
 const GIF = (()=>{
     const me = {};
 
@@ -156,7 +161,7 @@ const GIF = (()=>{
         canvas.width = img.width;
         canvas.height = img.height;
         const ctx = canvas.getContext("2d");
-        let imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        let imageData =  new ImageData(img.width, img.height);
 
         img.pixels.forEach((pixel,index)=>{
             let color = img.palette[pixel] || [0,0,0];
@@ -207,6 +212,144 @@ const GIF = (()=>{
         }
     }
 
+
+    function encode64(input) {
+        var output = "", i = 0, l = input.length,
+            key = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=",
+            chr1, chr2, chr3, enc1, enc2, enc3, enc4;
+        while (i < l) {
+            chr1 = input.charCodeAt(i++);
+            chr2 = input.charCodeAt(i++);
+            chr3 = input.charCodeAt(i++);
+            enc1 = chr1 >> 2;
+            enc2 = ((chr1 & 3) << 4) | (chr2 >> 4);
+            enc3 = ((chr2 & 15) << 2) | (chr3 >> 6);
+            enc4 = chr3 & 63;
+            if (isNaN(chr2)) enc3 = enc4 = 64;
+            else if (isNaN(chr3)) enc4 = 64;
+            output = output + key.charAt(enc1) + key.charAt(enc2) + key.charAt(enc3) + key.charAt(enc4);
+        }
+        return output;
+    }
+
+    me.write = function(canvas) {
+        // write GIF file
+        // https://www.w3.org/Graphics/GIF/spec-gif89a.txt
+
+        ImageFile.generateIndexedPixels(true);
+        let pixels = ImageFile.getCurrentFile().indexedPixels;
+        let palette = Palette.get();
+
+
+        let headerSize = 13 + palette.length*3;
+        let gceSize = 8;
+        let imageDescriptorSize = 10;
+
+        var myencoder = new lzw(canvas.width, canvas.height, pixels, 8);
+        let out = [];
+        myencoder.encode(out);
+
+        let totalSize = headerSize + gceSize + imageDescriptorSize + out.length + 1;
+        let file = new BinaryStream(new ArrayBuffer(totalSize),false);
+
+
+        //Header
+        file.writeString("GIF89a");
+
+
+        // Logical Screen Descriptor
+        file.writeWord(canvas.width);
+        file.writeWord(canvas.height);
+        let gctSize = 7
+
+        file.writeUbyte((0x80 | // 1 : global color table flag = 1 (gct used)
+            0x70 | // 2-4 : color resolution = 7
+            0x00 | // 5 : gct sort flag = 0
+            gctSize)); // 6-8 : gct size
+
+        file.writeUbyte(0); //background color index
+        file.writeUbyte(0); //pixel aspect ratio
+
+        //Global Color Table
+        for (let i = 0; i < palette.length; i++) {
+            file.writeUbyte(palette[i][0]);
+            file.writeUbyte(palette[i][1]);
+            file.writeUbyte(palette[i][2]);
+        }
+        // padding if we have < 256 colors // TODO: fixme
+        var n = (3 * 256) - palette.length*3;
+        for (var i = 0; i < n; i++) file.writeUbyte(0);
+
+
+        ////Graphics Control Extension
+        file.writeUbyte(0x21); //extension introducer
+        file.writeUbyte(0xF9); //graphic control label
+        file.writeUbyte(0x04); //block size
+
+
+        var transp;
+        var disp;
+        let transparent = null;
+        let dispose = 0;
+
+        if (transparent === null) {
+            transp = 0;
+            disp = 0; // dispose = no action
+        } else {
+            transp = 1;
+            disp = 2; // force clear if using transparent color
+        }
+        if (dispose >= 0) {
+            disp = dispose & 7; // user override
+        }
+        disp <<= 2;
+        // packed fields
+        file.writeUbyte(0 | // 1:3 reserved
+            disp | // 4:6 disposal
+            0 | // 7 user input - 0 = none
+            transp); // 8 transparency flag
+
+
+        file.writeWord(0); //delay time x 1/100 sec
+        file.writeUbyte(0); //transparent color index
+        file.writeUbyte(0); //block terminator
+
+
+        //Image Descriptor
+        file.writeUbyte(0x2C); //image separator
+        file.writeWord(0); //image left position
+        file.writeWord(0); //image top position
+        file.writeWord(canvas.width); //image width
+        file.writeWord(canvas.height); //image height
+
+        let isFirstFrame = true;
+        if (isFirstFrame) {
+            // no local color table
+            file.writeUbyte(0);
+        }else{
+            // on second frame, if a local color table exists
+            file.writeUbyte(0x80 | // 1 local color table 1=yes
+                0 | // 2 interlace - 0=no
+                0 | // 3 sorted - 0=no
+                0 | // 4-5 reserved
+                gctSize); // 6-8 size of color table
+
+            // and write palette
+        }
+
+        // image data
+        file.writeByteArray(out);
+        //out.forEach((byte)=>{
+        //    file.writeUbyte(byte);
+        //});
+
+        //Trailer
+        file.writeUbyte(0x3B);
+
+        return file.buffer;
+
+
+    }
 
     function lzwDecode(data, minCodeSize, pixelCount){
         // This function is taken from https://github.com/matt-way/gifuct-js

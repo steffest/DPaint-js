@@ -25,6 +25,12 @@ var SaveDialog = function(){
                 'image/png': ['.png'],
             }
         },
+        GIF:{
+            description: 'GIF Image',
+            accept: {
+                'image/gif': ['.gif'],
+            }
+        },
         ICO:{
             description: 'Amiga Icon',
             accept: {
@@ -195,6 +201,14 @@ var SaveDialog = function(){
         Generate.file("PNG8").then((blob)=>{
             if (blob){
                 saveFile(blob,getFileName() + ".png",filetypes.PNG).then(()=>{});
+            }
+        });
+    }
+
+    window.savegif = function(){
+        Generate.file("GIF").then((blob)=>{
+            if (blob){
+                saveFile(blob,getFileName() + ".png",filetypes.GIF).then(()=>{});
             }
         });
     }

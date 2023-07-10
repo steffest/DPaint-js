@@ -5,6 +5,7 @@ import ImageProcessing from "../util/imageProcessing.js";
 import Icon from "./amigaIcon.js";
 import Palette from "../ui/palette.js";
 import IndexedPng from "./png.js";
+import GIF from "./gif.js";
 
 let Generate = function(){
     let me = {};
@@ -52,6 +53,8 @@ let Generate = function(){
                 return await new Promise(resolve => ImageFile.getCanvas().toBlob(resolve));
             case "PNG8":
                 return me.png8();
+            case "GIF":
+                return me.gif();
             case "DPAINT":
                 return me.dPaint();
             default:
@@ -93,6 +96,26 @@ let Generate = function(){
         }
 
         let buffer = IndexedPng.write(ImageFile.getCanvas());
+        console.log(buffer);
+        return new Blob([buffer], {type: "application/octet-stream"});
+
+    }
+
+    me.gif=()=>{
+        let maxColors = 256;
+        let check = me.validate({
+            maxColors: maxColors
+        });
+        if (!check.valid){
+            Modal.show(DIALOG.OPTION,{
+                title: "Save as GIF",
+                text: ["Sorry, this image can't be saved as GIF."].concat(check.errors),
+                buttons: [{label:"OK"}]
+            });
+            return;
+        }
+
+        let buffer = GIF.write(ImageFile.getCanvas());
         console.log(buffer);
         return new Blob([buffer], {type: "application/octet-stream"});
 
