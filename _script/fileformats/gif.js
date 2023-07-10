@@ -1,6 +1,6 @@
 import BinaryStream from "../util/binarystream.js";
 import Palette from "../ui/palette.js";
-import lzw from "../util/lzw.js";
+import LZW from "../util/lzw.js";
 import ImageFile from "../image.js";
 
 const GIF = (()=>{
@@ -129,7 +129,7 @@ const GIF = (()=>{
                         for (let i = 0; i < size; i++) lzwData.push(file.readUbyte());
                     } while (size > 0);
 
-                    frame.pixels =  lzwDecode(lzwData, block.lzwMinCodeSize, frame.width*frame.height);
+                    frame.pixels =  LZW.decode(lzwData, block.lzwMinCodeSize, frame.width*frame.height);
                     if (!frame.palette) frame.palette = img.palette;
                     if (img.transparentColorFlag){
                         frame.transparentColorIndex = img.transparentColorIndex;
@@ -213,25 +213,6 @@ const GIF = (()=>{
     }
 
 
-    function encode64(input) {
-        var output = "", i = 0, l = input.length,
-            key = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=",
-            chr1, chr2, chr3, enc1, enc2, enc3, enc4;
-        while (i < l) {
-            chr1 = input.charCodeAt(i++);
-            chr2 = input.charCodeAt(i++);
-            chr3 = input.charCodeAt(i++);
-            enc1 = chr1 >> 2;
-            enc2 = ((chr1 & 3) << 4) | (chr2 >> 4);
-            enc3 = ((chr2 & 15) << 2) | (chr3 >> 6);
-            enc4 = chr3 & 63;
-            if (isNaN(chr2)) enc3 = enc4 = 64;
-            else if (isNaN(chr3)) enc4 = 64;
-            output = output + key.charAt(enc1) + key.charAt(enc2) + key.charAt(enc3) + key.charAt(enc4);
-        }
-        return output;
-    }
-
     me.write = function(canvas) {
         // write GIF file
         // https://www.w3.org/Graphics/GIF/spec-gif89a.txt
@@ -240,22 +221,17 @@ const GIF = (()=>{
         let pixels = ImageFile.getCurrentFile().indexedPixels;
         let palette = Palette.get();
 
-
         let headerSize = 13 + palette.length*3;
         let gceSize = 8;
         let imageDescriptorSize = 10;
 
-        var myencoder = new lzw(canvas.width, canvas.height, pixels, 8);
-        let out = [];
-        myencoder.encode(out);
+        let encodedImage = LZW.encode(pixels,canvas.width, canvas.height, 8);
 
-        let totalSize = headerSize + gceSize + imageDescriptorSize + out.length + 1;
+        let totalSize = headerSize + gceSize + imageDescriptorSize + encodedImage.length + 1;
         let file = new BinaryStream(new ArrayBuffer(totalSize),false);
-
 
         //Header
         file.writeString("GIF89a");
-
 
         // Logical Screen Descriptor
         file.writeWord(canvas.width);
@@ -338,116 +314,13 @@ const GIF = (()=>{
         }
 
         // image data
-        file.writeByteArray(out);
-        //out.forEach((byte)=>{
-        //    file.writeUbyte(byte);
-        //});
+        file.writeByteArray(encodedImage);
 
         //Trailer
         file.writeUbyte(0x3B);
 
         return file.buffer;
 
-
-    }
-
-    function lzwDecode(data, minCodeSize, pixelCount){
-        // This function is taken from https://github.com/matt-way/gifuct-js
-        // available under MIT license
-
-        const MAX_STACK_SIZE = 4096;
-        const nullCode = -1;
-        const npix = pixelCount;
-        let available, clear, code_mask, code_size, end_of_information, in_code, old_code, code, i, data_size;
-
-        const dstPixels = new Array(pixelCount);
-        const prefix = new Array(MAX_STACK_SIZE);
-        const suffix = new Array(MAX_STACK_SIZE);
-        const pixelStack = new Array(MAX_STACK_SIZE + 1);
-
-        // Initialize GIF data stream decoder.
-        data_size = minCodeSize;
-        clear = 1 << data_size;
-        end_of_information = clear + 1;
-        available = clear + 2;
-        old_code = nullCode;
-        code_size = data_size + 1;
-        code_mask = (1 << code_size) - 1;
-        for (code = 0; code < clear; code++) {
-            prefix[code] = 0;
-            suffix[code] = code;
-        }
-
-        // Decode GIF pixel stream.
-        let datum, bits, count, first, top, pi, bi
-        datum = bits = count = first = top = pi = bi = 0;
-        for (i = 0; i < npix; ) {
-            if (top === 0) {
-                if (bits < code_size) {
-                    // get the next byte
-                    datum += data[bi] << bits;
-                    bits += 8;
-                    bi++;
-                    continue;
-                }
-                // Get the next code.
-                code = datum & code_mask;
-                datum >>= code_size;
-                bits -= code_size;
-                // Interpret the code
-                if (code > available || code == end_of_information) break;
-                if (code == clear) {
-                    // Reset decoder.
-                    code_size = data_size + 1;
-                    code_mask = (1 << code_size) - 1;
-                    available = clear + 2;
-                    old_code = nullCode;
-                    continue;
-                }
-                if (old_code == nullCode) {
-                    pixelStack[top++] = suffix[code];
-                    old_code = code;
-                    first = code;
-                    continue;
-                }
-                in_code = code;
-                if (code == available) {
-                    pixelStack[top++] = first;
-                    code = old_code;
-                }
-                while (code > clear) {
-                    pixelStack[top++] = suffix[code];
-                    code = prefix[code];
-                }
-
-                first = suffix[code] & 0xff;
-                pixelStack[top++] = first;
-
-                // add a new string to the table, but only if space is available
-                // if not, just continue with current table until a clear code is found
-                // (deferred clear code implementation as per GIF spec)
-                if (available < MAX_STACK_SIZE) {
-                    prefix[available] = old_code;
-                    suffix[available] = first;
-                    available++;
-                    if ((available & code_mask) === 0 && available < MAX_STACK_SIZE) {
-                        code_size++;
-                        code_mask += available;
-                    }
-                }
-                old_code = in_code;
-            }
-            // Pop a pixel off the pixel stack.
-            top--;
-            dstPixels[pi++] = pixelStack[top];
-            i++;
-        }
-
-        for (i = pi; i < npix; i++) {
-            dstPixels[i] = 0; // clear missing pixels
-        }
-
-        return dstPixels;
     }
 
     return me;

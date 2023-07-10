@@ -1,295 +1,338 @@
-let LZWEncoder = function() {
+let LZW = function() {
 
-    var exports = {};
-    var EOF = -1;
-    var imgW;
-    var imgH;
-    var pixAry;
-    var initCodeSize;
-    var remaining;
-    var curPixel;
+    var me = {};
 
-    // GIFCOMPR.C - GIF Image compression routines
-    // Lempel-Ziv compression based on 'compress'. GIF modifications by
-    // David Rowley (mgardi@watdcsu.waterloo.edu)
-    // General DEFINEs
+    me.encode= function(pixels, imgWidth, imgHeight, color_depth) {
+        // adapted from https://github.com/antimatter15/jsgif/blob/master/LZWEncoder.js
+        // MIT License
+        // Copyright (c) 2010-2014 Kevin Kwok <antimatter15@gmail.com>
 
-    var BITS = 12;
-    var HSIZE = 5003; // 80% occupancy
+        var EOF = -1;
+        var initCodeSize;
+        var remaining;
+        var curPixel;
+        var BITS = 12;
+        var HSIZE = 5003; // 80% occupancy
+        var n_bits; // number of bits/code
+        var maxbits = BITS; // user settable max # bits/code
+        var maxcode; // maximum code, given n_bits
+        var maxmaxcode = 1 << BITS; // should NEVER generate this code
+        var htab = [];
+        var codetab = [];
+        var hsize = HSIZE; // for dynamic table sizing
+        var free_ent = 0; // first unused entry
+        var clear_flg = false;
+        var g_init_bits;
+        var ClearCode;
+        var EOFCode;
+        var cur_accum = 0;
+        var cur_bits = 0;
+        var masks = [0x0000, 0x0001, 0x0003, 0x0007, 0x000F, 0x001F, 0x003F, 0x007F, 0x00FF, 0x01FF, 0x03FF, 0x07FF, 0x0FFF, 0x1FFF, 0x3FFF, 0x7FFF, 0xFFFF];
+        var a_count;
 
-    // GIF Image compression - modified 'compress'
-    // Based on: compress.c - File compression ala IEEE Computer, June 1984.
-    // By Authors: Spencer W. Thomas (decvax!harpo!utah-cs!utah-gr!thomas)
-    // Jim McKie (decvax!mcvax!jim)
-    // Steve Davies (decvax!vax135!petsd!peora!srd)
-    // Ken Turkowski (decvax!decwrl!turtlevax!ken)
-    // James A. Woods (decvax!ihnp4!ames!jaw)
-    // Joe Orost (decvax!vax135!petsd!joe)
 
-    var n_bits; // number of bits/code
-    var maxbits = BITS; // user settable max # bits/code
-    var maxcode; // maximum code, given n_bits
-    var maxmaxcode = 1 << BITS; // should NEVER generate this code
-    var htab = [];
-    var codetab = [];
-    var hsize = HSIZE; // for dynamic table sizing
-    var free_ent = 0; // first unused entry
+        var accum = [];
 
-    // block compression parameters -- after all codes are used up,
-    // and compression rate changes, start over.
 
-    var clear_flg = false;
-
-    // Algorithm: use open addressing double hashing (no chaining) on the
-    // prefix code / next character combination. We do a variant of Knuth's
-    // algorithm D (vol. 3, sec. 6.4) along with G. Knott's relatively-prime
-    // secondary probe. Here, the modular division first probe is gives way
-    // to a faster exclusive-or manipulation. Also do block compression with
-    // an adaptive reset, whereby the code table is cleared when the compression
-    // ratio decreases, but after the table fills. The variable-length output
-    // codes are re-sized at this point, and a special CLEAR code is generated
-    // for the decompressor. Late addition: construct the table according to
-    // file size for noticeable speed improvement on small files. Please direct
-    // questions about this implementation to ames!jaw.
-
-    var g_init_bits;
-    var ClearCode;
-    var EOFCode;
-
-    // output
-    // Output the given code.
-    // Inputs:
-    // code: A n_bits-bit integer. If == -1, then EOF. This assumes
-    // that n_bits =< wordsize - 1.
-    // Outputs:
-    // Outputs code to the file.
-    // Assumptions:
-    // Chars are 8 bits long.
-    // Algorithm:
-    // Maintain a BITS character long buffer (so that 8 codes will
-    // fit in it exactly). Use the VAX insv instruction to insert each
-    // code in turn. When the buffer fills up empty it and start over.
-
-    var cur_accum = 0;
-    var cur_bits = 0;
-    var masks = [0x0000, 0x0001, 0x0003, 0x0007, 0x000F, 0x001F, 0x003F, 0x007F, 0x00FF, 0x01FF, 0x03FF, 0x07FF, 0x0FFF, 0x1FFF, 0x3FFF, 0x7FFF, 0xFFFF];
-
-    // Number of characters so far in this 'packet'
-    var a_count;
-
-    // Define the storage for the packet accumulator
-    var accum = [];
-
-    var LZWEncoder = exports.LZWEncoder = function LZWEncoder(width, height, pixels, color_depth) {
-        imgW = width;
-        imgH = height;
-        pixAry = pixels;
         initCodeSize = Math.max(2, color_depth);
-    };
 
-    // Add a character to the end of the current packet, and if it is 254
-    // characters, flush the packet to disk.
-    var char_out = function char_out(c, outs) {
-        accum[a_count++] = c;
-        if (a_count >= 254) flush_char(outs);
-    };
+        let out = [];
+        out.push(initCodeSize); // write "initial code size" byte
 
-    // Clear out the hash table
-    // table clear for block compress
+        remaining = imgWidth * imgHeight; // reset navigation variables
+        curPixel = 0;
+        compress(initCodeSize + 1, out); // compress and write the pixel data
+        //os.writeByte(0); // write block terminator
+        out.push(0); // write block terminator
 
-    var cl_block = function cl_block(outs) {
-        cl_hash(hsize);
-        free_ent = ClearCode + 2;
-        clear_flg = true;
-        output(ClearCode, outs);
-    };
+        return out;
 
-    // reset code table
-    var cl_hash = function cl_hash(hsize) {
-        for (var i = 0; i < hsize; ++i) htab[i] = -1;
-    };
 
-    var compress = exports.compress = function compress(init_bits, outs) {
+        // Add a character to the end of the current packet, and if it is 254
+        // characters, flush the packet to disk.
+        function char_out(c, outs) {
+            accum[a_count++] = c;
+            if (a_count >= 254) flush_char(outs);
+        };
 
-        var fcode;
-        var i; /* = 0 */
-        var c;
-        var ent;
-        var disp;
-        var hsize_reg;
-        var hshift;
+        // Clear out the hash table
+        // table clear for block compress
 
-        // Set up the globals: g_init_bits - initial number of bits
-        g_init_bits = init_bits;
+        function cl_block(outs) {
+            cl_hash(hsize);
+            free_ent = ClearCode + 2;
+            clear_flg = true;
+            output(ClearCode, outs);
+        };
 
-        // Set up the necessary values
-        clear_flg = false;
-        n_bits = g_init_bits;
-        maxcode = MAXCODE(n_bits);
+        // reset code table
+        function cl_hash(hsize) {
+            for (var i = 0; i < hsize; ++i) htab[i] = -1;
+        };
 
-        ClearCode = 1 << (init_bits - 1);
-        EOFCode = ClearCode + 1;
-        free_ent = ClearCode + 2;
+        function compress(init_bits, outs) {
 
-        a_count = 0; // clear packet
+            var fcode;
+            var i; /* = 0 */
+            var c;
+            var ent;
+            var disp;
+            var hsize_reg;
+            var hshift;
 
-        ent = nextPixel();
+            // Set up the globals: g_init_bits - initial number of bits
+            g_init_bits = init_bits;
 
-        hshift = 0;
-        for (fcode = hsize; fcode < 65536; fcode *= 2)
-            ++hshift;
-        hshift = 8 - hshift; // set hash code range bound
+            // Set up the necessary values
+            clear_flg = false;
+            n_bits = g_init_bits;
+            maxcode = MAXCODE(n_bits);
 
-        hsize_reg = hsize;
-        cl_hash(hsize_reg); // clear hash table
+            ClearCode = 1 << (init_bits - 1);
+            EOFCode = ClearCode + 1;
+            free_ent = ClearCode + 2;
 
-        output(ClearCode, outs);
+            a_count = 0; // clear packet
 
-        outer_loop: while ((c = nextPixel()) != EOF) {
-            fcode = (c << maxbits) + ent;
-            i = (c << hshift) ^ ent; // xor hashing
+            ent = nextPixel();
 
-            if (htab[i] == fcode) {
-                ent = codetab[i];
-                continue;
+            hshift = 0;
+            for (fcode = hsize; fcode < 65536; fcode *= 2)
+                ++hshift;
+            hshift = 8 - hshift; // set hash code range bound
+
+            hsize_reg = hsize;
+            cl_hash(hsize_reg); // clear hash table
+
+            output(ClearCode, outs);
+
+            outer_loop: while ((c = nextPixel()) != EOF) {
+                fcode = (c << maxbits) + ent;
+                i = (c << hshift) ^ ent; // xor hashing
+
+                if (htab[i] == fcode) {
+                    ent = codetab[i];
+                    continue;
+                }
+
+                else if (htab[i] >= 0) { // non-empty slot
+
+                    disp = hsize_reg - i; // secondary hash (after G. Knott)
+                    if (i === 0) disp = 1;
+
+                    do {
+                        if ((i -= disp) < 0)
+                            i += hsize_reg;
+
+                        if (htab[i] == fcode) {
+                            ent = codetab[i];
+                            continue outer_loop;
+                        }
+                    } while (htab[i] >= 0);
+                }
+
+                output(ent, outs);
+                ent = c;
+                if (free_ent < maxmaxcode) {
+                    codetab[i] = free_ent++; // code -> hashtable
+                    htab[i] = fcode;
+                }
+                else cl_block(outs);
             }
 
-            else if (htab[i] >= 0) { // non-empty slot
-
-                disp = hsize_reg - i; // secondary hash (after G. Knott)
-                if (i === 0) disp = 1;
-
-                do {
-                    if ((i -= disp) < 0)
-                        i += hsize_reg;
-
-                    if (htab[i] == fcode) {
-                        ent = codetab[i];
-                        continue outer_loop;
-                    }
-                } while (htab[i] >= 0);
-            }
-
+            // Put out the final code.
             output(ent, outs);
-            ent = c;
-            if (free_ent < maxmaxcode) {
-                codetab[i] = free_ent++; // code -> hashtable
-                htab[i] = fcode;
-            }
-            else cl_block(outs);
-        }
+            output(EOFCode, outs);
+        };
 
-        // Put out the final code.
-        output(ent, outs);
-        output(EOFCode, outs);
-    };
-
-    // ----------------------------------------------------------------------------
-    var encode = exports.encode = function encode(os) {
-        if (os.writeByte){
-            //os.push(initCodeSize); // write "initial code size" byte
-            os.writeByte(initCodeSize);
-            remaining = imgW * imgH; // reset navigation variables
-            curPixel = 0;
-            compress(initCodeSize + 1, os); // compress and write the pixel data
-            os.writeByte(0); // write block terminator
-            //os.push(0); // write block terminator
-        }else{
-            os.push(initCodeSize); // write "initial code size" byte
-            //os.writeByte(initCodeSize);
-            remaining = imgW * imgH; // reset navigation variables
-            curPixel = 0;
-            compress(initCodeSize + 1, os); // compress and write the pixel data
-            //os.writeByte(0); // write block terminator
-            os.push(0); // write block terminator
-        }
-
-
-    };
+        // ----------------------------------------------------------------------------
 
 
 
-    // Flush the packet to disk, and reset the accumulator
-    var flush_char = function flush_char(outs) {
-        if (a_count > 0) {
-            if (outs.writeByte){
-                outs.writeByte(a_count);
-                for (var i = 0; i < a_count; i++){
-                    outs.writeByte(accum[i]);
+        // Flush the packet to disk, and reset the accumulator
+        function flush_char(outs) {
+            if (a_count > 0) {
+                if (outs.writeByte){
+                    outs.writeByte(a_count);
+                    for (var i = 0; i < a_count; i++){
+                        outs.writeByte(accum[i]);
+                    }
+                }else{
+                    outs.push(a_count);
+                    for (var i = 0; i < a_count; i++){
+                        outs.push(accum[i]);
+                    }
                 }
-            }else{
-                outs.push(a_count);
-                for (var i = 0; i < a_count; i++){
-                    outs.push(accum[i]);
-                }
+                a_count = 0;
             }
-            a_count = 0;
-        }
-    };
+        };
 
-    var MAXCODE = function MAXCODE(n_bits) {
-        return (1 << n_bits) - 1;
-    };
+        function MAXCODE(n_bits) {
+            return (1 << n_bits) - 1;
+        };
 
-    // ----------------------------------------------------------------------------
-    // Return the next pixel from the image
-    // ----------------------------------------------------------------------------
+        // ----------------------------------------------------------------------------
+        // Return the next pixel from the image
+        // ----------------------------------------------------------------------------
 
-    var nextPixel = function nextPixel() {
-        if (remaining === 0) return EOF;
-        --remaining;
-        var pix = pixAry[curPixel++];
-        return pix & 0xff;
-    };
+        function nextPixel() {
+            if (remaining === 0) return EOF;
+            --remaining;
+            var pix = pixels[curPixel++];
+            return pix & 0xff;
+        };
 
-    var output = function output(code, outs) {
+        function output(code, outs) {
 
-        cur_accum &= masks[cur_bits];
+            cur_accum &= masks[cur_bits];
 
-        if (cur_bits > 0) cur_accum |= (code << cur_bits);
-        else cur_accum = code;
+            if (cur_bits > 0) cur_accum |= (code << cur_bits);
+            else cur_accum = code;
 
-        cur_bits += n_bits;
+            cur_bits += n_bits;
 
-        while (cur_bits >= 8) {
-            char_out((cur_accum & 0xff), outs);
-            cur_accum >>= 8;
-            cur_bits -= 8;
-        }
-
-        // If the next entry is going to be too big for the code size,
-        // then increase it, if possible.
-
-        if (free_ent > maxcode || clear_flg) {
-
-            if (clear_flg) {
-
-                maxcode = MAXCODE(n_bits = g_init_bits);
-                clear_flg = false;
-
-            } else {
-
-                ++n_bits;
-                if (n_bits == maxbits) maxcode = maxmaxcode;
-                else maxcode = MAXCODE(n_bits);
-            }
-        }
-
-        if (code == EOFCode) {
-
-            // At EOF, write the rest of the buffer.
-            while (cur_bits > 0) {
+            while (cur_bits >= 8) {
                 char_out((cur_accum & 0xff), outs);
                 cur_accum >>= 8;
                 cur_bits -= 8;
             }
 
-            flush_char(outs);
-        }
-    };
+            // If the next entry is going to be too big for the code size,
+            // then increase it, if possible.
 
-    LZWEncoder.apply(this, arguments);
-    return exports;
+            if (free_ent > maxcode || clear_flg) {
+
+                if (clear_flg) {
+
+                    maxcode = MAXCODE(n_bits = g_init_bits);
+                    clear_flg = false;
+
+                } else {
+
+                    ++n_bits;
+                    if (n_bits == maxbits) maxcode = maxmaxcode;
+                    else maxcode = MAXCODE(n_bits);
+                }
+            }
+
+            if (code == EOFCode) {
+
+                // At EOF, write the rest of the buffer.
+                while (cur_bits > 0) {
+                    char_out((cur_accum & 0xff), outs);
+                    cur_accum >>= 8;
+                    cur_bits -= 8;
+                }
+
+                flush_char(outs);
+            }
+        }
+    }
+
+
+
+    me.decode = function(data, minCodeSize, pixelCount){
+        // adapted from https://github.com/matt-way/gifuct-js
+        // MIT license
+        // Copyright (c) 2015 Matt Way
+
+        const MAX_STACK_SIZE = 4096;
+        const nullCode = -1;
+        const npix = pixelCount;
+        let available, clear, code_mask, code_size, end_of_information, in_code, old_code, code, i, data_size;
+
+        const dstPixels = new Array(pixelCount);
+        const prefix = new Array(MAX_STACK_SIZE);
+        const suffix = new Array(MAX_STACK_SIZE);
+        const pixelStack = new Array(MAX_STACK_SIZE + 1);
+
+        // Initialize GIF data stream decoder.
+        data_size = minCodeSize;
+        clear = 1 << data_size;
+        end_of_information = clear + 1;
+        available = clear + 2;
+        old_code = nullCode;
+        code_size = data_size + 1;
+        code_mask = (1 << code_size) - 1;
+        for (code = 0; code < clear; code++) {
+            prefix[code] = 0;
+            suffix[code] = code;
+        }
+
+        // Decode GIF pixel stream.
+        let datum, bits, count, first, top, pi, bi
+        datum = bits = count = first = top = pi = bi = 0;
+        for (i = 0; i < npix; ) {
+            if (top === 0) {
+                if (bits < code_size) {
+                    // get the next byte
+                    datum += data[bi] << bits;
+                    bits += 8;
+                    bi++;
+                    continue;
+                }
+                // Get the next code.
+                code = datum & code_mask;
+                datum >>= code_size;
+                bits -= code_size;
+                // Interpret the code
+                if (code > available || code == end_of_information) break;
+                if (code == clear) {
+                    // Reset decoder.
+                    code_size = data_size + 1;
+                    code_mask = (1 << code_size) - 1;
+                    available = clear + 2;
+                    old_code = nullCode;
+                    continue;
+                }
+                if (old_code == nullCode) {
+                    pixelStack[top++] = suffix[code];
+                    old_code = code;
+                    first = code;
+                    continue;
+                }
+                in_code = code;
+                if (code == available) {
+                    pixelStack[top++] = first;
+                    code = old_code;
+                }
+                while (code > clear) {
+                    pixelStack[top++] = suffix[code];
+                    code = prefix[code];
+                }
+
+                first = suffix[code] & 0xff;
+                pixelStack[top++] = first;
+
+                // add a new string to the table, but only if space is available
+                // if not, just continue with current table until a clear code is found
+                // (deferred clear code implementation as per GIF spec)
+                if (available < MAX_STACK_SIZE) {
+                    prefix[available] = old_code;
+                    suffix[available] = first;
+                    available++;
+                    if ((available & code_mask) === 0 && available < MAX_STACK_SIZE) {
+                        code_size++;
+                        code_mask += available;
+                    }
+                }
+                old_code = in_code;
+            }
+            // Pop a pixel off the pixel stack.
+            top--;
+            dstPixels[pi++] = pixelStack[top];
+            i++;
+        }
+
+        for (i = pi; i < npix; i++) {
+            dstPixels[i] = 0; // clear missing pixels
+        }
+
+        return dstPixels;
+    }
+
+
+    return me;
 };
 
-export default LZWEncoder;
+export default LZW();
