@@ -42,6 +42,15 @@ let App = function(){
 			}
 		}
 
+		if (window.self !== window.top && window.parent){
+			// we are running in an iframe, let's see if we can contact the host
+			console.log("contacting host");
+			import("./host/host.js").then(host=>{
+				window.host = host.default;
+				window.host.init();
+			});
+		}
+
 		EventBus.on(COMMAND.OPEN,function(){
 			ImageFile.openLocal();
 		})

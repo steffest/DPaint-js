@@ -115,7 +115,8 @@ let Generate = function(){
             return;
         }
 
-        let buffer = GIF.write(ImageFile.getCanvas());
+        let buffer = GIF.write(ImageFile.getCurrentFile().frames);
+        //let buffer = GIF.write(ImageFile.getCanvas());
         console.log(buffer);
         return new Blob([buffer], {type: "application/octet-stream"});
 

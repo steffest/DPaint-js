@@ -879,9 +879,9 @@ let ImageFile = function(){
         EventBus.trigger(EVENT.colorRangesChanged);
     }
 
-    me.generateIndexedPixels = function(oneDimensional){
+    me.generateIndexedPixels = function(frameIndex,oneDimensional){
         console.log("generate indexed pixels");
-        let ctx = me.getCanvas().getContext("2d");
+        let ctx = me.getCanvas(frameIndex).getContext("2d");
         let width = currentFile.width;
         let height = currentFile.height;
         let pixels = [];
@@ -915,6 +915,7 @@ let ImageFile = function(){
         }
 
         currentFile.indexedPixels = pixels;
+        return pixels;
 
     }
 

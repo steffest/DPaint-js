@@ -217,26 +217,51 @@ const GIF = (()=>{
         // write GIF file
         // https://www.w3.org/Graphics/GIF/spec-gif89a.txt
 
-        ImageFile.generateIndexedPixels(true);
-        let pixels = ImageFile.getCurrentFile().indexedPixels;
-        let palette = Palette.get();
+        let frames = [canvas];
+        if (Array.isArray(canvas)){
+            frames = [];
+            canvas.forEach((c,index)=>{
+               frames.push(ImageFile.getCanvas(index));
+            });
+        }
 
-        let headerSize = 13 + palette.length*3;
+        console.error(frames);
+
+
+        let delayTime = 0;
+        if (frames.length > 1) delayTime = 10;
+
+        let encodedFrames = [];
+        let palette = Palette.get();
+        let colorDepth = 1;
+        while (1 << colorDepth < palette.length) colorDepth++;
+        let gctSize = colorDepth - 1;
+        let colorCount = 1 << colorDepth;
+
+        frames.forEach((frame,index)=>{
+            let pixels = ImageFile.generateIndexedPixels(index,true);
+            encodedFrames.push(LZW.encode(pixels,frame.width, frame.height, colorDepth));
+        });
+
+
+        let headerSize = 13 + colorCount*3;
         let gceSize = 8;
         let imageDescriptorSize = 10;
 
-        let encodedImage = LZW.encode(pixels,canvas.width, canvas.height, 8);
 
-        let totalSize = headerSize + gceSize + imageDescriptorSize + encodedImage.length + 1;
+        let totalSize = headerSize + 1;
+        encodedFrames.forEach((frame)=>{
+            totalSize += gceSize + imageDescriptorSize + frame.length;
+        });
+        console.log("Total GIF size: ", totalSize);
         let file = new BinaryStream(new ArrayBuffer(totalSize),false);
 
         //Header
         file.writeString("GIF89a");
 
         // Logical Screen Descriptor
-        file.writeWord(canvas.width);
-        file.writeWord(canvas.height);
-        let gctSize = 7
+        file.writeWord(frames[0].width);
+        file.writeWord(frames[0].height);
 
         file.writeUbyte((0x80 | // 1 : global color table flag = 1 (gct used)
             0x70 | // 2-4 : color resolution = 7
@@ -252,69 +277,72 @@ const GIF = (()=>{
             file.writeUbyte(palette[i][1]);
             file.writeUbyte(palette[i][2]);
         }
-        // padding if we have < 256 colors // TODO: fixme
-        var n = (3 * 256) - palette.length*3;
-        for (var i = 0; i < n; i++) file.writeUbyte(0);
+        let remaining = colorCount - palette.length;
+        for (var i = 0; i < remaining*3; i++) file.writeUbyte(0);
 
 
-        ////Graphics Control Extension
-        file.writeUbyte(0x21); //extension introducer
-        file.writeUbyte(0xF9); //graphic control label
-        file.writeUbyte(0x04); //block size
+
+        frames.forEach((frame,index)=>{
+            ////Graphics Control Extension
+            file.writeUbyte(0x21); //extension introducer
+            file.writeUbyte(0xF9); //graphic control label
+            file.writeUbyte(0x04); //block size
+
+            var transp;
+            var disp;
+            let transparent = null;
+            let dispose = 0;
+
+            if (transparent === null) {
+                transp = 0;
+                disp = 0; // dispose = no action
+            } else {
+                transp = 1;
+                disp = 2; // force clear if using transparent color
+            }
+            if (dispose >= 0) {
+                disp = dispose & 7; // user override
+            }
+            disp <<= 2;
+            // packed fields
+            file.writeUbyte(0 | // 1:3 reserved
+                disp | // 4:6 disposal
+                0 | // 7 user input - 0 = none
+                transp); // 8 transparency flag
 
 
-        var transp;
-        var disp;
-        let transparent = null;
-        let dispose = 0;
-
-        if (transparent === null) {
-            transp = 0;
-            disp = 0; // dispose = no action
-        } else {
-            transp = 1;
-            disp = 2; // force clear if using transparent color
-        }
-        if (dispose >= 0) {
-            disp = dispose & 7; // user override
-        }
-        disp <<= 2;
-        // packed fields
-        file.writeUbyte(0 | // 1:3 reserved
-            disp | // 4:6 disposal
-            0 | // 7 user input - 0 = none
-            transp); // 8 transparency flag
+            file.writeWord(delayTime); //delay time x 1/100 sec
+            file.writeUbyte(0); //transparent color index
+            file.writeUbyte(0); //block terminator
 
 
-        file.writeWord(0); //delay time x 1/100 sec
-        file.writeUbyte(0); //transparent color index
-        file.writeUbyte(0); //block terminator
 
+            //Image Descriptor
+            file.writeUbyte(0x2C); //image separator
+            file.writeWord(0); //image left position
+            file.writeWord(0); //image top position
+            file.writeWord(frame.width); //image width
+            file.writeWord(frame.height); //image height
 
-        //Image Descriptor
-        file.writeUbyte(0x2C); //image separator
-        file.writeWord(0); //image left position
-        file.writeWord(0); //image top position
-        file.writeWord(canvas.width); //image width
-        file.writeWord(canvas.height); //image height
+            if (index === 0) {
+                // no local color table
+                file.writeUbyte(0);
+            }else{
+                // on second frame, if a local color table exists
+                /*
+                file.writeUbyte(0x80 | // 1 local color table 1=yes
+                    0 | // 2 interlace - 0=no
+                    0 | // 3 sorted - 0=no
+                    0 | // 4-5 reserved
+                    gctSize); // 6-8 size of color table
 
-        let isFirstFrame = true;
-        if (isFirstFrame) {
-            // no local color table
-            file.writeUbyte(0);
-        }else{
-            // on second frame, if a local color table exists
-            file.writeUbyte(0x80 | // 1 local color table 1=yes
-                0 | // 2 interlace - 0=no
-                0 | // 3 sorted - 0=no
-                0 | // 4-5 reserved
-                gctSize); // 6-8 size of color table
+                // and write palette*/
 
-            // and write palette
-        }
+                file.writeUbyte(0);
+            }
 
-        // image data
-        file.writeByteArray(encodedImage);
+            file.writeByteArray(encodedFrames[index]);
+        })
 
         //Trailer
         file.writeUbyte(0x3B);

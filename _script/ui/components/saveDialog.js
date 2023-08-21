@@ -61,14 +61,22 @@ var SaveDialog = function(){
     }
 
     async function saveFile(blob,fileName,type) {
+        if (window.host && window.host.saveFile){
+            window.host.saveFile(blob,fileName);
+            return;
+        }
+
         if (window.showSaveFilePicker){
-            const newHandle = await window.showSaveFilePicker({
+            window.showSaveFilePicker({
                 suggestedName: fileName,
                 types: [type],
+            }).then(async handle => {
+                const writableStream = await handle.createWritable();
+                await writableStream.write(blob);
+                await writableStream.close();
+            }).catch(async err => {
+                await saveAs(blob,fileName);
             });
-            const writableStream = await newHandle.createWritable();
-            await writableStream.write(blob);
-            await writableStream.close();
         }else{
             await saveAs(blob,fileName);
         }
@@ -208,7 +216,7 @@ var SaveDialog = function(){
     window.savegif = function(){
         Generate.file("GIF").then((blob)=>{
             if (blob){
-                saveFile(blob,getFileName() + ".png",filetypes.GIF).then(()=>{});
+                saveFile(blob,getFileName() + ".gif",filetypes.GIF).then(()=>{});
             }
         });
     }

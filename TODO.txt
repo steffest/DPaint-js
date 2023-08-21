@@ -10,6 +10,8 @@
 - deselect after resize
 - show grid function
 - ctrl-mousewheel should be zoom
+- save to JPG including EXIF data
+- EXIF editor?
 
 
 - filters: e.g. https://medium.com/skylar-salernos-tech-blog/mimicking-googles-pop-filter-using-canvas-blend-modes-d7da83590d1a

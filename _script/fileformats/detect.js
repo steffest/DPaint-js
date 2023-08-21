@@ -12,7 +12,7 @@ let FileDetector = (function () {
             let ext = name.split(".").pop().toLowerCase();
             let file;
 
-            if (ext === ".info") {
+            if (ext === "info") {
                 file = BinaryStream(data.slice(0, data.byteLength), true);
                 file.goto(0);
                 // Note: this can be Async!
