@@ -19,7 +19,11 @@ let Layer = function(width,height,name){
     let canvas = document.createElement("canvas");
     canvas.width = width;
     canvas.height = height;
-    let ctx = canvas.getContext("2d");
+    let ctx = canvas.getContext("2d",{willReadFrequently:true});
+
+    //note: willReadFrequently forces the canvas to remain on the CPU instead of the GPU
+    // this also "fixes" a bug in Chrome where multiple calls to getImageData() on the same canvas clears the canvas incorrectly
+
     let mask;
     let maskCtx;
     let maskActive;
@@ -53,7 +57,7 @@ let Layer = function(width,height,name){
     me.render = function(){
         if (mask || isDrawing){
             if (!combined) combined = duplicateCanvas(canvas);
-            let combinedCtx = combined.getContext("2d");
+            let combinedCtx = combined.getContext("2d",{willReadFrequently:true});
             combinedCtx.clearRect(0,0,combined.width,combined.height);
 
             combinedCtx.globalCompositeOperation = "source-over";

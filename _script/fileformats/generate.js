@@ -42,7 +42,7 @@ let Generate = function(){
     me.file = async type=>{
         switch (type){
             case "classicIcon":
-                return me.classicIcon();
+                return await me.classicIcon();
             case "colorIcon":
                 return me.colorIcon();
             case "PNGIcon":
@@ -127,142 +127,157 @@ let Generate = function(){
     }
 
     me.classicIcon=(config)=>{
-        config = config || {};
-        config.title = "Save as Amiga Classic Icon";
+        return new Promise(next=>{
+            config = config || {};
+            config.title = "Save as Amiga Classic Icon";
 
-        let check = me.validate({maxColors: 32, checkAllFrames: true});
-
-        if (!check.valid){
-            Modal.show(DIALOG.OPTION,{
-                title: config.title,
-                text: ["Sorry, this image has too many colors. Please reduce them to 16 or even better: 8 or less using the MUI palette"],
-                buttons: [{label:"OK"}]
-            });
-            return;
-        }
-
-        check = me.validate({maxWidth: 1024, maxHeight: 1024});
-        if (!check.valid){
-            Modal.show(DIALOG.OPTION,{
-                title: config.title,
-                text: ["Sorry, this image is too big. Please reduce it to 1024x1024 pixels or less."],
-                buttons: [{label:"OK"}]
-            });
-            return;
-        }
-
-
-        if (!config.skipColorCheck){
-            check = me.validate({maxColors: 8})
+            let check = me.validate({maxColors: 32, checkAllFrames: true});
 
             if (!check.valid){
                 Modal.show(DIALOG.OPTION,{
                     title: config.title,
-                    text: "Are you sure you want to save this image as Amiga Classic Icon? It has more than 8 colors which means it probably won't display correctly",
-                    onOk:()=>{
-                        config.skipColorCheck = true;
-                        return me.classicIcon(config);
-                    }
+                    text: ["Sorry, this image has too many colors. Please reduce them to 16 or even better: 8 or less using the MUI palette"],
+                    buttons: [{label:"OK"}]
                 });
-                return;
+                next();
             }
-        }
 
-        if (!config.skipSizeCheck){
-            check = me.validate({maxWidth: 256, maxHeight: 256});
-
+            check = me.validate({maxWidth: 1024, maxHeight: 1024});
             if (!check.valid){
                 Modal.show(DIALOG.OPTION,{
                     title: config.title,
-                    text: "Are you sure you want to save this image as Amiga Classic Icon? It's kind of big... Allthough technically possible, it's not recommended to use icons bigger than 256x256 pixels",
-                    onOk:()=>{
-                        config.skipSizeCheck = true;
-                        return me.classicIcon(config);
-                    }
+                    text: ["Sorry, this image is too big. Please reduce it to 1024x1024 pixels or less."],
+                    buttons: [{label:"OK"}]
                 });
-                return;
+                next();
             }
-        }
 
 
+            if (!config.skipColorCheck){
+                check = me.validate({maxColors: 8})
 
-        let canvas1 = ImageFile.getCanvas(0);
-        let canvas2 = ImageFile.getCanvas(1) || canvas1;
-        let ctx1 = canvas1.getContext("2d");
-        let ctx2 = canvas2.getContext("2d");
-        let w = canvas1.width;
-        let h = canvas1.height;
-
-        let r,g,b,alpha;
-
-        let icon = Icon.create(w,h);
-
-        // discard ColorIcon
-        icon.colorIcon = undefined;
-        icon.width = w;
-        icon.height = h;
-        icon.img.width = w;
-        icon.img.height = h;
-        icon.img.depth = 3; // 8 colors
-        icon.img.planePick = 7 // color count - 1 (?)
-        icon.img.pixels = [];
-        icon.img2.width = w;
-        icon.img2.height = h;
-        icon.img2.depth = 3; // 8 colors
-        icon.img2.planePick = 7 // color count - 1 (?)
-        icon.img2.pixels = [];
-
-        function fillPixels(_ctx,pixels){
-            // canvas colours to pixel array
-
-            let MUIColors = [
-                "#959595",
-                "#000000",
-                "#ffffff",
-                "#3b67a2",
-                "#7b7b7b",
-                "#afafaf",
-                "#aa907c",
-                "#ffa997"
-            ];
-
-
-            let data = _ctx.getImageData(0, 0, w, h).data;
-            for (let y = 0; y < h; y++) {
-                for (let x = 0; x < w; x++) {
-                    let index = (x + y * w) * 4;
-
-                    r = data[index];
-                    g = data[index+1];
-                    b = data[index+2];
-                    alpha = data[index+3];
-
-
-                    if(alpha>100){
-                        let rgb = rgbToHex(r,g,b);
-                        let colorIndex = MUIColors.indexOf(rgb);
-                        if (colorIndex<0){
-                            console.error("No MUI color: " + rgb);
-                            colorIndex = 0;
-                            // TODO: allow for arbitrary color palletes
+                if (!check.valid){
+                    Modal.show(DIALOG.OPTION,{
+                        title: config.title,
+                        text: "Are you sure you want to save this image as Amiga Classic Icon? It has more than 8 colors which means it probably won't display correctly",
+                        onOk:()=>{
+                            config.skipColorCheck = true;
+                            me.classicIcon(config).then(next);
                         }
-                        //console.error(rgb);
-                        //icon.img.pixels.push(colorIndex);
-                        //colorIndex = 6;
-                        pixels.push(colorIndex);
-                    }else{
-                        pixels.push(0);
+                    });
+                    return;
+                }
+            }
+
+            if (!config.skipSizeCheck){
+                check = me.validate({maxWidth: 256, maxHeight: 256});
+
+                if (!check.valid){
+                    Modal.show(DIALOG.OPTION,{
+                        title: config.title,
+                        text: "Are you sure you want to save this image as Amiga Classic Icon? It's kind of big... Although technically possible, it's not recommended to use icons bigger than 256x256 pixels",
+                        onOk:()=>{
+                            config.skipSizeCheck = true;
+                            me.classicIcon(config).then(next);
+                        }
+                    });
+                    return;
+                }
+            }
+
+
+
+            let canvas1 = ImageFile.getCanvas(0);
+            let canvas2 = ImageFile.getCanvas(1) || canvas1;
+            let ctx1 = canvas1.getContext("2d");
+            let ctx2 = canvas2.getContext("2d");
+            let w = canvas1.width;
+            let h = canvas1.height;
+
+            let r,g,b,alpha;
+
+            let icon = Icon.create(w,h);
+
+            // discard ColorIcon
+            icon.colorIcon = undefined;
+            icon.width = w;
+            icon.height = h;
+            icon.img.width = w;
+            icon.img.height = h;
+            icon.img.depth = 3; // 8 colors
+            icon.img.planePick = 7 // color count - 1 (?)
+            icon.img.pixels = [];
+            icon.img2.width = w;
+            icon.img2.height = h;
+            icon.img2.depth = 3; // 8 colors
+            icon.img2.planePick = 7 // color count - 1 (?)
+            icon.img2.pixels = [];
+
+            function fillPixels(_ctx,pixels){
+                // canvas colours to pixel array
+
+                let MUIColors = [
+                    "#959595",
+                    "#000000",
+                    "#ffffff",
+                    "#3b67a2",
+                    "#7b7b7b",
+                    "#afafaf",
+                    "#aa907c",
+                    "#ffa997"
+                ];
+
+                let additionalColors = ["#000000"];
+
+
+                let data = _ctx.getImageData(0, 0, w, h).data;
+                for (let y = 0; y < h; y++) {
+                    for (let x = 0; x < w; x++) {
+                        let index = (x + y * w) * 4;
+
+                        r = data[index];
+                        g = data[index+1];
+                        b = data[index+2];
+                        alpha = data[index+3];
+
+                        if(alpha>100){
+                            let rgb = rgbToHex(r,g,b);
+                            let colorIndex = MUIColors.indexOf(rgb);
+                            if (colorIndex<0){
+                                console.warn("No MUI color: " + rgb);
+
+                                // making some assumptions here:
+                                // get from palette
+                                colorIndex = Palette.getColorIndex([r,g,b]);
+
+                                // check if already in list
+                                if (colorIndex<0) colorIndex = additionalColors.indexOf(rgb);
+
+                                if (colorIndex<0){
+                                    // add to list
+                                    additionalColors.push(rgb);
+                                    colorIndex = additionalColors.length-1;
+                                }
+
+                                if (colorIndex>15){
+                                    console.error("Too many colors: " + rgb);
+                                    colorIndex = 0;
+                                }
+                            }
+                            pixels.push(colorIndex);
+                        }else{
+                            pixels.push(0);
+                        }
                     }
                 }
             }
-        }
 
-        fillPixels(ctx1,icon.img.pixels);
-        fillPixels(ctx2,icon.img2.pixels);
+            fillPixels(ctx1,icon.img.pixels);
+            fillPixels(ctx2,icon.img2.pixels);
 
-        return Icon.write(icon);
-
-        return new Blob([buffer], {type: "application/octet-stream"});
+            let buffer = Icon.write(icon);
+            next(new Blob([buffer], {type: "application/octet-stream"}));
+        });
     }
 
     me.colorIcon=()=>{

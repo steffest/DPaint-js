@@ -97,7 +97,7 @@ var SaveDialog = function(){
                 $(".platform.amiga",
                     $("h4.amiga","Amiga"),
                     currentFile ? renderButton("adf","ADF","Save to ADF","Save Back to ADF. (Download the ADF afterwards when you're done editing)",writeADF) : null,
-                    renderButton("iff","IFF Image","Amiga IFF file","Maximum 32 colours, only the current frame gets saved.",writeIFF),
+                    renderButton("iff","IFF Image","Amiga IFF file","Maximum 256 colours, only the current frame gets saved.",writeIFF),
                     renderButton("mui","Amiga Classic Icon","OS1.3 Style","For all Amiga's. Use MUI palette for best compatibility",writeAmigaClassicIcon),
                     renderButton("os3","Amiga Color Icon","OS3.2 Style","Also called 'Glowicons'. For modern Amiga systems and/or with PeterK's Icon Library. Max 256 colors.",writeAmigaColorIcon),
                     renderButton("os4","Amiga Dual PNG Icon","OS4 Style","For modern Amiga systems and/or with PeterK's Icon Library. Full colors.",writeAmigaPNGIcon)

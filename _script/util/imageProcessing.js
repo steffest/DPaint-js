@@ -89,18 +89,15 @@ var ImageProcessing = function(){
 	};
 	
 	me.getColors = function(canvas,stopAtMax) {
-
 		imageInfos.canvas = canvas;
-		
-		var ctx = canvas.getContext("2d");
-		var data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
-		var colorCube = new Uint32Array(256 * 256 * 256);
-		var colors = [];
 
-		for(var Y = 0; Y < canvas.height; Y++)
-		{
-			for(var X = 0; X < canvas.width; X++)
-			{
+		let ctx = canvas.getContext("2d");
+		let data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+		let colorCube = new Uint32Array(256 * 256 * 256);
+		let colors = [];
+
+		for(var Y = 0; Y < canvas.height; Y++) {
+			for(var X = 0; X < canvas.width; X++) {
 				var pixelIndex = (X + Y * canvas.width) * 4;
 
 				var red = data[pixelIndex];
@@ -108,20 +105,19 @@ var ImageProcessing = function(){
 				var blue = data[pixelIndex + 2];
 				var alpha = data[pixelIndex + 3];
 
-				if(alpha >= alphaThreshold)
-				{
+				if(alpha >= alphaThreshold) {
 					if(colorCube[red * 256 * 256 + green * 256 + blue] == 0)
 						colors.push([red,green,blue]);
 
 					colorCube[red * 256 * 256 + green * 256 + blue]++;
 					if (stopAtMax && colors.length>stopAtMax) return colors;
-
 				}
 			}
 		}
 
 		colors.sort(function (c1, c2) { return (SrgbToRgb(c1[0]) * 0.21 + SrgbToRgb(c1[1]) * 0.72 + SrgbToRgb(c1[2]) * 0.07) - (SrgbToRgb(c2[0]) * 0.21 + SrgbToRgb(c2[1]) * 0.72 + SrgbToRgb(c2[2]) * 0.07) });
 		return colors;
+
 	};
 	
 	me.reduce = function(canvas,colors,_alphaThreshold,ditherIndex){

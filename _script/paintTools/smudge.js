@@ -2,6 +2,7 @@ import ImageFile from "../image.js";
 import EventBus from "../util/eventbus.js";
 import {EVENT} from "../enum.js";
 import Brush from "../ui/brush.js";
+import Palette from "../ui/palette.js";
 
 // somewhat based on https://stackoverflow.com/questions/28197378/html5-canvas-javascript-smudge-brush-tool
 
@@ -49,10 +50,20 @@ let Smudge = function(){
         for (let more = true; more;) {
             more = advanceLine(line);
             ctx.globalAlpha = alpha * lerp(lastForce, force, line.u);
-            ctx.drawImage(
-                brushCtx.canvas,
-                line.position[0] - brushCtx.canvas.width / 2,
-                line.position[1] - brushCtx.canvas.height / 2);
+
+            let x = line.position[0] - brushCtx.canvas.width / 2;
+            let y = line.position[1] - brushCtx.canvas.height / 2;
+            ctx.drawImage(brushCtx.canvas, x, y);
+
+            if (Palette.isLocked()){
+                let w = brushCtx.canvas.width;
+                let h = brushCtx.canvas.height;
+               console.error("match to color",x,y,w,h);
+            }
+
+
+
+
             updateBrush(line.position[0], line.position[1]);
             ctx.globalAlpha = 1;
         }
