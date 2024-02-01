@@ -501,7 +501,7 @@ let Palette = function(){
         EventBus.trigger(EVENT.paletteChanged);
     }
 
-    me.sortByUseCount = function(){
+    me.sortByUseCount = function(andTest){
         ImageFile.generateIndexedPixels();
         let image = ImageFile.getCurrentFile();
         let pixels = image.indexedPixels || [];

@@ -338,6 +338,13 @@ var Input = function(){
 			case "numpad4":
 				ImageFile.nextFrame(-1);
 				break;
+			case "intlbackslash":
+				if (me.isShiftDown()){
+					ImageFile.nextFrame();
+				}else{
+					ImageFile.nextFrame(-1);
+				}
+				break;
 			case "numpad6":
 				ImageFile.nextFrame();
 				break;
@@ -361,6 +368,7 @@ var Input = function(){
 					case "a": EventBus.trigger(COMMAND.SELECTALL); break;
 					case "b": EventBus.trigger(COMMAND.EFFECTS); break;
 					case "d": EventBus.trigger(COMMAND.DUPLICATELAYER); break;
+					case "e": EventBus.trigger(COMMAND.STAMP); break;
 					case "i": EventBus.trigger(COMMAND.IMPORTFRAME); break;
 					case "j": EventBus.trigger(COMMAND.TOLAYER); break;
 					case "k": EventBus.trigger(COMMAND.CUTTOLAYER); break;

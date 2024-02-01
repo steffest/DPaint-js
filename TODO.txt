@@ -1,6 +1,7 @@
 - Improve Undo/redo
 - Add/Remove from selection
 - invert selection
+- resize sidebar
 - dragging of panels?
 - improve rotate layer/selection
 - polygon mask - deduplicate points
@@ -12,6 +13,9 @@
 - ctrl-mousewheel should be zoom
 - save to JPG including EXIF data
 - EXIF editor?
+- add close buttons to second image panel
+- selection tool should hide the paint-shape cursor
+- open recent files?
 
 
 - filters: e.g. https://medium.com/skylar-salernos-tech-blog/mimicking-googles-pop-filter-using-canvas-blend-modes-d7da83590d1a
@@ -19,6 +23,7 @@
 
 - load palette directly from Lospec? https://lospec.com/palette-list/load?colorNumberFilterType=any&colorNumber=8&page=0&tag=&sortingType=default
 
+- Export to TIFF: https://github.com/motiz88/canvas-to-tiff
 
 Bugs:
 
@@ -29,8 +34,6 @@ copy/paste/undo shortcut doesn't work on Firefox
 fill tool is active when scrollbar is clicked
 when aplying color palette changes - they get applied to the top layer instead of the active layer
 scrolling removes selection mask
-
-
 transform layer in touch screens?
 
 

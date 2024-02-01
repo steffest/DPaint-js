@@ -63,11 +63,11 @@ let Menu = function(){
                 {label: "Layer to Selection",command: COMMAND.TOSELECTION}
             ]},
         {label: "Selection", items:[
-                {label: "Deselect",command: COMMAND.CLEARSELECTION},
+                {label: "Deselect",command: COMMAND.CLEARSELECTION,shortKey: "Esc"},
                 {label: "Select All",command: COMMAND.SELECTALL,shortKey: "meta+A"},
                 {label: "Copy To Layer",command: COMMAND.TOLAYER,shortKey: "meta+J"},
                 {label: "Cut To Layer",command: COMMAND.CUTTOLAYER,shortKey: "meta+K"},
-                {label: "To Brush",command: COMMAND.STAMP}
+                {label: "To Brush",command: COMMAND.STAMP,shortKey: "meta+E"}
             ]},
         {label: "Palette", items:[
                 {label: "Edit",command: COMMAND.EDITPALETTE},

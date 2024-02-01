@@ -14,9 +14,21 @@ var SaveDialog = function(){
 
     let filetypes = {
         IFF:{
-            description: 'IFF ILMB Image',
+            description: 'IFF ILBM Image',
             accept: {
                 'image/x-ilbm': ['.iff'],
+            }
+        },
+        PLANES:{
+            description: 'Binary Bitplane Data',
+            accept: {
+                'application/octet-stream': ['.planes'],
+            }
+        },
+        MASK:{
+            description: 'Binary Bitplane Mask',
+            accept: {
+                'application/octet-stream': ['.mask'],
             }
         },
         PNG:{
@@ -60,39 +72,55 @@ var SaveDialog = function(){
         },
     }
 
-    async function saveFile(blob,fileName,type) {
-        if (window.host && window.host.saveFile){
-            window.host.saveFile(blob,fileName);
-            return;
-        }
+     function saveFile(blob,fileName,type) {
+        return new Promise(async (resolve,reject)=>{
+            if (window.host && window.host.saveFile){
+                window.host.saveFile(blob,fileName);
+                resolve();
+                return;
+            }
 
-        if (window.showSaveFilePicker){
-            window.showSaveFilePicker({
-                suggestedName: fileName,
-                types: [type],
-            }).then(async handle => {
-                const writableStream = await handle.createWritable();
-                await writableStream.write(blob);
-                await writableStream.close();
-            }).catch(async err => {
+            if (window.showSaveFilePicker){
+                window.showSaveFilePicker({
+                    suggestedName: fileName,
+                    types: [type],
+                }).then(async handle => {
+                    const writableStream = await handle.createWritable();
+                    await writableStream.write(blob);
+                    await writableStream.close();
+                    resolve();
+                }).catch(async err => {
+                    console.error(err);
+                    await saveAs(blob,fileName);
+                    resolve();
+                });
+            }else{
                 await saveAs(blob,fileName);
-            });
-        }else{
-            await saveAs(blob,fileName);
-        }
+                resolve();
+            }
+        });
     }
 
     me.render = function(container){
+        let submenu;
         container.innerHTML = "";
         container.appendChild(
             $(".saveform",
                 $(".name",$("h4","Name"),nameInput = $("input",{type:"text",value:ImageFile.getName()})),
                 $("h4","Save as"),
+                submenu = $(".moremenu",
+                    $(".item",{onClick:writePLANES},"Planes",$(".subtitle","Binary bitplane data")),
+                    $(".item",{onClick:writeMASK},"Mask",$(".subtitle","Binary bitplane mask"))
+                ),
                 $(".platform.general",
                     $("h4.general","General"),
                     renderButton("png","PNG Image","PNG file","Full color and transparency, no layers, only the current frame gets saved.",writePNG),
                     renderButton("json","DPaint.JSON","JSON file","The internal format of Dpaint.js",writeJSON),
-                    renderButton("psd","PSD","Coming soon ...","Working on it!")
+                    renderButton("psd","PSD","Coming soon ...","Working on it!"),
+                    $(".button.more",{onclick:()=>{
+                            submenu.classList.toggle("active");
+                            }},"More")
+                    //renderButton("planes","BIN","Bitplanes","Binary bitplane data",writePLANES)
                 ),
                 $(".platform.amiga",
                     $("h4.amiga","Amiga"),
@@ -135,6 +163,44 @@ var SaveDialog = function(){
         if (blob){
             let fileName = getFileName() + '.iff';
             await saveFile(blob,fileName,filetypes.IFF);
+            Modal.hide();
+        }
+    }
+
+    async function writePLANES(){
+        let result = await Generate.file("BitPlanes");
+        console.error(result);
+        if (result && result.planes){
+            let blob = new Blob([result.planes], {type: "application/octet-stream"});
+            let fileName = getFileName() + '.planes';
+            await saveFile(blob,fileName,filetypes.PLANES);
+
+            fileName = getFileName() + '.palette.txt';
+            let content = "{";
+            for (let i=0;i<result.palette.length;i++){
+                let color = result.palette[i];
+                content += "0X";
+                color.forEach(c=>{
+                    c = Math.round(c/16);
+                    if (c>15) c=15;
+                    content += c.toString(16);
+                })
+                content += ",";
+            }
+            content = content.slice(0,-1) + "}";
+            let blob2 = new Blob([content], {type: "application/octet-stream"});
+            await saveFile(blob2,fileName,filetypes.FILE);
+            Modal.hide();
+        }
+    }
+
+    async function writeMASK(){
+        let result = await Generate.file("BitMask");
+        console.error(result);
+        if (result && result.planes){
+            let blob = new Blob([result.planes], {type: "application/octet-stream"});
+            let fileName = getFileName() + '.mask';
+            await saveFile(blob,fileName,filetypes.MASK);
             Modal.hide();
         }
     }

@@ -49,6 +49,10 @@ let Generate = function(){
                 return await me.PNGIcon();
             case "IFF":
                 return me.iff();
+            case "BitPlanes":
+                return me.planes();
+            case "BitMask":
+                return me.mask();
             case "PNG":
                 return await new Promise(resolve => ImageFile.getCanvas().toBlob(resolve));
             case "PNG8":
@@ -79,6 +83,29 @@ let Generate = function(){
 
         let buffer = IFF.write(ImageFile.getCanvas());
         return new Blob([buffer], {type: "application/octet-stream"});
+    }
+
+    me.planes=()=>{
+        let maxColors = 32;
+        let check = me.validate({
+            maxColors: maxColors
+        })
+
+        if (!check.valid){
+            Modal.show(DIALOG.OPTION,{
+                title: "Save as BitPlane data",
+                text: ["Sorry, this image can't be saved as Bitplane data."].concat(check.errors),
+                buttons: [{label:"OK"}]
+            });
+            return;
+        }
+
+       return IFF.toBitPlanes(ImageFile.getCanvas());
+
+    }
+
+    me.mask=()=>{
+        return IFF.toBitMask(ImageFile.getCanvas());
     }
 
     me.png8=()=>{

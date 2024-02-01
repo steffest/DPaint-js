@@ -94,6 +94,26 @@
           left: 160px;
         }
       }
+
+      &.more{
+        position: absolute;
+        bottom: 10px;
+        min-width: 60px;
+        padding: 5px 8px;
+
+        &:after{
+          content: "";
+          position: absolute;
+          right: 2px;
+          width: 16px;
+          height: 17px;
+          background-image: url("../_img/caret.svg");
+          background-size: contain;
+          background-repeat: no-repeat;
+          background-position: center;
+          opacity: 0.5;
+        }
+      }
     }
 
     &.amiga{
@@ -120,6 +140,38 @@
               right: 160px;
             }
           }
+      }
+    }
+  }
+
+
+  .moremenu{
+    z-index: 10;
+    position: absolute;
+    top: 20px;
+    bottom: 0;
+    right: 0;
+    width: 220px;
+    background-color: #2B2B2B;
+    border-left: 1px solid black;
+    display: none;
+
+    &.active{
+        display: block;
+    }
+
+    .item{
+      padding:5px;
+      border-bottom: 1px solid black;
+
+      .subtitle{
+        padding: 4px 0;
+        color: #797979;
+      }
+
+      &:hover{
+        background-color: #232323;
+        cursor: pointer;
       }
     }
   }

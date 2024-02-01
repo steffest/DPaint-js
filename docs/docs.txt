@@ -1,4 +1,4 @@
-Some coverservations:
+Some observations:
 
 Copy/Paste
 
@@ -14,7 +14,8 @@ https://web.dev/async-clipboard/
 for Amibase: https://web.dev/async-clipboard/#permissions-policy-integration
 <iframe
     src="index.html"
-    allow="clipboard-read; clipboard-write"
->
+    allow="clipboard-read; clipboard-write">
 </iframe>
+
+
 

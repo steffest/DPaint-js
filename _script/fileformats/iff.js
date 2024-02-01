@@ -700,6 +700,127 @@ const IFF = (function () {
         return file.buffer;
     };
 
+    me.toBitPlanes = function (canvas) {
+        let addExtraPlane = false;
+
+        let colors = Palette.isLocked()?Palette.get():ImageProcessing.getColors(canvas, 256);
+        let bitplaneCount = 1;
+        while (1 << bitplaneCount < colors.length) bitplaneCount++;
+        while (colors.length < 1 << bitplaneCount) colors.push([0, 0, 0]);
+
+        const w = canvas.width;
+        const h = canvas.height;
+        const pixels = canvas.getContext("2d").getImageData(0, 0, w, h).data;
+
+        const bytesPerLine = Math.ceil(w / 16) * 2;
+        const bitPlaneSize = bytesPerLine * h;
+        let fileSize = bitPlaneSize * bitplaneCount;
+
+        if (addExtraPlane) {
+            fileSize += bitPlaneSize;
+        }
+
+        const file = BinaryStream(new ArrayBuffer(fileSize), true);
+        file.goto(0);
+        const bitplanes = [];
+
+        function getIndex(color) {
+            let index = colors.findIndex(
+                (c) =>
+                    c[0] === color[0] && c[1] === color[1] && c[2] === color[2]
+            );
+            if (index < 0) {
+                index = 0;
+                console.error("color not found in palette", color);
+            }
+            return index;
+        }
+        for (var i = 0; i < bitplaneCount; i++) {
+            bitplanes[i] = new Uint8Array(bitPlaneSize);
+        }
+
+        for (let y = 0; y < h; y++) {
+            for (let x = 0; x < w; x++) {
+                let colorIndex = 0;
+                const pixel = (x + y * w) * 4;
+                const color = [
+                    pixels[pixel],
+                    pixels[pixel + 1],
+                    pixels[pixel + 2],
+                ];
+                colorIndex = getIndex(color);
+                for (i = 0; i < bitplaneCount; i++) {
+                    if (colorIndex & (1 << i)) {
+                        let index = (y * bytesPerLine) + (x >> 3);
+                        bitplanes[i][index] |= 0x80 >> (x & 7);
+                    }
+                }
+            }
+
+
+        }
+
+        for (i = 0; i < bitplaneCount; i++) {
+            for (let bi = 0; bi < bitPlaneSize; bi++) {
+                file.writeUbyte(bitplanes[i][bi]);
+            }
+        }
+
+        if (addExtraPlane){
+            for (let bi = 0; bi < bitPlaneSize; bi++) {
+                file.writeUbyte(255);
+            }
+        }
+
+        return {
+            width: w,
+            height: h,
+            palette: colors,
+            planes: file.buffer
+        }
+
+    }
+
+    me.toBitMask = function (canvas) {
+        let bitplaneCount = 1;
+        const w = canvas.width;
+        const h = canvas.height;
+        const pixels = canvas.getContext("2d").getImageData(0, 0, w, h).data;
+
+        const bytesPerLine = Math.ceil(w / 16) * 2;
+        const bitPlaneSize = bytesPerLine * h;
+        let fileSize = bitPlaneSize * bitplaneCount;
+
+        const file = BinaryStream(new ArrayBuffer(fileSize), true);
+        file.goto(0);
+        const bitplanes = [new Uint8Array(bitPlaneSize)];
+
+        for (let y = 0; y < h; y++) {
+            for (let x = 0; x < w; x++) {
+                let colorIndex = 0;
+                const pixel = (x + y * w) * 4;
+                let alpha = pixels[pixel + 3];
+                if (alpha > 128) {
+                    colorIndex = 1;
+                }
+
+                if (colorIndex) {
+                    let index = (y * bytesPerLine) + (x >> 3);
+                    bitplanes[0][index] |= 0x80 >> (x & 7);
+                }
+            }
+        }
+
+        for (let bi = 0; bi < bitPlaneSize; bi++) {
+            file.writeUbyte(bitplanes[0][bi]);
+        }
+
+        return {
+            planes: file.buffer
+        }
+
+    }
+
     return me;
 })();
 

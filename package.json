@@ -5,9 +5,9 @@
     "repository": "https://github.com/steffest/dpaint-js",
     "author": "Steffest",
     "license": "MIT",
-    "devDependencies":{
-        "@parcel/packager-raw-url": "2.8.3",
-        "@parcel/transformer-webmanifest": "2.8.3",
+    "devDependencies": {
+        "@parcel/packager-raw-url": "^2.10.3",
+        "@parcel/transformer-webmanifest": "^2.10.3",
         "assert": "^2.0.0",
         "browserify-zlib": "^0.2.0",
         "buffer": "^5.5.0",
@@ -16,14 +16,14 @@
         "stream-browserify": "^3.0.0",
         "util": "^0.12.3"
     },
-    "scripts":{
+    "scripts": {
         "clean": "rm -rf dist && rm -rf .parcel-cache",
         "cleanwin": "del /q .\\.parcel-cache\\* && del /q .\\dist\\*",
         "build": "parcel build --public-url ./",
         "start": "parcel index.html"
     },
     "source": "index.html",
-    "dependencies":{
+    "dependencies": {
         "eslint-plugin-prettier": "^4.2.1"
     }
 }
