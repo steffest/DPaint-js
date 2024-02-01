@@ -251,6 +251,7 @@ let Canvas = function(parent){
                 let isOnCanvas = e.target && e.target.classList.contains("maincanvas");
                 touchData.isdown = true;
                 touchData.button = e.button;
+                //navigator.clipboard.writeText(point.x + "," + point.y);
                 if (e.metaKey || e.ctrlKey) touchData.button = 3;
                 if (Input.isSpaceDown() || e.button===1 || Editor.getCurrentTool() === COMMAND.PAN){
                     Cursor.override("pan");
@@ -586,7 +587,14 @@ let Canvas = function(parent){
                 // mousemove with no click
                 if (!touchData.isdown){
                     point = getCursorPosition(canvas,e,false);
-                    StatusBar.setToolTip(point.x + "," + point.y);
+                    var pixel = ctx.getImageData(point.x, point.y, 1, 1).data;
+                    let tooltip = "x:" + point.x + " y:" + point.y;
+
+                    if (pixel[3]){
+                        tooltip += " r:" + pixel[0] + " g:" + pixel[1] + " b:" + pixel[2];
+                    }
+
+                    StatusBar.setToolTip(tooltip);
 
                     if (touchData.isPolySelect){
                         selectBox.updatePoint(point);
