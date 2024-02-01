@@ -19,6 +19,7 @@ import HistoryService from "../services/historyservice.js";
 import Cursor from "./cursor.js";
 import Smudge from "../paintTools/smudge.js";
 import historyservice from "../services/historyservice.js";
+import GridOverlay from "./components/gridOverlay.js";
 
 let Canvas = function(parent){
 	let me = {};
@@ -31,6 +32,7 @@ let Canvas = function(parent){
     let prevZoom;
     var panelParent;
     var selectBox;
+    let gridOverlay;
     let drawFunction;
     let containerTransform = {x:0,y:0,startX:0,startY:0};
     let currentCursorPoint;
@@ -48,6 +50,8 @@ let Canvas = function(parent){
 
     let wrapper = $div("canvaswrapper");
     let container = $div("canvascontainer");
+    let visualAids = $div("visualaids");
+    gridOverlay = GridOverlay(visualAids);
 
 
     overlayCanvas.className = "overlaycanvas";
@@ -55,7 +59,8 @@ let Canvas = function(parent){
     container.appendChild(canvas);
     container.appendChild(overlayCanvas);
     container.appendChild(selectBox.getBox());
-    wrapper.appendChild(container)
+    container.appendChild(visualAids);
+    wrapper.appendChild(container);
     
     panelParent = parent.getViewPort();
     panelParent.appendChild(wrapper);
@@ -123,6 +128,7 @@ let Canvas = function(parent){
         canvas.height = overlayCanvas.height = c.height;
         me.update();
         me.zoom(1);
+        gridOverlay.update();
     })
 
     EventBus.on(EVENT.imageContentChanged,()=>{
@@ -136,6 +142,15 @@ let Canvas = function(parent){
             selectBox.update(true);
         }
     })
+
+    EventBus.on(COMMAND.TOGGLEGRID,()=>{
+        if (!parent.isVisible()) return;
+        gridOverlay.toggle();
+    });
+
+    EventBus.on(EVENT.gridOptionsChanged,()=>{
+        gridOverlay.update();
+    });
 
     me.clear = function(){
         ctx.clearRect(0,0,canvas.width,canvas.height);
@@ -181,6 +196,8 @@ let Canvas = function(parent){
         if (selectBox.isActive()){
             selectBox.update();
         }
+
+        gridOverlay.zoom(zoom);
 
     }
 

@@ -63,6 +63,20 @@
           }
         }
 
+        &.checked{
+          &:before{
+            content: "";
+            position: absolute;
+            left: 4px;
+            top: 4px;
+            bottom: 0;
+            width: 14px;
+            background-image: url("../_img/check.svg");
+            background-size: contain;
+            background-repeat: no-repeat;
+          }
+        }
+
         &:hover{
           background-color: $panel-background-active;
           cursor: pointer;
@@ -78,6 +92,12 @@
           top: 1px;
           color: $menu-text-color-dim;
           font-size: 11px;
+        }
+      }
+
+      &.checkable{
+        a{
+          padding: 0 24px 0 20px;
         }
       }
 

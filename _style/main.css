@@ -124,6 +124,59 @@ input[type=text]:focus {
   outline: none;
 }
 
+.yesno {
+  display: flex;
+  width: 70px;
+  height: 18px;
+  border: 1px solid #6A6A6A;
+  margin: 2px 2px 0 0;
+  padding-top: 1px;
+  font-size: 12px;
+  position: relative;
+  overflow: hidden;
+}
+.yesno .option {
+  width: 50px;
+  text-align: center;
+  opacity: 0.5;
+  position: relative;
+  z-index: 2;
+}
+.yesno .option:nth-child(2) {
+  opacity: 1;
+  color: black;
+}
+.yesno:before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  width: 30px;
+  background-color: #BBBBBB;
+  transition: left 0.3s ease-in-out;
+}
+.yesno:hover {
+  cursor: pointer;
+}
+.yesno:hover .option {
+  opacity: 1;
+}
+.yesno:hover .option:nth-child(2) {
+  opacity: 1 !important;
+}
+.yesno.selected .option:nth-child(1) {
+  opacity: 1;
+  color: black;
+}
+.yesno.selected .option:nth-child(2) {
+  opacity: 0.5;
+  color: inherit;
+}
+.yesno.selected:before {
+  left: 0;
+}
+
 input[type=range] {
   margin: 0;
   background-color: transparent;
@@ -271,6 +324,17 @@ input[type=range]:focus::-ms-fill-upper {
   background-position: center;
   opacity: 0.5;
 }
+.menu a.main .sub a.checked:before {
+  content: "";
+  position: absolute;
+  left: 4px;
+  top: 4px;
+  bottom: 0;
+  width: 14px;
+  background-image: url("../_img/check.svg");
+  background-size: contain;
+  background-repeat: no-repeat;
+}
 .menu a.main .sub a:hover {
   background-color: #3C3F41;
   cursor: pointer;
@@ -284,6 +348,9 @@ input[type=range]:focus::-ms-fill-upper {
   top: 1px;
   color: #8f8f8f;
   font-size: 11px;
+}
+.menu a.main .sub.checkable a {
+  padding: 0 24px 0 20px;
 }
 .menu a.main .sub .subsub {
   position: absolute;
@@ -1000,21 +1067,21 @@ body.presentation .statusbar {
   color: #888888;
   border: 1px solid #7b7b7b;
 }
-.sidepanel .panel.brush {
+.sidepanel .panel.brush, .sidepanel .panel.grid {
   color: #BBBBBB;
   font-size: 12px;
 }
-.sidepanel .panel.brush label {
+.sidepanel .panel.brush label, .sidepanel .panel.grid label {
   opacity: 0.7;
   line-height: 19px;
   padding: 0 4px;
   width: 110px;
 }
-.sidepanel .panel.brush .rangeselect {
+.sidepanel .panel.brush .rangeselect, .sidepanel .panel.grid .rangeselect {
   display: flex;
   margin-bottom: 3px;
 }
-.sidepanel .panel.brush .rangeselect input[type=text] {
+.sidepanel .panel.brush .rangeselect input[type=text], .sidepanel .panel.grid .rangeselect input[type=text] {
   padding: 0 4px;
   width: 30px;
   height: 19px;
@@ -1022,14 +1089,14 @@ body.presentation .statusbar {
   margin-right: 2px;
   font-size: 11px;
 }
-.sidepanel .panel.brush .dither {
+.sidepanel .panel.brush .dither, .sidepanel .panel.grid .dither {
   display: flex;
 }
-.sidepanel .panel.brush .patterns {
+.sidepanel .panel.brush .patterns, .sidepanel .panel.grid .patterns {
   display: flex;
   width: 140%;
 }
-.sidepanel .panel.brush .patterns .pattern {
+.sidepanel .panel.brush .patterns .pattern, .sidepanel .panel.grid .patterns .pattern {
   width: 100%;
   height: 20px;
   margin-right: 2px;
@@ -1037,30 +1104,30 @@ body.presentation .statusbar {
   background-color: #808080;
   background-size: contain;
 }
-.sidepanel .panel.brush .patterns .pattern.p1 {
+.sidepanel .panel.brush .patterns .pattern.p1, .sidepanel .panel.grid .patterns .pattern.p1 {
   background-image: url("../_img/patterns/dots.png");
 }
-.sidepanel .panel.brush .patterns .pattern.p2 {
+.sidepanel .panel.brush .patterns .pattern.p2, .sidepanel .panel.grid .patterns .pattern.p2 {
   background-image: url("../_img/patterns/cross.png");
 }
-.sidepanel .panel.brush .patterns .pattern.p3 {
+.sidepanel .panel.brush .patterns .pattern.p3, .sidepanel .panel.grid .patterns .pattern.p3 {
   background-image: url("../_img/patterns/grid.png");
 }
-.sidepanel .panel.brush .patterns .pattern:last-of-type {
+.sidepanel .panel.brush .patterns .pattern:last-of-type, .sidepanel .panel.grid .patterns .pattern:last-of-type {
   margin-right: 0;
   background-color: transparent;
   background-image: url("../_img/caret.svg");
   opacity: 0.5;
 }
-.sidepanel .panel.brush .patterns .pattern:last-of-type:hover {
+.sidepanel .panel.brush .patterns .pattern:last-of-type:hover, .sidepanel .panel.grid .patterns .pattern:last-of-type:hover {
   background-color: transparent;
   opacity: 1;
 }
-.sidepanel .panel.brush .patterns .pattern:hover {
+.sidepanel .panel.brush .patterns .pattern:hover, .sidepanel .panel.grid .patterns .pattern:hover {
   cursor: pointer;
   background-color: white;
 }
-.sidepanel .panel.brush .patterns .pattern.active {
+.sidepanel .panel.brush .patterns .pattern.active, .sidepanel .panel.grid .patterns .pattern.active {
   border-color: #b1e00f;
   box-shadow: 0 0 2px yellow;
 }
@@ -1538,6 +1605,40 @@ body.presentation .splitpanel .toolbar .button.closepresentation {
 }
 body.presentation .splitpanel .toolbar .toolpanel {
   display: none;
+}
+
+.visualaids {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 1000;
+  pointer-events: none;
+  right: 0;
+  bottom: 0;
+}
+.visualaids .grid {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+}
+.visualaids .grid .line {
+  position: absolute;
+  pointer-events: none;
+}
+.visualaids .grid .line.vertical {
+  top: 0;
+  bottom: 0;
+  border-left: 1px solid white;
+  width: 1px;
+}
+.visualaids .grid .line.horizontal {
+  left: 0;
+  right: 0;
+  border-top: 1px solid white;
+  height: 1px;
 }
 
 .sizebox {

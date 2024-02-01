@@ -79,9 +79,10 @@ let Menu = function(){
                 {label: "Toggle Color Cycle",command: COMMAND.CYCLEPALETTE,shortKey: "tab"},
             ]},
         {label: "View", items:[
-                {label: "Split Screen",command: COMMAND.SPLITSCREEN,shortKey: "Z"},
-                {label: "Presentation mode",command: COMMAND.PRESENTATION},
-                {label: "Full Screen",command: COMMAND.FULLSCREEN,needsRealClick: true},
+                {label: "Grid",command: COMMAND.TOGGLEGRID,shortKey: "D",checked:false},
+                {label: "Split Screen",command: COMMAND.SPLITSCREEN,shortKey: "Z", checked: false},
+                {label: "Presentation mode",command: COMMAND.PRESENTATION, checked: false},
+                {label: "Full Screen",command: COMMAND.FULLSCREEN,needsRealClick: true, checked: false},
             ]},
         {label: "Amiga", items:[
                 {label: "Open ADF image",command: COMMAND.ADF, needsRealClick: true},
@@ -164,6 +165,16 @@ let Menu = function(){
                 if (k.length>8)  menuItem.classList.add("ultra");
             }
             $div("shortkey",k,menuItem);
+        }
+        if (typeof item.checked !== "undefined"){
+            parent.classList.add("checkable");
+            EventBus.on(item.command,(e)=>{
+                item.checked = !item.checked;
+                menuItem.classList.toggle("checked");
+            });
+        }
+        if (item.checked){
+            menuItem.classList.add("checked");
         }
     }
 

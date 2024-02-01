@@ -60,3 +60,69 @@ input[type="text"]{
     outline: none;
   }
 }
+
+.yesno{
+  display: flex;
+  width: 70px;
+  height: 18px;
+  border: 1px solid #6A6A6A;
+  margin: 2px 2px 0 0;
+  padding-top: 1px;
+  font-size: 12px;
+  position: relative;
+  overflow: hidden;
+
+  .option{
+    width: 50px;
+    text-align: center;
+    opacity: 0.5;
+    position: relative;
+    z-index: 2;
+
+    &:nth-child(2){
+      opacity: 1;
+      color: black;
+    }
+  }
+
+  &:before{
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 0;
+    bottom: 0;
+    width: 30px;
+    background-color: $menu-text-color;
+    transition: left 0.3s ease-in-out;
+  }
+
+  &:hover{
+    cursor: pointer;
+
+    .option{
+      opacity: 1;
+
+      &:nth-child(2){
+        opacity: 1 !important;
+      }
+    }
+  }
+
+  &.selected{
+    .option{
+      &:nth-child(1){
+        opacity: 1;
+        color: black;
+      }
+
+      &:nth-child(2){
+        opacity: 0.5;
+        color: inherit;
+      }
+    }
+
+    &:before{
+      left: 0;
+    }
+  }
+}

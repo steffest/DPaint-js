@@ -386,6 +386,7 @@ var Input = function(){
 			switch (key){
 				case "b": EventBus.trigger(COMMAND.DRAW); break;
 				case "c": EventBus.trigger(COMMAND.CIRCLE); break;
+				case "d": EventBus.trigger(COMMAND.TOGGLEGRID); break;
 				case "e": EventBus.trigger(COMMAND.ERASE); break;
 				case "f": EventBus.trigger(COMMAND.FLOOD); break;
 				case "g": EventBus.trigger(COMMAND.GRADIENT); break;

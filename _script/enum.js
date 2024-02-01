@@ -74,6 +74,7 @@ export let COMMAND = {
     FLIPHORIZONTAL: 1073,
     FLIPVERTICAL: 1074,
     PRESENTATION: 1075,
+    TOGGLEGRID: 1076,
 };
 
 export let EVENT = {
@@ -106,4 +107,5 @@ export let EVENT = {
     colorCycleToggled: 27,
     colorRangeChanged: 28,
     colorRangesChanged: 29,
+    gridOptionsChanged: 30,
 };

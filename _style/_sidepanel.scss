@@ -311,7 +311,8 @@
       }
     }
 
-    &.brush{
+    &.brush,
+    &.grid{
       color: $menu-text-color;
       font-size: 12px;
 
@@ -551,6 +552,7 @@
   }
 
 }
+
 
 body.withsidepanel{
   .sidepanel{

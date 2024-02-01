@@ -1,0 +1,40 @@
+.visualaids{
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 1000;
+  pointer-events: none;
+  right: 0;
+  bottom: 0;
+
+  .grid{
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    pointer-events: none;
+
+    .line{
+      position: absolute;
+      pointer-events: none;
+
+
+      &.vertical{
+        top: 0;
+        bottom: 0;
+        border-left: 1px solid white;
+        width: 1px;
+      }
+
+      &.horizontal{
+        left: 0;
+        right: 0;
+        border-top: 1px solid white;
+        height: 1px;
+      }
+    }
+  }
+
+
+}
