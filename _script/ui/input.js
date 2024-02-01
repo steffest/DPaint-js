@@ -226,7 +226,9 @@ var Input = function(){
 
 		let infoTarget = e.target.closest(".info");
 		if (infoTarget){
-			if (infoTarget.info) Statusbar.setToolTip(infoTarget.info);
+			let tooltip = infoTarget.info;
+			if (infoTarget.infoOnMove) tooltip = infoTarget.infoOnMove(e) + infoTarget.info;
+			if (infoTarget.info) Statusbar.setToolTip(tooltip);
 		}else{
 			Statusbar.setToolTip("");
 		}

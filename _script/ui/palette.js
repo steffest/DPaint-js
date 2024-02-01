@@ -141,19 +141,19 @@ let Palette = function(){
 
     me.init = function(parent,paletteParent){
         container = $div("palette","",parent);
-        let colorPicker = $input("color","","",()=>{
-            me.setColor(colorPicker.value,colorPicker.isBack);
-        });
 
         let display = $div("display","",container);
+        let colorPicker = $input("color","",display,()=>{
+            me.setColor(colorPicker.value,colorPicker.isBack);
+        });
         let front = $div("front info","",display,()=>{
-            colorPicker.value = me.getDrawColor();
+            colorPicker.value = Color.toHex(me.getDrawColor());
             colorPicker.isBack = false;
             colorPicker.click();
         });
         front.info = "Left click drawing color - click to pick color";
         let back = $div("back info","",display,()=>{
-            colorPicker.value = me.getBackgroundColor();
+            colorPicker.value = Color.toHex(me.getBackgroundColor());
             colorPicker.isBack = true;
             colorPicker.click();
         });
@@ -184,6 +184,14 @@ let Palette = function(){
         paletteCanvas = $("canvas.info.palettecanvas",{
             parent: paletteParent,
             info: "Color palette, left click to select front, right click to select back",
+            infoOnMove:(e)=>{
+                const rect = paletteCanvas.getBoundingClientRect();
+                const x = Math.floor(e.clientX - rect.left);
+                const y = Math.floor(e.clientY - rect.top);
+                let p = paletteCtx.getImageData(x,y,1,1).data;
+                let color = "r: " + p[0] + " g: " + p[1] + " b: " + p[2] + " ";
+                return color;
+            },
             onClick: function(e){
                 const rect = paletteCanvas.getBoundingClientRect();
                 const x = Math.floor(e.clientX - rect.left);
