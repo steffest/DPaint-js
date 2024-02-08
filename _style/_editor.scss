@@ -210,6 +210,7 @@
     image-rendering: -o-crisp-edges;
     image-rendering: pixelated;
     -ms-interpolation-mode: nearest-neighbor;
+    -webkit-touch-callout: none;
     display: block;
     position: relative;
     z-index: 1;

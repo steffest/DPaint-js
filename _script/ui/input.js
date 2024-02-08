@@ -179,7 +179,8 @@ var Input = function(){
 			if (target.onClick){
 				// on touch devices this is not a click, which might interfere with events that require "user input"
 				// like the file input dialog to open a file
-				if (e.pointerType==="touch" && target.waitForClick){
+
+				if ((e.pointerType==="touch" || e.pointerType==="pen") && target.waitForClick){
 					touchData.waitForClick = {
 						target: target,
 						event: e,
@@ -386,6 +387,7 @@ var Input = function(){
 			}
 		}else{
 			switch (key){
+				case "a": EventBus.trigger(COMMAND.TOGGLEMASK); break;
 				case "b": EventBus.trigger(COMMAND.DRAW); break;
 				case "c": EventBus.trigger(COMMAND.CIRCLE); break;
 				case "d": EventBus.trigger(COMMAND.TOGGLEGRID); break;
@@ -397,6 +399,7 @@ var Input = function(){
 				case "l": EventBus.trigger(COMMAND.LINE); break;
 				case "m": EventBus.trigger(COMMAND.SMUDGE); break;
 				case "p": EventBus.trigger(COMMAND.POLYGONSELECT); break;
+				case "q": EventBus.trigger(COMMAND.TOGGLEOVERRIDE); break;
 				case "r": EventBus.trigger(COMMAND.SQUARE); break;
 				case "s": EventBus.trigger(COMMAND.SELECT); break;
 				case "t": EventBus.trigger(COMMAND.TRANSFORMLAYER); break;

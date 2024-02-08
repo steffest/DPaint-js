@@ -5,6 +5,7 @@ import Palette from "./palette.js";
 import Color from "../util/color.js";
 import Editor from "./editor.js";
 import ImageFile from "../image.js";
+import ToolOptions from "./components/toolOptions.js";
 
 var Brush = function(){
     var me = {};
@@ -16,6 +17,7 @@ var Brush = function(){
     var brushIndex = 0;
     let dynamicSettings;
     let opacity = 100;
+    let pressure = 1;
 
     var brushCanvas = document.createElement("canvas");
     var brushBackCanvas = document.createElement("canvas");
@@ -142,10 +144,20 @@ var Brush = function(){
         EventBus.trigger(EVENT.brushOptionsChanged);
     }
 
+    me.setPressure = (p)=>{
+        pressure = p;
+    }
+
+    me.getPressure = ()=>{
+        return pressure;
+    }
+
 
     me.draw = function(ctx,x,y,color,onBackground,blendColor){
 
-        let w,h,cFrom;
+        let w,h,p;
+        let useCustomBlend = blendColor && Palette.isLocked();
+        let useOpacity = ToolOptions.usePressure() && !useCustomBlend;
 
         if (brushType === "canvas"){
             w = brushCanvas.width;
@@ -157,6 +169,11 @@ var Brush = function(){
 
         if (w>1) x -= Math.floor((w-1)/2);
         if (h>1) y -= Math.floor((h-1)/2);
+
+        if (useOpacity){
+            p = ctx.globalAlpha;
+            ctx.globalAlpha = pressure;
+        }
 
         if (brushType === "canvas"){
             if (onBackground){
@@ -170,14 +187,25 @@ var Brush = function(){
                 let imageCtx = ImageFile.getContext();
                 let data = imageCtx.getImageData(x,y,w,h);
                 let opacity2 = opacity/100;
-                let opacity1 = 1-opacity2;
+                if (ToolOptions.usePressure()){
+                    opacity2 *= pressure;
+                }
+
+                console.error(opacity2);
 
                 for (let i = 0; i<data.data.length;i+=4){
-                    let r = data.data[i]*opacity1 + c[0]*opacity2;
-                    let g = data.data[i+1]*opacity1 + c[1]*opacity2;
-                    let b = data.data[i+2]*opacity1 + c[2]*opacity2;
-                    let finalColor = Palette.matchColor([r,g,b]);
-                    console.error(finalColor,r,g,b);
+                    let sourceColor = [data.data[i],data.data[i+1],data.data[i+2]];
+                    let targetColor = Color.blend(sourceColor,c,opacity2);
+                    let finalColor = Palette.matchColor(targetColor);
+
+                    console.log(sourceColor,finalColor);
+                    if (Color.equals(sourceColor,finalColor) && !Color.equals(sourceColor,c)){
+                       opacity2 *= 1.5;
+                       if (opacity2>1) opacity2 = 1;
+                        targetColor = Color.blend(sourceColor,c,opacity2);
+                        finalColor = Palette.matchColor(targetColor);
+                    }
+
                     data.data[i] = finalColor[0];
                     data.data[i+1] = finalColor[1];
                     data.data[i+2] = finalColor[2];
@@ -189,6 +217,10 @@ var Brush = function(){
                 ctx.fillRect(x,y,w,h);
             }
 
+        }
+
+        if (useOpacity){
+            ctx.globalAlpha = p;
         }
 
     }

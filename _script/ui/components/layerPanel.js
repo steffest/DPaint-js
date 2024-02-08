@@ -82,6 +82,18 @@ let LayerPanel = function(){
         let imageFile = ImageFile.getCurrentFile();
         let frame = imageFile.frames[ImageFile.getActiveFrameIndex()];
         let max = frame.layers.length-1;
+        let systemLayers = 0;
+        let startY = 46;
+        if (window.override){
+            for (let i = 0;i<=max;i++){
+                if (frame.layers[i].name.indexOf("_")===0){
+                    systemLayers++;
+                }
+            }
+            startY = 46 - (systemLayers*23);
+        }
+
+        let offset = 0;
         for (let i = 0;i<=max;i++){
             let layer = frame.layers[i];
             let elm = $div("layer info" + (activeIndex === i ? " active":"") + (layer.visible?"":" hidden"),layer.name,contentPanel,()=>{
@@ -92,10 +104,14 @@ let LayerPanel = function(){
                 };
                 if (activeIndex !== i) ImageFile.activateLayer(i);
             });
-            elm.style.top = 46 + ((max-i)*23) + "px";
+            elm.style.top =  startY + ((max-i)*23) - offset + "px";
             elm.currentIndex = elm.targetIndex = i;
             elm.id = "layer" + i;
             elm.info = "Drag to reorder, double click to rename, right click for more options";
+            if (layer.name.indexOf("_")===0){
+                elm.classList.add("system");
+                if (window.override) offset -= 23;
+            }
 
             elm.onDragStart = (e)=>{
                 if (elm.classList.contains('hasinput')) return;

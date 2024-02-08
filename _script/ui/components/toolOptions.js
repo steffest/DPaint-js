@@ -13,10 +13,12 @@ let ToolOptions = function(){
     let lineSize = 1;
     let tolerance = 0;
     let mask = false;
+    let pressure = false;
 
     let smoothCheckbox;
     let maskCheckbox;
     let ditherCheckbox;
+    let pressureCheckbox;
     let fillCheckbox;
     let lineSizeRange;
     let toleranceRange;
@@ -33,6 +35,10 @@ let ToolOptions = function(){
 
     me.showMask = ()=>{
         return mask;
+    }
+
+    me.usePressure = ()=>{
+       return pressure;
     }
 
     me.setFill = (state)=>{
@@ -59,6 +65,7 @@ let ToolOptions = function(){
                 options.appendChild(label("Brush:"));
                 options.appendChild(brushSetting());
                 options.appendChild(ditherSetting());
+                options.appendChild(pressureSetting());
                 break;
             case COMMAND.SMUDGE:
                 options.appendChild(label("Brush:"));
@@ -187,6 +194,14 @@ let ToolOptions = function(){
         return ditherCheckbox;
     }
 
+    function pressureSetting(){
+        if (!pressureCheckbox) pressureCheckbox=$checkbox("Pressure","","inline pressure",(checked)=>{
+            pressure = checked;
+        });
+        pressureCheckbox.setState(pressure);
+        return pressureCheckbox;
+    }
+
     function toleranceSetting(){
         if (!toleranceRange){
             toleranceRange = $div("range");
@@ -217,6 +232,12 @@ let ToolOptions = function(){
     function lineWidthSetting(){
 
     }
+
+    EventBus.on(COMMAND.TOGGLEMASK,()=>{
+        mask = !mask;
+        if (window.override) mask=false;
+        EventBus.trigger(EVENT.layerContentChanged);
+    });
 
 
     return me;

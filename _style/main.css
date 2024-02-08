@@ -17,6 +17,7 @@ body {
   user-select: none;
   -moz-user-select: none;
   -webkit-user-select: none;
+  -webkit-touch-callout: none;
 }
 
 .container {
@@ -846,6 +847,7 @@ body.presentation .statusbar {
   margin: 0;
   padding: 0;
   border-bottom: 1px solid #4d4d4d;
+  display: flex;
 }
 .sidepanel .panel .inner dl dt,
 .sidepanel .panel .inner dl dd {
@@ -1278,6 +1280,21 @@ body.withsidepanel .sidepanel {
   display: block;
 }
 
+body.override .sidepanel .panel .layer.system {
+  display: none;
+}
+body.override .sidepanel .panel .layer.system + .layer {
+  background-color: rgba(255, 255, 255, 0.1);
+  color: white;
+}
+body.override .splitpanel .panel .toolbar .toolpanel .options .checkbox.mask {
+  display: none;
+}
+body.override .splitpanel .panel .toolbar .toolpanel .options .checkbox.pressure span:before {
+  background-color: #c0c0c0;
+  box-shadow: inset 0 0 0px 2px black;
+}
+
 .palettelist {
   position: absolute;
   left: 70px;
@@ -1573,6 +1590,7 @@ body.withsidepanel .sidepanel {
   image-rendering: -o-crisp-edges;
   image-rendering: pixelated;
   -ms-interpolation-mode: nearest-neighbor;
+  -webkit-touch-callout: none;
   display: block;
   position: relative;
   z-index: 1;

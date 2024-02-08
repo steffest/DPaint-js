@@ -96,6 +96,12 @@ let App = function(){
 			}
 		})
 
+		EventBus.on(COMMAND.TOGGLEOVERRIDE,()=>{
+			window.override = !window.override;
+			document.body.classList.toggle("override",window.override);
+			EventBus.trigger(EVENT.layersChanged);
+		});
+
 	}
 
 	window.addEventListener('DOMContentLoaded', (event) => {

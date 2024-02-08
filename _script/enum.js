@@ -75,6 +75,8 @@ export let COMMAND = {
     FLIPVERTICAL: 1074,
     PRESENTATION: 1075,
     TOGGLEGRID: 1076,
+    TOGGLEMASK: 1077,
+    TOGGLEOVERRIDE: 1078,
 };
 
 export let EVENT = {

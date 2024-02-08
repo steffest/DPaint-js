@@ -35,6 +35,7 @@
         margin: 0;
         padding: 0;
         border-bottom: 1px solid #4d4d4d;
+        display: flex;
         dt,
         dd{
           display: inline-block;
@@ -558,5 +559,34 @@ body.withsidepanel{
   .sidepanel{
     display: block;
   }
- 
+}
+
+body.override{
+  .sidepanel{
+    .panel{
+      .layer.system{
+        display: none;
+
+        + .layer{
+          background-color: rgba(255, 255, 255, 0.1);
+          color: white;
+        }
+      }
+    }
+  }
+
+  .splitpanel .panel .toolbar .toolpanel .options{
+    .checkbox.mask{
+      display: none;
+    }
+
+    .checkbox.pressure span{
+      &:before{
+        background-color: #c0c0c0;
+        box-shadow: inset 0 0 0px 2px black;
+      }
+
+    }
+  }
+  
 }

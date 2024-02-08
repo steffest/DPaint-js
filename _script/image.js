@@ -994,6 +994,9 @@ let ImageFile = function(){
             if (layer) {
                 layer.clear();
                 layer.drawImage(canvas, 0, 0);
+                layer.opacity = 100;
+                layer.blendMode = "normal";
+                layer.visible = true;
             }
             me.activateLayer(0);
             EventBus.trigger(EVENT.imageContentChanged);

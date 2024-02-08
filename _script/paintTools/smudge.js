@@ -3,6 +3,8 @@ import EventBus from "../util/eventbus.js";
 import {EVENT} from "../enum.js";
 import Brush from "../ui/brush.js";
 import Palette from "../ui/palette.js";
+import Color from "../util/color.js";
+import {duplicateCanvas} from "../util/canvasUtils.js";
 
 // somewhat based on https://stackoverflow.com/questions/28197378/html5-canvas-javascript-smudge-brush-tool
 
@@ -45,20 +47,48 @@ let Smudge = function(){
         }
         let {x,y,force} = touchData;
         force = force || 1;
+        let tempCtx;
+        if (Palette.isLocked()){
+            let tempCanvas = duplicateCanvas(brushCtx.canvas);
+            tempCtx = tempCanvas.getContext("2d");
+        }
 
         const line = setupLine(lastX, lastY,x, y);
         for (let more = true; more;) {
             more = advanceLine(line);
-            ctx.globalAlpha = alpha * lerp(lastForce, force, line.u);
 
             let x = line.position[0] - brushCtx.canvas.width / 2;
             let y = line.position[1] - brushCtx.canvas.height / 2;
-            ctx.drawImage(brushCtx.canvas, x, y);
+            let w = brushCtx.canvas.width;
+            let h = brushCtx.canvas.height;
+
 
             if (Palette.isLocked()){
-                let w = brushCtx.canvas.width;
-                let h = brushCtx.canvas.height;
-               console.error("match to color",x,y,w,h);
+                tempCtx.clearRect(0,0,w,h);
+                tempCtx.drawImage(ctx.canvas,x,y,w,h,0,0,w,h);
+                tempCtx.globalAlpha = alpha * lerp(lastForce, force, line.u);
+                tempCtx.drawImage(brushCtx.canvas,0,0);
+
+                let data = tempCtx.getImageData(0,0,w,h);
+                for (let i = 0; i<data.data.length;i+=4){
+                    let r = data.data[i];
+                    let g = data.data[i+1];
+                    let b = data.data[i+2];
+                    let finalColor = Palette.matchColor([r,g,b]);
+                    //console.error(finalColor,r,g,b);
+                    data.data[i] = finalColor[0];
+                    data.data[i+1] = finalColor[1];
+                    data.data[i+2] = finalColor[2];
+                }
+                tempCtx.putImageData(data,0,0);
+
+
+                ctx.clearRect(x,y,w,h);
+                ctx.drawImage(tempCtx.canvas,x,y);
+
+            }else{
+                ctx.globalAlpha = alpha * lerp(lastForce, force, line.u);
+                ctx.drawImage(brushCtx.canvas, x, y);
             }
 
 

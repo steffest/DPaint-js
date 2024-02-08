@@ -86,6 +86,11 @@ let Canvas = function(parent){
         hideOverlay();
     }, false);
 
+    canvas.addEventListener("touchend",(e)=>{
+        // This is needed to avoid the "selection lens" on mobile safari on double tap/hold
+        e.preventDefault();
+    });
+
     EventBus.on(EVENT.hideCanvasOverlay,()=>{
         overlayCanvas.style.opacity = 0;
     });
@@ -98,7 +103,6 @@ let Canvas = function(parent){
         Brush.draw(overlayCtx,point.x,point.y,Palette.getDrawColor(),(Input.isControlDown() || Input.isMetaDown()));
         overlayCtx.globalAlpha = 1;
         currentCursorPoint = point;
-
     });
 
     EventBus.on(EVENT.drawColorChanged,()=>{
@@ -240,6 +244,7 @@ let Canvas = function(parent){
                     let _y = p1.y + Math.round(delta.y*i);
                     touchData.drawLayer.draw(_x,_y,color,touchData);
                     // TODO: avoid duplicate _x,_y draws
+                    // check how this affect transparency, especially in locked palette mode
                 }
             }
         }
@@ -268,6 +273,7 @@ let Canvas = function(parent){
                 let isOnCanvas = e.target && e.target.classList.contains("maincanvas");
                 touchData.isdown = true;
                 touchData.button = e.button;
+                Brush.setPressure(e.pressure);
                 //navigator.clipboard.writeText(point.x + "," + point.y);
                 if (e.metaKey || e.ctrlKey) touchData.button = 3;
                 if (Input.isSpaceDown() || e.button===1 || Editor.getCurrentTool() === COMMAND.PAN){
@@ -657,6 +663,7 @@ let Canvas = function(parent){
                     }
 
                     if (touchData.isDrawing){
+                        Brush.setPressure(e.pressure);
                         hideOverlay();
                         getCursorPosition(canvas,e,true);
                         draw();
