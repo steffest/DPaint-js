@@ -21,7 +21,7 @@ let HistoryService = function(){
             case EVENT.imageHistory:
                 currentHistory.data.from = ImageFile.clone();
                 // TODO: this also clears all masks and selections
-                // and it doesn't hold the currenct layer so future undo actions ont work ...
+                // and it doesn't hold the current layer so future undo actions wont work ...
                 // FIXME
                 break;
             default:
@@ -49,6 +49,13 @@ let HistoryService = function(){
         }
     }
 
+    me.add = function(type,from,to){
+        history.unshift({type,data:{from,to}});
+        if (history.length>maxHistory) history.pop();
+        future=[];
+        EventBus.trigger(EVENT.historyChanged,[history.length,future.length]);
+    }
+
     me.clear = function(){
         history = [];
         future = [];
@@ -57,10 +64,12 @@ let HistoryService = function(){
     EventBus.on(COMMAND.UNDO,()=>{
         if (history.length){
             let historyStep = history.shift();
+            let layer;
+            let target;
             console.error(historyStep);
             switch (historyStep.type){
                 case EVENT.layerHistory:
-                    let layer = ImageFile.getActiveLayer();
+                    layer = ImageFile.getActiveLayer();
                     layer.clear();
                     layer.drawImage(historyStep.data.from);
                     EventBus.trigger(EVENT.layerContentChanged);
@@ -68,6 +77,12 @@ let HistoryService = function(){
                 case EVENT.imageHistory:
                     ImageFile.restore(historyStep.data.from);
                     EventBus.trigger(COMMAND.CLEARSELECTION);
+                    break;
+                case EVENT.layerPropertyHistory:
+                    target = historyStep.data.from;
+                    layer = ImageFile.getLayer(target.index);
+                    if (typeof target.name === "string") layer.name = target.name;
+                    EventBus.trigger(EVENT.layersChanged);
                     break;
                 default:
                     console.error("History type " + historyStep.type + " not handled");
@@ -83,10 +98,12 @@ let HistoryService = function(){
     EventBus.on(COMMAND.REDO,()=>{
         if (future.length){
             let historyStep = future.shift();
-            console.error(historyStep);
+            let layer;
+            let target;
+            //console.log(historyStep);
             switch (historyStep.type){
                 case EVENT.layerHistory:
-                    let layer = ImageFile.getActiveLayer();
+                    layer = ImageFile.getActiveLayer();
                     layer.clear();
                     layer.drawImage(historyStep.data.to);
                     EventBus.trigger(EVENT.layerContentChanged);
@@ -94,6 +111,12 @@ let HistoryService = function(){
                 case EVENT.imageHistory:
                     ImageFile.restore(historyStep.data.to);
                     EventBus.trigger(COMMAND.CLEARSELECTION);
+                    break;
+                case EVENT.layerPropertyHistory:
+                    target = historyStep.data.to;
+                    layer = ImageFile.getLayer(target.index);
+                    if (typeof target.name === "string") layer.name = target.name;
+                    EventBus.trigger(EVENT.layersChanged);
                     break;
                 default:
                     console.error("History type " + historyStep.type + " not handled");

@@ -110,4 +110,5 @@ export let EVENT = {
     colorRangeChanged: 28,
     colorRangesChanged: 29,
     gridOptionsChanged: 30,
+    layerPropertyHistory: 31,
 };

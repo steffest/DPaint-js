@@ -5,6 +5,7 @@ import {COMMAND, EVENT} from "../../enum.js";
 import input from "../input.js";
 import Input from "../input.js";
 import ContextMenu from "./contextMenu.js";
+import Historyservice from "../../services/historyservice.js";
 
 let LayerPanel = function(){
     let me = {};
@@ -237,6 +238,14 @@ let LayerPanel = function(){
             input.onkeydown = function(e){
                 e.stopPropagation();
                 if (e.code === "Enter"){
+                    Historyservice.add(
+                        EVENT.layerPropertyHistory,{
+                            index:index,
+                            name:layer.name
+                        },{
+                            index:index,
+                            name:input.value
+                        })
                     layer.name = input.value;
                     me.list();
                 }
