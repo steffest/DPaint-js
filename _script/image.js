@@ -294,7 +294,6 @@ let ImageFile = function(){
     };
 
     me.duplicateLayer = function(index){
-        HistoryService.start(EVENT.imageHistory);
         if (typeof index !== "number") index = activeLayerIndex;
         let layer = currentFrame().layers[index];
         let newLayer = Layer(
@@ -307,7 +306,6 @@ let ImageFile = function(){
         newLayer.drawImage(layer.getCanvas());
         currentFrame().layers.splice(index + 1, 0, newLayer);
         me.activateLayer(index + 1);
-        HistoryService.end();
     };
 
     me.flipLayer = function(index, horizontal){
@@ -411,22 +409,14 @@ let ImageFile = function(){
         struct.image.name = currentFile.name;
         struct.image.width = currentFile.width;
         struct.image.height = currentFile.height;
+        struct.image.activeLayerIndex = activeLayerIndex;
+        struct.image.activeFrameIndex = activeFrameIndex;
         struct.image.frames = [];
 
         currentFile.frames.forEach((frame) => {
             let _frame = { layers: [] };
             frame.layers.forEach((layer) => {
-                let _layer = {
-                    blendMode: layer.blendMode,
-                    name: layer.name,
-                    opacity: layer.opacity,
-                    visible: layer.visible,
-                    hasMask: layer.hasMask,
-                    canvas: layer.getCanvasType(false).toDataURL(),
-                };
-                if (layer.hasMask) {
-                    _layer.mask = layer.getCanvasType(true).toDataURL()
-                }
+                let _layer = layer.clone(true);
                 _frame.layers.push(_layer);
             });
             struct.image.frames.push(_frame);
@@ -454,33 +444,15 @@ let ImageFile = function(){
                     layer = Layer(currentFile.width, currentFile.height);
                     frame.layers.push(layer);
                 }
-                layer.name = _layer.name;
-                layer.opacity = _layer.opacity;
-                layer.blendMode = _layer.blendMode;
-                layer.visible = !!_layer.visible;
-                layer.hasMask = !!_layer.hasMask;
-                let _image = new Image();
-                _image.onload = function(){
-                    layer.drawImage(_image);
+                layer.restore(_layer).then(() => {
+
+                    if (image.activeLayerIndex === layerIndex && image.activeFrameIndex === frameIndex) {
+                        me.activateFrame(frameIndex);
+                        me.activateLayer(layerIndex);
+                    }
                     EventBus.trigger(EVENT.layersChanged);
                     EventBus.trigger(EVENT.imageSizeChanged);
-                };
-                _image.src = _layer.canvas;
-
-                if (_layer.mask){
-                    let _mask = new Image();
-                    _mask.onload = function(){
-                        layer.addMask();
-                        layer.toggleMask();
-                        let ctx = layer.getContext();
-                        ctx.drawImage(_mask, 0, 0);
-                        layer.update();
-                        layer.toggleMask();
-                        EventBus.trigger(EVENT.layersChanged);
-                        EventBus.trigger(EVENT.imageSizeChanged);
-                    };
-                    _mask.src = _layer.mask;
-                }
+                });
             });
         });
     };
@@ -975,18 +947,26 @@ let ImageFile = function(){
     });
 
     EventBus.on(COMMAND.DELETELAYER, function(){
+        HistoryService.start(EVENT.imageHistory);
         removeLayer();
+        HistoryService.end();
     });
 
     EventBus.on(COMMAND.DUPLICATELAYER, function(){
+        HistoryService.start(EVENT.imageHistory);
         me.duplicateLayer();
+        HistoryService.end();
     });
 
     EventBus.on(COMMAND.FLIPHORIZONTAL, function(){
+        HistoryService.start(EVENT.layerContentHistory);
         me.flipLayer(undefined,true);
+        HistoryService.end();
     });
     EventBus.on(COMMAND.FLIPVERTICAL, function(){
+        HistoryService.start(EVENT.layerContentHistory);
         me.flipLayer(undefined,false);
+        HistoryService.end();
     });
 
     EventBus.on(COMMAND.LAYERUP, function(index){
@@ -1004,10 +984,13 @@ let ImageFile = function(){
     });
 
     EventBus.on(COMMAND.MERGEDOWN, function(index){
+        HistoryService.start(EVENT.imageHistory);
         me.mergeDown(index);
+        HistoryService.end();
     });
 
     EventBus.on(COMMAND.FLATTEN, function(){
+        HistoryService.start(EVENT.imageHistory);
         currentFrame().layers.forEach((layer) => {
             if (layer.hasMask) {
                 layer.removeMask(true);
@@ -1029,19 +1012,26 @@ let ImageFile = function(){
             me.activateLayer(0);
             EventBus.trigger(EVENT.imageContentChanged);
         }
+        HistoryService.end();
     });
 
     EventBus.on(COMMAND.ADDFRAME, function(){
+        HistoryService.start(EVENT.imageHistory);
         SidePanel.show();
         addFrame();
+        HistoryService.end();
     });
 
     EventBus.on(COMMAND.DELETEFRAME, function(){
+        HistoryService.start(EVENT.imageHistory);
         removeFrame();
+        HistoryService.end();
     });
 
     EventBus.on(COMMAND.DUPLICATEFRAME, function(){
+        HistoryService.start(EVENT.imageHistory);
         me.duplicateFrame();
+        HistoryService.end();
     });
 
     EventBus.on(COMMAND.IMPORTFRAME, function(){

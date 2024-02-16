@@ -253,6 +253,88 @@ let Layer = function(width,height,name){
             alphaCtx.putImageData(img, 0, 0);
         }
     }
+
+    me.clone = (forSerialization)=>{
+        let struct = {
+            name: me.name,
+            blendMode: me.blendMode,
+            opacity: me.opacity,
+            visible: me.visible,
+            hasMask: me.hasMask,
+            canvas: forSerialization ? canvas.toDataURL() : duplicateCanvas(canvas),
+        };
+
+        if (me.hasMask){
+            struct.mask = forSerialization ? mask.toDataURL() : duplicateCanvas(mask);
+        }
+
+        return struct;
+    }
+
+    me.restore = (struct)=> {
+        return new Promise((next)=>{
+
+            me.name = struct.name;
+            me.blendMode = struct.blendMode;
+            me.opacity = struct.opacity;
+            me.visible = !!struct.visible;
+            me.hasMask = !!struct.hasMask;
+
+            let canvasRestored = true;
+            let maskRestored = true;
+
+            if (mask) releaseCanvas(mask);
+            if (alphaLayer) releaseCanvas(alphaLayer);
+            if (combined) releaseCanvas(combined);
+
+            mask = undefined;
+            alphaLayer=undefined;
+            maskActive = false;
+
+            let isDone = ()=>{
+                if (canvasRestored && maskRestored){
+                    if (struct.mask){
+                        let a = maskActive;
+                        maskActive = true;
+                        me.update();
+                        maskActive = a;
+                    }
+                    next();
+                }
+            }
+
+            if (struct.canvas){
+                canvasRestored = false;
+                if (typeof struct.canvas === "string"){
+                    let img = new Image();
+                    img.onload = ()=>{
+                        ctx.drawImage(img,0,0);
+                        canvasRestored = true;
+                        isDone();
+                    }
+                    img.src = struct.canvas;
+                }else{
+                    ctx.drawImage(struct.canvas,0,0);
+                }
+            }
+            if (struct.mask){
+                maskRestored = false;
+                me.addMask();
+                if (typeof struct.mask === "string"){
+                    let img = new Image();
+                    img.onload = ()=>{
+                        maskCtx.drawImage(img,0,0);
+                        maskRestored = true;
+                        isDone();
+                    }
+                    img.src = struct.mask;
+                }else{
+                    maskCtx.drawImage(struct.mask,0,0);
+                }
+            }
+            isDone();
+        });
+    }
     
     return me;
 }

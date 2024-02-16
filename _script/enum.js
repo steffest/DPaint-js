@@ -97,7 +97,7 @@ export let EVENT = {
     toolOptionsChanged: 14,
     brushOptionsChanged: 15,
     colorCount: 16,
-    layerHistory: 17,
+    layerContentHistory: 17,
     imageHistory: 18,
     selectionHistory: 19,
     paletteHistory: 20,
@@ -112,4 +112,5 @@ export let EVENT = {
     colorRangesChanged: 29,
     gridOptionsChanged: 30,
     layerPropertyHistory: 31,
+    layerHistory: 32,
 };

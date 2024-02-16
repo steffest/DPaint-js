@@ -53,7 +53,7 @@ var EffectDialog = function() {
         let sliders = $div("sliders active","",mainPanel);
 
         currentSource = duplicateCanvas(ImageFile.getActiveLayer().getCanvas(),true);
-        HistoryService.start(EVENT.layerHistory);
+        HistoryService.start(EVENT.layerContentHistory);
 
         Effects.setSrcTarget(currentSource,previewCanvas.getContext("2d"))
 

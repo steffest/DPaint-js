@@ -11,13 +11,26 @@ let HistoryService = function(){
     let future = [];
     let currentHistory;
 
-    me.start = function(type){
+    // TODO: maybe add a "framehistory" type to store the current frame instead of the whole image?
+
+    me.start = function(type,data){
         console.log("start his");
         currentHistory={type,data:{}};
+        let index = ImageFile.getActiveLayerIndex();
+        if (typeof data === "number") index = data;
+
         switch (type){
-            case EVENT.layerHistory:
+            case EVENT.layerContentHistory:
+                currentHistory.data.layerIndex = index;
                 currentHistory.data.from = duplicateCanvas(ImageFile.getActiveContext().canvas,true);
-                currentHistory.data.layerIndex = ImageFile.getActiveLayerIndex();
+                break;
+            case EVENT.layerPropertyHistory:
+                currentHistory.data.layerIndex = index;
+                currentHistory.data.from = getLayerProperties(index);
+                break;
+            case EVENT.layerHistory:
+                currentHistory.data.layerIndex = index;
+                currentHistory.data.from = ImageFile.getActiveLayer().clone();
                 break;
             case EVENT.imageHistory:
                 currentHistory.data.from = ImageFile.clone();
@@ -34,8 +47,14 @@ let HistoryService = function(){
         if (currentHistory){
             console.log("end his");
             switch (currentHistory.type){
-                case EVENT.layerHistory:
+                case EVENT.layerContentHistory:
                     currentHistory.data.to = duplicateCanvas(ImageFile.getActiveContext().canvas,true)
+                    break;
+                case EVENT.layerPropertyHistory:
+                    currentHistory.data.to = getLayerProperties(currentHistory.data.layerIndex);
+                    break;
+                case EVENT.layerHistory:
+                    currentHistory.data.to = ImageFile.getLayer(currentHistory.data.layerIndex).clone();
                     break;
                 case EVENT.imageHistory:
                     currentHistory.data.to = ImageFile.clone();
@@ -66,14 +85,26 @@ let HistoryService = function(){
         future = [];
     }
 
+    function getLayerProperties(index){
+        console.error(index);
+        let layer = ImageFile.getLayer(index);
+        console.error(layer);
+        return {
+            name: layer.name,
+            visible: layer.visible,
+            hasMask: layer.hasMask,
+            maskActive: layer.isMaskActive(),
+            index: index
+        }
+    }
+
     EventBus.on(COMMAND.UNDO,()=>{
         if (history.length){
             let historyStep = history.shift();
             let layer;
             let target;
-            console.error(historyStep);
             switch (historyStep.type){
-                case EVENT.layerHistory:
+                case EVENT.layerContentHistory:
                     layer = ImageFile.getLayer(historyStep.data.layerIndex);
                     layer.clear();
                     layer.drawImage(historyStep.data.from);
@@ -85,6 +116,7 @@ let HistoryService = function(){
                     break;
                 case EVENT.layerPropertyHistory:
                     target = historyStep.data.from;
+                    let source = historyStep.data.to;
                     if (target.index<0){
                         // add new layer
                         ImageFile.removeLayer(target.index);
@@ -92,7 +124,16 @@ let HistoryService = function(){
                     }else{
                         layer = ImageFile.getLayer(target.index);
                         if (typeof target.name === "string") layer.name = target.name;
+                        if (typeof target.visible === "boolean") layer.visible = target.visible;
+                        if (source.hasMask && source.maskActive !== target.maskActive) layer.toggleMask();
+                        console.error(layer);
                     }
+                    EventBus.trigger(EVENT.layersChanged);
+                    break;
+                case EVENT.layerHistory:
+                    layer = ImageFile.getLayer(historyStep.data.layerIndex);
+                    layer.restore(historyStep.data.from);
+                    EventBus.trigger(EVENT.layerContentChanged);
                     EventBus.trigger(EVENT.layersChanged);
                     break;
                 default:
@@ -111,10 +152,10 @@ let HistoryService = function(){
             let historyStep = future.shift();
             let layer;
             let target;
-            let from;
+            let source;
             //console.log(historyStep);
             switch (historyStep.type){
-                case EVENT.layerHistory:
+                case EVENT.layerContentHistory:
                     layer = ImageFile.getActiveLayer();
                     layer.clear();
                     layer.drawImage(historyStep.data.to);
@@ -126,14 +167,22 @@ let HistoryService = function(){
                     break;
                 case EVENT.layerPropertyHistory:
                     target = historyStep.data.to;
-                    from = historyStep.data.from;
-                    if (from.index<0){
-                        ImageFile.activateLayer(from.currentIndex);
-                        ImageFile.addLayer(from.currentIndex);
+                    source = historyStep.data.from;
+                    if (source.index<0){
+                        ImageFile.activateLayer(source.currentIndex);
+                        ImageFile.addLayer(source.currentIndex);
                     }else{
                         layer = ImageFile.getLayer(target.index);
                         if (typeof target.name === "string") layer.name = target.name;
+                        if (typeof target.visible === "boolean") layer.visible = target.visible;
+                        if (source.hasMask && source.maskActive !== target.maskActive) layer.toggleMask();
                     }
+                    EventBus.trigger(EVENT.layersChanged);
+                    break;
+                case EVENT.layerHistory:
+                    layer = ImageFile.getLayer(historyStep.data.layerIndex);
+                    layer.restore(historyStep.data.to);
+                    EventBus.trigger(EVENT.layerContentChanged);
                     EventBus.trigger(EVENT.layersChanged);
                     break;
                 default:

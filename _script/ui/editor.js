@@ -132,7 +132,7 @@ var Editor = function(){
             var s = Selection.get();
             let layer = ImageFile.getActiveLayer();
             if (!layer) return;
-            HistoryService.start(EVENT.layerHistory);
+            HistoryService.start(EVENT.layerContentHistory);
             if (s){
                 if (s.canvas || s.points){
                     let canvas = Selection.getCanvas();
@@ -250,8 +250,10 @@ var Editor = function(){
         })
 
         EventBus.on(COMMAND.LAYERMASK,(hide)=>{
+            HistoryService.start(EVENT.layerHistory);
             let layer = ImageFile.getActiveLayer();
             layer.addMask(!!hide);
+            HistoryService.end();
             EventBus.trigger(EVENT.layerContentChanged);
             EventBus.trigger(EVENT.layersChanged);
         });

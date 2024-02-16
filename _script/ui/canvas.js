@@ -139,7 +139,8 @@ let Canvas = function(parent){
 
     EventBus.on(EVENT.imageContentChanged,()=>{
         me.clear();
-        ctx.drawImage(ImageFile.getCanvas(),0,0);
+        let c = ImageFile.getCanvas();
+        if (c) ctx.drawImage(c,0,0);
     })
 
     EventBus.on(EVENT.selectionChanged,()=>{
@@ -317,11 +318,11 @@ let Canvas = function(parent){
                     case COMMAND.DRAW:
                     case COMMAND.ERASE:
                         if (!isOnCanvas) return;
-                        HistoryService.start(EVENT.layerHistory);
+                        HistoryService.start(EVENT.layerContentHistory);
                         draw();
                         break;
                     case COMMAND.SMUDGE:
-                        HistoryService.start(EVENT.layerHistory);
+                        HistoryService.start(EVENT.layerContentHistory);
                         Smudge.start(touchData);
                         if (!isOnCanvas) return;
                         break;
@@ -341,7 +342,7 @@ let Canvas = function(parent){
                         EventBus.trigger(EVENT.layerContentChanged);
                         break;
                     case COMMAND.FLOOD:
-                        HistoryService.start(EVENT.layerHistory);
+                        HistoryService.start(EVENT.layerContentHistory);
                         let cf = selectBox.floodSelect(ImageFile.getActiveLayer().getCanvas(),point,Color.fromString(e.button?Palette.getBackgroundColor():Palette.getDrawColor()));
                         ImageFile.getActiveLayer().drawImage(cf)
                         HistoryService.end();
@@ -352,7 +353,7 @@ let Canvas = function(parent){
                         touchData.isSelecting = true;
                         selectBox.activate();
                         Resizer.set(point.x,point.y,0,0,0,true,parent.getViewPort(),1);
-                        HistoryService.start(EVENT.layerHistory);
+                        HistoryService.start(EVENT.layerContentHistory);
 
                         if (currentTool === COMMAND.CIRCLE){
                             drawFunction = function(ctx,x,y,w,h,button){
@@ -458,7 +459,7 @@ let Canvas = function(parent){
                     case COMMAND.GRADIENT:
                         // TODO move this as well to the drawLayer of the active layer ?
                         if (currentTool === COMMAND.LINE && !isOnCanvas) return;
-                        HistoryService.start(EVENT.layerHistory);
+                        HistoryService.start(EVENT.layerContentHistory);
                         let layerIndex = ImageFile.addLayer(ImageFile.getActiveLayerIndex()+1);
                         let drawLayer = ImageFile.getLayer(layerIndex);
                         touchData.hotDrawFunction = function(x,y){
@@ -573,7 +574,7 @@ let Canvas = function(parent){
                             }
                             // TODO: move this to the drawLayer of the active layer instead of a new layer
                             ImageFile.mergeDown(layerIndex,true);
-                            HistoryService.end(EVENT.layerHistory);
+                            HistoryService.end(EVENT.layerContentHistory);
                         }
                         break;
                 }

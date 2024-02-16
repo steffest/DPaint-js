@@ -6,6 +6,7 @@ import input from "../input.js";
 import Input from "../input.js";
 import ContextMenu from "./contextMenu.js";
 import Historyservice from "../../services/historyservice.js";
+import HistoryService from "../../services/historyservice.js";
 
 let LayerPanel = function(){
     let me = {};
@@ -205,7 +206,9 @@ let LayerPanel = function(){
             $(".eye",{
                 parent:elm,
                 onClick:()=>{
+                    Historyservice.start(EVENT.layerPropertyHistory,i);
                     ImageFile.toggleLayer(i);
+                    Historyservice.end();
                 },
                 info:"Toggle layer visibility"
             })
@@ -214,7 +217,9 @@ let LayerPanel = function(){
                 $(".mask" + (layer.isMaskActive()?".active":""),{
                     parent:elm,
                     onClick:()=>{
+                        Historyservice.start(EVENT.layerPropertyHistory,i);
                         layer.toggleMask();
+                        Historyservice.end();
                         EventBus.trigger(EVENT.toolChanged);
                         EventBus.trigger(EVENT.layersChanged);
                     },
@@ -238,15 +243,9 @@ let LayerPanel = function(){
             input.onkeydown = function(e){
                 e.stopPropagation();
                 if (e.code === "Enter"){
-                    Historyservice.add(
-                        EVENT.layerPropertyHistory,{
-                            index:index,
-                            name:layer.name
-                        },{
-                            index:index,
-                            name:input.value
-                        })
+                    HistoryService.start(EVENT.layerPropertyHistory,index);
                     layer.name = input.value;
+                    HistoryService.end();
                     me.list();
                 }
                 if (e.code === "Escape"){
