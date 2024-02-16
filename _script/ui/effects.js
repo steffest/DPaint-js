@@ -4,6 +4,7 @@ let Effects = function(){
     let me = {}
     let filters = {};
     let _src, _target;
+    let maskCanvas;
     let doApply = true;
 
     let customFilters = {
@@ -32,6 +33,7 @@ let Effects = function(){
 
     me.clear = ()=>{
         filters = {};
+        maskCanvas = null;
     }
 
     me.setBrightness = (value,src,target)=>{
@@ -92,6 +94,7 @@ let Effects = function(){
 
     me.setColorBalance = (channel,value,src,target)=>{
         me.setSrcTarget(src,target);
+        createMask();
         value = parseInt(value);
         filters[channel] = value/100;
         applyFilters();
@@ -284,6 +287,39 @@ let Effects = function(){
             _target.fillRect(0,0,_target.canvas.width,_target.canvas.height);
             _target.globalCompositeOperation = "source-over";
             _target.globalAlpha = 1;
+
+            if (maskCanvas){
+                _target.globalCompositeOperation = "destination-in";
+                _target.drawImage(maskCanvas,0,0);
+                _target.globalCompositeOperation = "source-over";
+            }
+        }
+    }
+
+    function createMask(){
+        if (!_src){
+            console.error("no source for mask");
+            return;
+        }
+
+        if (!maskCanvas){
+            maskCanvas = document.createElement("canvas");
+            maskCanvas.width = _src.width;
+            maskCanvas.height = _src.height;
+            let maskCtx = maskCanvas.getContext("2d");
+            let maskData = _src.getContext("2d").getImageData(0,0,maskCanvas.width,maskCanvas.height);
+            maskCtx.fillStyle = "black";
+            maskCtx.fillRect(0,0,maskCanvas.width,maskCanvas.height);
+            let mask = maskData.data;
+            for (let i = 0; i<mask.length; i+=4){
+                if (mask[i+3] === 0){
+                    mask[i] = 255;
+                    mask[i+1] = 255;
+                    mask[i+2] = 255;
+                }
+            }
+            maskCtx.putImageData(maskData,0,0);
+            console.log("mask created");
         }
     }
 

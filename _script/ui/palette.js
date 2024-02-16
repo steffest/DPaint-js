@@ -396,6 +396,12 @@ let Palette = function(){
         }
     }
 
+    me.apply = function(){
+        let base = ImageFile.getOriginal();
+        let c = duplicateCanvas(base,true);
+        ImageProcessing.reduce(c,currentPalette,alphaThreshold,0);
+    }
+
     me.getColorIndex = function(color){
         var index = currentPalette.findIndex((c)=>{return c[0] === color[0] && c[1] === color[1] && c[2] === color[2]});
         if (index<0) index=0;

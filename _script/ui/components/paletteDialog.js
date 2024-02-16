@@ -152,10 +152,15 @@ var PaletteDialog = function() {
         ["red","green","blue"].forEach((color,index)=>{
             let slider = $div("slider","",subPanel);
             let range =  document.createElement("input");
+
             range.type = "range";
             range.className = "slider " + color;
             range.max = 255;
             range.value = RGBValues[index];
+            range.addEventListener("wheel",function(e){
+                range.value = parseInt(range.value) + Math.sign(e.deltaY);
+                range.oninput();
+            });
             slider.appendChild(range);
             let label = $elm("span",color,slider,"label");
             let input = document.createElement("input");
@@ -207,7 +212,9 @@ var PaletteDialog = function() {
             if (lockToImage){
                 let currentHighLight = ImageFile.getLayerIndexesOfType("pixelSelection");
                 if (currentHighLight.length){
-                    EventBus.trigger(COMMAND.MERGEDOWN,currentHighLight[0]);
+                    let newIndex = ImageFile.getActiveLayerIndex()+1
+                    ImageFile.moveLayer(currentHighLight[0],newIndex);
+                    EventBus.trigger(COMMAND.MERGEDOWN,newIndex);
                 }
             }
         });

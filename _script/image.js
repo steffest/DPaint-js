@@ -294,6 +294,7 @@ let ImageFile = function(){
     };
 
     me.duplicateLayer = function(index){
+        HistoryService.start(EVENT.imageHistory);
         if (typeof index !== "number") index = activeLayerIndex;
         let layer = currentFrame().layers[index];
         let newLayer = Layer(
@@ -306,6 +307,7 @@ let ImageFile = function(){
         newLayer.drawImage(layer.getCanvas());
         currentFrame().layers.splice(index + 1, 0, newLayer);
         me.activateLayer(index + 1);
+        HistoryService.end();
     };
 
     me.flipLayer = function(index, horizontal){
@@ -943,7 +945,13 @@ let ImageFile = function(){
 
     EventBus.on(COMMAND.NEWLAYER, function(){
         SidePanel.show();
-        addLayer();
+        let newIndex = addLayer(activeLayerIndex+1);
+        HistoryService.add(EVENT.layerPropertyHistory,{
+            index:-1,
+            currentIndex:activeLayerIndex
+        },{
+            index:newIndex
+        });
     });
 
     EventBus.on(COMMAND.DELETELAYER, function(){

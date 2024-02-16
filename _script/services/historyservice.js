@@ -17,6 +17,7 @@ let HistoryService = function(){
         switch (type){
             case EVENT.layerHistory:
                 currentHistory.data.from = duplicateCanvas(ImageFile.getActiveContext().canvas,true);
+                currentHistory.data.layerIndex = ImageFile.getActiveLayerIndex();
                 break;
             case EVENT.imageHistory:
                 currentHistory.data.from = ImageFile.clone();
@@ -49,6 +50,10 @@ let HistoryService = function(){
         }
     }
 
+    me.neverMind = function(){
+        currentHistory = undefined;
+    }
+
     me.add = function(type,from,to){
         history.unshift({type,data:{from,to}});
         if (history.length>maxHistory) history.pop();
@@ -69,7 +74,7 @@ let HistoryService = function(){
             console.error(historyStep);
             switch (historyStep.type){
                 case EVENT.layerHistory:
-                    layer = ImageFile.getActiveLayer();
+                    layer = ImageFile.getLayer(historyStep.data.layerIndex);
                     layer.clear();
                     layer.drawImage(historyStep.data.from);
                     EventBus.trigger(EVENT.layerContentChanged);
@@ -80,8 +85,14 @@ let HistoryService = function(){
                     break;
                 case EVENT.layerPropertyHistory:
                     target = historyStep.data.from;
-                    layer = ImageFile.getLayer(target.index);
-                    if (typeof target.name === "string") layer.name = target.name;
+                    if (target.index<0){
+                        // add new layer
+                        ImageFile.removeLayer(target.index);
+                        ImageFile.activateLayer(target.currentIndex);
+                    }else{
+                        layer = ImageFile.getLayer(target.index);
+                        if (typeof target.name === "string") layer.name = target.name;
+                    }
                     EventBus.trigger(EVENT.layersChanged);
                     break;
                 default:
@@ -100,6 +111,7 @@ let HistoryService = function(){
             let historyStep = future.shift();
             let layer;
             let target;
+            let from;
             //console.log(historyStep);
             switch (historyStep.type){
                 case EVENT.layerHistory:
@@ -114,8 +126,14 @@ let HistoryService = function(){
                     break;
                 case EVENT.layerPropertyHistory:
                     target = historyStep.data.to;
-                    layer = ImageFile.getLayer(target.index);
-                    if (typeof target.name === "string") layer.name = target.name;
+                    from = historyStep.data.from;
+                    if (from.index<0){
+                        ImageFile.activateLayer(from.currentIndex);
+                        ImageFile.addLayer(from.currentIndex);
+                    }else{
+                        layer = ImageFile.getLayer(target.index);
+                        if (typeof target.name === "string") layer.name = target.name;
+                    }
                     EventBus.trigger(EVENT.layersChanged);
                     break;
                 default:

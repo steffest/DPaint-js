@@ -7,6 +7,9 @@ import {duplicateCanvas, releaseCanvas} from "../../util/canvasUtils.js";
 import EventBus from "../../util/eventbus.js";
 import {EVENT} from "../../enum.js";
 import SyntaxEdit from "./syntaxEdit.js";
+import Palette from "../palette.js";
+import ImageProcessing from "../../util/imageProcessing.js";
+import HistoryService from "../../services/historyservice.js";
 
 var EffectDialog = function() {
     let me = {};
@@ -50,6 +53,7 @@ var EffectDialog = function() {
         let sliders = $div("sliders active","",mainPanel);
 
         currentSource = duplicateCanvas(ImageFile.getActiveLayer().getCanvas(),true);
+        HistoryService.start(EVENT.layerHistory);
 
         Effects.setSrcTarget(currentSource,previewCanvas.getContext("2d"))
 
@@ -132,9 +136,11 @@ var EffectDialog = function() {
             let t = ImageFile.getActiveLayer().getContext();
             t.clearRect(0,0,t.canvas.width,t.canvas.height);
             t.drawImage(currentSource,0,0);
+            Effects.clear();
             modal.hide();
             releaseCanvas(currentSource);
             EventBus.trigger(EVENT.layerContentChanged);
+            HistoryService.neverMind();
         });
         $div("button primary","Apply",buttons,()=>{
             if (codePanel){
@@ -144,9 +150,15 @@ var EffectDialog = function() {
                 Effects.setSrcTarget(currentSource,t);
                 Effects.apply();
             }
+            Effects.clear();
             releaseCanvas(currentSource);
             modal.hide();
             EventBus.trigger(EVENT.layerContentChanged);
+
+            if (Palette.isLocked()){
+                Palette.apply();
+            }
+            HistoryService.end();
         });
 
         Effects.clear();
