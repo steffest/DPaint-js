@@ -421,8 +421,12 @@ let ImageFile = function(){
                     name: layer.name,
                     opacity: layer.opacity,
                     visible: layer.visible,
-                    canvas: layer.getCanvas().toDataURL(),
+                    hasMask: layer.hasMask,
+                    canvas: layer.getCanvasType(false).toDataURL(),
                 };
+                if (layer.hasMask) {
+                    _layer.mask = layer.getCanvasType(true).toDataURL()
+                }
                 _frame.layers.push(_layer);
             });
             struct.image.frames.push(_frame);
@@ -453,7 +457,8 @@ let ImageFile = function(){
                 layer.name = _layer.name;
                 layer.opacity = _layer.opacity;
                 layer.blendMode = _layer.blendMode;
-                layer.visible = _layer.visible;
+                layer.visible = !!_layer.visible;
+                layer.hasMask = !!_layer.hasMask;
                 let _image = new Image();
                 _image.onload = function(){
                     layer.drawImage(_image);
@@ -461,6 +466,21 @@ let ImageFile = function(){
                     EventBus.trigger(EVENT.imageSizeChanged);
                 };
                 _image.src = _layer.canvas;
+
+                if (_layer.mask){
+                    let _mask = new Image();
+                    _mask.onload = function(){
+                        layer.addMask();
+                        layer.toggleMask();
+                        let ctx = layer.getContext();
+                        ctx.drawImage(_mask, 0, 0);
+                        layer.update();
+                        layer.toggleMask();
+                        EventBus.trigger(EVENT.layersChanged);
+                        EventBus.trigger(EVENT.imageSizeChanged);
+                    };
+                    _mask.src = _layer.mask;
+                }
             });
         });
     };

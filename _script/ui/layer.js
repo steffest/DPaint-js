@@ -45,6 +45,10 @@ let Layer = function(width,height,name){
             return canvas;
         }
     }
+
+    me.getCanvasType = function(maskType){
+       return (maskType) ? mask : canvas;
+    }
     
     me.getContext = function(){
         if (maskActive){
