@@ -357,13 +357,28 @@
             background-color: #808080;
             background-size: contain;
 
-          &.p1{
-            background-image: url("../_img/patterns/dots.png");
-          }
+            &.invert.hasPattern{
+              filter: invert(1);
+              border: 1px solid white;
+              background-color: #A0A0A0;
+              opacity: 0.5;
 
-          &.p2{
-            background-image: url("../_img/patterns/cross.png");
-          }
+              &.active{
+                border-color: #600fe0;
+                box-shadow: 0 0 2px blue;
+                opacity: 0.9;
+              }
+
+            }
+
+            &.p1{
+              background-image: url("../_img/patterns/dots.png");
+            }
+
+            &.p2{
+              background-image: url("../_img/patterns/cross.png");
+            }
+
             &.p3{
               background-image: url("../_img/patterns/grid.png");
             }
@@ -382,6 +397,11 @@
             &:hover{
               cursor: pointer;
               background-color: white;
+
+              &.invert.hasPattern{
+                background-color: white;
+                opacity: 1;
+              }
             }
 
 
@@ -389,6 +409,7 @@
             border-color: $active-color;
             box-shadow: 0 0 2px yellow;
           }
+
         }
       }
 

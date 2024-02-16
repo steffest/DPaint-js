@@ -122,6 +122,11 @@ var Input = function(){
 		return touchData.touches || [];
 	}
 
+	me.isMultiTouch = function(){
+		return me.getTouches().length>1;
+
+	}
+
 	function onPointerDown(e){
 		if (holdPointerEvents) return;
 		let target = e.target.closest(".handle");
@@ -252,7 +257,6 @@ var Input = function(){
 	}
 
 	function onPointerUp(e){
-
 		if (e.button===1 && document.body.classList.contains("cursor-pan")){
 			Cursor.resetOverride();
 		}
@@ -395,7 +399,8 @@ var Input = function(){
 				case "f": EventBus.trigger(COMMAND.FLOOD); break;
 				case "g": EventBus.trigger(COMMAND.GRADIENT); break;
 				case "h": EventBus.trigger(COMMAND.PAN); break;
-				case "i": EventBus.trigger(COMMAND.COLORPICKER); break;
+				case "i": EventBus.trigger(COMMAND.TOGGLEINVERT); break;
+				case "k": EventBus.trigger(COMMAND.COLORPICKER); break;
 				case "l": EventBus.trigger(COMMAND.LINE); break;
 				case "m": EventBus.trigger(COMMAND.SMUDGE); break;
 				case "p": EventBus.trigger(COMMAND.POLYGONSELECT); break;

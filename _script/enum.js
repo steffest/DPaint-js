@@ -77,6 +77,7 @@ export let COMMAND = {
     TOGGLEGRID: 1076,
     TOGGLEMASK: 1077,
     TOGGLEOVERRIDE: 1078,
+    TOGGLEINVERT: 1079,
 };
 
 export let EVENT = {

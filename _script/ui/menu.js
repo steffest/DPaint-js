@@ -42,7 +42,7 @@ let Menu = function(){
                 {label: "Erase",command: COMMAND.ERASE,shortKey: "E"},
                 {label: "Smudge",command: COMMAND.SMUDGE,shortKey: "M"},
                 {label: "Hand",command: COMMAND.PAN,shortKey: "H"},
-                {label: "Color Picker",command: COMMAND.COLORPICKER,shortKey: "I"}
+                {label: "Color Picker",command: COMMAND.COLORPICKER,shortKey: "K"}
             ]},
         {label: "Layer", items:[
                 {label: "New",command: COMMAND.NEWLAYER},

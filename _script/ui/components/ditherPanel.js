@@ -1,12 +1,13 @@
 import ImageFile from "../../image.js";
 import EventBus from "../../util/eventbus.js";
-import {EVENT} from "../../enum.js";
+import {COMMAND, EVENT} from "../../enum.js";
 
 let DitherPanel = function(){
     let me = {};
     let ditherPattern;
     let ditherCtx;
     let dither;
+    let invert = false;
     let ditherIndex = 3;
     let patternCanvas = document.createElement("canvas");
     patternCanvas.width = 4;
@@ -74,6 +75,16 @@ let DitherPanel = function(){
         return dither;
     }
 
+    me.setDitherInvertState = (state)=>{
+        invert = !!state;
+        EventBus.trigger(EVENT.brushOptionsChanged);
+        ditherPattern = undefined;
+    }
+
+    me.getDitherInvertState = ()=>{
+        return invert;
+    }
+
     me.getDitherIndex = ()=>{
         return dither ? ditherIndex : 0;
     }
@@ -106,13 +117,16 @@ let DitherPanel = function(){
             for (let y = 0;y<s; y++){
                 for (let x = 0;x<s; x++){
                     let i = y*s + x;
-                    if (grid[i]) pCtx.fillRect(x,y,1,1);
+                    let isBlack = !!grid[i];
+                    if (invert) isBlack = !isBlack;
+                    if (isBlack) pCtx.fillRect(x,y,1,1);
                 }
             }
         }
 
         ditherCtx.fillStyle = ditherCtx.createPattern(patternCanvas, "repeat");
         ditherCtx.fillRect(0, 0, ditherPattern.width, ditherPattern.height);
+
     }
 
     me.getPreset = function(index){
@@ -121,6 +135,12 @@ let DitherPanel = function(){
 
     EventBus.on(EVENT.imageSizeChanged,()=>{
         ditherPattern = undefined;
+    })
+
+    EventBus.on(COMMAND.TOGGLEINVERT,()=>{
+        invert = !invert;
+        ditherPattern = undefined;
+        EventBus.trigger(EVENT.brushOptionsChanged);
     })
 
     return me;

@@ -17,7 +17,9 @@ let ToolOptions = function(){
 
     let smoothCheckbox;
     let maskCheckbox;
+    let ditherSection;
     let ditherCheckbox;
+    let invertCheckbox;
     let pressureCheckbox;
     let fillCheckbox;
     let lineSizeRange;
@@ -171,6 +173,7 @@ let ToolOptions = function(){
                 brushSettings.opacityRange.value = settings.opacity;
                 brushSettings.opacityInput.innerText = settings.opacity + "%" ;
                 if (ditherCheckbox) ditherCheckbox.setState(DitherPanel.getDitherState());
+                if (invertCheckbox) invertCheckbox.setState(DitherPanel.getDitherInvertState());
             })
 
         }
@@ -187,17 +190,28 @@ let ToolOptions = function(){
     }
 
     function ditherSetting(){
-        if (!ditherCheckbox) ditherCheckbox=$checkbox("Dither","","inline",(checked)=>{
-            DitherPanel.setDitherState(checked);
-        });
+        if (!ditherSection){
+            ditherSection = $div("inline flex");
+            ditherCheckbox=$checkbox("Dither",ditherSection,"inline info",(checked)=>{
+                DitherPanel.setDitherState(checked);
+            });
+            ditherCheckbox.info="Toggle Brush Dither Pattern";
+
+            invertCheckbox=$checkbox("Invert",ditherSection,"info",(checked)=>{
+                DitherPanel.setDitherInvertState(checked);
+            });
+            invertCheckbox.info="<b>I</b> Invert Brush Dither Pattern";
+        }
         ditherCheckbox.setState(DitherPanel.getDitherState());
-        return ditherCheckbox;
+        invertCheckbox.setState(DitherPanel.getDitherInvertState());
+        return ditherSection;
     }
 
     function pressureSetting(){
-        if (!pressureCheckbox) pressureCheckbox=$checkbox("Pressure","","inline pressure",(checked)=>{
+        if (!pressureCheckbox) pressureCheckbox=$checkbox("Pressure","","pressure info",(checked)=>{
             pressure = checked;
         });
+        pressureCheckbox.info="Toggle brush pressure sensitivity";
         pressureCheckbox.setState(pressure);
         return pressureCheckbox;
     }
@@ -238,7 +252,6 @@ let ToolOptions = function(){
         if (window.override) mask=false;
         EventBus.trigger(EVENT.layerContentChanged);
     });
-
 
     return me;
 }();

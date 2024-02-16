@@ -50,7 +50,8 @@ let BrushPanel = function(){
 
         ditherPatterns = [];
         for (let i = 0; i<5; i++){
-            ditherPatterns.push($div("pattern p"+i,"",patterns,()=>{
+            let hasPattern = (i<4 && i>0)? " hasPattern" : "";
+            ditherPatterns.push($div("pattern p"+i+hasPattern,"",patterns,()=>{
                 if (i === 4){
                     Modal.show(DIALOG.DITHER);
                 }else{
@@ -110,8 +111,10 @@ let BrushPanel = function(){
         opacityRange.value = settings.opacity;
         opacityInput.value = settings.opacity;
 
+        let invert = DitherPanel.getDitherInvertState();
         ditherPatterns.forEach(elm=>{
             elm.classList.remove("active");
+            elm.classList.toggle("invert",invert);
         })
         let ditherIndex = DitherPanel.getDitherIndex();
         let elm = ditherPatterns[ditherIndex];

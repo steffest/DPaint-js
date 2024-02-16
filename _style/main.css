@@ -1111,6 +1111,17 @@ body.presentation .statusbar {
   background-color: #808080;
   background-size: contain;
 }
+.sidepanel .panel.brush .patterns .pattern.invert.hasPattern, .sidepanel .panel.grid .patterns .pattern.invert.hasPattern {
+  filter: invert(1);
+  border: 1px solid white;
+  background-color: #A0A0A0;
+  opacity: 0.5;
+}
+.sidepanel .panel.brush .patterns .pattern.invert.hasPattern.active, .sidepanel .panel.grid .patterns .pattern.invert.hasPattern.active {
+  border-color: #600fe0;
+  box-shadow: 0 0 2px blue;
+  opacity: 0.9;
+}
 .sidepanel .panel.brush .patterns .pattern.p1, .sidepanel .panel.grid .patterns .pattern.p1 {
   background-image: url("../_img/patterns/dots.png");
 }
@@ -1133,6 +1144,10 @@ body.presentation .statusbar {
 .sidepanel .panel.brush .patterns .pattern:hover, .sidepanel .panel.grid .patterns .pattern:hover {
   cursor: pointer;
   background-color: white;
+}
+.sidepanel .panel.brush .patterns .pattern:hover.invert.hasPattern, .sidepanel .panel.grid .patterns .pattern:hover.invert.hasPattern {
+  background-color: white;
+  opacity: 1;
 }
 .sidepanel .panel.brush .patterns .pattern.active, .sidepanel .panel.grid .patterns .pattern.active {
   border-color: #b1e00f;
@@ -1377,7 +1392,7 @@ body.override .splitpanel .panel .toolbar .toolpanel .options .checkbox.pressure
 }
 .palettelist .palette .caption {
   background-color: transparent;
-  border-top: 1px solid rgb(67, 69, 72);
+  border-top: 1px solid #434548;
   width: 100%;
   height: auto;
   font-size: 11px;
@@ -1479,6 +1494,9 @@ body.override .splitpanel .panel .toolbar .toolpanel .options .checkbox.pressure
   color: #8f8f8f;
 }
 .splitpanel .panel .toolbar .toolpanel .options .optionsgroup {
+  display: flex;
+}
+.splitpanel .panel .toolbar .toolpanel .options .flex {
   display: flex;
 }
 .splitpanel .panel .toolbar .toolpanel .options .checkbox {
@@ -1957,7 +1975,7 @@ body.hovercanvas.pointerdown.cursor-colorpicker .cursor .mark {
   border-bottom: 1px solid black;
   position: relative;
   height: 20px;
-  background-color: rgba(0, 0, 0, 0.2196078431);
+  background-color: #00000038;
   cursor: move;
   user-select: none;
 }
@@ -2791,14 +2809,14 @@ body.hovercanvas.pointerdown.cursor-colorpicker .cursor .mark {
   margin-top: -2px;
 }
 .modalwindow .inner .effects .slider input[type=range]::-webkit-slider-runnable-track {
-  background: linear-gradient(90deg, rgb(0, 0, 0) 0%, rgb(200, 200, 200) 100%);
+  background: linear-gradient(90deg, black 0%, #c8c8c8 100%);
   border: 1px solid #010101;
   width: 100%;
   height: 4px;
   cursor: pointer;
 }
 .modalwindow .inner .effects .slider input[type=range]::-moz-range-track {
-  background: linear-gradient(90deg, rgb(0, 0, 0) 0%, rgb(200, 200, 200) 100%);
+  background: linear-gradient(90deg, black 0%, #c8c8c8 100%);
   border: 1px solid #010101;
   width: 100%;
   height: 2px;
