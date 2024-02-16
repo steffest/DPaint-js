@@ -89,6 +89,8 @@ let Canvas = function(parent){
     canvas.addEventListener("touchend",(e)=>{
         // This is needed to avoid the "selection lens" on mobile safari on double tap/hold
         e.preventDefault();
+
+        touchData.touchUpTime = performance.now();
     });
 
     EventBus.on(EVENT.hideCanvasOverlay,()=>{
@@ -266,9 +268,26 @@ let Canvas = function(parent){
 
     function handle(action,e){
         e.preventDefault();
+
         var point;
         switch (action){
             case "down":
+                if (Input.isMultiTouch()) return;
+                // let the editPanel parent handle this for pan/zoom
+
+                if (touchData.touchUpTime){
+                    let delta = (performance.now() - touchData.touchUpTime);
+                    if (delta<90){
+                        // this is a tap on touchscreen on the canvas without dragging
+                        // pointer event handling seems a bit mixed up here
+                        touchData.touchUpTime = undefined;
+                        setTimeout(()=>{
+                            handle("up",e);
+                        },10);
+                    }
+                }
+
+
                 point = getCursorPosition(canvas,e,true);
                 let isOnCanvas = e.target && e.target.classList.contains("maincanvas");
                 touchData.isdown = true;
@@ -627,6 +646,9 @@ let Canvas = function(parent){
                 }
                 break;
             case "move":
+                if (Input.isMultiTouch()) return;
+                // let the editPanel parent handle this for pan/zoom
+
                 point = getCursorPosition(canvas,e,false);
 
                 if (touchData.isdown){
