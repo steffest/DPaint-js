@@ -730,16 +730,22 @@ let Palette = function(){
 
                 generateColorLayers();
                 image.colorRange.forEach((range,index)=>{
+                    let fps = Math.abs(range.fps || 10);
                     if (range.active) Animator.start(()=>{
-                        range.index++;
-                        if (range.index>=range.max) range.index=0;
+                        if (range.reverse){
+                            range.index--;
+                            if (range.index<0) range.index=range.max-1;
+                        }else{
+                            range.index++;
+                            if (range.index>=range.max) range.index=0;
+                        }
 
                         updateRangeColors(range,data);
                         EventBus.trigger(EVENT.colorCycleChanged,index);
                         renderContext.putImageData(imageData,0,0);
                         EventBus.trigger (EVENT.imageContentChanged);
 
-                    },range.fps || 10);
+                    },fps);
                 });
 
 
@@ -751,7 +757,17 @@ let Palette = function(){
     function generateColorLayers(){
         colorLayers = {};
         let image = ImageFile.getCurrentFile();
-        ImageFile.generateIndexedPixels();
+
+        let regeneratePixels = true;
+        if (image.originalType === "IFF" && image.indexedPixels) regeneratePixels = false;
+
+        // TODO - FIXME
+        // when we have a palette that includes identical colors
+        // we loose the index-to-color mapping of the original file when we regenerate the indexes
+        // maybe we should "slightly" adjust the palette color when loading these files ?
+        // or keep a more direct paletteIndex-to-pixel map?
+
+        if (regeneratePixels) ImageFile.generateIndexedPixels();
         let pixels = image.indexedPixels || [];
 
         image.colorRange.forEach(range=>{

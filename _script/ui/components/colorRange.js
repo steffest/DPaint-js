@@ -42,18 +42,20 @@ let ColorRange = function(){
                     range.active = checked;
                     colorRangeContext[index].canvas.classList.toggle("inactive",!checked);
                 },range.active)
-                let slider = $("input.slider",{type:"range",parent:rangeContainer,min:-60,max:60,value:range.fps,oninput:()=>{
-                        range.fps = slider.value;
+                let slider = $("input.slider",{type:"range",parent:rangeContainer,min:-60,max:60,value:(range.fps * (range.reverse?-1:1)),oninput:()=>{
+                        range.fps = Math.abs(slider.value);
                         speed.value = slider.value;
+                        range.reverse = slider.value<0;
                     }});
 
                 let speed = $("input.speed",{
                     type:"text",
                     parent:rangeContainer,
-                    value:range.fps,
+                    value:range.fps * (range.reverse?-1:1),
                     oninput:()=>{
-                        range.fps = speed.value;
+                        range.fps = Math.abs(speed.value);
                         slider.value = speed.value;
+                        range.reverse = speed.value<0;
                     },
                     onkeydown: (e)=>{
                         e.stopPropagation();
