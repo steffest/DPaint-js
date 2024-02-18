@@ -231,6 +231,13 @@ let Canvas = function(parent){
         let color = touchData.button?Palette.getBackgroundColor():Palette.getDrawColor();
         if (Editor.getCurrentTool() === COMMAND.ERASE) color = "transparent";
         let {x,y} = touchData;
+
+        //TODO: should we cancel the draw if the coordinates are the same as the previous draw?
+        if (touchData.previousDrawPoint && (x === touchData.previousDrawPoint.x && y === touchData.previousDrawPoint.y)){
+            return;
+        }
+
+
         touchData.drawLayer = ImageFile.getActiveLayer();
         touchData.drawLayer.draw(x,y,color,touchData);
 
@@ -281,9 +288,11 @@ let Canvas = function(parent){
                     if (delta<90){
                         // this is a tap on touchscreen on the canvas without dragging
                         // pointer event handling seems a bit mixed up here
+                        // (Touchup on the canvas happens before the touchdown on its parent element?)
                         touchData.touchUpTime = undefined;
                         setTimeout(()=>{
                             handle("up",e);
+                            console.error("synth up");
                         },10);
                     }
                 }
@@ -629,6 +638,7 @@ let Canvas = function(parent){
             case "over":
                 // mousemove with no click
                 if (!touchData.isdown){
+                    if (e.pointerType === "touch") return;
                     point = getCursorPosition(canvas,e,false);
                     var pixel = ctx.getImageData(point.x, point.y, 1, 1).data;
                     let tooltip = "x:" + point.x + " y:" + point.y;
@@ -651,7 +661,6 @@ let Canvas = function(parent){
                 // let the editPanel parent handle this for pan/zoom
 
                 point = getCursorPosition(canvas,e,false);
-
                 if (touchData.isdown){
                     if (Input.isSpaceDown() || touchData.button===1 || Editor.getCurrentTool() === COMMAND.PAN){
                         var dx = (touchData.startDragX-e.clientX);
