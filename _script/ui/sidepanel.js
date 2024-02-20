@@ -13,6 +13,7 @@ import GridPanel from "./components/gridPanel.js";
 var SidePanel = function(){
     let me = {}
     let container;
+    let collapsedHeight = 21;
 
     let panels = {
         info:{
@@ -70,8 +71,16 @@ var SidePanel = function(){
         generate();
     }
 
-    me.show = ()=>{
+    me.show = (section)=>{
         document.body.classList.add("withsidepanel");
+        if (section){
+            Object.keys(panels).forEach(key=>{
+                if (key === section){
+                    panels[key].collapsed = false;
+                }
+            })
+            setPanelsState();
+        }
     }
 
     me.hide = ()=>{
@@ -106,7 +115,7 @@ var SidePanel = function(){
             panel.container = generatePanel(panel,container);
             panel.container.style.height = height + "px";
             panel.container.style.top = y + "px";
-            y+= height;
+            y+= (panel.collapsed?collapsedHeight:height);
         })
     }
 
@@ -129,7 +138,7 @@ var SidePanel = function(){
         Object.keys(panels).forEach(key=>{
             let panel = panels[key];
             let height = (panel.height || 100);
-            if (panel.collapsed) height=21;
+            if (panel.collapsed) height=collapsedHeight;
             panel.container.style.height = height + "px";
             panel.container.style.top = y + "px";
             panel.container.classList.toggle("collapsed",!!panel.collapsed);

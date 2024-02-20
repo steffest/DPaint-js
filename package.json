@@ -1,13 +1,12 @@
 {
     "name": "DPaintJS",
-    "version": "0.1.4 alpha",
+    "version": "0.1.4",
     "description": "Webbased image editor with a focus on retro Amiga file formats in plain JavaScript",
     "repository": "https://github.com/steffest/dpaint-js",
     "author": "Steffest",
     "license": "MIT",
     "devDependencies": {
-        "@parcel/packager-raw-url": "^2.10.3",
-        "@parcel/transformer-webmanifest": "^2.10.3",
+        "@parcel/packager-raw-url": "^2.11.0",
         "assert": "^2.0.0",
         "browserify-zlib": "^0.2.0",
         "buffer": "^5.5.0",

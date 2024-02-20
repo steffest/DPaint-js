@@ -104,6 +104,7 @@ var SaveDialog = function(){
     me.render = function(container){
         let submenu;
         container.innerHTML = "";
+        let mainPanel;
         container.appendChild(
             $(".saveform",
                 $(".name",$("h4","Name"),nameInput = $("input",{type:"text",value:ImageFile.getName()})),
@@ -138,6 +139,30 @@ var SaveDialog = function(){
         nameInput.onchange = function(){
             ImageFile.setName(getFileName());
         }
+
+        // check if we have a server to post back to
+        let postBack;
+        let urlParams = new URLSearchParams(window.location.search);
+        let url;
+        if (urlParams.has("putback")){
+            url = urlParams.get("putback");
+            if (url) postBack = {method: "PUT", url: url}
+        }
+        if (urlParams.has("postback")){
+            url = urlParams.get("postback");
+            if (url) postBack = {method: "POST", url: url}
+        }
+
+        if (postBack){
+            try {
+                let url = new URL(postBack.url,window.location.href);
+                postBack.domain = url.hostname;
+                postBack.url = postBack.url = url.href;
+            }catch{
+                postBack = undefined;
+            }
+        }
+        if (postBack) addPostBackOverlay(postBack,container);
     }
 
     me.setFile = function (file){
@@ -151,6 +176,39 @@ var SaveDialog = function(){
             $(".subtitle",subtitle),
             $(".info",info)
         );
+    }
+
+    function addPostBackOverlay(postBack,container){
+        let overridePanel = $(".saveoverlay",
+
+            $(".info","This editor is configured to save files back to",$("b",postBack.domain), $(".textlink",{onClick:()=>{overridePanel.remove()}},"More options")),
+            $(".spinner"),
+            $(".buttons",
+                $(".button.ghost",{onclick:()=>{
+                    Modal.hide();
+                }},"Cancel"),
+                $(".button.primary",{onclick:async ()=>{
+                    overridePanel.classList.add("loading");
+                    let blob = await Generate.file("PNG");
+                    if (blob){
+                        fetch(postBack.url,{
+                            method: postBack.method,
+                            body: blob
+                        }).then((response)=>{
+                            if (response.ok){
+                                Modal.hide();
+                            }else{
+                                Modal.alert("Error saving file to server");
+                            }
+                        }).catch((err)=>{
+                            Modal.alert("Error saving file to server");
+                        });
+                    }
+                }},"Save")
+            )
+        );
+
+        container.appendChild(overridePanel);
     }
 
     function getFileName(){

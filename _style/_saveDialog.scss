@@ -178,3 +178,43 @@
 
 
 }
+
+.saveoverlay{
+  position: absolute;
+  top: 20px;
+  left: 1px;
+  right: 1px;
+  bottom: 1px;
+  background-color:#3D3F41;
+  z-index: 10;
+
+  .info{
+    text-align: center;
+    padding: 50px 10px 10px 10px;
+
+    b{
+      font-size: 20px;
+      display: block;
+      padding: 20px 0;
+    }
+  }
+
+  .spinner{
+    display: none;
+  }
+
+  &.loading{
+    .info{
+      display: none;
+    }
+
+    .buttons{
+      pointer-events: none;
+      opacity: 0.5;
+    }
+
+    .spinner{
+      display: block;
+    }
+  }
+}

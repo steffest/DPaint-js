@@ -62,6 +62,7 @@
   .inner{
     color: $menu-text-color;
 
+
     .button{
       border: 1px solid #6a6a6a;
       margin: 2px;
@@ -385,6 +386,25 @@
         text-align: center;
       }
     }
+
+    .textlink{
+      text-decoration: underline;
+      color: $menu-text-color;
+
+      &:hover{
+        color: white;
+        cursor: pointer;
+      }
+    }
+
+    &.full{
+      position: absolute;
+      left: 0;
+      top: 20px;
+      right: 0;
+      bottom: 0;
+    }
+
 
 
     @import "paletteEditor";

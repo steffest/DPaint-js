@@ -392,7 +392,7 @@ let Palette = function(){
                 ImageProcessing.reduce(c,targetPalette || targetColorCount,alphaThreshold,ditherIndex);
             }
 
-            SidePanel.show();
+            SidePanel.show("reduce");
         }
     }
 

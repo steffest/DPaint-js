@@ -42,6 +42,19 @@ h1.error a {
   color: white;
 }
 
+.spinner {
+  position: absolute;
+  top: 40%;
+  left: 50%;
+  margin-left: -25px;
+  width: 50px;
+  height: 50px;
+  border: 5px solid rgba(255, 255, 255, 0.3);
+  border-top: 5px solid white;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
 /* Firefox */
 * {
   scrollbar-width: auto;
@@ -1392,7 +1405,7 @@ body.override .splitpanel .panel .toolbar .toolpanel .options .checkbox.pressure
 }
 .palettelist .palette .caption {
   background-color: transparent;
-  border-top: 1px solid #434548;
+  border-top: 1px solid rgb(67, 69, 72);
   width: 100%;
   height: auto;
   font-size: 11px;
@@ -1975,7 +1988,7 @@ body.hovercanvas.pointerdown.cursor-colorpicker .cursor .mark {
   border-bottom: 1px solid black;
   position: relative;
   height: 20px;
-  background-color: #00000038;
+  background-color: rgba(0, 0, 0, 0.2196078431);
   cursor: move;
   user-select: none;
 }
@@ -2264,6 +2277,21 @@ body.hovercanvas.pointerdown.cursor-colorpicker .cursor .mark {
   width: 22px;
   padding: 2px;
   text-align: center;
+}
+.modalwindow .inner .textlink {
+  text-decoration: underline;
+  color: #BBBBBB;
+}
+.modalwindow .inner .textlink:hover {
+  color: white;
+  cursor: pointer;
+}
+.modalwindow .inner.full {
+  position: absolute;
+  left: 0;
+  top: 20px;
+  right: 0;
+  bottom: 0;
 }
 .modalwindow .inner .palette {
   position: relative;
@@ -2751,7 +2779,7 @@ body.hovercanvas.pointerdown.cursor-colorpicker .cursor .mark {
   position: absolute;
   left: 0;
   right: 0;
-  top: 16px;
+  top: 0;
   bottom: 0;
 }
 .modalwindow .inner .effects .tabs {
@@ -2809,14 +2837,14 @@ body.hovercanvas.pointerdown.cursor-colorpicker .cursor .mark {
   margin-top: -2px;
 }
 .modalwindow .inner .effects .slider input[type=range]::-webkit-slider-runnable-track {
-  background: linear-gradient(90deg, black 0%, #c8c8c8 100%);
+  background: linear-gradient(90deg, rgb(0, 0, 0) 0%, rgb(200, 200, 200) 100%);
   border: 1px solid #010101;
   width: 100%;
   height: 4px;
   cursor: pointer;
 }
 .modalwindow .inner .effects .slider input[type=range]::-moz-range-track {
-  background: linear-gradient(90deg, black 0%, #c8c8c8 100%);
+  background: linear-gradient(90deg, rgb(0, 0, 0) 0%, rgb(200, 200, 200) 100%);
   border: 1px solid #010101;
   width: 100%;
   height: 2px;
@@ -3079,7 +3107,7 @@ body.hovercanvas.pointerdown.cursor-colorpicker .cursor .mark {
 .modalwindow .inner .ditheredit .presets {
   position: absolute;
   left: 5px;
-  top: 25px;
+  top: 5px;
   bottom: 5px;
   width: 202px;
   border: 1px solid black;
@@ -3293,6 +3321,37 @@ body.hovercanvas.pointerdown.cursor-colorpicker .cursor .mark {
 .modalwindow .inner .saveform .moremenu .item:hover {
   background-color: #232323;
   cursor: pointer;
+}
+.modalwindow .inner .saveoverlay {
+  position: absolute;
+  top: 20px;
+  left: 1px;
+  right: 1px;
+  bottom: 1px;
+  background-color: #3D3F41;
+  z-index: 10;
+}
+.modalwindow .inner .saveoverlay .info {
+  text-align: center;
+  padding: 50px 10px 10px 10px;
+}
+.modalwindow .inner .saveoverlay .info b {
+  font-size: 20px;
+  display: block;
+  padding: 20px 0;
+}
+.modalwindow .inner .saveoverlay .spinner {
+  display: none;
+}
+.modalwindow .inner .saveoverlay.loading .info {
+  display: none;
+}
+.modalwindow .inner .saveoverlay.loading .buttons {
+  pointer-events: none;
+  opacity: 0.5;
+}
+.modalwindow .inner .saveoverlay.loading .spinner {
+  display: block;
 }
 
 .filebrowser {
