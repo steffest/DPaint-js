@@ -29,6 +29,7 @@ var Modal = function(){
     let inner;
     let currentTranslate = [0,0];
     let currentDialog;
+    let notification;
 
     let dialogs={
         1: {title: "Save File", fuzzy: true,width:400,height:"auto", handler: SaveDialog, position: [0,0]},
@@ -138,11 +139,40 @@ var Modal = function(){
         if (blanket) blanket.classList.remove("active");
     }
 
+    me.showNotification = function(data){
+        let delay = 0;
+        if (!notification){
+            notification = $div("notificationbox","",document.body);
+            delay = 10;
+        }
+        notification.innerHTML = "";
+        notification.appendChild($div("title",data.title));
+        notification.appendChild($div("text",data.text));
+        setTimeout(()=>{
+            notification.classList.add("active");
+        },delay);
+
+        setTimeout(()=>{
+            notification.classList.remove("active");
+        },3000);
+    }
+
+    me.hideNotification = function(){
+        if (notification) notification.classList.remove("active");
+    }
+
     me.alert = (message, title)=>{
         Modal.show(DIALOG.OPTION,{
             title: title || "Alert",
             text: message,
             buttons: [{label:"OK"}]
+        });
+    }
+
+    me.softAlert = (message, title)=>{
+        Modal.showNotification({
+            title: title || "Alert",
+            text: message
         });
     }
 

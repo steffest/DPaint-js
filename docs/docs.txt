@@ -2,7 +2,7 @@ Some observations:
 
 Copy/Paste
 
-With Chrome you can copy an image as file from the filesystem and paste it in Dpaint.
+With Chrome you can copy an image as file from the filesystem and paste it in DPaint.
 With Firefox this doesn't work.
 
 On OSX - Copy/Paste from Photoshop keeps transparency (if the image is in RGB color mode) - on Window it doesn't

@@ -78,6 +78,7 @@ export let COMMAND = {
     TOGGLEMASK: 1077,
     TOGGLEOVERRIDE: 1078,
     TOGGLEINVERT: 1079,
+    ZOOMFIT: 1080,
 };
 
 export let EVENT = {

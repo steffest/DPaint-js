@@ -29,6 +29,9 @@ let App = function(){
 						if (urlParams.has("play")){
 							EventBus.trigger(COMMAND.CYCLEPALETTE);
 						}
+						if (urlParams.has("zoom")){
+							EventBus.trigger(COMMAND.ZOOMFIT);
+						}
 					},200);
 				}).catch((err)=>{});
 			}

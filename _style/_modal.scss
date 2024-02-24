@@ -413,3 +413,37 @@
     @import "saveDialog";
   }
 }
+
+.notificationbox{
+  position: fixed;
+  left: 20px;
+  bottom: 40px;
+  z-index: 1000;
+  width: 250px;
+  height: 80px;
+  background-color: #1a1a1a;
+  color: $menu-text-color;
+  border: 1px solid #3b3b3b;
+  font-size: 13px;
+  margin-left: -200px;
+  opacity: 0;
+  transition: all 0.2s ease-in-out;
+  pointer-events: none;
+
+  .title{
+    background-color: #101010;
+    border-bottom: 1px solid #3b3b3b;
+    padding: 4px 10px;
+  }
+
+  .text{
+    padding: 4px 10px;
+  }
+
+  &.active{
+    display: block;
+    opacity: 1;
+    margin-left: 0;
+    pointer-events: all;
+  }
+}

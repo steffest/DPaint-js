@@ -29,7 +29,7 @@ let Toolbar = function(){
         {name: "erase", isTool: true, command: COMMAND.ERASE, info: "<b>E</b> Erase."},
         {name: "split", command: COMMAND.SPLITSCREEN, toggleProperty: "<b>Tab</b> splitPanel", info: "Toggle split view."},
         {name: "pan", isTool: true, command: COMMAND.PAN, info: "<b>H</b> or <b>Space</b> Hand: Pan the image."},
-        {name: "picker", isTool: true, command: COMMAND.COLORPICKER, info: "<b>I</b> or <b>Shift+Draw</b> Pick color from image."},
+        {name: "picker", isTool: true, command: COMMAND.COLORPICKER, info: "<b>K</b> or <b>Shift+Draw</b> Pick color from image."},
         {name: "zoom",label: "", command: COMMAND.ZOOMIN, info: "<b>+</b> Zoom in."},
         {name: "zoomout",label: "",command: COMMAND.ZOOMOUT, info: "<b>-</b> Zoom out."},
         {name: "undo", command: COMMAND.UNDO, info: "<b>"+meta+"-Z</b> Undo."},

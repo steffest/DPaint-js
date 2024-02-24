@@ -191,7 +191,6 @@ var Brush = function(){
                     opacity2 *= pressure;
                 }
 
-                console.error(opacity2);
 
                 for (let i = 0; i<data.data.length;i+=4){
                     let sourceColor = [data.data[i],data.data[i+1],data.data[i+2]];

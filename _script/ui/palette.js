@@ -8,6 +8,7 @@ import SidePanel from "./sidepanel.js";
 import {duplicateCanvas} from "../util/canvasUtils.js";
 import Animator from "../util/animator.js";
 import ColorRange from "./components/colorRange.js";
+import Modal from "./modal.js";
 
 let Palette = function(){
     let me = {};
@@ -751,6 +752,8 @@ let Palette = function(){
 
             }
             EventBus.trigger (EVENT.colorCycleToggled);
+        }else{
+            Modal.softAlert("There are no color ranges defined.","Can't Start Color Cycle");
         }
     }
 

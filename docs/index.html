@@ -157,6 +157,19 @@
             padding: 2px;
         }
 
+        .warning{
+            color: #e1a93d;
+            background-color: #4b423c;
+            border: 1px solid #a65d42;
+            padding: 10px 10px 10px 30px;
+            margin: 10px 0;
+            background-image: url("_img/warning-icon.svg");
+            background-repeat: no-repeat;
+            background-position: 9px 12px;
+            background-size: 16px 16px;
+
+        }
+
         .top{
             vertical-align: top;
         }
@@ -165,10 +178,27 @@
             border-bottom: 1px dotted #3269a0;
         }
 
-        xmp{
+        xmp,
+        .example{
             border: 1px solid #66769a;
             padding: 4px;
             background-color: #3e485a;
+            font-size: 13px;
+            text-overflow: ellipsis;
+            overflow: hidden;
+        }
+
+        code{
+            display: inline-block;
+            padding: 2px 6px;
+            background-color: #3e485a;
+        }
+
+        #content .example a{
+            color: #a7becb;
+        }
+        #content .example a:hover{
+            color: #c3d7ea;
         }
         
         .faq i{
@@ -211,6 +241,7 @@
         <a href="?about" class="active">About</a>
         <a href="?why">Why?</a>
         <a href="?keyboard_commands">Keyboard commands</a>
+        <a href="?url_parameters">URL parameters</a>
         <!--<a href="?history">History</a>-->
         <a href="?faq">FAQ</a>
         <a href="?licenses">Licenses</a>

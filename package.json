@@ -7,6 +7,7 @@
     "license": "MIT",
     "devDependencies": {
         "@parcel/packager-raw-url": "^2.11.0",
+        "@parcel/transformer-webmanifest": "^2.11.0",
         "assert": "^2.0.0",
         "browserify-zlib": "^0.2.0",
         "buffer": "^5.5.0",

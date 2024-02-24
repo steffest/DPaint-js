@@ -1,0 +1,68 @@
+<h2>URL parameters</h2>
+
+DPaint.js can be configured using URL parameters.<br>
+This is useful for sharing a link to a specific image or for integrating DPaint.js in your webapp.<br>
+<br>
+The following parameters are supported:<br>
+
+<h3>file=...</h3>
+<div class="padded">
+    You can directly preload an image into DPaint.js by adding the <code>file</code> parameter to the URL.<br>
+    <div class="warning">Warning: the server should support CORS to allow loading of assets from other domains.</div>
+    <br>
+    If the server doesn't support CORS, or if the url is using HTTP instead of HTTPS, DPaint.js will proxy the image through it's own server.<br>
+    Inevitably, this is slow and a bit wasteful towards my servers' bandwidth, so please try to setup proper CORS headers if you are using this feature.<br>
+    <br>
+    <small>Example:</small><br>
+    <div class="example"><a href="https://www.stef.be/dpaint/?file=https://media.demozoo.org/screens/o/44/f3/7f3b.331414.png" target="_blank">https://www.stef.be/dpaint/?file=https://media.demozoo.org/screens/o/44/f3/7f3b.331414.png</a></div>
+</div>
+
+<h3>presentation=true</h3>
+<div class="padded">
+    You can start DPaint.js in presentation mode by adding the <code>presentation=true</code> parameter to the URL.<br>
+    This is useful for displaying image formats that are not supported directly by the browser or by ensuring a sharp pixel zoom for your pixel-art images<br>
+    Users can zoom and pan the image.<br>
+    They can exit the presentation mode at any time to return to the editor.<br>
+    <br>
+    <small>Example:</small><br>
+    <div class="example"><a href="https://www.stef.be/dpaint/?file=gallery/AH_Venus.iff&presentation=true" target="_blank">https://www.stef.be/dpaint/?file=gallery/AH_Venus.iff&presentation=true</a></div>
+</div>
+
+<h3>play=true</h3>
+<div class="padded">
+    Use in combination with the <code>file</code> parameter.<br>
+    If the image is "playable" (e.g. a gif or an animation, or an image that has Color Cycle ranges), you can start playback immediately by adding the <code>play=true</code> parameter to the URL.<br>
+    <br>
+    <small>Example:</small><br>
+    <div class="example"><a href="https://www.stef.be/dpaint/?file=gallery/color-cycle/ferrari/V07.LBM&play=true" target="_blank">https://www.stef.be/dpaint/?file=gallery/color-cycle/ferrari/V07.LBM&play=true</a></div>
+</div>
+
+
+<h3>zoom=true</h3>
+<div class="padded">
+    Use in combination with the <code>file</code> parameter.<br>
+    Set the zoom to fill the available screen space after the image is loaded.<br>
+    <br>
+    <small>Example:</small><br>
+    <div class="example"><a href="https://www.stef.be/dpaint/?file=gallery/color-cycle/sacks/20000LeaguesUnderTheSea_Shipwreck.iff&play=true&zoom=true" target="_blank">https://www.stef.be/dpaint/?file=gallery/color-cycle/sacks/20000LeaguesUnderTheSea_Shipwreck.iff&play=true&zoom=true</a></div>
+</div>
+
+
+<h3>postback=...</h3>
+<h3>putback=...</h3>
+<div class="padded">
+    You can use the <code>postback</code> and <code>putback</code> parameters to define a URL where the image data will be sent to when the user clicks the "Save" button.<br>
+    The image will be posted as raw binary data.<br>
+    If your endpoint expects a PUT request, use the <code>putback</code> parameter.<br>
+    If your endpoint expects a POST request, use the <code>postback</code> parameter.<br>
+    <div class="warning">Warning: the server should support CORS to allow calling your endpoints from other domains.</div>
+
+    <br>
+    Together with the <code>file</code> parameter, this allows a nicely integrated roundtrip to integrate DPaint.js in your own system, providing an easy image-editing flow that loads from and saves to your own API.<br>
+
+
+</div>
+
+
+
+

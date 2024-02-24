@@ -376,6 +376,12 @@ var EditPanel = function(parent,type){
             me.zoomToFit();
         }
     })
+
+    EventBus.on(COMMAND.ZOOMFIT,()=>{
+        if (me.isVisible()){
+            me.zoomToFit();
+        }
+    })
     
     return me;
 };
