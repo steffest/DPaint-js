@@ -670,13 +670,16 @@ let ImageFile = function(){
         EventBus.trigger(EVENT.imageSizeChanged);
     }
 
-    function addLayer(index,name){
+    function addLayer(index,name,options){
         let newLayer = Layer(
             currentFile.width,
             currentFile.height,
             name || "Layer " + (currentFrame().layers.length + 1)
         );
         let newIndex = currentFrame().layers.length;
+        if (options){
+            if (options.locked) newLayer.locked = true;
+        }
 
         if (typeof index === "undefined") {
             currentFrame().layers.push(newLayer);
@@ -1043,8 +1046,9 @@ let ImageFile = function(){
         input.click();
     });
 
-    EventBus.on(EVENT.layerContentChanged, function(keepImageCache){
-        if (!keepImageCache) cachedImage = undefined;
+    EventBus.on(EVENT.layerContentChanged, function(options){
+        options = options || {};
+        if (!options.keepImageCache) cachedImage = undefined;
         if (activeLayer) activeLayer.update();
         me.render();
         EventBus.trigger(EVENT.imageContentChanged);

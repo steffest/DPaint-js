@@ -87,6 +87,10 @@
           }
         }
 
+        &.locked{
+          pointer-events: none;
+        }
+
         .eye{
           position: absolute;
           right: 4px;
@@ -94,6 +98,18 @@
           width: 16px;
           height: 16px;
           background-image: url("../_img/eye.svg");
+          background-size: contain;
+          background-repeat: no-repeat;
+          opacity: 0.7;
+        }
+
+        .lock{
+          position: absolute;
+          right: 24px;
+          top: 3px;
+          width: 16px;
+          height: 16px;
+          background-image: url("../_img/lock_closed.svg");
           background-size: contain;
           background-repeat: no-repeat;
           opacity: 0.7;

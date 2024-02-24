@@ -6,6 +6,7 @@ import HistoryService from "../services/historyservice.js";
 import DitherPanel from "./components/ditherPanel.js";
 import historyservice from "../services/historyservice.js";
 import Palette from "./palette.js";
+import ImageFile from "../image.js";
 
 let Layer = function(width,height,name){
     let me = {
@@ -14,13 +15,13 @@ let Layer = function(width,height,name){
         name: name,
         blendMode: "normal",
         hasMask: false,
+        locked: false,
     }
     
     let canvas = document.createElement("canvas");
     canvas.width = width;
     canvas.height = height;
     let ctx = canvas.getContext("2d",{willReadFrequently:true});
-
     //note: willReadFrequently forces the canvas to remain on the CPU instead of the GPU
     // this also "fixes" a bug in Chrome where multiple calls to getImageData() on the same canvas clears the canvas incorrectly
 
@@ -249,7 +250,6 @@ let Layer = function(width,height,name){
             for (let i =0, max=img.data.length; i<max; i+=4){
                 img.data[i+3] = img.data[i]; // move red channel to alpha
             }
-
             alphaCtx.putImageData(img, 0, 0);
         }
     }

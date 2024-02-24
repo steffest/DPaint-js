@@ -388,7 +388,7 @@ let Palette = function(){
                 let layer = ImageFile.getActiveLayer();
                 layer.clear();
                 layer.drawImage(c,0,0);
-                EventBus.trigger(EVENT.layerContentChanged,true);
+                EventBus.trigger(EVENT.layerContentChanged,{keepImageCache:true});
             }else{
                 ImageProcessing.reduce(c,targetPalette || targetColorCount,alphaThreshold,ditherIndex);
             }
@@ -705,11 +705,17 @@ let Palette = function(){
             let data = imageData.data;
 
             let hasLayers = ImageFile.getActiveFrame().layers && ImageFile.getActiveFrame().layers.length>1;
-
+            // probably a good idea to move the color cycling to a separate layer anyway
+            hasLayers = true;
 
             if (Animator.isRunning()){
                 Animator.stop();
-                if (hasLayers) ImageFile.removeLayer(ImageFile.getActiveFrame().layers.length-1);
+                if (hasLayers){
+                    let cycleLayer = ImageFile.getActiveFrame().layers.findIndex(l=>l.name === "Colour Cycling" && l.locked);
+                    if (cycleLayer>=0){
+                        ImageFile.removeLayer(cycleLayer);
+                    }
+                }
                 image.colorRange.forEach((range,index)=>{
                     if (range.active){
                         range.index = 0;
@@ -725,7 +731,7 @@ let Palette = function(){
 
                 if (hasLayers){
                     // add temporary layer to combine all layers and use for color cycling
-                    ImageFile.addLayer(undefined,"Colour Cycling");
+                    ImageFile.addLayer(undefined,"Colour Cycling",{locked:true});
                 }
                 let renderContext = ImageFile.getLayer(ImageFile.getActiveFrame().layers.length-1).getContext();
 
@@ -866,6 +872,15 @@ let Palette = function(){
     });
 
     EventBus.on(COMMAND.CYCLEPALETTE,me.cycle);
+
+    EventBus.on(EVENT.layerContentChanged,(options)=>{
+        options = options || {};
+        if (Animator.isRunning() && options.commit){
+            // toggle cycle to regenerate the color cycle layer after draw
+            me.cycle();
+            me.cycle();
+        }
+    });
 
 
     return me;

@@ -86,6 +86,10 @@ let Canvas = function(parent){
         hideOverlay();
     }, false);
 
+    //canvas.addEventListener("touchmove",(e)=>{
+    //    console.error("m3",e.targetTouches[0].force);
+    //});
+
     canvas.addEventListener("touchend",(e)=>{
         // This is needed to avoid the "selection lens" on mobile safari on double tap/hold
         e.preventDefault();
@@ -276,7 +280,6 @@ let Canvas = function(parent){
 
     function handle(action,e){
         e.preventDefault();
-
         var point;
         switch (action){
             case "down":
@@ -592,12 +595,12 @@ let Canvas = function(parent){
                 if (touchData.isDrawing){
                     let layer = touchData.drawLayer || ImageFile.getActiveLayer();
                     layer.commitDraw();
-                    EventBus.trigger(EVENT.layerContentChanged);
+                    EventBus.trigger(EVENT.layerContentChanged,{commit:true});
                 }
 
                 if (touchData.isSmudging){
                     historyservice.end();
-                    EventBus.trigger(EVENT.layerContentChanged);
+                    EventBus.trigger(EVENT.layerContentChanged,{commit:true});
                 }
 
                 if (touchData.isSelecting){
@@ -610,7 +613,7 @@ let Canvas = function(parent){
                             //drawFunction(ImageFile.getActiveContext(),s.left,s.top,s.width,s.height,touchData.button)
                             ImageFile.getActiveLayer().commitDraw();
                             drawFunction = undefined;
-                            EventBus.trigger(EVENT.layerContentChanged);
+                            EventBus.trigger(EVENT.layerContentChanged,{commit:true});
                             EventBus.trigger(COMMAND.CLEARSELECTION);
                         }
                     }else{

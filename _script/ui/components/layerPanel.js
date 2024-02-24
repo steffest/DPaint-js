@@ -227,6 +227,14 @@ let LayerPanel = function(){
                 })
             }
 
+            if (layer.locked){
+                elm.classList.add("locked");
+                $(".lock",{
+                    parent:elm,
+                    info:"Layer is locked"
+                })
+            }
+
             if (activeIndex === i){
                 opacityRange.value = layer.opacity;
                 blendSelect.value = layer.blendMode;
