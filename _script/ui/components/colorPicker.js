@@ -87,7 +87,7 @@ let ColorPicker = function(){
         dot.style.top = cy+"px";
 
         let imageData = ctx.getImageData(cx, cy, 1, 1).data;
-        Palette.setColor(imageData,button)
+        Palette.setColor(imageData,button,true)
     }
 
     function setStrip(sy,button){

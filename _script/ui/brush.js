@@ -158,6 +158,7 @@ var Brush = function(){
         let w,h,p;
         let useCustomBlend = blendColor && Palette.isLocked();
         let useOpacity = ToolOptions.usePressure() && !useCustomBlend;
+        let finalColor = color;
 
         if (brushType === "canvas"){
             w = brushCanvas.width;
@@ -195,7 +196,7 @@ var Brush = function(){
                 for (let i = 0; i<data.data.length;i+=4){
                     let sourceColor = [data.data[i],data.data[i+1],data.data[i+2]];
                     let targetColor = Color.blend(sourceColor,c,opacity2);
-                    let finalColor = Palette.matchColor(targetColor);
+                    finalColor = Palette.matchColor(targetColor);
 
                     console.log(sourceColor,finalColor);
                     if (Color.equals(sourceColor,finalColor) && !Color.equals(sourceColor,c)){
@@ -221,6 +222,14 @@ var Brush = function(){
         if (useOpacity){
             ctx.globalAlpha = p;
         }
+
+        return{
+            x:x,
+            y:y,
+            width:w,
+            height:h,
+            color:finalColor
+        };
 
     }
     

@@ -275,7 +275,7 @@ let Generate = function(){
 
                                 // making some assumptions here:
                                 // get from palette
-                                colorIndex = Palette.getColorIndex([r,g,b]);
+                                colorIndex = Palette.getColorIndex([r,g,b],true);
 
                                 // check if already in list
                                 if (colorIndex<0) colorIndex = additionalColors.indexOf(rgb);

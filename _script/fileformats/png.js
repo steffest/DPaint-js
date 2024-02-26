@@ -101,7 +101,7 @@ let IndexedPng = function(){
                 let r = pixels[i];
                 let g = pixels[i + 1];
                 let b = pixels[i + 2];
-                let color = Palette.getColorIndex([r, g, b]);
+                let color = Palette.getColorIndex([r, g, b],true);
                 data[scanLineIndex + x + 1] = color;
             }
         }

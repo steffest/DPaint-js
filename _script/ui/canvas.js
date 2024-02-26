@@ -321,7 +321,7 @@ let Canvas = function(parent){
                     Cursor.override("colorpicker");
                     Cursor.attach("colorpicker");
                     var pixel = ctx.getImageData(point.x, point.y, 1, 1).data;
-                    Palette.setColor(pixel,!!e.button);
+                    Palette.setColor(pixel,!!e.button,true);
                     return;
                 }
 
@@ -693,7 +693,7 @@ let Canvas = function(parent){
 
                     if ((Input.isShiftDown() || Input.isAltDown()) && Editor.canPickColor()){
                         var pixel = ctx.getImageData(point.x, point.y, 1, 1).data;
-                        Palette.setColor(pixel);
+                        Palette.setColor(pixel,false,true);
                         return;
                     }
 

@@ -28,10 +28,12 @@ let Palette = function(){
     let cycleButton;
     let lockButton;
     let isLocked = false;
+    let hasDuplicates = false;
 
     var drawColor = "black";
     var backgroundColor = "white";
     var drawColorIndex = 1;
+    var backColorIndex = 0;
 
     var colors = [
         [149,149,149],
@@ -145,7 +147,7 @@ let Palette = function(){
 
         let display = $div("display","",container);
         let colorPicker = $input("color","",display,()=>{
-            me.setColor(colorPicker.value,colorPicker.isBack);
+            me.setColor(colorPicker.value,colorPicker.isBack,true);
         });
         let front = $div("front info","",display,()=>{
             colorPicker.value = Color.toHex(me.getDrawColor());
@@ -166,7 +168,7 @@ let Palette = function(){
         swapColors.info = "<b>X</b> Swap foreground and background color"
 
         let noColor = $div("button transparentcolors info","",display,(e)=>{
-            me.setColor("transparent",e.button);
+            me.setColor("transparent",e.button,true);
         });
         noColor.info = "Select transparent color, left click to select front, right click to select back";
 
@@ -198,7 +200,13 @@ let Palette = function(){
                 const x = Math.floor(e.clientX - rect.left);
                 const y = Math.floor(e.clientY - rect.top);
                 let p = paletteCtx.getImageData(x,y,1,1).data;
-                me.setColor([p[0],p[1],p[2]],e.button);
+                let index = Math.floor(x/size) + Math.floor(y/size) * 4 + palettePageIndex * 4 * Math.floor(currentHeight/size);
+                if (e.button){
+                    backColorIndex = index;
+                }else {
+                    drawColorIndex = index;
+                }
+                me.setColor([p[0],p[1],p[2]],e.button,false);
             }
         })
 
@@ -232,18 +240,24 @@ let Palette = function(){
 
         });
 
-        me.setColor(colors[1],false);
-        me.setColor(colors[2],true);
+        me.setColor(colors[1],false,true);
+        me.setColor(colors[2],true,true);
     }
 
 
 
-    me.setColor=function(color,back){
+    me.setColor=function(color,back,matchIndex){
         if (back){
             backgroundColor = Color.toString(color);
             EventBus.trigger(EVENT.backgroundColorChanged,color);
+            if (matchIndex){
+                backColorIndex = me.getColorIndex(color,false);
+            }
         }else{
             drawColor = Color.toString(color);
+            if (matchIndex){
+                drawColorIndex = me.getColorIndex(color,false);
+            }
             drawPalette();
             EventBus.trigger(EVENT.drawColorChanged,color);
         }
@@ -280,12 +294,16 @@ let Palette = function(){
             if (drawColorIndex < 0) drawColorIndex = currentPalette.length-1;
             if (drawColorIndex >= currentPalette.length) drawColorIndex = 0;
 
-            me.setColor(currentPalette[drawColorIndex],false);
+            me.setColor(currentPalette[drawColorIndex],false,false);
         }
     }
 
     me.getDrawColorIndex = function(){
         return drawColorIndex;
+    }
+
+    me.getBackColorIndex = function(){
+        return backColorIndex;
     }
 
     me.isLocked = function(){
@@ -317,6 +335,7 @@ let Palette = function(){
                 pageNext = $(".next.active",{onClick:()=>{setPage(1)}})));
         }
         currentPalette = palette;
+        scanDuplicates();
         drawPalette();
 
         function setPage(index){
@@ -349,7 +368,7 @@ let Palette = function(){
             paletteCtx.fillStyle = "rgb(" + color[0] + "," + color[1] + "," + color[2] + ")";
             paletteCtx.fillRect(x,y,size,size);
 
-            if (color[0] === current[0] && color[1] === current[1] && color[2] === current[2]){
+            if (i === drawColorIndex){
                 paletteCtx.fillStyle = "black";
                 paletteCtx.fillRect(x+2,y+2,4,4);
                 paletteCtx.fillStyle = "white";
@@ -403,11 +422,13 @@ let Palette = function(){
         ImageProcessing.reduce(c,currentPalette,alphaThreshold,0);
     }
 
-    me.getColorIndex = function(color){
+    me.getColorIndex = function(color,forceMatch){
         var index = currentPalette.findIndex((c)=>{return c[0] === color[0] && c[1] === color[1] && c[2] === color[2]});
-        if (index<0) index=0;
+        if (index<0 && forceMatch) index=0;
         return index;
     }
+
+    me.getColor = index=>currentPalette[index];
 
     me.matchColor = function(color){
         // find the closest color in the palette
@@ -671,6 +692,10 @@ let Palette = function(){
         return paletteMap;
     }
 
+    me.hasDuplicates = function(){
+        return hasDuplicates;
+    }
+
     me.loadPreset = function(preset){
         return new Promise((resolve)=>{
             if (preset && preset.palette){
@@ -731,7 +756,7 @@ let Palette = function(){
 
                 if (hasLayers){
                     // add temporary layer to combine all layers and use for color cycling
-                    ImageFile.addLayer(undefined,"Colour Cycling",{locked:true});
+                    ImageFile.addLayer(undefined,"Colour Cycling",{locked:true,internal:true});
                 }
                 let renderContext = ImageFile.getLayer(ImageFile.getActiveFrame().layers.length-1).getContext();
 
@@ -768,14 +793,6 @@ let Palette = function(){
         let image = ImageFile.getCurrentFile();
 
         let regeneratePixels = true;
-        if (image.originalType === "IFF" && image.indexedPixels) regeneratePixels = false;
-
-        // TODO - FIXME
-        // when we have a palette that includes identical colors
-        // we loose the index-to-color mapping of the original file when we regenerate the indexes
-        // maybe we should "slightly" adjust the palette color when loading these files ?
-        // or keep a more direct paletteIndex-to-pixel map?
-
         if (regeneratePixels) ImageFile.generateIndexedPixels();
         let pixels = image.indexedPixels || [];
 
@@ -822,13 +839,30 @@ let Palette = function(){
         }
     }
 
+    function scanDuplicates(){
+        hasDuplicates = false;
+        for (let i=0;i<currentPalette.length;i++){
+            let color = currentPalette[i];
+            let match = currentPalette.findIndex((c,index)=>{
+                return index!==i && c[0]===color[0] && c[1]===color[1] && c[2]===color[2];
+            });
+            if (match>=0){
+                hasDuplicates = true;
+                break;
+            }
+        }
+    }
+
 
     EventBus.on(COMMAND.PALETTEFROMIMAGE,me.fromImage);
     EventBus.on(COMMAND.PALETTEREDUCE,me.reduce);
     EventBus.on(COMMAND.SWAPCOLORS,()=>{
         let c = drawColor;
-        me.setColor(backgroundColor);
-        me.setColor(c,1);
+        me.setColor(backgroundColor,false,false);
+        me.setColor(c,true,false);
+        c = drawColorIndex;
+        drawColorIndex = backColorIndex;
+        backColorIndex = c;
     })
     EventBus.on(EVENT.UIresize,()=>{
         let box = paletteCanvas.getBoundingClientRect();

@@ -393,7 +393,7 @@ var PaletteDialog = function() {
     function setColor(color,index){
         if (index>=Palette.get().length) return;
         currentIndex = index;
-        Palette.setColor(color);
+        Palette.setColor(color,false,true);
     }
 
     function setColorSelection(){
