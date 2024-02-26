@@ -27,6 +27,7 @@
 import BinaryStream from "../util/binarystream.js";
 import ImageProcessing from "../util/imageProcessing.js";
 import Palette from "../ui/palette.js";
+import Color from "../util/color.js";
 
 const FILETYPE = {
     IFF: { name: "IFF file" },
@@ -556,6 +557,36 @@ const IFF = (function () {
         }
         //const ctx = canvas.getContext("2d");
         //let imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+        if (!img.ham && !img.trueColor && img.colourRange && img.colourRange.length > 0){
+            // Executive decision right here:
+            // we're checking for duplicate colors in the palette that are inside the color range
+            // if we find any, we're going to slighty alter them to make them unique
+            // this is definitely a hack, but otherwise we have to implement full color index tracking through ALL image operations in ALL layers, which is definitely not worth it
+
+            img.palette.forEach((color, index) => {
+                if (img.colourRange.some(range => range.low <= index && index <= range.high)) {
+                    let colorIndex = img.palette.findIndex((c, i) => i !== index && Color.equals(c, color));
+                    let offsetIndex = 0;
+                    let direction = [1,1,1];
+                    if (color[0] > 128) direction[0] = -1;
+                    if (color[1] > 128) direction[1] = -1;
+                    if (color[2] > 128) direction[2] = -1;
+                    let count = 0;
+
+                    while (colorIndex !== -1 && count < 60) {
+                        color[offsetIndex] += direction[offsetIndex];
+                        if (color[offsetIndex] < 0) color[offsetIndex] = 0;
+                        if (color[offsetIndex] > 255) color[offsetIndex] = 255;
+                        offsetIndex = (offsetIndex + 1) % 3;
+                        colorIndex = img.palette.findIndex((c, i) => i !== index && Color.equals(c, color));
+                        count++;
+                    }
+                    img.palette[index] = color;
+                }
+            })
+        }
+
         let imageData = new ImageData(img.width, img.height);
         for (let y = 0; y < img.height; y++) {
             let prevColor = [0, 0, 0];

@@ -211,29 +211,6 @@ let ImageFile = function(){
                     canvas.height = h;
                     ctx.drawImage(d, aX, aY);
                     releaseCanvas(d);
-
-                    let p = layer.getIndexedPixels();
-                    if (p && p.length){
-                        let newPixels= [];
-                        let startY = 0;
-                        if (aY<0) startY = Math.abs(aY);
-                        let endY = p.length;
-                        if (aY+endY>h) endY = h-aY;
-                        for (let y = startY; y < endY; y++) {
-                            let line = p[y];
-                            newPixels[y+aY] = [];
-                            let startX = 0;
-                            let endX = line.length;
-                            if (aX<0) startX = Math.abs(aX);
-                            if (aX+endX>w) endX = w-aX;
-                            for (let x = startX; x < endX; x++) {
-                                newPixels[y+aY][x+aX] = line[x];
-                            }
-                        }
-                        layer.setIndexedPixels(newPixels);
-                    }
-
-
                 });
             });
             EventBus.trigger(EVENT.imageSizeChanged);
@@ -348,6 +325,7 @@ let ImageFile = function(){
             ctx.drawImage(canvas, 0, 0);
             ctx.setTransform(1, 0, 0, 1, 0, 0);
             releaseCanvas(canvas);
+
             EventBus.trigger(EVENT.layerContentChanged);
         }
     }
@@ -484,7 +462,6 @@ let ImageFile = function(){
         let struct = me.clone();
         struct.palette = Palette.get();
         if (currentFile.colorRange) struct.colorRange = currentFile.colorRange;
-        if (currentFile.indexedPixels) struct.indexedPixels = currentFile.indexedPixels;
         console.log(struct);
         return struct;
     }
@@ -647,9 +624,6 @@ let ImageFile = function(){
             if (data.colorRange){
                 currentFile.colorRange = data.colorRange;
             }
-            if (data.indexedPixels){
-                currentFile.indexedPixels = data.indexedPixels;
-            }
         }
         if (data.type === "palette") {
             Palette.set(data.palette);
@@ -679,7 +653,7 @@ let ImageFile = function(){
         if (originalData){
             if (originalData.palette) currentFile.palette = originalData.palette;
             if (originalData.colourRange) currentFile.colorRange = originalData.colourRange;
-            //if (originalData.pixels) currentFile.indexedPixels = originalData.pixels;
+            if (originalData.pixels) currentFile.indexedPixels = originalData.pixels;
             currentFile.originalData = originalData;
         }
         activeFrameIndex = 0;
@@ -687,7 +661,6 @@ let ImageFile = function(){
         addLayer();
         activeLayer = currentFrame().layers[0];
         activeLayer.clear();
-        if (originalData && originalData.pixels) activeLayer.setIndexedPixels(originalData.pixels);
         if (image) {
             activeLayer.getContext().drawImage(image, 0, 0);
         }
@@ -910,44 +883,12 @@ let ImageFile = function(){
         let pixels = [];
         let data = ctx.getImageData(0,0,width,height).data;
         let colors = Palette.get();
-        let duplicates = {};
-        let layers;
-
-        if (Palette.hasDuplicates()){
-            if (frameIndex === undefined) frameIndex = activeFrameIndex;
-            layers = currentFile.frames[frameIndex].layers;
-            colors.forEach((color,index)=>{
-                for (let i = index+1;i<colors.length;i++){
-                    if (color[0] === colors[i][0] && color[1] === colors[i][1] && color[2] === colors[i][2]){
-                        duplicates[index] = duplicates[index] || [];
-                        duplicates[index].push(i);
-                    }
-                }
-            });
-            console.log("duplicate Indexes",duplicates);
-        }
 
         function getIndex(color,x,y){
             let index = colors.findIndex((c)=>{return c[0] === color[0] && c[1] === color[1] && c[2] === color[2]});
             if (index<0){
                 index = 0;
                 console.error("color not found in palette",color);
-            }else{
-                if (duplicates[index] && duplicates[index].length){
-                    // check if we have a matching index in the layers
-                    let found = false;
-                    for (let i = layers.length-1;i>=0;i--){
-                        let layer = layers[i];
-                        if (!layer.visible) continue;
-                        if (layer.internal) continue;
-                        let p = layer.getIndexedPixels();
-                        if (p && p[y] && typeof p[y][x] === "number" && duplicates[index].indexOf(p[y][x]) >= 0){
-                            index = p[y][x];
-                            found = true;
-                            break;
-                        }
-                    }
-                }
             }
             return index;
         }

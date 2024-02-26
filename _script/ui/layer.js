@@ -38,7 +38,6 @@ let Layer = function(width,height,name){
     let isDrawing;
     let drawOpacity;
     let currentColor;
-    let indexedPixels = [];
 
     me.getCanvas = function(){
         if (maskActive){
@@ -119,7 +118,6 @@ let Layer = function(width,height,name){
             maskCtx.clearRect(0,0, canvas.width, canvas.height);
         }else{
             ctx.clearRect(0,0, canvas.width, canvas.height);
-            indexedPixels = [];
         }
     }
 
@@ -154,28 +152,6 @@ let Layer = function(width,height,name){
             drawCtx.globalCompositeOperation = touchData.button ? "destination-out" : "destination-in";
             drawCtx.drawImage(pattern,0,0);
             drawCtx.globalCompositeOperation = "source-over";
-        }
-
-        if (Palette.hasDuplicates()){
-            console.error("Palette has duplicates");
-            let index;
-            let selectedIndex = touchData.button ? Palette.getBackColorIndex() : Palette.getDrawColorIndex();
-            let c = Palette.getColor(selectedIndex);
-            if (Color.equals(c,b.color)){
-                index = selectedIndex;
-            }else{
-                // meh ... no exact match, this fallbacks to the first color in the palette that matches the color
-                index = Palette.getColorIndex(b.color);
-            }
-            if (index !== -1){
-                for (let y = b.y; y<b.y+b.width; y++){
-                    let line = indexedPixels[y] || [];
-                    for (let x = b.x; x<b.x+b.width; x++){
-                        line[x] = index;
-                    }
-                    indexedPixels[y] = line;
-                }
-            }
         }
     }
 
@@ -218,7 +194,6 @@ let Layer = function(width,height,name){
             }
         }
         ctx.putImageData(imageData,0,0);
-        indexedPixels = [];
     }
 
     me.addMask = function(hide){
@@ -292,9 +267,6 @@ let Layer = function(width,height,name){
         if (me.hasMask){
             struct.mask = forSerialization ? mask.toDataURL() : duplicateCanvas(mask);
         }
-        if (indexedPixels.length){
-            struct.indexedPixels = indexedPixels.slice();
-        }
 
         return struct;
     }
@@ -307,10 +279,6 @@ let Layer = function(width,height,name){
             me.opacity = struct.opacity;
             me.visible = !!struct.visible;
             me.hasMask = !!struct.hasMask;
-
-            if (struct.indexedPixels){
-                indexedPixels = struct.indexedPixels.slice();
-            }
 
             let canvasRestored = true;
             let maskRestored = true;
@@ -366,14 +334,6 @@ let Layer = function(width,height,name){
             }
             isDone();
         });
-    }
-
-    me.setIndexedPixels = (pixels)=>{
-        indexedPixels = pixels;
-    }
-
-    me.getIndexedPixels = ()=>{
-        return indexedPixels;
     }
     
     return me;
