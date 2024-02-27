@@ -462,6 +462,11 @@ let ImageFile = function(){
         let struct = me.clone();
         struct.palette = Palette.get();
         if (currentFile.colorRange) struct.colorRange = currentFile.colorRange;
+        if (currentFile.indexedPixels){
+            struct.indexedPixels = currentFile.indexedPixels;
+        }else{
+            //struct.indexedPixels = me.generateIndexedPixels();
+        }
         console.log(struct);
         return struct;
     }
@@ -814,8 +819,8 @@ let ImageFile = function(){
             ctx.globalCompositeOperation = "source-over";
             currentFrame().layers.splice(index, 1);
             if (!skipHistory) Historyservice.end();
-            EventBus.trigger(EVENT.layerContentChanged);
             me.activateLayer(index - 1);
+            EventBus.trigger(EVENT.layerContentChanged);
         }
     };
 
@@ -883,12 +888,13 @@ let ImageFile = function(){
         let pixels = [];
         let data = ctx.getImageData(0,0,width,height).data;
         let colors = Palette.get();
+        let notFoundCount = 0;
 
         function getIndex(color,x,y){
             let index = colors.findIndex((c)=>{return c[0] === color[0] && c[1] === color[1] && c[2] === color[2]});
             if (index<0){
                 index = 0;
-                console.error("color not found in palette",color);
+                notFoundCount++;
             }
             return index;
         }
@@ -913,6 +919,9 @@ let ImageFile = function(){
         currentFile.indexedPixels = pixels;
         let time = performance.now() - now;
         console.log("Indexed pixels generated in " + time + "ms");
+        if (notFoundCount){
+            console.warn("Indexed pixels: " + notFoundCount + " colors not found in palette");
+        }
         return pixels;
 
     }
