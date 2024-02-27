@@ -133,9 +133,13 @@ let ColorRange = function(){
 
     function updateRange(range,done){
         if (range.low>range.high){
-            let temp = range.low;
-            range.low = range.high;
-            range.high = temp;
+            if (done){
+                let temp = range.low;
+                range.low = range.high;
+                range.high = temp;
+            }else{
+                range.high = range.low;
+            }
         }
         let ctx = colorRangeContext[currentRange];
         if (ctx){
