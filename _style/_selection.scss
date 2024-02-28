@@ -84,6 +84,38 @@
     top: 0;
     right: 0;
     bottom: 0;
+
+    .shape{
+      svg{
+        width: 100%;
+
+
+        .white {
+          fill: none;
+          stroke: #FFF;
+          stroke-width: 2px;
+          vector-effect: non-scaling-stroke;
+        }
+
+        .ants {
+          fill: none;
+          stroke: #000;
+          stroke-width: 2px;
+          vector-effect: non-scaling-stroke;
+          stroke-dasharray: 4px;
+          animation: stroke 0.2s linear infinite;
+          /*shape-rendering: geometricPrecision;*/
+          stroke-dashoffset: 8px;
+        }
+
+        @keyframes stroke {
+          to {
+            stroke-dashoffset: 0;
+          }
+        }
+
+      }
+    }
   }
 
 
@@ -104,6 +136,16 @@
       position: absolute;
       left: 0;
       top: 0;
+      z-index: 11;
+    }
+
+    .shape{
+      position: absolute;
+      left: 0;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      pointer-events: none;
       z-index: 10;
     }
   }

@@ -369,6 +369,9 @@ var Input = function(){
 				switch (key){
 					case "a": EventBus.trigger(COMMAND.LAYERMASK); break;
 					case "h": EventBus.trigger(COMMAND.LAYERMASKHIDE); break;
+					case "l": EventBus.trigger(COMMAND.TOSELECTION); break;
+					case "p": EventBus.trigger(COMMAND.COLORSELECT); break;
+					case "arrowdown": EventBus.trigger(COMMAND.MERGEDOWN); break;
 				}
 			}else{
 				switch (key){

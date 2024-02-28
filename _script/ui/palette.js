@@ -356,7 +356,7 @@ let Palette = function(){
         let end = start + cols * rows;
         if (end > currentPalette.length) end = currentPalette.length;
         paletteCtx.clearRect(0,0,paletteCanvas.width,paletteCanvas.height);
-        let current = Color.fromString(drawColor);
+
         for (let i=start;i<end;i++){
             let color = currentPalette[i];
             if (typeof color === "string"){
@@ -759,6 +759,7 @@ let Palette = function(){
                         EventBus.trigger (EVENT.imageContentChanged);
                     }
                 });
+                drawPalette();
             }else{
 
                 if (hasLayers){
@@ -857,6 +858,9 @@ let Palette = function(){
                 hasDuplicates = true;
                 break;
             }
+        }
+        if (hasDuplicates){
+            console.warn("Palette has duplicates");
         }
     }
 

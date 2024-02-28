@@ -21,8 +21,11 @@ let SelectBox = (()=>{
     let selectionPoints = [];
     let selecting;
     let dots;
+    let shape;
+    let currentWidth;
+    let currentHeight;
 
-    let border = $div("border","<svg xmlns='http://www.w3.org/2000/svg' viewbox='0 0 40 40' preserveAspectRatio='none'><rect class='white' width='40' height='40'/><<rect class='ants'  width='40' height='40'/>/svg>");
+    let border = $div("border","<svg xmlns='http://www.w3.org/2000/svg' viewbox='0 0 40 40' preserveAspectRatio='none'><rect class='white' width='40' height='40'/><rect class='ants'  width='40' height='40'/>/svg>");
     box.appendChild(border);
 
     let content = $div("content");
@@ -41,6 +44,8 @@ let SelectBox = (()=>{
         if (canvas){
             me.endPolySelect();
             content.innerHTML = "";
+            dots = undefined;
+            shape = undefined;
             selectionPoints = [];
             selecting = false;
             canvas.remove();
@@ -65,9 +70,10 @@ let SelectBox = (()=>{
         selectionPoints.push(point);
         if (selectionPoints.length===1) selectionPoints.push({x:point.x,y:point.y});
 
-        let w = ImageFile.getCurrentFile().width;
-        let h = ImageFile.getCurrentFile().height;
-        Selection.set({left: 0, top: 0, width: w, height: h, points: selectionPoints});
+        currentWidth = ImageFile.getCurrentFile().width;
+        currentHeight =  ImageFile.getCurrentFile().height;
+        Selection.set({left: 0, top: 0, width: currentWidth, height: currentHeight, points: selectionPoints});
+
         drawShape();
     }
 
@@ -262,7 +268,7 @@ let SelectBox = (()=>{
             p.x = point.x;
             p.y = point.y;
         }
-        Selection.set({left: 0, top: 0, width: canvas.width, height: canvas.height, points: selectionPoints});
+        Selection.set({left: 0, top: 0, width: currentWidth, height: currentHeight, points: selectionPoints});
         drawShape();
     }
 
@@ -289,11 +295,21 @@ let SelectBox = (()=>{
     }
 
     function drawShape(){
+        if (!shape) shape = $div("shape","",content);
         let zoom = Editor.getActivePanel().getZoom();
-        ctx.clearRect(0,0,canvas.width,canvas.height);
+
         dots.innerHTML = "";
-        ctx.lineWidth = "2px";
-        ctx.beginPath();
+
+        //ctx.clearRect(0,0,canvas.width,canvas.height);
+        //ctx.lineWidth = "2px";
+        //ctx.beginPath();
+
+        // generate SVG shape
+        let svg = "<svg xmlns='http://www.w3.org/2000/svg' viewbox='0 0 "+currentWidth+" " + currentHeight +"' preserveAspectRatio='none'>";
+        let path = "";
+
+
+
         selectionPoints.forEach((point,index)=>{
             let dot = $div("sizedot","",dots,()=>{
 
@@ -309,23 +325,51 @@ let SelectBox = (()=>{
             }
             dot.style.left = point.x*zoom + "px";
             dot.style.top = point.y*zoom + "px";
+
+            path += point.x + " " + point.y + " ";
             if (index){
-                ctx.lineTo(point.x,point.y);
+                //ctx.lineTo(point.x,point.y);
             }else{
-                ctx.moveTo(point.x,point.y);
+                //ctx.moveTo(point.x,point.y);
             }
         });
-        ctx.closePath();
 
-        ctx.fillStyle = "rgba(255,0,0,0.3)";
-        ctx.fill();
+        // close the path
+        if (selectionPoints.length>1){
+            path += selectionPoints[0].x + " " + selectionPoints[0].y + " ";
+        }
 
-        ctx.strokeStyle = "black";
-        ctx.setLineDash([]);
-        ctx.stroke();
-        ctx.setLineDash([5, 5]);
-        ctx.strokeStyle = "white";
-        ctx.stroke();
+        svg += "<path class='white' d='M" + path + "'/>";
+        svg += "<path class='ants' d='M" + path + "'/>";
+
+
+        svg += "</svg>";
+
+        //let SVG = new DOMParser().parseFromString(svg, "image/svg+xml");
+        //let path = SVG.querySelector("path");
+        //path.setAttribute("stroke","white");
+        //path.setAttribute("stroke-width","2");
+        //path.setAttribute("fill","none");
+
+        // set width and height of the svg
+        //SVG.documentElement.setAttribute("width",canvas.width);
+        //SVG.documentElement.setAttribute("height",canvas.height);
+
+        shape.innerHTML = svg;
+        //console.error(shape);
+        //console.error(SVG);
+
+        //ctx.closePath();
+
+        //ctx.fillStyle = "rgba(255,0,0,0.3)";
+        //ctx.fill();
+
+        //ctx.strokeStyle = "black";
+        //ctx.setLineDash([]);
+        //ctx.stroke();
+        //ctx.setLineDash([5, 5]);
+        //ctx.strokeStyle = "white";
+        //ctx.stroke();
 
     }
 
@@ -357,7 +401,7 @@ let SelectBox = (()=>{
     })
 
     EventBus.on(COMMAND.TOSELECTION,()=>{
-        // TODO: what's the difference between this and COMMAND.SELECTALL?
+        //This is different from COMMAND.SELECTALL as this selects the actual pixels?
         let layer = ImageFile.getActiveLayer();
         me.applyCanvas(layer.getCanvas());
     });

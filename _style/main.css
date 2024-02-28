@@ -1419,7 +1419,7 @@ body.override .splitpanel .panel .toolbar .toolpanel .options .checkbox.pressure
 }
 .palettelist .palette .caption {
   background-color: transparent;
-  border-top: 1px solid #434548;
+  border-top: 1px solid rgb(67, 69, 72);
   width: 100%;
   height: auto;
   font-size: 11px;
@@ -1802,6 +1802,30 @@ body.presentation .splitpanel .toolbar .toolpanel {
   right: 0;
   bottom: 0;
 }
+.selectbox .content .shape svg {
+  width: 100%;
+}
+.selectbox .content .shape svg .white {
+  fill: none;
+  stroke: #FFF;
+  stroke-width: 2px;
+  vector-effect: non-scaling-stroke;
+}
+.selectbox .content .shape svg .ants {
+  fill: none;
+  stroke: #000;
+  stroke-width: 2px;
+  vector-effect: non-scaling-stroke;
+  stroke-dasharray: 4px;
+  animation: stroke 0.2s linear infinite;
+  /*shape-rendering: geometricPrecision;*/
+  stroke-dashoffset: 8px;
+}
+@keyframes stroke {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
 .selectbox.active {
   display: block;
 }
@@ -1817,6 +1841,15 @@ body.presentation .splitpanel .toolbar .toolpanel {
   position: absolute;
   left: 0;
   top: 0;
+  z-index: 11;
+}
+.selectbox.full .shape {
+  position: absolute;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
   z-index: 10;
 }
 
@@ -2002,7 +2035,7 @@ body.hovercanvas.pointerdown.cursor-colorpicker .cursor .mark {
   border-bottom: 1px solid black;
   position: relative;
   height: 20px;
-  background-color: #00000038;
+  background-color: rgba(0, 0, 0, 0.2196078431);
   cursor: move;
   user-select: none;
 }
@@ -2851,14 +2884,14 @@ body.hovercanvas.pointerdown.cursor-colorpicker .cursor .mark {
   margin-top: -2px;
 }
 .modalwindow .inner .effects .slider input[type=range]::-webkit-slider-runnable-track {
-  background: linear-gradient(90deg, black 0%, #c8c8c8 100%);
+  background: linear-gradient(90deg, rgb(0, 0, 0) 0%, rgb(200, 200, 200) 100%);
   border: 1px solid #010101;
   width: 100%;
   height: 4px;
   cursor: pointer;
 }
 .modalwindow .inner .effects .slider input[type=range]::-moz-range-track {
-  background: linear-gradient(90deg, black 0%, #c8c8c8 100%);
+  background: linear-gradient(90deg, rgb(0, 0, 0) 0%, rgb(200, 200, 200) 100%);
   border: 1px solid #010101;
   width: 100%;
   height: 2px;

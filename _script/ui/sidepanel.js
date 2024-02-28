@@ -91,6 +91,10 @@ var SidePanel = function(){
         document.body.classList.toggle("withsidepanel");
     }
 
+    me.isVisible = ()=>{
+        return document.body.classList.contains("withsidepanel");
+    }
+
     me.showInfo = (file)=>{
         let contentPanel = panels.info.container.querySelector(".inner");
         if (contentPanel){
@@ -125,7 +129,8 @@ var SidePanel = function(){
             panelInfo.collapsed = !panelInfo.collapsed;
             setPanelsState();
         });
-        let close = $div("close","x",caption,me.hide);
+        let close = $div("close info","x",caption,()=>EventBus.trigger(COMMAND.TOGGLESIDEPANEL));
+        close.info = "Close side panels";
         let inner = $div("inner","",panel);
         if (panelInfo.content){
             panelInfo.content(inner);
@@ -156,6 +161,8 @@ var SidePanel = function(){
         line.appendChild(dd);
         parent.appendChild(line);
     }
+
+    EventBus.on(COMMAND.TOGGLESIDEPANEL,me.toggle);
     
     return me;
 }()

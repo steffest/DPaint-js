@@ -61,7 +61,7 @@ let Toolbar = function(){
     function generate(){
         let tools = $(".tools",{parent: container},
             $(".togglepanel.sidebar",{
-                onClick: SidePanel.toggle,
+                onClick: ()=>EventBus.trigger(COMMAND.TOGGLESIDEPANEL),
                 info:"Toggle side panels"
             })
         );

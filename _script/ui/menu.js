@@ -55,20 +55,22 @@ let Menu = function(){
                 {label: "Effects",command: COMMAND.EFFECTS,shortKey: "meta+B"},
                 {label: "Move Up",command: COMMAND.LAYERUP},
                 {label: "Move Down",command: COMMAND.LAYERDOWN},
-                {label: "Merge Down",command: COMMAND.MERGEDOWN},
+                {label: "Merge Down",command: COMMAND.MERGEDOWN, shortKey: "meta+Shift+↓"},
                 {label: "Add Mask",items:[
                         {label: "Show All",command: COMMAND.LAYERMASK, shortKey: "meta+Shift+A"},
                         {label: "Hide All",command: COMMAND.LAYERMASKHIDE, shortKey: "meta+Shift+H"},
-                    ]},
-                {label: "Layer to Selection",command: COMMAND.TOSELECTION}
+                    ]}
             ]},
         {label: "Selection", items:[
+                {label: "Select",items:[
+                        {label: "All",command: COMMAND.SELECTALL,shortKey: "meta+A"},
+                        {label: "Pixels in Current Layer",command: COMMAND.TOSELECTION, shortKey: "meta+Shift+L"},
+                        {label: "Pixels in Current Color",command: COMMAND.COLORSELECT, shortKey: "meta+Shift+P"},
+                    ]},
                 {label: "Deselect",command: COMMAND.CLEARSELECTION,shortKey: "Esc"},
-                {label: "Select All",command: COMMAND.SELECTALL,shortKey: "meta+A"},
-                {label: "Select Current Color",command: COMMAND.COLORSELECT},
                 {label: "Copy To Layer",command: COMMAND.TOLAYER,shortKey: "meta+J"},
                 {label: "Cut To Layer",command: COMMAND.CUTTOLAYER,shortKey: "meta+K"},
-                {label: "To Brush",command: COMMAND.STAMP,shortKey: "meta+E"}
+                {label: "Copy To Brush",command: COMMAND.STAMP,shortKey: "meta+E"}
             ]},
         {label: "Palette", items:[
                 {label: "Edit",command: COMMAND.EDITPALETTE},
@@ -82,6 +84,7 @@ let Menu = function(){
         {label: "View", items:[
                 {label: "Grid",command: COMMAND.TOGGLEGRID,shortKey: "D",checked:false},
                 {label: "Split Screen",command: COMMAND.SPLITSCREEN,shortKey: "Z", checked: false},
+                {label: "Tool Options",command: COMMAND.TOGGLESIDEPANEL, checked: false},
                 {label: "Presentation mode",command: COMMAND.PRESENTATION, checked: false},
                 {label: "Full Screen",command: COMMAND.FULLSCREEN,needsRealClick: true, checked: false},
             ]},

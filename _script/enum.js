@@ -80,6 +80,8 @@ export let COMMAND = {
     TOGGLEINVERT: 1079,
     ZOOMFIT: 1080,
     COLORSELECT: 1081,
+    TOGGLESIDEPANEL: 1082,
+    TOGGLEGALLERY: 1083,
 };
 
 export let EVENT = {
