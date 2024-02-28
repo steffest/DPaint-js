@@ -423,6 +423,8 @@ let ImageFile = function(){
             struct.image.frames.push(_frame);
         });
 
+        if (currentFile.colorRange) struct.image.colorRange = currentFile.colorRange;
+
         return struct;
     };
 
@@ -456,6 +458,8 @@ let ImageFile = function(){
                 });
             });
         });
+
+        if (image.colorRange) currentFile.colorRange = image.colorRange;
     };
 
     me.export = function(){

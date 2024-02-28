@@ -726,6 +726,13 @@ let Palette = function(){
         let image = ImageFile.getCurrentFile();
         if (image && image.colorRange && image.colorRange.length){
 
+            // check for active color ranges
+            let active = image.colorRange.find(range=>range.active);
+            if (!active){
+                Modal.softAlert("There are no active color ranges.","Can't Start Color Cycle");
+                return;
+            }
+
             let imageData = ImageFile.getContext().getImageData(0,0,image.width,image.height);
             let data = imageData.data;
 

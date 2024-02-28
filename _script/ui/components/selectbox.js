@@ -10,6 +10,7 @@ import Resizer from "./resizer.js";
 import effects from "../effects.js";
 import Color from "../../util/color.js";
 import ToolOptions from "./toolOptions.js";
+import Palette from "../palette.js";
 
 let SelectBox = (()=>{
     let me = {};
@@ -197,6 +198,40 @@ let SelectBox = (()=>{
         }
     }
 
+    me.colorSelect = function(color){
+        let canvas = ImageFile.getActiveLayer().getCanvas();
+        let viewport = Editor.getActivePanel().getViewPort();
+
+        let w = canvas.width;
+        let h = canvas.height;
+        let imageData = canvas.getContext("2d").getImageData(0,0,w,h);
+
+        let c = duplicateCanvas(canvas).getContext("2d");
+        let target = c.getImageData(0,0,w,h);
+        color = Color.fromString(color);
+
+        for (let x = 0;x<w;x++){
+            for (let y = 0;y<h;y++){
+                let index = (y*w + x)*4;
+                let r = imageData.data[index];
+                let g = imageData.data[index+1];
+                let b = imageData.data[index+2];
+                let a = imageData.data[index+3];
+                if (a && r===color[0] && g===color[1] && b===color[2]){
+                    target.data[index] = 255;
+                    target.data[index+1] = 255;
+                    target.data[index+2] = 255;
+                    target.data[index+3] = 255;
+                }
+            }
+        }
+        c.putImageData(target,0,0);
+
+        Selection.set({left: 0, top: 0, width: w, height: h});
+        Resizer.set(0,0,w,h,0,false,viewport,1);
+        me.applyCanvas(c.canvas);
+    }
+
     me.update = (fromEvent)=>{
         let data = Selection.get();
         let zoom = Editor.getActivePanel().getZoom();
@@ -335,6 +370,10 @@ let SelectBox = (()=>{
         Selection.set({left: 0, top: 0, width: w, height: h});
         Resizer.set(0,0,w,h,0,false,viewport,1);
         me.update(true);
+    });
+
+    EventBus.on(COMMAND.COLORSELECT,()=>{
+        me.colorSelect(Palette.getDrawColor());
     });
 
     return me;

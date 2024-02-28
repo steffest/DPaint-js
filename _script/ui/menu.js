@@ -65,6 +65,7 @@ let Menu = function(){
         {label: "Selection", items:[
                 {label: "Deselect",command: COMMAND.CLEARSELECTION,shortKey: "Esc"},
                 {label: "Select All",command: COMMAND.SELECTALL,shortKey: "meta+A"},
+                {label: "Select Current Color",command: COMMAND.COLORSELECT},
                 {label: "Copy To Layer",command: COMMAND.TOLAYER,shortKey: "meta+J"},
                 {label: "Cut To Layer",command: COMMAND.CUTTOLAYER,shortKey: "meta+K"},
                 {label: "To Brush",command: COMMAND.STAMP,shortKey: "meta+E"}
