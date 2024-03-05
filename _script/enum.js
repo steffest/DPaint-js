@@ -82,6 +82,7 @@ export let COMMAND = {
     COLORSELECT: 1081,
     TOGGLESIDEPANEL: 1082,
     TOGGLEGALLERY: 1083,
+    INITSELECTION: 1084
 };
 
 export let EVENT = {
@@ -117,4 +118,6 @@ export let EVENT = {
     gridOptionsChanged: 30,
     layerPropertyHistory: 31,
     layerHistory: 32,
+    sizerStartChange: 33,
+    panelResized: 34,
 };

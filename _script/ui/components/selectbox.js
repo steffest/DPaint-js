@@ -5,25 +5,33 @@ import {COMMAND, EVENT} from "../../enum.js";
 import Editor from "../editor.js";
 import ImageFile from "../../image.js";
 import Input from "../input.js";
-import {duplicateCanvas, releaseCanvas} from "../../util/canvasUtils.js";
-import Resizer from "./resizer.js";
-import effects from "../effects.js";
+import {duplicateCanvas, releaseCanvas, outLineCanvas} from "../../util/canvasUtils.js";
 import Color from "../../util/color.js";
 import ToolOptions from "./toolOptions.js";
-import Palette from "../palette.js";
 
-let SelectBox = (()=>{
+/*
+    SelectBox follows changes in the selection.
+    If the resize is active, the resize triggers a change in the selection, this triggers a change in the selectbox.
+
+    There are 3 different types of selection:
+    - rectangle selection, this is also calculated as a bounding box for the other types
+    - polygon selection, this is a series of points
+    - canvas selection, this is a selection of pixels
+ */
+
+let SelectBox = ((editor,resizer)=>{
     let me = {};
 
     let box = $div("selectbox");
     let canvas;
     let ctx;
     let selectionPoints = [];
+    let selectionTransform;
     let selecting;
     let dots;
     let shape;
-    let currentWidth;
-    let currentHeight;
+    let selectionTool;
+    let timeout;
 
     let border = $div("border","<svg xmlns='http://www.w3.org/2000/svg' viewbox='0 0 40 40' preserveAspectRatio='none'><rect class='white' width='40' height='40'/><rect class='ants'  width='40' height='40'/>/svg>");
     box.appendChild(border);
@@ -35,104 +43,134 @@ let SelectBox = (()=>{
         return box;
     }
 
-    me.activate = (fullCover)=>{
+    me.activate = (tool)=>{
+        if (tool) selectionTool = tool;
+        let currentSelection = Selection.get();
         box.classList.add("active");
+
+        if (currentSelection){
+            switch (tool){
+                case COMMAND.SELECT:
+                    if (editor.isActive()){
+                        resizer.init({
+                            x:currentSelection.left,
+                            y:currentSelection.top,
+                            width:currentSelection.width,
+                            height:currentSelection.height,
+                            rotation:0,
+                            aspectRatio:1,
+                            canRotate: false
+                        });
+                    }
+                    break;
+                case COMMAND.POLYGONSELECT:
+                    if (currentSelection.points){
+                        clearTimeout(timeout);
+                        resizer.remove();
+                        me.polySelect();
+                    }
+                    break;
+                case COMMAND.FLOODSELECT:
+                    resizer.remove();
+                    break;
+                case COMMAND.COLORSELECT:
+                    resizer.remove();
+                    break;
+                case COMMAND.TOSELECTION:
+                    resizer.remove();
+                    break;
+            }
+        }
     }
 
     me.deActivate = ()=>{
-        box.classList.remove("active","full");
-        if (canvas){
-            me.endPolySelect();
-            content.innerHTML = "";
-            dots = undefined;
-            shape = undefined;
-            selectionPoints = [];
-            selecting = false;
-            canvas.remove();
-            releaseCanvas(canvas);
-            canvas = undefined;
-        }
+        box.classList.remove("active","capture");
+        cleanUp();
     }
 
     me.isActive = ()=>{
         return box.classList.contains("active");
     }
 
+    me.boundingBoxSelect = (point)=>{
+        EventBus.trigger(COMMAND.CLEARSELECTION);
+        me.activate(COMMAND.SELECT);
+        resizer.init({
+            x: point.x,
+            y: point.y,
+            width: 0,
+            height: 0,
+            rotation: 0,
+            hot: true,
+            aspect: 1,
+            canRotate: false,
+        });
+    }
+
     me.polySelect = (point)=>{
-        setupCanvas();
+
         if (!dots) dots = $div("dots","",content);
 
         if (!selecting){
-            selectionPoints = [];
+            let currentSelection = Selection.get();
+            if (currentSelection && currentSelection.points && currentSelection.points.length){
+                selectionPoints = currentSelection.points;
+            }else{
+                selectionPoints = [];
+            }
             Input.setActiveKeyHandler(keyHandler);
         }
         selecting = true;
-        selectionPoints.push(point);
-        if (selectionPoints.length===1) selectionPoints.push({x:point.x,y:point.y});
+        border.classList.remove("active");
+        border.classList.remove("filled");
+        box.classList.add("capture");
 
-        currentWidth = ImageFile.getCurrentFile().width;
-        currentHeight =  ImageFile.getCurrentFile().height;
-        Selection.set({left: 0, top: 0, width: currentWidth, height: currentHeight, points: selectionPoints});
+        if (point){
+            selectionPoints.push(point);
+            if (selectionPoints.length===1) selectionPoints.push({x:point.x,y:point.y});
+        }
 
-        drawShape();
+        updateBoundingBox();
+        drawPolyShape();
     }
 
     me.endPolySelect = (fromClick)=>{
-        if (!selecting) return;
-        setTimeout(()=>{
-            selecting = false;
+        selecting = false;
+        timeout = setTimeout(()=>{
             EventBus.trigger(EVENT.endPolygonSelect);
             Input.setActiveKeyHandler();
             selectionPoints = [];
+            if (dots){
+                dots.innerHTML = "";
+                dots = undefined;
+            }
+            box.classList.remove("capture");
         },fromClick?100:0);
     }
 
+    // Don't overuse this function, it's expensive
     me.applyCanvas = _canvas=>{
-        setupCanvas();
-        selectionPoints = [];
-        ctx.clearRect(0,0,canvas.width,canvas.height);
-        //ctx.drawImage(_canvas,0,0);
-
         let selectedCanvas = duplicateCanvas(_canvas,true);
         let selectedCtx = selectedCanvas.getContext("2d");
 
         selectedCtx.globalCompositeOperation = "source-in";
         selectedCtx.fillStyle = "white";
-        selectedCtx.fillRect(0,0,canvas.width,canvas.height);
+        selectedCtx.fillRect(0,0,_canvas.width,_canvas.height);
         selectedCtx.globalCompositeOperation = "source-over";
 
-        ctx.globalAlpha = 0.5;
-        ctx.drawImage(selectedCanvas,0,0);
-        ctx.globalCompositeOperation = "source-in";
-        ctx.fillStyle = "red";
-        ctx.fillRect(0,0,canvas.width,canvas.height);
-        ctx.globalCompositeOperation = "source-over";
-
-        let boundary = effects.outline(_canvas.getContext("2d"));
-        if (boundary.length){
-            let data = ctx.getImageData(0,0,canvas.width,canvas.height);
-            let d=data.data;
-            boundary.forEach(index=>{
-                let p=index>>2;
-                let y = Math.floor(p/canvas.width) >> 2;
-                let x = p%canvas.width >> 2;
-                let c = Math.abs(((x%2)-(y%2))*255);
-                d[index] = c;
-                d[index+1] = c;
-                d[index+2] = c;
-                d[index+3] = 255;
-            });
-            ctx.putImageData(data,0,0);
-        }
+        // generate SVG outline..; Expensive! move to webworker?
+        let outline = outLineCanvas(selectedCtx,false);
 
         Selection.set({
-            left:0,
-            right: 0,
-            width: canvas.width,
-            height: canvas.height,
-            canvas: selectedCanvas
+            left:outline.box.x,
+            top: outline.box.y,
+            width: outline.box.w,
+            height: outline.box.h,
+            canvas: selectedCanvas,
+            outline: outline.lines
         })
     }
+
 
     me.floodSelect = function(canvas,point,fillColor){
         fillColor = fillColor||[0,0,0];
@@ -204,9 +242,9 @@ let SelectBox = (()=>{
         }
     }
 
+
     me.colorSelect = function(color){
         let canvas = ImageFile.getActiveLayer().getCanvas();
-        let viewport = Editor.getActivePanel().getViewPort();
 
         let w = canvas.width;
         let h = canvas.height;
@@ -232,33 +270,61 @@ let SelectBox = (()=>{
             }
         }
         c.putImageData(target,0,0);
-
-        Selection.set({left: 0, top: 0, width: w, height: h});
-        Resizer.set(0,0,w,h,0,false,viewport,1);
         me.applyCanvas(c.canvas);
     }
 
-    me.update = (fromEvent)=>{
-        let data = Selection.get();
-        let zoom = Editor.getActivePanel().getZoom();
-        if (canvas){
-            data = {
-                left: 0,
-                top: 0,
-                width: ImageFile.getCurrentFile().width,
-                height: ImageFile.getCurrentFile().height,
+    function renderSelection(){
+        let selection = Selection.get();
+        let zoom = editor.getZoom();
+        let showOutline = ToolOptions.showSelectionOutline();
+        let showFill = ToolOptions.showSelectionMask();
+
+        border.classList.remove("active");
+        border.classList.remove("filled");
+        if (shape) shape.innerHTML = "";
+        if (canvas && ctx) ctx.clearRect(0,0,canvas.width,canvas.height);
+
+        if (selection){
+            if (selection.points && selection.points.length){
+                selectionPoints = selection.points;
+                drawPolyShape();
+            }else if (selection.canvas) {
+                if (showFill){
+                    if (!canvas){
+                        canvas = duplicateCanvas(ImageFile.getCanvas());
+                        content.appendChild(canvas);
+                        ctx = canvas.getContext("2d");
+                    }
+                    ctx.globalAlpha = 0.5;
+                    ctx.drawImage(selection.canvas,0,0);
+                    ctx.globalCompositeOperation = "source-in";
+                    ctx.fillStyle = "red";
+                    ctx.fillRect(0,0,canvas.width,canvas.height);
+                    ctx.globalCompositeOperation = "source-over";
+                }
+
+                if (showOutline){
+                    if (selection.outline){
+                        drawOutline(selection);
+                    }
+                }
+            }else{
+                border.style.left = selection.left*zoom + "px";
+                border.style.top = selection.top*zoom + "px";
+                border.style.width = selection.width*zoom + "px";
+                border.style.height = selection.height*zoom + "px";
+                if (showOutline) border.classList.add("active");
+                if (showFill) border.classList.add("filled");
+
             }
-            canvas.style.width = Math.floor(canvas.width * zoom) + "px";
-            canvas.style.height = Math.floor(canvas.height * zoom) + "px";
-            if (selectionPoints.length) drawShape();
+        }else{
+            me.deActivate();
         }
-        if (data){
-            box.style.left = data.left*zoom + "px";
-            box.style.top = data.top*zoom + "px";
-            box.style.width = data.width*zoom + "px";
-            box.style.height = data.height*zoom + "px";
-        }
-        if (!fromEvent) EventBus.trigger(EVENT.selectionChanged);
+    }
+
+    me.zoom = (zoom)=>{
+        resizer.zoom();
+        renderSelection();
     }
 
     me.updatePoint =(point,index)=>{
@@ -268,110 +334,109 @@ let SelectBox = (()=>{
             p.x = point.x;
             p.y = point.y;
         }
-        Selection.set({left: 0, top: 0, width: currentWidth, height: currentHeight, points: selectionPoints});
-        drawShape();
+        updateBoundingBox();
+        drawPolyShape();
     }
 
-    function setupCanvas(){
-        box.classList.add("full","active");
+    function drawPolyShape(){
         let zoom = Editor.getActivePanel().getZoom();
+        let drawOutline = ToolOptions.showSelectionOutline();
+        let drawFill = ToolOptions.showSelectionMask();
+        let generateSVG = drawOutline || drawFill;
+
+        if (dots) dots.innerHTML = "";
         let w = ImageFile.getCurrentFile().width;
         let h = ImageFile.getCurrentFile().height;
 
-        box.style.left =  "0px";
-        box.style.top = "0px";
-        box.style.width = w*zoom + "px";
-        box.style.height = h*zoom + "px";
-
-        if (!canvas){
-            canvas = document.createElement("canvas");
-            canvas.width = w;
-            canvas.height = h;
-            canvas.style.width = Math.floor(canvas.width * zoom) + "px";
-            canvas.style.height = Math.floor(canvas.height * zoom) + "px";
-            content.appendChild(canvas);
-            ctx = canvas.getContext("2d");
-        }
-    }
-
-    function drawShape(){
-        if (!shape) shape = $div("shape","",content);
-        let zoom = Editor.getActivePanel().getZoom();
-
-        dots.innerHTML = "";
-
-        //ctx.clearRect(0,0,canvas.width,canvas.height);
-        //ctx.lineWidth = "2px";
-        //ctx.beginPath();
-
-        // generate SVG shape
-        let svg = "<svg xmlns='http://www.w3.org/2000/svg' viewbox='0 0 "+currentWidth+" " + currentHeight +"' preserveAspectRatio='none'>";
         let path = "";
 
-
-
         selectionPoints.forEach((point,index)=>{
-            let dot = $div("sizedot","",dots,()=>{
+            if (dots){
+                let dot = $div("sizedot","",dots,()=>{
 
-            });
-            dot.onDragStart = (x,y)=>{
-                point.startX = point.x;
-                point.startY = point.y;
+                });
+                dot.onDragStart = (x,y)=>{
+                    point.startX = point.x;
+                    point.startY = point.y;
+                }
+                dot.onDrag = (x,y)=>{
+                    point.x = Math.round(point.startX + x/zoom);
+                    point.y = Math.round(point.startY + y/zoom);
+                    drawPolyShape();
+                }
+                dot.onDragEnd = ()=>{
+                    updateBoundingBox();
+                }
+                dot.style.left = point.x*zoom + "px";
+                dot.style.top = point.y*zoom + "px";
             }
-            dot.onDrag = (x,y)=>{
-                point.x = Math.round(point.startX + x/zoom);
-                point.y = Math.round(point.startY + y/zoom);
-                drawShape();
-            }
-            dot.style.left = point.x*zoom + "px";
-            dot.style.top = point.y*zoom + "px";
 
-            path += point.x + " " + point.y + " ";
-            if (index){
-                //ctx.lineTo(point.x,point.y);
-            }else{
-                //ctx.moveTo(point.x,point.y);
-            }
+
+            if (generateSVG) path += point.x + " " + point.y + " ";
+
         });
 
-        // close the path
-        if (selectionPoints.length>1){
-            path += selectionPoints[0].x + " " + selectionPoints[0].y + " ";
+        if (generateSVG){
+            if (!shape) shape = $div("shape","",content);
+            // close the path
+            if (selectionPoints.length>1){
+                path += selectionPoints[0].x + " " + selectionPoints[0].y + " ";
+            }
+
+            let svg = "<svg xmlns='http://www.w3.org/2000/svg' viewbox='0 0 "+w+" " + h +"' preserveAspectRatio='none'>";
+
+            let className = "";
+            if (drawOutline) className = "white";
+            if (drawFill) className += " filled";
+
+
+            svg += "<path class='"+className+"' d='M" + path + "'/>";
+            if (drawOutline) svg += "<path class='ants' d='M" + path + "'/>";
+            svg += "</svg>";
+
+            shape.innerHTML = svg;
+        }else{
+            if (shape){
+                shape.innerHTML = "";
+                shape = undefined;
+            }
         }
 
-        svg += "<path class='white' d='M" + path + "'/>";
-        svg += "<path class='ants' d='M" + path + "'/>";
-
-
-        svg += "</svg>";
-
-        //let SVG = new DOMParser().parseFromString(svg, "image/svg+xml");
-        //let path = SVG.querySelector("path");
-        //path.setAttribute("stroke","white");
-        //path.setAttribute("stroke-width","2");
-        //path.setAttribute("fill","none");
-
-        // set width and height of the svg
-        //SVG.documentElement.setAttribute("width",canvas.width);
-        //SVG.documentElement.setAttribute("height",canvas.height);
-
-        shape.innerHTML = svg;
-        //console.error(shape);
-        //console.error(SVG);
-
-        //ctx.closePath();
-
-        //ctx.fillStyle = "rgba(255,0,0,0.3)";
-        //ctx.fill();
-
-        //ctx.strokeStyle = "black";
-        //ctx.setLineDash([]);
-        //ctx.stroke();
-        //ctx.setLineDash([5, 5]);
-        //ctx.strokeStyle = "white";
-        //ctx.stroke();
-
     }
+
+    function drawOutline(selection){
+        if (!selection) return;
+        let lines = selection.outline;
+        if (!lines) return;
+
+        if (!shape) shape = $div("shape","",content);
+        let w = ImageFile.getCurrentFile().width;
+        let h = ImageFile.getCurrentFile().height;
+
+        let svg = "<svg xmlns='http://www.w3.org/2000/svg' viewbox='0 0 "+w+" "+h+"' preserveAspectRatio='none'>";
+        if (lines.length>6000){
+            console.warn("too many lines, displaying bounding box instead");
+
+            svg += '<rect x="'+selection.left+'" y="'+selection.top+'" width="'+selection.width+'" height="'+selection.height+'" class="white" />';
+            svg += '<rect x="'+selection.left+'" y="'+selection.top+'" width="'+selection.width+'" height="'+selection.height+'" class="ants" />';
+
+        }else{
+            // draw lines
+            lines.forEach(h=>{
+                let x = h[0];
+                let y = h[1];
+                let x2 = h[2];
+                let y2 = h[3];
+                svg += '<line x1="'+x+'" y1="'+y+'" x2="'+x2+'" y2="'+y2+'" class="white" />';
+                svg += '<line x1="'+x+'" y1="'+y+'" x2="'+x2+'" y2="'+y2+'" class="ants" />';
+            });
+
+        }
+
+        svg += "</svg>"
+        shape.innerHTML = svg;
+    }
+
 
     function keyHandler(code){
         //console.error(code);
@@ -393,32 +458,168 @@ let SelectBox = (()=>{
         }
     }
 
-    EventBus.on(EVENT.sizerChanged,()=>{
-        if (me.isActive()){
-            Selection.set(Resizer.get());
-            me.update(true);
+    function cleanUp(){
+        selectionPoints = [];
+        selectionTransform = undefined;
+        if (dots){
+            dots.innerHTML = "";
+            dots = undefined;
+        }
+        if (shape){
+            shape.innerHTML = "";
+            shape = undefined;
+        }
+        if (canvas){
+            canvas.remove();
+            releaseCanvas(canvas);
+            canvas = undefined;
+        }
+        content.innerHTML = "";
+        border.classList.remove("active");
+        border.classList.remove("filled");
+
+        if (selecting){
+            selecting = false;
+            me.endPolySelect();
+        }
+    }
+
+    function updateBoundingBox(){
+        let x = ImageFile.getCurrentFile().width;
+        let y = ImageFile.getCurrentFile().height;
+        let x2 = 0;
+        let y2 = 0;
+        if (selectionPoints && selectionPoints.length){
+            selectionPoints.forEach(point=>{
+                if (point.x<x) x = point.x;
+                if (point.y<y) y = point.y;
+                if (point.x>x2) x2 = point.x;
+                if (point.y>y2) y2 = point.y;
+            });
+            // warning; this updates the selection, which triggers a change in the selectbox
+            Selection.set({left: x, top: y, width: x2-x, height: y2-y, points: selectionPoints});
+        }
+    }
+
+    EventBus.on(EVENT.sizerStartChange,()=>{
+        if (me.isActive()  && editor.isActive()){
+            let selection = Selection.get();
+            if (selection.canvas){
+                selectionTransform = {
+                    left: selection.left,
+                    top: selection.top,
+                    width: selection.width,
+                    height: selection.height,
+                    canvas: duplicateCanvas(selection.canvas,true)
+                }
+                if (selection.outline){
+                    selectionTransform.outline = selection.outline.map(a=>a.slice());
+                }
+            }
+        }
+    });
+
+    EventBus.on(EVENT.sizerChanged,(change)=>{
+        if (me.isActive() && editor.isActive()){
+            let fromSize = change.from;
+            let currentSize = change.to;
+            if (currentSize){
+                let selection = Selection.get();
+                let handled = false;
+                if (fromSize && selection){
+                    let translate = {x:0,y:0,scale:1};
+                    translate.x =  currentSize.left - fromSize.left;
+                    translate.y = currentSize.top - fromSize.top;
+                    translate.scaleX = currentSize.width/fromSize.width;
+                    translate.scaleY = currentSize.height/fromSize.height;
+                    if (isNaN(translate.scaleX)) translate.scaleX = 1;
+                    if (isNaN(translate.scaleY)) translate.scaleY = 1;
+
+                    if (selection.points && selection.points.length){
+                        selectionPoints = selection.points;
+                        if (translate.x || translate.y){
+                            selectionPoints.forEach(point=>{
+                                point.x += translate.x;
+                                point.y += translate.y;
+                            });
+                        }
+                        if (translate.scaleX!==1 || translate.scaleY!==1){
+                            let startX = currentSize.left;
+                            let startY = currentSize.top;
+
+                            selectionPoints.forEach(point=>{
+                                point.x = startX + Math.round((point.x-startX)*translate.scaleX);
+                                point.y = startY + Math.round((point.y-startY)*translate.scaleY);
+                            });
+                        }
+
+                        currentSize.points = selectionPoints;
+                        Selection.set(currentSize);
+                        handled = true;
+                    }else if (selection.canvas){
+                        if (translate.scaleX!==1 || translate.scaleY!==1 || translate.x || translate.y){
+                            // scale the original selection canvas and outline
+                            let deltaScaleX = currentSize.width/selectionTransform.width;
+                            let deltaScaleY = currentSize.height/selectionTransform.height;
+
+                            if (selection.outline && selectionTransform.outline){
+                                for (let i = 0;i<selection.outline.length;i++){
+                                    selection.outline[i][0] = currentSize.left + Math.round((selectionTransform.outline[i][0]-selectionTransform.left)*deltaScaleX);
+                                    selection.outline[i][1] = currentSize.top + Math.round((selectionTransform.outline[i][1]-selectionTransform.top)*deltaScaleY);
+                                    selection.outline[i][2] = currentSize.left + Math.round((selectionTransform.outline[i][2]-selectionTransform.left)*deltaScaleX);
+                                    selection.outline[i][3] = currentSize.top + Math.round((selectionTransform.outline[i][3]-selectionTransform.top)*deltaScaleY);
+                                }
+                                currentSize.outline = selection.outline;
+                            }
+
+                            if (selectionTransform.canvas){
+                                let offsetX = selectionTransform.left*deltaScaleX - currentSize.left;
+                                let offsetY = selectionTransform.top*deltaScaleY - currentSize.top;
+                                let c = duplicateCanvas(selectionTransform.canvas);
+                                let ctx = c.getContext("2d");
+                                ctx.clearRect(0,0,c.width,c.height);
+                                ctx.drawImage(selectionTransform.canvas,-offsetX,-offsetY,c.width*deltaScaleX,c.height*deltaScaleY);
+                                currentSize.canvas = c;
+                            }
+
+                            Selection.set(currentSize);
+                            handled = true;
+                        }
+                    }
+                }
+
+                if (!handled){
+                    // set the bounding box
+                    if (selection){
+                        selection.left = currentSize.left;
+                        selection.top = currentSize.top;
+                        selection.width = currentSize.width;
+                        selection.height = currentSize.height;
+                        Selection.set(selection);
+                    }else{
+                        Selection.set(currentSize);
+                    }
+
+                }
+            }
         }
     })
 
-    EventBus.on(COMMAND.TOSELECTION,()=>{
-        //This is different from COMMAND.SELECTALL as this selects the actual pixels?
-        let layer = ImageFile.getActiveLayer();
-        me.applyCanvas(layer.getCanvas());
+
+    EventBus.on(EVENT.selectionChanged,()=>{
+        if (!editor.isVisible()) return;
+        if (!me.isActive()) return;
+        renderSelection();
     });
 
-    EventBus.on(COMMAND.SELECTALL,()=>{
-        let w = ImageFile.getCurrentFile().width;
-        let h = ImageFile.getCurrentFile().height;
-        let viewport = Editor.getActivePanel().getViewPort();
-
-        Selection.set({left: 0, top: 0, width: w, height: h});
-        Resizer.set(0,0,w,h,0,false,viewport,1);
-        me.update(true);
+    EventBus.on(EVENT.toolChanged,(tool)=>{
+        if (me.isActive()){
+            selectionTransform = undefined;
+            box.classList.remove("capture");
+            resizer.remove();
+        }
     });
 
-    EventBus.on(COMMAND.COLORSELECT,()=>{
-        me.colorSelect(Palette.getDrawColor());
-    });
 
     return me;
 });

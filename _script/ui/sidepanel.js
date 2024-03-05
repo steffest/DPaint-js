@@ -89,6 +89,7 @@ var SidePanel = function(){
 
     me.toggle = ()=>{
         document.body.classList.toggle("withsidepanel");
+        EventBus.trigger(EVENT.UIresize);
     }
 
     me.isVisible = ()=>{

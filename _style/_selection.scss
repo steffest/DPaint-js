@@ -39,6 +39,11 @@
   display: none;
   z-index: 4;
   pointer-events: none;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  /*background-color: rgba(0, 0, 255, 0.25);*/
 
   .border{
     position: absolute;
@@ -46,36 +51,62 @@
     top: -1px;
     right: -1px;
     bottom: -1px;
+    display: none;
 
     svg{
       width: 100%;
       height: 100%;
+      display: none;
 
-      .white {
-        fill: none;
-        stroke: #FFF;
+      .white,
+      .ants{
         stroke-width: 2px;
-        vector-effect: non-scaling-stroke;
       }
-
-      .ants {
-        fill: none;
-        stroke: #000;
-        stroke-width: 2px;
-        vector-effect: non-scaling-stroke;
-        stroke-dasharray: 4px;
-        animation: stroke 0.2s linear infinite;
-        /*shape-rendering: geometricPrecision;*/
-        stroke-dashoffset: 8px;
-      }
-
-      @keyframes stroke {
-        to {
-          stroke-dashoffset: 0;
-        }
-      }
-
     }
+
+    &.active{
+      display: block;
+
+      svg{
+        display: block;
+      }
+    }
+
+    &.filled{
+        display: block;
+        background-color: rgba(255, 0, 0, 0.25);
+    }
+  }
+
+  svg{
+    .white {
+      fill: none;
+      stroke: #FFF;
+      stroke-width: 1px;
+      vector-effect: non-scaling-stroke;
+    }
+
+    .filled{
+        fill: rgba(255, 0, 0, 0.25);
+    }
+
+    .ants {
+      fill: none;
+      stroke: #000;
+      stroke-width: 1px;
+      vector-effect: non-scaling-stroke;
+      stroke-dasharray: 4px;
+      animation: stroke 0.2s linear infinite;
+      /*shape-rendering: geometricPrecision;*/
+      stroke-dashoffset: 8px;
+    }
+
+    @keyframes stroke {
+      to {
+        stroke-dashoffset: 0;
+      }
+    }
+
   }
 
   .content{
@@ -84,53 +115,6 @@
     top: 0;
     right: 0;
     bottom: 0;
-
-    .shape{
-      svg{
-        width: 100%;
-
-
-        .white {
-          fill: none;
-          stroke: #FFF;
-          stroke-width: 2px;
-          vector-effect: non-scaling-stroke;
-        }
-
-        .ants {
-          fill: none;
-          stroke: #000;
-          stroke-width: 2px;
-          vector-effect: non-scaling-stroke;
-          stroke-dasharray: 4px;
-          animation: stroke 0.2s linear infinite;
-          /*shape-rendering: geometricPrecision;*/
-          stroke-dashoffset: 8px;
-        }
-
-        @keyframes stroke {
-          to {
-            stroke-dashoffset: 0;
-          }
-        }
-
-      }
-    }
-  }
-
-
-  &.active{
-    display: block;
-  }
-
-  &.full{
-    display: block;
-    background-color: rgba(255, 0, 0, 0.15);
-    pointer-events: all;
-
-    .border{
-      display: none;
-    }
 
     .dots{
       position: absolute;
@@ -147,7 +131,33 @@
       bottom: 0;
       pointer-events: none;
       z-index: 10;
+
+      svg{
+        width: 100%;
+      }
     }
+
+    canvas{
+      position: absolute;
+      left: 0;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+      z-index: 9;
+    }
+
+  }
+
+  &.active{
+    display: block;
+  }
+
+  &.capture{
+    /*background-color: rgba(0, 255, 0, 0.15);*/
+    pointer-events: all;
   }
 
 }
@@ -172,19 +182,29 @@
   width: 20px;
   height: 20px;
   margin: -20px 0 0 -20px;
-  cursor: url("../_img/cursors/rotate.png") 0 0, auto;
+  cursor: url("../_img/cursors/rotatenw.png") 0 0, auto;
+  display: none;
 
   &.d2{
     margin: -20px -20px 0 0;
+    cursor: url("../_img/cursors/rotatene.png") 0 0, auto;
   }
   &.d3{
     margin: 0 -20px -20px 0;
+    cursor: url("../_img/cursors/rotatese.png") 0 0, auto;
   }
   &.d4{
     margin: 0 0 -20px -20px;
+    cursor: url("../_img/cursors/rotatesw.png") 0 0, auto;
   }
 
   &:hover{
     /*background-color: green;*/
+  }
+}
+
+.sizebox.canrotate{
+  .rotatedot{
+    display: block;
   }
 }

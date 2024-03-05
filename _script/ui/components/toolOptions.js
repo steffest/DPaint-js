@@ -13,10 +13,15 @@ let ToolOptions = function(){
     let lineSize = 1;
     let tolerance = 0;
     let mask = false;
+    let selectionOutline = true;
+    let selectionMask = false;
     let pressure = false;
 
     let smoothCheckbox;
     let maskCheckbox;
+    let selectSection;
+    let selectionOutlineCheckbox;
+    let selectionMaskCheckbox;
     let ditherSection;
     let ditherCheckbox;
     let invertCheckbox;
@@ -37,6 +42,14 @@ let ToolOptions = function(){
 
     me.showMask = ()=>{
         return mask;
+    }
+
+    me.showSelectionOutline = ()=>{
+        return selectionOutline;
+    }
+
+    me.showSelectionMask = ()=>{
+        return selectionMask;
     }
 
     me.usePressure = ()=>{
@@ -93,8 +106,13 @@ let ToolOptions = function(){
                 options.appendChild(label("Gradient:"));
                 options.appendChild(ditherSetting());
                 break;
-            case COMMAND.FLOOD:
+            case COMMAND.SELECT:
+            case COMMAND.POLYGONSELECT:
             case COMMAND.FLOODSELECT:
+                options.appendChild(selectSetting());
+                if (command === COMMAND.FLOODSELECT) options.appendChild(toleranceSetting());
+                break;
+            case COMMAND.FLOOD:
                 options.appendChild(toleranceSetting());
                 break;
         }
@@ -187,6 +205,23 @@ let ToolOptions = function(){
             EventBus.trigger(EVENT.layerContentChanged);
         });
         return maskCheckbox;
+    }
+
+    function selectSetting(){
+        if (!selectSection){
+            selectSection = $div("optionsgroup");
+            selectionMaskCheckbox=$checkbox("Show Mask",selectSection,"mask",(checked)=>{
+                selectionMask = checked;
+                EventBus.trigger(EVENT.selectionChanged);
+            });
+            selectionOutlineCheckbox=$checkbox("Show Outline",selectSection,"",(checked)=>{
+                selectionOutline = checked;
+                EventBus.trigger(EVENT.selectionChanged);
+            });
+        }
+        selectionOutlineCheckbox.setState(selectionOutline);
+        selectionMaskCheckbox.setState(selectionMask);
+        return selectSection;
     }
 
     function ditherSetting(){

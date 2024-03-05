@@ -1,4 +1,3 @@
-import Selection from "../selection.js";
 import EventBus from "../../util/eventbus.js";
 import {COMMAND, EVENT} from "../../enum.js";
 import {$div} from "../../util/dom.js";
@@ -6,18 +5,37 @@ import Editor from "../editor.js";
 import Input from "../input.js";
 import Cursor from "../cursor.js";
 
-var Resizer = function(){
+var Resizer = function(editor){
     let me = {};
     let currentSize;
+    let previousSize;
     let sizeBox;
     let updateHandler;
     let dots = [];
     let rotateDots = [];
     let touchData = {};
     let aspectRatio = 1;
+    let canRotate = false;
 
-    me.set = function(x,y,w,h,rotation,hot,parent,startAspectRatio){
-        if (!sizeBox) createSizeBox(parent);
+    me.init = function(options){
+        options = options || {};
+        if (!sizeBox) createSizeBox(editor.getViewPort());
+        sizeBox.classList.add("active");
+        sizeBox.classList.toggle("hot",!!options.hot);
+        if (options.aspect) {
+            aspectRatio = options.aspect;
+            console.log("setting AR to " + aspectRatio)
+        }
+        canRotate = !!options.canRotate;
+        sizeBox.classList.toggle("canrotate",canRotate);
+        previousSize = undefined;
+        currentSize = undefined;
+
+        setSize(options.x,options.y,options.width,options.height,options.rotation);
+    }
+
+    function setSize(x,y,w,h,rotation){
+        previousSize = Object.assign({},currentSize);
         currentSize = {
             left: Math.round(x),
             top: Math.round(y),
@@ -25,18 +43,15 @@ var Resizer = function(){
             height: Math.round(h),
             rotation: rotation
         }
-        sizeBox.classList.add("active");
         if (!rotation){
             sizeBox.style.transform = "none";
         }
 
-        if (hot) sizeBox.classList.add("hot");
-        if (startAspectRatio) {
-            console.log("setting AR to " + startAspectRatio)
-            aspectRatio = startAspectRatio;
-        }
-
-        EventBus.trigger(EVENT.sizerChanged,currentSize);
+        updateSizeBox();
+        EventBus.trigger(EVENT.sizerChanged,{
+            from: previousSize,
+            to: currentSize
+        });
     }
 
     me.setOnUpdate = function(handler){
@@ -44,7 +59,7 @@ var Resizer = function(){
     }
 
     me.commit = function(){
-        sizeBox.classList.remove("hot");
+        if (sizeBox) sizeBox.classList.remove("hot");
         updateHandler = undefined;
     }
     
@@ -54,29 +69,33 @@ var Resizer = function(){
 
     me.move = function(x,y){
         if (me.isActive() && currentSize){
+            EventBus.trigger(EVENT.sizerStartChange);
+            //TODO: this still crops the canvas if we move outside the canvas
+
+            previousSize = Object.assign({},currentSize);
             currentSize.left += x;
             currentSize.top += y;
-            EventBus.trigger(EVENT.sizerChanged);
+            updateSizeBox();
+            EventBus.trigger(EVENT.sizerChanged,{
+                from: previousSize,
+                to: currentSize
+            });
         }
+    }
+
+    me.zoom = function(zoom){
+        updateSizeBox();
     }
 
     me.isActive = function(){
         return sizeBox && sizeBox.classList.contains("active");
     }
 
-    EventBus.on(EVENT.sizerChanged,function(data){
-        if (sizeBox && sizeBox.classList.contains("active")){
-            data = data||currentSize;
-            currentSize = {
-                left: data.left,
-                top: data.top,
-                width: data.width,
-                height: data.height,
-                rotation: currentSize?currentSize.rotation:undefined
-            }
-            updateSizeBox();
-        }
-    })
+    me.remove = function(){
+        previousSize = undefined;
+        if(sizeBox) sizeBox.classList.remove("active");
+    }
+
 
     EventBus.on(EVENT.modifierKeyChanged,function(){
         if (sizeBox && sizeBox.classList.contains("active") && currentSize){
@@ -84,48 +103,31 @@ var Resizer = function(){
         }
     });
 
-    // TODO should this be in resizer?
-    EventBus.on(EVENT.selectionChanged,function(){
-        if (sizeBox && sizeBox.classList.contains("active")){
-            let s = Selection.get();
-            if (s && s.width && s.height){
-                console.error("CHECK");
-                me.set(s.left,s.top,s.width,s.height);
-            }
-        }
-    })
-
-    EventBus.on(EVENT.toolDeActivated,command=>{
-        if (command === COMMAND.SELECT && sizeBox){
-            sizeBox.classList.remove("active");
-        }
-    })
-
-    // TODO should this be in resizer?
-    EventBus.on(COMMAND.SELECT,()=>{
-        let s = Selection.get();
-        if (s && s.width && s.height && sizeBox){
-            sizeBox.classList.add("active");
-        }
-    })
-
-    // TODO should this be in resizer?
     EventBus.on(COMMAND.CLEARSELECTION,()=>{
-        if (sizeBox) sizeBox.classList.remove("active");
+        me.remove();
     })
+
+    EventBus.on(EVENT.imageSizeChanged,()=>{
+        me.remove();
+    });
 
     function createSizeBox(parent){
         sizeBox = $div("sizebox","",parent,e=>{
             resizeBox(e);
         });
+        sizeBox.classList.toggle("canrotate",canRotate);
 
         for (let i = 0; i< 8; i++){
             let dot = $div("sizedot","",sizeBox,function(e){
                 resizeBox(e);
             });
 
+            dot.onDragStart = function(){
+                EventBus.trigger(EVENT.sizerStartChange);
+            }
             dot.onDrag = function(x,y){
-                handleDrag(x,y,dot)}
+                handleDrag(x,y,dot)
+            }
             dot.onDragEnd = function(x,y){
                 sizeBox.classList.remove("hot");
             }
@@ -181,6 +183,9 @@ var Resizer = function(){
             rotateDots.push(rotateDot);
         }
 
+        sizeBox.onDragStart = function(x,y){
+            EventBus.trigger(EVENT.sizerStartChange);
+        }
         sizeBox.onDrag = function(x,y){
             handleDrag(x,y,{index:8})
         }
@@ -190,11 +195,12 @@ var Resizer = function(){
     }
 
     function updateSizeBox(){
-        var parent = Editor.getActivePanel().getCanvas();
-        let viewport = Editor.getActivePanel().getViewPort();
+        if (!currentSize) return;
+        var parent = editor.getCanvas();
+        let viewport = editor.getViewPort();
         var rect = parent.getBoundingClientRect();
         var rect2 =  viewport.getBoundingClientRect();
-        let zoom = Editor.getActivePanel().getZoom();
+        let zoom = editor.getZoom();
 
         if (Input.isShiftDown() && Input.isPointerDown() && !touchData.isRotating){
             // aspect ratio lock
@@ -240,16 +246,13 @@ var Resizer = function(){
         rotateDots[2].style.left = dots[4].style.left;
         rotateDots[3].style.top = dots[6].style.top;
 
-
         if (updateHandler) updateHandler();
 
     }
 
-    function resizeBox(event){
+    function resizeBox(){
         touchData.isResizing = true;
         touchData.isdown = true;
-        // TODO; why do we need "selection" data in the resizer?
-        //touchData.selection = Selection.get();
         touchData.startSelectWidth =  currentSize.width;
         touchData.startSelectHeight =  currentSize.height;
         touchData.startSelectLeft =  currentSize.left;
@@ -308,7 +311,7 @@ var Resizer = function(){
                 break;
         }
 
-        me.set(l,t,w,h,currentSize?currentSize.rotation:0);
+        setSize(l,t,w,h,currentSize?currentSize.rotation:0);
 
     }
 
@@ -322,6 +325,6 @@ var Resizer = function(){
     }
     
     return me;
-}();
+};
 
 export default Resizer

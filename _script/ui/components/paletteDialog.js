@@ -101,7 +101,7 @@ var PaletteDialog = function() {
                         $(".item",{onClick:()=>{Palette.sortBySaturation(); contextMenu.classList.remove("active")},"info":"Sort by saturation"},"Saturation"),
                         $(".item",{onClick:()=>{Palette.sortByLightness(); contextMenu.classList.remove("active")},"info":"Sort by lightness"},"Lightness"),
                         $(".item",{onClick:()=>{Palette.sortByUseCount(); contextMenu.classList.remove("active")},"info":"Sort by how much a color is used in the image (optimized for compression)"},"Use Count"),
-                        $(".item",{onClick:()=>{Palette.sortByUseCount(true); contextMenu.classList.remove("active")},"info":"optimize and test compression results)"},"File Size"))),
+                        $(".item",{onClick:()=>{Palette.sortByUseCount(true); contextMenu.classList.remove("active")},"info":"optimize and test compression results"},"File Size"))),
                 $(".button.small",{onClick:()=>{EventBus.trigger(COMMAND.LOADPALETTE)},"info":"Open palette from disk"},"Load"),
                 $(".button.small",{onClick:()=>{EventBus.trigger(COMMAND.SAVEPALETTE)},"info":"Save palette to disk"},"Save"),
             ),

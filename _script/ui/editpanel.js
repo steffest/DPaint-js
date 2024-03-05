@@ -44,7 +44,13 @@ var EditPanel = function(parent,type){
     me.getZoom = function(){
         return canvas.getZoom();
     }
+    me.getResizer = function(){
+        return canvas.getResizer();
+    }
 
+    me.getIndex = function(){
+        return thisPanel;
+    }
 
     viewport.addEventListener("wheel",function(e){
         e.preventDefault();
@@ -260,6 +266,10 @@ var EditPanel = function(parent,type){
     
     me.isVisible = function(){
         return  panel.style.display !== "none";
+    }
+
+    me.isActive = function(){
+        return me.isVisible() && Editor.getActivePanel().getIndex() === thisPanel;
     }
 
     // setup toolbar

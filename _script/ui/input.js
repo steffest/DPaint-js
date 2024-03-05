@@ -6,7 +6,6 @@ import Statusbar from "./statusbar.js";
 import ContextMenu from "./components/contextMenu.js";
 import ImageFile from "../image.js";
 import Selection from "./selection.js";
-import Resizer from "./components/resizer.js";
 import Cursor from "./cursor.js";
 import UI from "./ui.js";
 
@@ -174,7 +173,8 @@ var Input = function(){
 
 		if (target){
 
-			if (Resizer.isActive()){
+			let resizer = Editor.getActivePanel().getResizer();
+			if (resizer.isActive()){
 				let sizeTarget = target.closest(".sizebox");
 				if (!sizeTarget){
 					Editor.commit();

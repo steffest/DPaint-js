@@ -18,30 +18,36 @@ let Selection = function(){
     let currentSelection;
     
     me.set = function(selection){
-        currentSelection = {
-            left: selection.left,
-            top: selection.top,
-            width: selection.width,
-            height: selection.height,
-            points: selection.points,
-            canvas: selection.canvas
-        }
+        currentSelection = selection || {};
+        EventBus.trigger(EVENT.selectionChanged);
     }
 
     me.move = function(x,y,w,h){
-        if (currentSelection){
-            currentSelection.left = x;
-            currentSelection.top = y;
-            currentSelection.width = w;
-            currentSelection.height = h;
-            EventBus.trigger(EVENT.selectionChanged);
+        currentSelection = {
+            left: x,
+            top: y,
+            width: w,
+            height: h
         }
-
-        // TODO: in the case of a "points" polygon, should we move the points as well ?
+        EventBus.trigger(EVENT.selectionChanged);
     }
 
     me.get = function(){
         return currentSelection;
+    }
+
+    me.clear = function(){
+        let hasSelection = !!currentSelection;
+        currentSelection = undefined;
+        if (hasSelection) EventBus.trigger(EVENT.selectionChanged);
+    }
+
+    me.selectAll = function(){
+        let w = ImageFile.getCurrentFile().width;
+        let h = ImageFile.getCurrentFile().height;
+        EventBus.trigger(COMMAND.CLEARSELECTION);
+        EventBus.trigger(COMMAND.SELECT);
+        me.set({left: 0, top: 0, width: w, height: h});
     }
 
     me.getCanvas = function(){
@@ -147,17 +153,10 @@ let Selection = function(){
         }
     }
 
-    EventBus.on(COMMAND.CLEARSELECTION,()=>{
-        currentSelection = undefined;
-    })
-
-    EventBus.on(COMMAND.STAMP,()=>{
-        me.toStamp();
-    })
-
-    EventBus.on(COMMAND.TOLAYER,()=>{
-        me.toLayer();
-    })
+    EventBus.on(COMMAND.SELECTALL,me.selectAll);
+    EventBus.on(COMMAND.CLEARSELECTION,me.clear)
+    EventBus.on(COMMAND.STAMP,me.toStamp)
+    EventBus.on(COMMAND.TOLAYER,me.toLayer)
 
     EventBus.on(COMMAND.CUTTOLAYER,()=>{
         me.toLayer(true);

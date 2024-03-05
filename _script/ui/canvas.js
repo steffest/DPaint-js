@@ -31,7 +31,8 @@ let Canvas = function(parent){
     let zoom=1;
     let prevZoom;
     var panelParent;
-    var selectBox;
+    let selectBox;
+    let resizer;
     let gridOverlay;
     let drawFunction;
     let containerTransform = {x:0,y:0,startX:0,startY:0};
@@ -39,7 +40,9 @@ let Canvas = function(parent){
 
     canvas = document.createElement("canvas");
     overlayCanvas = document.createElement("canvas");
-    selectBox = SelectBox();
+    resizer = Resizer(parent);
+    selectBox = SelectBox(parent,resizer);
+
 
     canvas.width = 200;
     canvas.height = 200;
@@ -118,9 +121,10 @@ let Canvas = function(parent){
             overlayCtx.globalAlpha = 1;
         }
     });
-    
-    EventBus.on(COMMAND.CLEARSELECTION,()=>{
-        selectBox.deActivate();
+
+    EventBus.on(COMMAND.INITSELECTION,(tool)=>{
+        if (!parent.isVisible()) return;
+        selectBox.activate(tool);
     });
 
     EventBus.on(COMMAND.ENDPOLYGONSELECT,(fromClick)=>{
@@ -141,18 +145,22 @@ let Canvas = function(parent){
         gridOverlay.update();
     })
 
+    EventBus.on(EVENT.UIresize,()=>{
+        if (!parent.isVisible()) return;
+        me.zoom(1);
+    });
+
+    EventBus.on(EVENT.panelResized,()=>{
+        if (!parent.isVisible()) return;
+        me.zoom(1);
+    });
+
     EventBus.on(EVENT.imageContentChanged,()=>{
         me.clear();
         let c = ImageFile.getCanvas();
         if (c) ctx.drawImage(c,0,0);
     })
 
-    EventBus.on(EVENT.selectionChanged,()=>{
-        if (!parent.isVisible()) return;
-        if (selectBox.isActive()){
-            selectBox.update(true);
-        }
-    })
 
     EventBus.on(COMMAND.TOGGLEGRID,()=>{
         if (!parent.isVisible()) return;
@@ -161,6 +169,20 @@ let Canvas = function(parent){
 
     EventBus.on(EVENT.gridOptionsChanged,()=>{
         gridOverlay.update();
+    });
+
+    EventBus.on(COMMAND.COLORSELECT,()=>{
+        if (!parent.isVisible()) return;
+        selectBox.activate(COMMAND.COLORSELECT);
+        selectBox.colorSelect(Palette.getDrawColor());
+    });
+
+    EventBus.on(COMMAND.TOSELECTION,()=>{
+        if (!parent.isVisible()) return;
+        //This is different from COMMAND.SELECTALL as this selects the actual pixels?
+        let layer = ImageFile.getActiveLayer();
+        selectBox.activate(COMMAND.TOSELECTION);
+        selectBox.applyCanvas(layer.getCanvas());
     });
 
     me.clear = function(){
@@ -204,9 +226,8 @@ let Canvas = function(parent){
         panelParent.scrollLeft += _z*x;
         panelParent.scrollTop += _z*y;
 
-        if (selectBox.isActive()){
-            selectBox.update();
-        }
+        if (selectBox.isActive()) selectBox.zoom(zoom);
+        if (resizer.isActive()) resizer.zoom(zoom);
 
         gridOverlay.zoom(zoom);
 
@@ -224,6 +245,11 @@ let Canvas = function(parent){
 
     me.getCanvas = function(){
         return canvas;
+    }
+
+    // TODO: resize and selectbox should be part of the editPanel?
+    me.getResizer = function(){
+        return resizer;
     }
 
     me.startSelect = function(){
@@ -270,7 +296,7 @@ let Canvas = function(parent){
 
 
     let defaultDrawFunction = function(){
-        let box = Resizer.get();
+        let box = resizer.get();
         let w = box.width;
         let h = box.height;
         let x = box.left;
@@ -340,8 +366,7 @@ let Canvas = function(parent){
                         break;
                     case COMMAND.SELECT:
                         touchData.isSelecting = true;
-                        selectBox.activate();
-                        Resizer.set(point.x,point.y,0,0,0,true,parent.getViewPort(),1);
+                        selectBox.boundingBoxSelect(point);
                         break;
                     case COMMAND.POLYGONSELECT:
                         touchData.isPolySelect = true;
@@ -349,9 +374,8 @@ let Canvas = function(parent){
                         break;
                     case COMMAND.FLOODSELECT:
                         let c = selectBox.floodSelect(ImageFile.getActiveLayer().getCanvas(),point);
-                        selectBox.activate();
+                        selectBox.activate(COMMAND.FLOODSELECT);
                         selectBox.applyCanvas(c);
-                        EventBus.trigger(EVENT.layerContentChanged);
                         break;
                     case COMMAND.FLOOD:
                         HistoryService.start(EVENT.layerContentHistory);
@@ -363,8 +387,17 @@ let Canvas = function(parent){
                     case COMMAND.CIRCLE:
                     case COMMAND.SQUARE:
                         touchData.isSelecting = true;
-                        selectBox.activate();
-                        Resizer.set(point.x,point.y,0,0,0,true,parent.getViewPort(),1);
+
+                        resizer.init({
+                            x: point.x,
+                            y: point.y,
+                            width: 0,
+                            height: 0,
+                            rotation: 0,
+                            hot: true,
+                            aspect: 1,
+                            canRotate: false,
+                        });
                         HistoryService.start(EVENT.layerContentHistory);
 
                         if (currentTool === COMMAND.CIRCLE){
@@ -457,8 +490,8 @@ let Canvas = function(parent){
                             }
                         }
 
-                        Resizer.setOnUpdate(()=>{
-                            let box = Resizer.get();
+                        resizer.setOnUpdate(()=>{
+                            let box = resizer.get();
                             let w = box.width;
                             let h = box.height;
                             let x = box.left;
@@ -605,14 +638,14 @@ let Canvas = function(parent){
 
                 if (touchData.isSelecting){
                     if (touchData.selection){
-                        Selection.set(touchData.selection);
-                        Resizer.commit();
+                        //Selection.set(touchData.selection);
+                        resizer.commit();
 
                         if (drawFunction){
-                            //let s = Resizer.get();
-                            //drawFunction(ImageFile.getActiveContext(),s.left,s.top,s.width,s.height,touchData.button)
+                            // we're not selectin but dragging/drawing a shape
                             ImageFile.getActiveLayer().commitDraw();
                             drawFunction = undefined;
+                            resizer.remove();
                             EventBus.trigger(EVENT.layerContentChanged,{commit:true});
                             EventBus.trigger(COMMAND.CLEARSELECTION);
                         }
@@ -724,7 +757,12 @@ let Canvas = function(parent){
                             h=-h;
                         }
                         touchData.selection = {left:x,top:y,width: w,height: h};
-                        EventBus.trigger(EVENT.sizerChanged,touchData.selection);
+                        resizer.init({
+                            x: x,
+                            y: y,
+                            width: w,
+                            height: h
+                        });
                     }
 
                     if (touchData.hotDrawFunction){
@@ -734,7 +772,6 @@ let Canvas = function(parent){
                 }
                 break;
             case "scroll":
-                EventBus.trigger(EVENT.sizerChanged);
                 break;
         }
     }

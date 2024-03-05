@@ -7,7 +7,6 @@ import ImageProcessing from "../util/imageProcessing.js";
 import ImageFile from "../image.js";
 import Selection from "./selection.js";
 import Palette from "./palette.js";
-import Resizer from "./components/resizer.js";
 import Color from "../util/color.js";
 import Modal, {DIALOG} from "./modal.js";
 import {releaseCanvas} from "../util/canvasUtils.js";
@@ -22,6 +21,7 @@ var Editor = function(){
     var container;
     var zoomFactor = 1.1;
     var activePanel;
+    let resizer;
     var currentTool = COMMAND.DRAW;
     let previousTool;
     var touchData = {};
@@ -40,6 +40,7 @@ var Editor = function(){
         })
         panels.push(EditPanel(container,"right"));
         activePanel = panels[0];
+        resizer = activePanel.getResizer();
 
         divider.onDrag = function(x,y){
             let w = touchData.startWith+x;
@@ -54,15 +55,15 @@ var Editor = function(){
             panels[0].setWidth(w,true);
             w = (touchData.startWith2-x)*100/touchData.totalWidth;
             panels[1].setWidth(w,true);
+
+            EventBus.trigger(EVENT.panelResized);
         }
         
         EventBus.on(COMMAND.ZOOMIN,function(center){
             activePanel.zoom(zoomFactor,center);
-            EventBus.trigger(EVENT.sizerChanged);
         });
         EventBus.on(COMMAND.ZOOMOUT,function(center){
             activePanel.zoom(1/zoomFactor,center);
-            EventBus.trigger(EVENT.sizerChanged);
         });
 
         //TODO: move these to ToolOptions
@@ -76,18 +77,6 @@ var Editor = function(){
         });
         EventBus.on(COMMAND.SMUDGE,function(){
             currentTool = COMMAND.SMUDGE;
-        });
-        EventBus.on(COMMAND.SELECT,function(){
-            currentTool = COMMAND.SELECT;
-            Cursor.set("select");
-        });
-        EventBus.on(COMMAND.POLYGONSELECT,function(){
-            currentTool = COMMAND.POLYGONSELECT;
-            Cursor.set("select");
-        });
-        EventBus.on(COMMAND.FLOODSELECT,function(){
-            currentTool = COMMAND.FLOODSELECT;
-            Cursor.set("select");
         });
         EventBus.on(COMMAND.FLOOD,function(){
             currentTool = COMMAND.FLOOD;
@@ -184,6 +173,7 @@ var Editor = function(){
             let ctx = ImageFile.getActiveContext();
             let canvas = ctx.canvas;
             let box = ImageFile.getLayerBoundingRect();
+            if (!box.w || !box.h) return;
             let cut = ctx.getImageData(box.x, box.y, box.w, box.h);
             if (box.w === canvas.width && box.h === canvas.height && box.x === 0) return;
 
@@ -205,7 +195,15 @@ var Editor = function(){
             previousTool = currentTool;
             currentTool = COMMAND.TRANSFORMLAYER;
 
-            Resizer.set(box.x,box.y,box.w,box.h,0,false,activePanel.getViewPort(),box.w/box.h);
+            resizer.init({
+                x: box.x,
+                y: box.y,
+                width: box.w,
+                height: box.h,
+                rotation: 0,
+                aspect: box.w/box.h,
+                canRotate: true
+            });
 
             touchData.transformBox = box;
             touchData.transformCanvas = document.createElement("canvas");
@@ -216,7 +214,7 @@ var Editor = function(){
             ctx.drawImage(ImageFile.getActiveContext().canvas,box.x,box.y,box.w,box.h,0,0,box.w,box.h);
 
             touchData.transformLayer = ImageFile.getActiveLayer();
-            Resizer.setOnUpdate(updateTransform);
+            resizer.setOnUpdate(updateTransform);
         });
 
         EventBus.on(COMMAND.COLORMASK,()=>{
@@ -286,20 +284,18 @@ var Editor = function(){
         EventBus.on(EVENT.toolChanged,(tool)=>{
             me.commit();
             Cursor.reset();
+            if (tool === COMMAND.SELECT || tool === COMMAND.FLOODSELECT || tool === COMMAND.POLYGONSELECT){
+                currentTool = tool;
+                Cursor.set("select");
+                EventBus.trigger(COMMAND.INITSELECTION,tool);
+            }
         });
 
     }
 
-    me.set = function(image){
-        //panels.forEach(panel=>panel.set(image,true));
-    }
-
-    me.setPanel = function(image,index){
-        //panels[index].set(image,false);
-    }
-
     me.setActivePanel = function(panel){
         activePanel = panels[panel];
+        resizer = activePanel.getResizer();
     }
 
     me.getActivePanel = function(){
@@ -316,6 +312,8 @@ var Editor = function(){
             panels[0].setWidth(100,true);
             panels[1].hide();
             divider.style.display = "none";
+            EventBus.trigger(EVENT.UIresize);
+
         }else{
             panels[0].setWidth("calc(50% - 4px)");
             panels[1].setWidth("calc(50% - 4px)");
@@ -332,7 +330,7 @@ var Editor = function(){
     me.commit = function(){
         if (currentTool === COMMAND.TRANSFORMLAYER){
             console.log("commit layer");
-            Resizer.commit();
+            resizer.commit();
             updateTransform();
             clearTransform();
             EventBus.trigger(COMMAND.CLEARSELECTION);
@@ -346,7 +344,7 @@ var Editor = function(){
 
     me.reset = function(){
         if (currentTool === COMMAND.TRANSFORMLAYER){
-            Resizer.commit();
+            resizer.commit();
             resetTransform();
             clearTransform();
             currentTool = undefined;
@@ -372,7 +370,7 @@ var Editor = function(){
             if (x<0) Palette.prev();
             return;
         }
-        Resizer.move(x,y);
+        resizer.move(x,y);
     }
 
     me.setZoom = function(factor,center){
@@ -387,7 +385,7 @@ var Editor = function(){
     function updateTransform(){
         if (!touchData.transformLayer) return;
         console.log("update transform layer");
-        let d = Resizer.get();
+        let d = resizer.get();
         touchData.transformLayer.clear();
         if (d.width === 0 || d.height === 0) return;
         let ctx = touchData.transformLayer.getContext();

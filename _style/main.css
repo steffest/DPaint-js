@@ -1762,6 +1762,11 @@ body.presentation .splitpanel .toolbar .toolpanel {
   display: none;
   z-index: 4;
   pointer-events: none;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  /*background-color: rgba(0, 0, 255, 0.25);*/
 }
 .selectbox .border {
   position: absolute;
@@ -1769,21 +1774,40 @@ body.presentation .splitpanel .toolbar .toolpanel {
   top: -1px;
   right: -1px;
   bottom: -1px;
+  display: none;
 }
 .selectbox .border svg {
   width: 100%;
   height: 100%;
+  display: none;
 }
-.selectbox .border svg .white {
+.selectbox .border svg .white,
+.selectbox .border svg .ants {
+  stroke-width: 2px;
+}
+.selectbox .border.active {
+  display: block;
+}
+.selectbox .border.active svg {
+  display: block;
+}
+.selectbox .border.filled {
+  display: block;
+  background-color: rgba(255, 0, 0, 0.25);
+}
+.selectbox svg .white {
   fill: none;
   stroke: #FFF;
-  stroke-width: 2px;
+  stroke-width: 1px;
   vector-effect: non-scaling-stroke;
 }
-.selectbox .border svg .ants {
+.selectbox svg .filled {
+  fill: rgba(255, 0, 0, 0.25);
+}
+.selectbox svg .ants {
   fill: none;
   stroke: #000;
-  stroke-width: 2px;
+  stroke-width: 1px;
   vector-effect: non-scaling-stroke;
   stroke-dasharray: 4px;
   animation: stroke 0.2s linear infinite;
@@ -1802,48 +1826,13 @@ body.presentation .splitpanel .toolbar .toolpanel {
   right: 0;
   bottom: 0;
 }
-.selectbox .content .shape svg {
-  width: 100%;
-}
-.selectbox .content .shape svg .white {
-  fill: none;
-  stroke: #FFF;
-  stroke-width: 2px;
-  vector-effect: non-scaling-stroke;
-}
-.selectbox .content .shape svg .ants {
-  fill: none;
-  stroke: #000;
-  stroke-width: 2px;
-  vector-effect: non-scaling-stroke;
-  stroke-dasharray: 4px;
-  animation: stroke 0.2s linear infinite;
-  /*shape-rendering: geometricPrecision;*/
-  stroke-dashoffset: 8px;
-}
-@keyframes stroke {
-  to {
-    stroke-dashoffset: 0;
-  }
-}
-.selectbox.active {
-  display: block;
-}
-.selectbox.full {
-  display: block;
-  background-color: rgba(255, 0, 0, 0.15);
-  pointer-events: all;
-}
-.selectbox.full .border {
-  display: none;
-}
-.selectbox.full .dots {
+.selectbox .content .dots {
   position: absolute;
   left: 0;
   top: 0;
   z-index: 11;
 }
-.selectbox.full .shape {
+.selectbox .content .shape {
   position: absolute;
   left: 0;
   top: 0;
@@ -1851,6 +1840,27 @@ body.presentation .splitpanel .toolbar .toolpanel {
   bottom: 0;
   pointer-events: none;
   z-index: 10;
+}
+.selectbox .content .shape svg {
+  width: 100%;
+}
+.selectbox .content canvas {
+  position: absolute;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  z-index: 9;
+}
+.selectbox.active {
+  display: block;
+}
+.selectbox.capture {
+  /*background-color: rgba(0, 255, 0, 0.15);*/
+  pointer-events: all;
 }
 
 .sizedot {
@@ -1872,19 +1882,27 @@ body.presentation .splitpanel .toolbar .toolpanel {
   width: 20px;
   height: 20px;
   margin: -20px 0 0 -20px;
-  cursor: url("../_img/cursors/rotate.png") 0 0, auto;
+  cursor: url("../_img/cursors/rotatenw.png") 0 0, auto;
+  display: none;
 }
 .rotatedot.d2 {
   margin: -20px -20px 0 0;
+  cursor: url("../_img/cursors/rotatene.png") 0 0, auto;
 }
 .rotatedot.d3 {
   margin: 0 -20px -20px 0;
+  cursor: url("../_img/cursors/rotatese.png") 0 0, auto;
 }
 .rotatedot.d4 {
   margin: 0 0 -20px -20px;
+  cursor: url("../_img/cursors/rotatesw.png") 0 0, auto;
 }
 .rotatedot:hover {
   /*background-color: green;*/
+}
+
+.sizebox.canrotate .rotatedot {
+  display: block;
 }
 
 .cursor {
@@ -1926,7 +1944,7 @@ body.hoverviewport.cursor-colorpicker canvas.overlaycanvas {
   display: none;
 }
 body.hoverviewport.cursor-rotate {
-  cursor: url("../_img/cursors/rotate.png") 0 0, auto;
+  cursor: url("../_img/cursors/rotatene.png") 0 0, auto;
 }
 body.hoverviewport.cursor-select {
   cursor: crosshair;
@@ -2357,6 +2375,10 @@ body.hovercanvas.pointerdown.cursor-colorpicker .cursor .mark {
 }
 .modalwindow .inner .palette.withactions .mainpanel .sliders input.hex {
   right: 10px;
+  width: 80px;
+}
+.modalwindow .inner .palette.withactions .mainpanel .sliders .pixelcount {
+  left: 75px;
 }
 .modalwindow .inner .palette.withactions .mainpanel .sliders .slider input.slider {
   width: 110px;
