@@ -177,6 +177,12 @@ let Canvas = function(parent){
         selectBox.colorSelect(Palette.getDrawColor());
     });
 
+    EventBus.on(COMMAND.ALPHASELECT,()=>{
+        if (!parent.isVisible()) return;
+        selectBox.activate(COMMAND.ALPHASELECT);
+        selectBox.alphaSelect();
+    });
+
     EventBus.on(COMMAND.TOSELECTION,()=>{
         if (!parent.isVisible()) return;
         //This is different from COMMAND.SELECTALL as this selects the actual pixels?

@@ -66,6 +66,7 @@ let Menu = function(){
                         {label: "All",command: COMMAND.SELECTALL,shortKey: "meta+A"},
                         {label: "Pixels in Current Layer",command: COMMAND.TOSELECTION, shortKey: "meta+Shift+L"},
                         {label: "Pixels in Current Color",command: COMMAND.COLORSELECT, shortKey: "meta+Shift+P"},
+                        {label: "Transparent pixels",command: COMMAND.ALPHASELECT},
                     ]},
                 {label: "Deselect",command: COMMAND.CLEARSELECTION,shortKey: "Esc"},
                 {label: "Copy To Layer",command: COMMAND.TOLAYER,shortKey: "meta+J"},

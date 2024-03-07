@@ -28,6 +28,7 @@ let Layer = function(width,height,name){
     let mask;
     let maskCtx;
     let maskActive;
+    let maskEnabled;
     let alphaLayer;
     let alphaCtx;
     let combined;
@@ -60,7 +61,7 @@ let Layer = function(width,height,name){
     }
 
     me.render = function(){
-        if (mask || isDrawing){
+        if ((mask && maskEnabled) || isDrawing){
             if (!combined) combined = duplicateCanvas(canvas);
             let combinedCtx = combined.getContext("2d",{willReadFrequently:true});
             combinedCtx.clearRect(0,0,combined.width,combined.height);
@@ -208,6 +209,7 @@ let Layer = function(width,height,name){
             maskCtx.fillRect(0,0,mask.width,mask.height);
             alphaCtx.fillRect(0,0,mask.width,mask.height);
             me.hasMask = true;
+            maskEnabled = true;
 
             if (!me.isMaskActive()){
                 me.toggleMask();
@@ -234,12 +236,21 @@ let Layer = function(width,height,name){
         }
     }
 
+    me.enableMask = function(state){
+        maskEnabled = !!state;
+        if (!maskEnabled) maskActive = false;
+    }
+
     me.toggleMask = function(){
         maskActive = !maskActive;
     }
 
     me.isMaskActive = ()=>{
         return maskActive;
+    }
+
+    me.isMaskEnabled = ()=>{
+        return maskEnabled;
     }
 
     me.update = (_maskCtx)=>{

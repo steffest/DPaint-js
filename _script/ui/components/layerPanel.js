@@ -182,6 +182,11 @@ let LayerPanel = function(){
 
                 if (layer.hasMask){
                     items.push({label: "Remove Layer Mask", command: COMMAND.DELETELAYERMASK});
+                    if (layer.isMaskEnabled()){
+                        items.push({label: "Disable Layer Mask", command: COMMAND.DISABLELAYERMASK});
+                    }else{
+                        items.push({label: "Enable Layer Mask", command: COMMAND.ENABLELAYERMASK});
+                    }
                     items.push({label: "Apply Layer Mask", command: COMMAND.APPLYLAYERMASK});
                 }else{
                     items.push({label: "Add Layer Mask: Show", command: COMMAND.LAYERMASK});
@@ -214,9 +219,10 @@ let LayerPanel = function(){
             })
 
             if (layer.hasMask){
-                $(".mask" + (layer.isMaskActive()?".active":""),{
+                $(".mask" + (layer.isMaskActive()?".active":"") + (layer.isMaskEnabled()?"":".disabled"),{
                     parent:elm,
                     onClick:()=>{
+                        if (!layer.isMaskEnabled()) return;
                         Historyservice.start(EVENT.layerPropertyHistory,i);
                         layer.toggleMask();
                         Historyservice.end();

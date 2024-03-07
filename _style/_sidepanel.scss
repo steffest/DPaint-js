@@ -142,6 +142,22 @@
             background-color: $active-color;
             box-shadow: 0 0 2px yellow;
           }
+
+          &.disabled{
+            pointer-events: none;
+
+            &:before{
+              content: "";
+              position: absolute;
+              z-index: 10;
+              left: -4px;
+              transform: rotate(-45deg);
+              top: 6px;
+              width: 22px;
+              height: 2;
+              background-color: orange;
+            }
+          }
         }
 
         input[type="text"]{

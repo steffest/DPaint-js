@@ -954,6 +954,20 @@ body.presentation .statusbar {
   background-color: #b1e00f;
   box-shadow: 0 0 2px yellow;
 }
+.sidepanel .panel .inner .layer .mask.disabled {
+  pointer-events: none;
+}
+.sidepanel .panel .inner .layer .mask.disabled:before {
+  content: "";
+  position: absolute;
+  z-index: 10;
+  left: -4px;
+  transform: rotate(-45deg);
+  top: 6px;
+  width: 22px;
+  height: 2;
+  background-color: orange;
+}
 .sidepanel .panel .inner .layer input[type=text] {
   position: absolute;
   z-index: 10;

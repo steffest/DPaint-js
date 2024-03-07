@@ -269,6 +269,18 @@ var Editor = function(){
             EventBus.trigger(EVENT.layerContentChanged);
             EventBus.trigger(EVENT.layersChanged);
         });
+        EventBus.on(COMMAND.DISABLELAYERMASK,()=>{
+            let layer = ImageFile.getActiveLayer();
+            layer.enableMask(false);
+            EventBus.trigger(EVENT.layerContentChanged);
+            EventBus.trigger(EVENT.layersChanged);
+        });
+        EventBus.on(COMMAND.ENABLELAYERMASK,()=>{
+            let layer = ImageFile.getActiveLayer();
+            layer.enableMask(true);
+            EventBus.trigger(EVENT.layerContentChanged);
+            EventBus.trigger(EVENT.layersChanged);
+        });
         EventBus.on(COMMAND.APPLYLAYERMASK,()=>{
             let layer = ImageFile.getActiveLayer();
             layer.removeMask(true);

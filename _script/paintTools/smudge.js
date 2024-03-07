@@ -89,7 +89,12 @@ let Smudge = function(){
             if (doBlur || doSharpen){
                 brushCtx.clearRect(0,0,w,h);
                 brushCtx.drawImage(workingCtx.canvas, x,y,w,h,0,0,w,h);
-                if (doBlur) filters.blur(1);
+                if (doBlur){
+                    let s = ToolOptions.getStrength() * 10;
+                    if (s>w) s = w;
+                    if (s<1) s = 1;
+                    filters.blur(s);
+                }
                 if (doSharpen) filters.sharpen(ToolOptions.getStrength());
                 feather(brushCtx);
                 composeCtx.clearRect(0,0,w,h);
