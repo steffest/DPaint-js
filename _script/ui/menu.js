@@ -85,6 +85,7 @@ let Menu = function(){
                 {label: "Grid",command: COMMAND.TOGGLEGRID,shortKey: "D",checked:false},
                 {label: "Split Screen",command: COMMAND.SPLITSCREEN,shortKey: "Z", checked: false},
                 {label: "Tool Options",command: COMMAND.TOGGLESIDEPANEL, checked: false},
+                {label: "Gallery",command: COMMAND.TOGGLEGALLERY, checked: false},
                 {label: "Presentation mode",command: COMMAND.PRESENTATION, checked: false},
                 {label: "Full Screen",command: COMMAND.FULLSCREEN,needsRealClick: true, checked: false},
             ]},

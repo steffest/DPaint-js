@@ -1101,6 +1101,9 @@ body.presentation .statusbar {
   color: #888888;
   border: 1px solid #7b7b7b;
 }
+.sidepanel .panel .paneltools .blendselect select:focus {
+  outline: none;
+}
 .sidepanel .panel.brush, .sidepanel .panel.grid {
   color: #BBBBBB;
   font-size: 12px;
@@ -1230,6 +1233,14 @@ body.presentation .statusbar {
   border-bottom: 5px solid transparent;
   border-top: 5px solid transparent;
   border-left: 5px solid white;
+}
+.sidepanel .panel.layers .panelcontent {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 47px;
+  bottom: 0;
+  overflow: auto;
 }
 .sidepanel .caption {
   background-color: #282A2C;
@@ -1564,6 +1575,16 @@ body.override .splitpanel .panel .toolbar .toolpanel .options .checkbox.pressure
 }
 .splitpanel .panel .toolbar .toolpanel .options label.inline {
   margin-left: 6px;
+}
+.splitpanel .panel .toolbar .toolpanel .options select {
+  background-color: #181818;
+  color: #BBBBBB;
+  border: 1px solid #626262;
+  font-size: 11px;
+  margin-right: 4px;
+}
+.splitpanel .panel .toolbar .toolpanel .options select:focus {
+  outline: none;
 }
 .splitpanel .panel .viewport,
 .splitpanel .panel .windowContainer,
@@ -3376,20 +3397,92 @@ body.hovercanvas.pointerdown.cursor-colorpicker .cursor .mark {
   border-left: 1px solid black;
   display: none;
 }
-.modalwindow .inner .saveform .moremenu.active {
-  display: block;
-}
 .modalwindow .inner .saveform .moremenu .item {
-  padding: 5px;
+  padding: 5px 5px 5px 44px;
   border-bottom: 1px solid black;
+  position: relative;
 }
 .modalwindow .inner .saveform .moremenu .item .subtitle {
+  font-size: 13px;
   padding: 4px 0;
   color: #797979;
 }
 .modalwindow .inner .saveform .moremenu .item:hover {
   background-color: #232323;
   cursor: pointer;
+}
+.modalwindow .inner .saveform .moremenu .item:hover .info {
+  opacity: 1;
+  right: 220px;
+}
+.modalwindow .inner .saveform .moremenu .item:after {
+  content: "";
+  position: absolute;
+  left: 2px;
+  top: 2px;
+  width: 34px;
+  height: 34px;
+  background-image: url("../_img/layers.svg");
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+}
+.modalwindow .inner .saveform .moremenu .item.mask:after {
+  background-image: url("../_img/layers_mask.svg");
+}
+.modalwindow .inner .saveform .moremenu .item.index:after {
+  background-image: url("../_img/pixelgrid.svg");
+}
+.modalwindow .inner .saveform .moremenu .item.loading:after {
+  display: none;
+}
+.modalwindow .inner .saveform .moremenu .item .spinner {
+  top: 8px;
+  left: 30px;
+  width: 32px;
+  height: 32px;
+}
+.modalwindow .inner .saveform .moremenu .item .info {
+  background-color: #232323;
+  position: absolute;
+  padding: 4px 4px 4px 8px;
+  border: 1px solid black;
+  top: 0px;
+  z-index: 10;
+  width: 170px;
+  opacity: 0;
+  pointer-events: none;
+  min-height: 40px;
+  transition: opacity 0.2s ease-in-out, right 0.2s ease-in-out;
+  right: 120px;
+  box-shadow: 0 0 20px 0px rgba(0, 0, 0, 0.5098039216);
+}
+.modalwindow .inner .saveform .moremenu .item .info:before {
+  content: "";
+  position: absolute;
+  top: 10px;
+  border: 10px solid transparent;
+  border-right: 10px solid black;
+  right: -21px;
+  transform: rotate(180deg);
+}
+.modalwindow .inner .saveform .moremenu .item .info:after {
+  content: "";
+  position: absolute;
+  top: 10px;
+  right: -20px;
+  transform: rotate(180deg);
+  border: 10px solid transparent;
+  border-right: 10px solid #232323;
+}
+.modalwindow .inner .saveform.hasmore .moremenu {
+  display: block;
+}
+.modalwindow .inner .saveform.hasmore .button.more:after {
+  transform: rotate(180deg);
+}
+.modalwindow .inner .saveform.hasmore input {
+  width: calc(100% - 220px);
 }
 .modalwindow .inner .saveoverlay {
   position: absolute;
@@ -3549,6 +3642,57 @@ body.hovercanvas.pointerdown.cursor-colorpicker .cursor .mark {
   cursor: pointer;
   background-color: #3C3F41;
   color: white;
+}
+
+.gallery .item {
+  margin: auto;
+  width: 120px;
+  font-size: 11px;
+  color: #BBBBBB;
+  margin-top: 10px;
+  box-shadow: 0 0 4px rgba(0, 0, 0, 0.7);
+  transition: transform 0.2s, color 0.2s;
+}
+.gallery .item:hover {
+  cursor: pointer;
+  transform: scale(1.05);
+  color: #DDDDDD;
+}
+.gallery .item:hover .fileinfo {
+  background-color: #505050;
+}
+.gallery .thumb {
+  width: 120px;
+  height: 70px;
+  background-size: cover;
+  background-position: center;
+}
+.gallery .fileinfo {
+  position: relative;
+  padding: 4px;
+  background-color: #404244;
+}
+.gallery .year {
+  position: absolute;
+  right: 4px;
+  top: 4px;
+  color: #8f8f8f;
+}
+.gallery .artist {
+  font-style: italic;
+}
+.gallery .section {
+  padding: 4px 8px;
+}
+.gallery .section .title {
+  font-size: 13px;
+  color: #BBBBBB;
+  border-bottom: 1px solid #BBBBBB;
+  margin: 8px 0;
+}
+.gallery .section .description {
+  font-size: 12px;
+  color: #8f8f8f;
 }
 
 .uae {

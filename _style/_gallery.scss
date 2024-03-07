@@ -1,0 +1,61 @@
+.gallery{
+
+  .item{
+    margin: auto;
+    width: 120px;
+    font-size: 11px;
+    color: $menu-text-color;
+    margin-top: 10px;
+    box-shadow: 0 0 4px rgba(0, 0, 0, 0.7);
+    transition: transform 0.2s, color 0.2s;
+
+    &:hover{
+      cursor: pointer;
+      transform: scale(1.05);
+
+      .fileinfo{
+        background-color: #505050;
+      }
+      color: $menu-text-color-high;
+    }
+  }
+
+  .thumb{
+    width: 120px;
+    height: 70px;
+    background-size: cover;
+    background-position: center;
+  }
+
+  .fileinfo{
+    position: relative;
+    padding: 4px;
+    background-color: #404244;
+  }
+
+  .year{
+    position: absolute;
+    right: 4px;
+    top: 4px;
+    color: $menu-text-color-dim;
+  }
+
+  .artist{
+    font-style: italic;
+  }
+
+  .section{
+    padding: 4px 8px;
+    .title{
+      font-size: 13px;
+      color: $menu-text-color;
+      border-bottom: 1px solid $menu-text-color;
+      margin: 8px 0;
+    }
+
+    .description{
+      font-size: 12px;
+      color: $menu-text-color-dim;
+    }
+  }
+}
