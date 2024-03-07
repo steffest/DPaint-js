@@ -85,14 +85,14 @@ let LayerPanel = function(){
         let frame = imageFile.frames[ImageFile.getActiveFrameIndex()];
         let max = frame.layers.length-1;
         let systemLayers = 0;
-        let startY = 46;
+        let startY = 0;
         if (window.override){
             for (let i = 0;i<=max;i++){
                 if (frame.layers[i].name.indexOf("_")===0){
                     systemLayers++;
                 }
             }
-            startY = 46 - (systemLayers*23);
+            startY = (systemLayers*23);
         }
 
         let offset = 0;
@@ -142,7 +142,7 @@ let LayerPanel = function(){
                         let el = contentPanel.querySelector("#layer" + i);
                         if (el){
                             if (elm.currentIndex === i){
-                                el.style.top = 46 + ((max-newIndex)*23) + "px";
+                                el.style.top = ((max-newIndex)*23) + "px";
                             }else{
                                 let ci = 0;
                                 if (newIndex<elm.currentIndex && i >= newIndex && i<=elm.currentIndex){
@@ -151,7 +151,7 @@ let LayerPanel = function(){
                                 if (newIndex>elm.currentIndex && i <= newIndex && i>=elm.currentIndex){
                                     ci=-1;
                                 }
-                                el.style.top = 46 + ((max-i-ci)*23) + "px";
+                                el.style.top = ((max-i-ci)*23) + "px";
                             }
                         }
                     }
@@ -267,6 +267,7 @@ let LayerPanel = function(){
             // needed for rename from context menu
             setTimeout(()=>{
                 input.focus();
+                input.select();
             },50);
         }
 

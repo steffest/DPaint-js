@@ -116,11 +116,11 @@ var SidePanel = function(){
         let y = 0;
         Object.keys(panels).forEach(key=>{
             let panel = panels[key];
-            let height = (panel.height || 100);
+            let height = panel.collapsed?collapsedHeight:(panel.height || 100);
             panel.container = generatePanel(panel,container);
             panel.container.style.height = height + "px";
             panel.container.style.top = y + "px";
-            y+= (panel.collapsed?collapsedHeight:height);
+            y+= height;
         })
     }
 

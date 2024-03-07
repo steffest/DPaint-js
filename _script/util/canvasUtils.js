@@ -1,3 +1,4 @@
+import Palette from "../ui/palette.js";
 
 export function duplicateCanvas(canvas,includingContent){
     let result = document.createElement("canvas");
@@ -169,5 +170,45 @@ export function outLineCanvas(ctx,generateSVG){
     }
 
 
+}
+
+export function indexPixelsToPalette(ctx,palette,oneDimensional){
+    let width = ctx.canvas.width;
+    let height = ctx.canvas.height;
+    let pixels = [];
+    let data = ctx.getImageData(0,0,width,height).data;
+    let notFoundCount = 0;
+
+    function getIndex(color,x,y){
+        let index = palette.findIndex((c)=>{return c[0] === color[0] && c[1] === color[1] && c[2] === color[2]});
+        if (index<0){
+            index = 0;
+            notFoundCount++;
+        }
+        return index;
+    }
+
+    for (let i=0;i<data.length;i+=4){
+        let x = (i/4)%width;
+        let y = Math.floor((i/4)/width);
+        let r = data[i];
+        let g = data[i+1];
+        let b = data[i+2];
+        let a = data[i+3];
+
+        let index = a?getIndex([r,g,b,a],x,y):-1;
+        if (oneDimensional){
+            pixels.push(index);
+        }else{
+            pixels[y] = pixels[y] || [];
+            pixels[y][x] = index;
+        }
+    }
+
+
+    return {
+        pixels:pixels,
+        notFoundCount:notFoundCount
+    }
 }
 

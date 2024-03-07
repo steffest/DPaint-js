@@ -192,7 +192,7 @@ var Input = function(){
 						time: performance.now()
 					}
 				}else {
-					target.onClick(e);
+					target.onClick(e,target);
 				}
 			}
 

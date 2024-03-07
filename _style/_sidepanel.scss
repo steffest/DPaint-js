@@ -324,6 +324,10 @@
           background-color: #181818;
           color: #888888;
           border: 1px solid #7b7b7b;
+
+          &:focus{
+            outline: none;
+          }
         }
       }
     }
@@ -487,6 +491,17 @@
             border-left: 5px solid white;
           }
         }
+      }
+    }
+
+    &.layers{
+      .panelcontent{
+        position: absolute;
+        left: 0;
+        right: 0;
+        top: 47px;
+        bottom: 0;
+        overflow: auto;
       }
     }
   }

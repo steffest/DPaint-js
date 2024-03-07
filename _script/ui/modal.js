@@ -183,7 +183,18 @@ var Modal = function(){
                 return true;
             case "enter":
                 let button = inner.querySelector(".button.primary");
-                if (button && button.onClick) button.onClick();
+                if (button && button.onClick){
+                    button.onClick();
+                }else{
+                    button =  inner.querySelector(".button");
+                    if (button){
+                        if (button.onClick){
+                            button.onClick();
+                        }else{
+                            me.hide();
+                        }
+                    }
+                }
                 return true;
         }
     }

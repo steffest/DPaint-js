@@ -86,9 +86,7 @@ let HistoryService = function(){
     }
 
     function getLayerProperties(index){
-        console.error(index);
         let layer = ImageFile.getLayer(index);
-        console.error(layer);
         return {
             name: layer.name,
             visible: layer.visible,

@@ -12,6 +12,7 @@ let ToolOptions = function(){
     let fill = false;
     let lineSize = 1;
     let tolerance = 0;
+    let strength = 50;
     let mask = false;
     let selectionOutline = true;
     let selectionMask = false;
@@ -29,8 +30,11 @@ let ToolOptions = function(){
     let fillCheckbox;
     let lineSizeRange;
     let toleranceRange;
+    let strengthRange;
     let brushOptionGroup;
     let brushSettings={};
+    let smudgeAction = "Smudge";
+    let smudgeSelect;
 
     me.isSmooth = ()=>{
         return smooth;
@@ -73,18 +77,29 @@ let ToolOptions = function(){
         return tolerance;
     }
 
+    me.getStrength = ()=>{
+        return strength/100;
+    }
+
+    me.getSmudgeAction = ()=>{
+        return smudgeAction.toLowerCase();
+    }
+
     me.getOptions = (command)=>{
         let options = $div("options");
         switch (command){
             case COMMAND.DRAW:
                 options.appendChild(label("Brush:"));
-                options.appendChild(brushSetting());
+                options.appendChild(brushSetting(true));
                 options.appendChild(ditherSetting());
                 options.appendChild(pressureSetting());
                 break;
             case COMMAND.SMUDGE:
-                options.appendChild(label("Brush:"));
+                options.appendChild(smudgeLabel());
                 options.appendChild(brushSetting());
+                options.appendChild(strengthSetting());
+                options.appendChild(ditherSetting());
+
                 break;
             case COMMAND.LINE:
                 options.appendChild(label("Line:"));
@@ -159,7 +174,8 @@ let ToolOptions = function(){
         return lineSizeRange;
     }
 
-    function brushSetting(){
+    function brushSetting(withOpacity){
+        let brushOpacityRange;
         if (!brushOptionGroup){
             let settings = Brush.getSettings();
             brushOptionGroup = $div("optionsgroup");
@@ -174,7 +190,7 @@ let ToolOptions = function(){
             }
 
 
-            let brushOpacityRange = $div("range","",brushOptionGroup);
+            brushOpacityRange = $div("range opacity","",brushOptionGroup);
             $elm("label","Opacity:",brushOpacityRange,"inline");
             brushSettings.opacityRange = $input("range",settings.opacity,brushOpacityRange)
             brushSettings.opacityRange.min=1;
@@ -194,6 +210,13 @@ let ToolOptions = function(){
                 if (invertCheckbox) invertCheckbox.setState(DitherPanel.getDitherInvertState());
             })
 
+        }
+
+        if (!brushOpacityRange) brushOpacityRange = brushOptionGroup.querySelector(".opacity");
+        if (withOpacity){
+            brushOpacityRange.style.display = "block";
+        }else {
+            brushOpacityRange.style.display = "none";
         }
 
         return brushOptionGroup;
@@ -251,6 +274,28 @@ let ToolOptions = function(){
         return pressureCheckbox;
     }
 
+    function strengthSetting(){
+        if (!strengthRange){
+            strengthRange = $div("range");
+            $elm("label","Strength:",strengthRange,"inline");
+            let range = document.createElement("input");
+            range.type="range";
+            range.min=0;
+            range.max=100;
+            range.value = strength;
+            strengthRange.appendChild(range);
+            let value = $elm("span",strength,strengthRange);
+            range.oninput = function(){
+                value.innerText = range.value;
+                strength = range.value;
+            }
+
+        }
+        return strengthRange;
+    }
+
+
+
     function toleranceSetting(){
         if (!toleranceRange){
             toleranceRange = $div("range");
@@ -271,12 +316,31 @@ let ToolOptions = function(){
         return toleranceRange;
     }
 
+    function smudgeLabel(){
+        let options = ["Smudge","Blur","Sharpen"];
+        if (!smudgeSelect){
+            smudgeSelect = $elm("select","",null,"inline");
+            options.forEach((option)=>{
+                let opt = document.createElement("option");
+                opt.value = option;
+                opt.innerText = option;
+                smudgeSelect.appendChild(opt);
+            });
+            smudgeSelect.onchange = function(){
+                smudgeAction = smudgeSelect.value;
+            }
+        }
+        return smudgeSelect;
+    }
+
     function label(text){
         let label = document.createElement("span");
         label.className = "tool";
         label.innerText = text;
         return label;
     }
+
+
 
     function lineWidthSetting(){
 

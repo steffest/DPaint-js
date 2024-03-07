@@ -126,9 +126,16 @@
             }
           }
 
-
-
-
+          select{
+            background-color: #181818;
+            color: $menu-text-color;
+            border: 1px solid #626262;
+            font-size: 11px;
+            margin-right: 4px;
+            &:focus{
+              outline: none;
+            }
+          }
         }
       }
     }

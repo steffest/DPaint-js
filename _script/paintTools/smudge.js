@@ -5,6 +5,9 @@ import Brush from "../ui/brush.js";
 import Palette from "../ui/palette.js";
 import Color from "../util/color.js";
 import {duplicateCanvas} from "../util/canvasUtils.js";
+import DitherPanel from "../ui/components/ditherPanel.js";
+import ToolOptions from "../ui/components/toolOptions.js";
+import effects from "../ui/effects.js";
 
 // somewhat based on https://stackoverflow.com/questions/28197378/html5-canvas-javascript-smudge-brush-tool
 
@@ -16,10 +19,16 @@ let Smudge = function(){
     let hardness = 0.01;
     let radius = 10;
     const brushCtx = document.createElement('canvas').getContext('2d');
+    let composeCtx = document.createElement('canvas').getContext('2d');
     let featherGradient;
     let ctx;
     let lastX;
     let lastY;
+    let doBlur = false;
+    let doSharpen = false;
+    let filters;
+    let dither = false;
+    let workingCtx;
 
     me.start = function(touchData){
         touchData.isSmudging = true;
@@ -31,6 +40,7 @@ let Smudge = function(){
         lastY = y;
         lastForce = touchData.force || 1;
 
+
          let settings = Brush.getSettings();
             alpha = settings.opacity/100;
             hardness = 1-(settings.softness/10);
@@ -38,7 +48,14 @@ let Smudge = function(){
             if (isNaN(hardness)) hardness = 0.01;
             if (radius<2) radius = 2;
 
-        updateBrushSettings()
+        updateBrushSettings();
+        doBlur = ToolOptions.getSmudgeAction() === "blur";
+        doSharpen = ToolOptions.getSmudgeAction() === "sharpen";
+        if (doBlur || doSharpen){
+            filters = effects.getFilters(brushCtx);
+            workingCtx = duplicateCanvas(ctx.canvas,true).getContext("2d");
+        }
+        dither = DitherPanel.getDitherState();
     }
 
     me.draw = function(touchData){
@@ -53,49 +70,89 @@ let Smudge = function(){
             tempCtx = tempCanvas.getContext("2d");
         }
 
+        let w = brushCtx.canvas.width;
+        let h = brushCtx.canvas.height;
+
+
         const line = setupLine(lastX, lastY,x, y);
         for (let more = true; more;) {
             more = advanceLine(line);
+            if (doBlur) more = false;
 
             let x = line.position[0] - brushCtx.canvas.width / 2;
             let y = line.position[1] - brushCtx.canvas.height / 2;
-            let w = brushCtx.canvas.width;
-            let h = brushCtx.canvas.height;
+            x = Math.floor(x);
+            y = Math.floor(y);
+
+
+
+            if (doBlur || doSharpen){
+                brushCtx.clearRect(0,0,w,h);
+                brushCtx.drawImage(workingCtx.canvas, x,y,w,h,0,0,w,h);
+                if (doBlur) filters.blur(1);
+                if (doSharpen) filters.sharpen(ToolOptions.getStrength());
+                feather(brushCtx);
+                composeCtx.clearRect(0,0,w,h);
+                composeCtx.globalAlpha = ToolOptions.getStrength();
+                composeCtx.drawImage(brushCtx.canvas, 0, 0);
+                composeCtx.globalAlpha = 1;
+            }else{
+                composeCtx.globalAlpha = ToolOptions.getStrength();
+                composeCtx.globalCompositeOperation='copy';
+                composeCtx.drawImage(composeCtx.canvas, 0,0);
+                composeCtx.globalCompositeOperation = "source-over";
+
+                composeCtx.globalAlpha = alpha * lerp(lastForce, force, line.u);
+                composeCtx.drawImage(brushCtx.canvas, 0, 0);
+                composeCtx.globalAlpha = 1;
+            }
+
+
+            if (dither){
+                let pattern = DitherPanel.getDitherPattern();
+                composeCtx.globalCompositeOperation = "destination-in";
+                composeCtx.drawImage(pattern,x,y,w,h,0,0,w,h);
+                composeCtx.globalCompositeOperation = "source-over";
+                ctx.drawImage(composeCtx.canvas, x, y);
+            }
 
 
             if (Palette.isLocked()){
                 tempCtx.clearRect(0,0,w,h);
                 tempCtx.drawImage(ctx.canvas,x,y,w,h,0,0,w,h);
-                tempCtx.globalAlpha = alpha * lerp(lastForce, force, line.u);
-                tempCtx.drawImage(brushCtx.canvas,0,0);
+                tempCtx.drawImage(composeCtx.canvas,0,0);
+
+                // reapply dither
+                let composeData;
+                if (dither){
+                    composeData = composeCtx.getImageData(0,0,w,h);
+                }
 
                 let data = tempCtx.getImageData(0,0,w,h);
                 for (let i = 0; i<data.data.length;i+=4){
                     let r = data.data[i];
                     let g = data.data[i+1];
                     let b = data.data[i+2];
-                    let finalColor = Palette.matchColor([r,g,b]);
-                    //console.error(finalColor,r,g,b);
-                    data.data[i] = finalColor[0];
-                    data.data[i+1] = finalColor[1];
-                    data.data[i+2] = finalColor[2];
+                    let a = data.data[i+3];
+                    if (composeData) a = composeData.data[i+3];
+
+                    if (a){
+                        let finalColor = Palette.matchColor([r,g,b]);
+                        data.data[i] = finalColor[0];
+                        data.data[i+1] = finalColor[1];
+                        data.data[i+2] = finalColor[2];
+                    }
                 }
                 tempCtx.putImageData(data,0,0);
 
-
-                ctx.clearRect(x,y,w,h);
                 ctx.drawImage(tempCtx.canvas,x,y);
 
             }else{
-                ctx.globalAlpha = alpha * lerp(lastForce, force, line.u);
-                ctx.drawImage(brushCtx.canvas, x, y);
+                ctx.drawImage(composeCtx.canvas, x, y);
             }
 
-
-
-
             updateBrush(line.position[0], line.position[1]);
-            ctx.globalAlpha = 1;
+
         }
         lastX = x;
         lastY = y;
@@ -117,6 +174,8 @@ let Smudge = function(){
         featherGradient = createFeatherGradient(radius/2, hardness);
         brushCtx.canvas.width = radius;
         brushCtx.canvas.height = radius;
+        composeCtx.canvas.width = radius;
+        composeCtx.canvas.height = radius;
     }
 
     function feather(ctx) {
@@ -128,6 +187,7 @@ let Smudge = function(){
         ctx.translate(width / 2, height / 2);
         ctx.fillRect(-width / 2, -height / 2, width, height);
         ctx.restore();
+        ctx.globalCompositeOperation = 'source-over';
     }
 
     function updateBrush(x, y) {

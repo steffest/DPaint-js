@@ -199,6 +199,11 @@ let Effects = function(){
 
     }
 
+    me.getFilters = (target)=>{
+        _target = target;
+        return customFilters;
+    }
+
    function applyFilters(){
         if (!doApply) return;
 

@@ -7,7 +7,7 @@ import Modal, {DIALOG} from "./ui/modal.js";
 
 let App = function(){
 	let me = {
-		version: "0.1.4 alpha"
+		version: "0.1.4.1 alpha"
 	}
 	
 	me.init = function(){
@@ -43,6 +43,14 @@ let App = function(){
 					window.localStorage.setItem("dp_about","true");
 				},200);
 			}
+
+
+			if (urlParams.has("gallery")){
+				setTimeout(()=>{
+					EventBus.trigger(COMMAND.TOGGLEGALLERY,true);
+				},200);
+
+			}
 		}
 
 		if (window.self !== window.top && window.parent){
@@ -77,6 +85,12 @@ let App = function(){
 		EventBus.on(COMMAND.DELUXE,()=>{
 			import("./ui/components/uae.js").then(UAE=>{
 				UAE.default.preview();
+			});
+		});
+
+		EventBus.on(COMMAND.TOGGLEGALLERY,(andOpen)=>{
+			import("./ui/components/gallery.js").then(Gallery=>{
+				Gallery.default.toggle(andOpen);
 			});
 		});
 
