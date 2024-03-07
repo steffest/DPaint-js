@@ -156,15 +156,13 @@
     border-left: 1px solid black;
     display: none;
 
-    &.active{
-        display: block;
-    }
-
     .item{
-      padding:5px;
+      padding:5px 5px 5px 44px;
       border-bottom: 1px solid black;
+      position: relative;
 
       .subtitle{
+        font-size: 13px;
         padding: 4px 0;
         color: #797979;
       }
@@ -172,7 +170,98 @@
       &:hover{
         background-color: #232323;
         cursor: pointer;
+
+        .info{
+          opacity: 1;
+          right: 220px;
+        }
       }
+
+      &:after{
+        content: "";
+        position: absolute;
+        left: 2px;
+        top: 2px;
+        width: 34px;
+        height: 34px;
+        background-image: url("../_img/layers.svg");
+        background-size: contain;
+        background-repeat: no-repeat;
+        background-position: center;
+      }
+
+      &.mask:after{
+        background-image: url("../_img/layers_mask.svg");
+      }
+      &.index:after{
+        background-image: url("../_img/pixelgrid.svg");
+      }
+
+      &.loading{
+        &:after{
+          display: none;
+        }
+      }
+
+      .spinner{
+        top: 8px;
+        left: 30px;
+        width: 32px;
+        height: 32px;
+      }
+
+      .info{
+        background-color: #232323;
+        position: absolute;
+        padding: 4px 4px 4px 8px;
+        border: 1px solid black;
+        top: 0px;
+        z-index: 10;
+        width: 170px;
+        opacity: 0;
+        pointer-events: none;
+        min-height: 40px;
+        transition: opacity 0.2s ease-in-out, right 0.2s ease-in-out;
+        right: 120px;
+        box-shadow: 0 0 20px 0px #00000082;
+
+
+        &:before{
+          content: "";
+          position: absolute;
+          top: 10px;
+          border: 10px solid transparent;
+          border-right: 10px solid black;
+          right: -21px;
+          transform: rotate(180deg);
+        }
+
+        &:after{
+          content: "";
+          position: absolute;
+          top: 10px;
+          right: -20px;
+          transform: rotate(180deg);
+          border: 10px solid transparent;
+          border-right: 10px solid #232323;
+        }
+
+      }
+
+    }
+  }
+
+  &.hasmore{
+    .moremenu{
+      display: block;
+    }
+
+    .button.more:after{
+        transform: rotate(180deg);
+    }
+
+    input{
+      width: calc(100% - 220px);
     }
   }
 

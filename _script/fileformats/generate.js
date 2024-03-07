@@ -61,6 +61,8 @@ let Generate = function(){
                 return me.gif();
             case "DPAINT":
                 return me.dPaint();
+            case "DPAINTINDEXED":
+                return me.dPaint(true);
             default:
                 console.error("Unknown file type",type);
         }
@@ -110,22 +112,23 @@ let Generate = function(){
 
     me.png8=()=>{
         let maxColors = 256;
+
         let check = me.validate({
             maxColors: maxColors
         });
         if (!check.valid){
-            Modal.show(DIALOG.OPTION,{
+            return {
+                result: "error",
                 title: "Save as PNG8",
-                text: ["Sorry, this image can't be saved as PNG8."].concat(check.errors),
-                buttons: [{label:"OK"}]
-            });
-            return;
+                messages: ["Sorry, this image can't be saved as PNG8."].concat(check.errors)
+            }
         }
 
         let buffer = IndexedPng.write(ImageFile.getCanvas());
-        console.log(buffer);
-        return new Blob([buffer], {type: "application/octet-stream"});
-
+        return {
+            result: "ok",
+            file: new Blob([buffer], {type: "application/octet-stream"})
+        };
     }
 
     me.gif=()=>{
@@ -134,23 +137,32 @@ let Generate = function(){
             maxColors: maxColors
         });
         if (!check.valid){
-            Modal.show(DIALOG.OPTION,{
+            return {
+                result: "error",
                 title: "Save as GIF",
-                text: ["Sorry, this image can't be saved as GIF."].concat(check.errors),
-                buttons: [{label:"OK"}]
-            });
-            return;
+                messages: ["Sorry, this image can't be saved as GIF."].concat(check.errors)
+            }
         }
 
         let buffer = GIF.write(ImageFile.getCurrentFile().frames);
-        //let buffer = GIF.write(ImageFile.getCanvas());
-        console.log(buffer);
-        return new Blob([buffer], {type: "application/octet-stream"});
-
+        return {
+            result: "ok",
+            file: new Blob([buffer], {type: "application/octet-stream"})
+        };
     }
 
-    me.dPaint=()=>{
-        return new Blob([JSON.stringify(ImageFile.export())], { type: 'application/json' })
+    me.dPaint=(indexed)=>{
+        let exportResult = ImageFile.export(indexed);
+        let result = {result:"ok"};
+
+        if (indexed && exportResult.errorCount){
+            let pixels = " pixel";
+            if (exportResult.errorCount>1) pixels += "s";
+            result.messages = [exportResult.errorCount + pixels + " could not be converted to index colors because there was no matching color found in the palette."];
+            result.result = "warning";
+        }
+        result.file = new Blob([JSON.stringify(exportResult)], { type: 'application/json' });
+        return result;
     }
 
     me.classicIcon=(config)=>{

@@ -630,7 +630,9 @@ const IFF = (function () {
 
     // creates an ArrayBuffer with the binary data of the image;
     me.write = function (canvas) {
-        let colors = Palette.isLocked()?Palette.get():ImageProcessing.getColors(canvas, 256);
+        let colorCycle = Palette.getColorRanges() || [];
+        let lockPalette = colorCycle.length || Palette.isLocked();
+        let colors = lockPalette?Palette.get():ImageProcessing.getColors(canvas, 256);
 
         let bitplaneCount = 1;
         while (1 << bitplaneCount < colors.length) bitplaneCount++;
@@ -643,9 +645,16 @@ const IFF = (function () {
         const bytesPerLine = Math.ceil(w / 16) * 2;
         const bodySize = bytesPerLine * bitplaneCount * h;
 
+        let colorCycleSize = 8 + 8; // header + data
         let fileSize = 40 + 8 + 8;
         fileSize += colors.length * 3;
         fileSize += bodySize;
+        let colorRangeCount = colorCycle.length;
+        if (colorRangeCount){
+            // we need at least 4 CRNG chunks to store, otherwise Deluxe Paint will inject default values
+            colorRangeCount = Math.max(4,colorRangeCount);
+            fileSize += (colorCycleSize * colorRangeCount);
+        }
         if (fileSize & 1) fileSize++;
 
         const file = BinaryStream(new ArrayBuffer(fileSize), true);
@@ -680,6 +689,27 @@ const IFF = (function () {
             file.writeUbyte(color[1]);
             file.writeUbyte(color[2]);
         });
+
+        // color cycling
+        if (colorRangeCount){
+            for (let i = 0; i < colorRangeCount; i++){
+                let range = colorCycle[i] || {active:0,reverse:0,low:0,high:0,fps:0};
+
+                file.writeString("CRNG");
+                file.writeDWord(8);
+
+                file.writeWord(0); // padding
+
+                let rate = Math.floor(range.fps * 16384 / 60);
+                let flags = range.active?1:0;
+                flags += range.reverse?2:0;
+
+                file.writeWord(rate);
+                file.writeWord(flags);
+                file.writeUbyte(range.low);
+                file.writeUbyte(range.high);
+            }
+        }
 
         // body
         file.writeString("BODY");

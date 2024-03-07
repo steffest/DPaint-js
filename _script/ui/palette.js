@@ -383,6 +383,10 @@ let Palette = function(){
         return currentPalette;
     }
 
+    me.getColorRanges = function(){
+        return ImageFile.getCurrentFile().colorRange;
+    }
+
     me.fromImage = function(){
         var colors = ImageProcessing.getColors(ImageFile.getCanvas());
         var palette = [];
@@ -796,6 +800,10 @@ let Palette = function(){
         }
     }
 
+    me.isCycling = function(){
+        return Animator.isRunning();
+    }
+
     function generateColorLayers(){
         colorLayers = {};
         let image = ImageFile.getCurrentFile();
@@ -920,7 +928,7 @@ let Palette = function(){
 
     EventBus.on(EVENT.layerContentChanged,(options)=>{
         options = options || {};
-        if (Animator.isRunning() && options.commit){
+        if (me.isCycling() && options.commit){
             // toggle cycle to regenerate the color cycle layer after draw
             me.cycle();
             me.cycle();

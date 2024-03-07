@@ -1,6 +1,6 @@
 import Color from "../util/color.js";
 import ToolOptions from "./components/toolOptions.js";
-import {duplicateCanvas, releaseCanvas} from "../util/canvasUtils.js";
+import {duplicateCanvas, indexPixelsToPalette, releaseCanvas} from "../util/canvasUtils.js";
 import Brush from "./brush.js";
 import HistoryService from "../services/historyservice.js";
 import DitherPanel from "./components/ditherPanel.js";
@@ -254,15 +254,23 @@ let Layer = function(width,height,name){
         }
     }
 
-    me.clone = (forSerialization)=>{
+    me.clone = (forSerialization,indexed)=>{
         let struct = {
             name: me.name,
             blendMode: me.blendMode,
             opacity: me.opacity,
             visible: me.visible,
-            hasMask: me.hasMask,
-            canvas: forSerialization ? canvas.toDataURL() : duplicateCanvas(canvas),
+            hasMask: me.hasMask
         };
+        if (!forSerialization) indexed=false;
+
+        if (indexed){
+            let indexed = me.generateIndexedPixels();
+            struct.indexedPixels = indexed.pixels;
+            struct.conversionErrors=indexed.notFoundCount;
+        }else{
+            struct.canvas = forSerialization ? canvas.toDataURL() : duplicateCanvas(canvas);
+        }
 
         if (me.hasMask){
             struct.mask = forSerialization ? mask.toDataURL() : duplicateCanvas(mask);
@@ -316,6 +324,36 @@ let Layer = function(width,height,name){
                 }else{
                     ctx.drawImage(struct.canvas,0,0);
                 }
+            }else if (struct.indexedPixels){
+                console.log("restoring indexed pixels")
+                canvasRestored = false;
+                let imgData = ctx.createImageData(canvas.width,canvas.height);
+                let colors = Palette.get();
+                let w = canvas.width;
+                let h = canvas.height;
+                let indexed = struct.indexedPixels;
+                for (let y = 0; y<h; y++){
+                    for (let x = 0; x<w; x++){
+                        let line = indexed[y] || [];
+                        let offset = (y*w+x)*4;
+                        let index = line[x];
+                        if (typeof index !== 'number') index = -1;
+                        if (index>=0){
+                            let color = colors[index] || [0,0,0];
+                            imgData.data[offset] = color[0];
+                            imgData.data[offset+1] = color[1];
+                            imgData.data[offset+2] = color[2];
+                            imgData.data[offset+3] = 255;
+                        }else{
+                            imgData.data[offset] = 0;
+                            imgData.data[offset+1] = 0;
+                            imgData.data[offset+2] = 0;
+                            imgData.data[offset+3] = 0;
+                        }
+                    }
+                }
+                ctx.putImageData(imgData,0,0);
+                canvasRestored = true;
             }
             if (struct.mask){
                 maskRestored = false;
@@ -334,6 +372,11 @@ let Layer = function(width,height,name){
             }
             isDone();
         });
+    }
+
+    me.generateIndexedPixels = function(){
+        return indexPixelsToPalette(ctx,Palette.get());
+
     }
     
     return me;

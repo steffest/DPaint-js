@@ -5,7 +5,7 @@ import Historyservice from "./services/historyservice.js";
 import Layer from "./ui/layer.js";
 import Modal,{DIALOG} from "./ui/modal.js";
 import SidePanel from "./ui/sidepanel.js";
-import {duplicateCanvas,releaseCanvas} from "./util/canvasUtils.js";
+import {duplicateCanvas, indexPixelsToPalette, releaseCanvas} from "./util/canvasUtils.js";
 import Palette from "./ui/palette.js";
 import SaveDialog from "./ui/components/saveDialog.js";
 import HistoryService from "./services/historyservice.js";
@@ -140,6 +140,7 @@ let ImageFile = function(){
     }
 
     me.openLocal = function(){
+        stop();
         var input = document.createElement("input");
         input.type = "file";
         input.onchange = function (e) {
@@ -149,6 +150,7 @@ let ImageFile = function(){
     };
 
     me.openUrl = function(url,useProxy){
+        stop();
         return new Promise((resolve,reject)=>{
             let fileName = url.substring(url.lastIndexOf("/")+1);
             let extension = fileName.substring(fileName.lastIndexOf(".")+1).toLowerCase();
@@ -401,9 +403,10 @@ let ImageFile = function(){
         me.activateFrame(frame);
     }
 
-    me.clone = function(){
+    me.clone = function(indexed){
         let struct = {
             type: "dpaint",
+            version: "1",
             image: {},
         };
 
@@ -413,11 +416,13 @@ let ImageFile = function(){
         struct.image.activeLayerIndex = activeLayerIndex;
         struct.image.activeFrameIndex = activeFrameIndex;
         struct.image.frames = [];
+        struct.errorCount = 0;
 
         currentFile.frames.forEach((frame) => {
             let _frame = { layers: [] };
             frame.layers.forEach((layer) => {
-                let _layer = layer.clone(true);
+                let _layer = layer.clone(true, indexed);
+                struct.errorCount += (_layer.conversionErrors || 0);
                 _frame.layers.push(_layer);
             });
             struct.image.frames.push(_frame);
@@ -462,14 +467,17 @@ let ImageFile = function(){
         if (image.colorRange) currentFile.colorRange = image.colorRange;
     };
 
-    me.export = function(){
-        let struct = me.clone();
+    me.export = function(indexed){
+        let struct = me.clone(indexed);
+
         struct.palette = Palette.get();
         if (currentFile.colorRange) struct.colorRange = currentFile.colorRange;
         if (currentFile.indexedPixels){
             struct.indexedPixels = currentFile.indexedPixels;
         }else{
-            //struct.indexedPixels = me.generateIndexedPixels();
+            if (indexed){
+                struct.indexedPixels = me.generateIndexedPixels();
+            }
         }
         console.log(struct);
         return struct;
@@ -626,13 +634,13 @@ let ImageFile = function(){
 
     me.handleJSON = function(data,next){
         if (data.type === "dpaint") {
-            me.restore(data);
             if (data.palette){
                 Palette.set(data.palette);
             }
             if (data.colorRange){
                 currentFile.colorRange = data.colorRange;
             }
+            me.restore(data);
         }
         if (data.type === "palette") {
             Palette.set(data.palette);
@@ -767,6 +775,10 @@ let ImageFile = function(){
         return currentFile.frames[activeFrameIndex];
     }
 
+    function stop(){
+        if (Palette.isCycling()) EventBus.trigger(COMMAND.CYCLEPALETTE);
+    }
+
     me.duplicateFrame = function(index){
         HistoryService.start(EVENT.imageHistory);
         if (typeof index !== "number") index = activeFrameIndex;
@@ -887,52 +899,23 @@ let ImageFile = function(){
         console.log("generate indexed pixels");
         let now = performance.now();
         let ctx = me.getCanvas(frameIndex).getContext("2d");
-        let width = currentFile.width;
-        let height = currentFile.height;
-        let pixels = [];
-        let data = ctx.getImageData(0,0,width,height).data;
         let colors = Palette.get();
-        let notFoundCount = 0;
 
-        function getIndex(color,x,y){
-            let index = colors.findIndex((c)=>{return c[0] === color[0] && c[1] === color[1] && c[2] === color[2]});
-            if (index<0){
-                index = 0;
-                notFoundCount++;
-            }
-            return index;
-        }
+        let indexed = indexPixelsToPalette(ctx,colors,oneDimensional);
 
-        for (let i=0;i<data.length;i+=4){
-            let x = (i/4)%width;
-            let y = Math.floor((i/4)/width);
-            let r = data[i];
-            let g = data[i+1];
-            let b = data[i+2];
-            let a = data[i+3];
-
-            let index = a?getIndex([r,g,b,a],x,y):0;
-            if (oneDimensional){
-                 pixels.push(index);
-            }else{
-                pixels[y] = pixels[y] || [];
-                pixels[y][x] = index;
-            }
-        }
-
-        currentFile.indexedPixels = pixels;
+        currentFile.indexedPixels = indexed.pixels;
         let time = performance.now() - now;
         console.log("Indexed pixels generated in " + time + "ms");
-        if (notFoundCount){
-            console.warn("Indexed pixels: " + notFoundCount + " colors not found in palette");
+        if (indexed.notFoundCount){
+            console.warn("Indexed pixels: " + indexed.notFoundCount + " colors not found in palette");
         }
-        return pixels;
+        return currentFile.indexedPixels;
 
     }
 
-    window.generateIndexedPixels = me.generateIndexedPixels;
 
     EventBus.on(COMMAND.NEW, function(){
+        stop();
         newFile();
     });
 

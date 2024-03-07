@@ -61,6 +61,12 @@ var SaveDialog = function(){
                 'application/json': ['.json'],
             }
         },
+        INDEXED:{
+            description: 'DPaint.json with indexed color pixels',
+            accept: {
+                'application/json': ['.json'],
+            }
+        },
         ADF:{
             description: 'Amiga Disk File',
             accept: {
@@ -106,27 +112,31 @@ var SaveDialog = function(){
         container.innerHTML = "";
         let mainPanel;
         container.appendChild(
-            $(".saveform",
+            mainPanel = $(".saveform",
                 $(".name",$("h4","Name"),nameInput = $("input",{type:"text",value:ImageFile.getName()})),
                 $("h4","Save as"),
-                submenu = $(".moremenu",
-                    $(".item",{onClick:writePLANES},"Planes",$(".subtitle","Binary bitplane data")),
-                    $(".item",{onClick:writeMASK},"Mask",$(".subtitle","Binary bitplane mask"))
+                $(".moremenu",
+                    $(".item.png",{onClick:(e,elm)=>{waitFor(writePNG8,elm)}},"PNG 8-bit",$(".subtitle","PNG with indexed colors"),$(".info","Max 256 colors, no layers, only the current frame gets saved.")),
+                    $(".item.gif",{onClick:(e,elm)=>{waitFor(writeGIF,elm)}},"GIF",$(".subtitle","(also animated)"),$(".info","Max 256 colors, no layers, frames get saved as animation.")),
+                    $(".item.index",{onClick:(e,elm)=>{waitFor(writeINDEXED,elm)}},"Indexed",$(".subtitle","Dpaint.json with indexed colors"),$(".info","Map each pixel to the current palette. Used e.g. for the Magrathea Living Worlds app.")),
+                    $(".item.planes",{onClick:writePLANES},"Planes",$(".subtitle","Binary bitplane data"),$(".info","Converts the current image to binary bitplane data. (Demoscene stuff)")),
+                    $(".item.mask",{onClick:writeMASK},"Mask",$(".subtitle","Binary bitplane mask"),$(".info","Converts the current image to a binary bitplane mask. (Demoscene stuff)")),
                 ),
                 $(".platform.general",
                     $("h4.general","General"),
                     renderButton("png","PNG Image","PNG file","Full color and transparency, no layers, only the current frame gets saved.",writePNG),
-                    renderButton("json","DPaint.JSON","JSON file","The internal format of Dpaint.js",writeJSON),
+                    renderButton("json","DPaint.JSON","JSON file","The internal format of Dpaint.. All features supported",writeJSON),
                     renderButton("psd","PSD","Coming soon ...","Working on it!"),
                     $(".button.more",{onclick:()=>{
-                            submenu.classList.toggle("active");
+                            //submenu.classList.toggle("active");
+                            mainPanel.classList.toggle("hasmore");
                             }},"More")
                     //renderButton("planes","BIN","Bitplanes","Binary bitplane data",writePLANES)
                 ),
                 $(".platform.amiga",
                     $("h4.amiga","Amiga"),
                     currentFile ? renderButton("adf","ADF","Save to ADF","Save Back to ADF. (Download the ADF afterwards when you're done editing)",writeADF) : null,
-                    renderButton("iff","IFF Image","Amiga IFF file","Maximum 256 colours, only the current frame gets saved.",writeIFF),
+                    renderButton("iff","IFF Image","Amiga IFF file","Maximum 256 colors, only the current frame gets saved.",writeIFF),
                     renderButton("mui","Amiga Classic Icon","OS1.3 Style","For all Amiga's. Use MUI palette for best compatibility",writeAmigaClassicIcon),
                     renderButton("os3","Amiga Color Icon","OS3.2 Style","Also called 'Glowicons'. For modern Amiga systems and/or with PeterK's Icon Library. Max 256 colors.",writeAmigaColorIcon),
                     renderButton("os4","Amiga Dual PNG Icon","OS4 Style","For modern Amiga systems and/or with PeterK's Icon Library. Full colors.",writeAmigaPNGIcon)
@@ -211,6 +221,32 @@ var SaveDialog = function(){
         container.appendChild(overridePanel);
     }
 
+    function waitFor(action,elm){
+        let spinner = $(".spinner");
+        elm.appendChild(spinner);
+        elm.classList.add("loading");
+
+        setTimeout(()=>{
+            action().then((result)=>{
+                spinner.remove();
+                elm.classList.remove("loading");
+                if (result && result.messages && result.messages.length){
+                    if (result.result === "warning" && result.file){
+                        result.messages.unshift("Some issues were found while generating the file:");
+                        result.messages.push("You might want to check the file.");
+                    }
+                    Modal.show(DIALOG.OPTION,{
+                        title: result.title || result.result || "Alert",
+                        text: result.messages,
+                        buttons: [{label:"OK"}]
+                    });
+                }else{
+                    Modal.hide();
+                }
+            });
+        },50);
+    }
+
     function getFileName(){
         let name = nameInput ? nameInput.value.replace(/[ &\/\\#,+()$~%.'":*?<>{}]/g, ""):"";
         return name || "Untitled"
@@ -261,6 +297,15 @@ var SaveDialog = function(){
             await saveFile(blob,fileName,filetypes.MASK);
             Modal.hide();
         }
+        return result;
+    }
+
+    async function writeINDEXED(){
+        let result = await Generate.file("DPAINTINDEXED");
+        if (result.file){
+            await saveFile(result.file,getFileName() + '.json',filetypes.INDEXED);
+        }
+        return result;
     }
 
     function writeADF(){
@@ -275,10 +320,26 @@ var SaveDialog = function(){
         }
     }
 
+    async function writePNG8(){
+        let result = await Generate.file("PNG8");
+        if (result.file){
+            await saveFile(result.file,getFileName() + ".png",filetypes.PNG);
+        }
+        return result;
+    }
+
+    async function writeGIF(){
+        let result = await Generate.file("GIF");
+        if (result.file){
+            await saveFile(result.file,getFileName() + ".gif",filetypes.GIF);
+        }
+        return result;
+    }
+
     async function writeJSON(){
-        let blob = await Generate.file("DPAINT");
-        if (blob){
-            await saveFile(blob,getFileName() + '.json',filetypes.DPAINTJS);
+        let result = await Generate.file("DPAINT");
+        if (result.file){
+            await saveFile(result.file,getFileName() + '.json',filetypes.DPAINTJS);
             Modal.hide();
         }
     }
@@ -328,22 +389,6 @@ var SaveDialog = function(){
         let blob = new Blob([data], {type: "application/octet-stream"})
         saveFile(blob,fileName,filetypes.FILE).then(()=>{});
     })
-
-    window.png8 = function(){
-        Generate.file("PNG8").then((blob)=>{
-            if (blob){
-                saveFile(blob,getFileName() + ".png",filetypes.PNG).then(()=>{});
-            }
-        });
-    }
-
-    window.savegif = function(){
-        Generate.file("GIF").then((blob)=>{
-            if (blob){
-                saveFile(blob,getFileName() + ".gif",filetypes.GIF).then(()=>{});
-            }
-        });
-    }
 
 
     return me;
