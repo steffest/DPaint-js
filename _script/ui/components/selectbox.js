@@ -108,7 +108,6 @@ let SelectBox = ((editor,resizer)=>{
     }
 
     me.polySelect = (point)=>{
-
         if (!dots) dots = $div("dots","",content);
 
         if (!selecting){
@@ -121,9 +120,8 @@ let SelectBox = ((editor,resizer)=>{
             Input.setActiveKeyHandler(keyHandler);
         }
         selecting = true;
-        border.classList.remove("active");
-        border.classList.remove("filled");
-        box.classList.add("capture");
+        border.classList.remove("active","filled");
+        box.classList.add("capture","active");
 
         if (point){
             selectionPoints.push(point);
@@ -262,6 +260,32 @@ let SelectBox = ((editor,resizer)=>{
                 let b = imageData.data[index+2];
                 let a = imageData.data[index+3];
                 if (a && r===color[0] && g===color[1] && b===color[2]){
+                    target.data[index] = 255;
+                    target.data[index+1] = 255;
+                    target.data[index+2] = 255;
+                    target.data[index+3] = 255;
+                }
+            }
+        }
+        c.putImageData(target,0,0);
+        me.applyCanvas(c.canvas);
+    }
+
+    me.alphaSelect = function(){
+        let canvas = ImageFile.getActiveLayer().getCanvas();
+
+        let w = canvas.width;
+        let h = canvas.height;
+        let imageData = canvas.getContext("2d").getImageData(0,0,w,h);
+
+        let c = duplicateCanvas(canvas).getContext("2d");
+        let target = c.getImageData(0,0,w,h);
+
+        for (let x = 0;x<w;x++){
+            for (let y = 0;y<h;y++){
+                let index = (y*w + x)*4;
+                let a = imageData.data[index+3];
+                if (a<255){
                     target.data[index] = 255;
                     target.data[index+1] = 255;
                     target.data[index+2] = 255;
