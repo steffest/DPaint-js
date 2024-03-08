@@ -8,6 +8,9 @@ input[type=range] {
 input[type=range]:focus {
   outline: none;
 }
+input[type=range]:disabled {
+  opacity: 0.3;
+}
 input[type=range]::-webkit-slider-runnable-track {
   background: #c8c8c8;
   border: 1px solid #010101;

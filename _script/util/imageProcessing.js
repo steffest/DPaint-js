@@ -65,23 +65,21 @@ var ImageProcessing = function(){
 			for(var y = 0; y < imageInfos.canvas.height; y++){
 				for(var x = 0; x < imageInfos.canvas.width; x++){
 					var index = (x + y * imageInfos.canvas.width) * 4;
-
-					var red = opaqueData.data[index];
-					var green = opaqueData.data[index + 1];
-					var blue = opaqueData.data[index + 2];
-					
 					var alpha = data.data[index + 3];
 
 					if(alpha < 255){
 						if (alpha>=alphaThreshold){
-							ctx.fillStyle = "rgb("+ red +"," + green + "," + blue + ")";
-							ctx.fillRect(x,y,1,1);
+							data.data[index] =  opaqueData.data[index];
+							data.data[index + 1] = opaqueData.data[index + 1];
+							data.data[index + 2] = opaqueData.data[index + 2];
+							data.data[index + 3] = 255;
 						}else{
-							ctx.clearRect(x,y,1,1);
+							data.data[index + 3] = 0;
 						}
 					}
 				}
 			}
+			ctx.putImageData(data, 0, 0);
 
 			EventBus.trigger(EVENT.imageContentChanged)
 
@@ -120,7 +118,7 @@ var ImageProcessing = function(){
 
 	};
 	
-	me.reduce = function(canvas,colors,_alphaThreshold,ditherIndex){
+	me.reduce = function(canvas,colors,_alphaThreshold,ditherIndex,useAlphaThreshold){
 
 		alphaThreshold = _alphaThreshold || 0;
 		ditherPattern = dithering[ditherIndex || 0].pattern;
@@ -136,8 +134,8 @@ var ImageProcessing = function(){
 		
 		imageInfos.canvas = canvas;
 		imageInfos.colorCount = colors;
-		
-		me.matting();
+
+		if (useAlphaThreshold) me.matting();
 		
 		processImage(mode, bitsPerColor, ditherPattern, "id");
 	};
@@ -707,6 +705,7 @@ var ImageProcessing = function(){
 	// TODO: implement in webworker
 	// good article: https://stackoverflow.com/questions/18922880/html5-canvas-resize-downscale-image-high-quality
 	// also checkout https://github.com/nodeca/pica
+	// TODO; checkout createImageBitmap
 	me.downScale = function(sourceImageData,destWidth, destHeight){
 		function round(val)
 		{

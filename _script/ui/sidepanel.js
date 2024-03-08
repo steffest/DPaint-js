@@ -58,7 +58,7 @@ var SidePanel = function(){
         reduce:{
             label: "Reduce Colors",
             collapsed: true,
-            height: 230,
+            height: 270,
             content: parent=>{
                 Palette.generateControlPanel(parent);
             }

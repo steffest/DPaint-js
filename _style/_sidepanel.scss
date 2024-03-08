@@ -620,6 +620,23 @@
     width: 100%;
   }
 
+
+  .button.full{
+    color: $menu-text-color-dim;
+    text-align: center;
+    border: 1px solid black;
+    line-height: 16px;
+    font-size: 12px;
+    margin: 4px;
+    background-color: $button-background-medium;
+    &:hover{
+      cursor: pointer;
+      color: $menu-text-color;
+      background-color: $button-background-dark;
+
+    }
+  }
+
 }
 
 

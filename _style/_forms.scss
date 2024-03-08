@@ -46,6 +46,29 @@
       }
     }
   }
+
+  &.small{
+    margin-top: 1px;
+    label{
+      span{
+        padding: 2px 0 2px 14px;
+
+        &:before{
+          width: 10px;
+          height: 10px;
+          top: 2px;
+        }
+      }
+    }
+
+    input{
+      &:checked + span{
+        &:before{
+          box-shadow: inset 0 0 0 1px black;
+        }
+      }
+    }
+  }
 }
 
 input[type="number"],

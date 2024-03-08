@@ -1,4 +1,4 @@
-import $,{$div, $input} from "../util/dom.js";
+import $, {$checkbox, $div, $input} from "../util/dom.js";
 import EventBus from "../util/eventbus.js";
 import {COMMAND, EVENT} from "../enum.js";
 import Color from "../util/color.js";
@@ -19,6 +19,7 @@ let Palette = function(){
     var size = 14;
     var currentPalette;
     var alphaThreshold = 44;
+    let useAlphaThreshold = true;
     var ditherIndex = 0;
     var targetColorCount = 32;
     let palettePageIndex = 0;
@@ -439,7 +440,7 @@ let Palette = function(){
                 layer.drawImage(c,0,0);
                 EventBus.trigger(EVENT.layerContentChanged,{keepImageCache:true});
             }else{
-                ImageProcessing.reduce(c,targetPalette || targetColorCount,alphaThreshold,ditherIndex);
+                ImageProcessing.reduce(c,targetPalette || targetColorCount,alphaThreshold,ditherIndex,useAlphaThreshold);
             }
 
             SidePanel.show("reduce");
@@ -449,7 +450,7 @@ let Palette = function(){
     me.apply = function(){
         let base = ImageFile.getOriginal();
         let c = duplicateCanvas(base,true);
-        ImageProcessing.reduce(c,currentPalette,alphaThreshold,0);
+        ImageProcessing.reduce(c,currentPalette,alphaThreshold,0,useAlphaThreshold);
     }
 
     me.getColorIndex = function(color,forceMatch){
@@ -613,7 +614,7 @@ let Palette = function(){
                     me.reduce();
                 })
             }else{
-                me.reduce();
+                applyReduce();
             }
 
         }
@@ -635,7 +636,7 @@ let Palette = function(){
             targetColorCount = Math.pow(2,range.value);
             pselect.value = "optimized";
             targetPalette = null;
-            me.reduce();
+            applyReduce();
         }
         fixed.appendChild(range);
 
@@ -653,7 +654,7 @@ let Palette = function(){
         });
         select.onchange = function(){
             ditherIndex = select.value;
-            me.reduce();
+            applyReduce();
         }
         $div("button square prev","<",dithering,()=>{
             let v = parseInt(select.value)-1;
@@ -671,7 +672,12 @@ let Palette = function(){
         dithering.appendChild(select);
 
         let alpha = $div("subpanel","",parent);
-        $div("label","Alpha Threshold",alpha );
+        $checkbox("Alpha Threshold",alpha,"label small",(value)=>{
+            useAlphaThreshold = value;
+            arange.disabled = !useAlphaThreshold;
+            applyReduce();
+        },useAlphaThreshold);
+        //$div("label","Alpha Threshold",alpha );
         let avalue = $div("value",alphaThreshold + "%",alpha );
         let arange = document.createElement("input");
         arange.type = "range";
@@ -683,9 +689,17 @@ let Palette = function(){
         }
         arange.onchange = function(){
             alphaThreshold = arange.value;
-            me.reduce();
+            applyReduce();
         }
         alpha.appendChild(arange);
+
+
+        let button = $div("button full","Apply",parent,applyReduce);
+
+        function applyReduce(){
+            if (pselect.value === "current") targetPalette = currentPalette;
+            me.reduce();
+        }
     }
 
     me.openLocal = function(){
