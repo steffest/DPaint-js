@@ -399,6 +399,32 @@ let Palette = function(){
         Palette.set(palette);
     }
 
+    me.applyToCanvas= function(canvas,removeAlpha,maskData){
+        let ctx = canvas.getContext("2d");
+        let data = ctx.getImageData(0,0,canvas.width,canvas.height);
+        for (let i = 0; i<data.data.length;i+=4){
+            let r = data.data[i];
+            let g = data.data[i+1];
+            let b = data.data[i+2];
+            let a = data.data[i+3];
+            if (maskData) a = maskData.data[i+3];
+
+            if (removeAlpha){
+               a = (a<128)?0:255;
+               data.data[i+3] = a;
+            }
+
+            if (a){
+                let finalColor = Palette.matchColor([r,g,b]);
+                data.data[i] = finalColor[0];
+                data.data[i+1] = finalColor[1];
+                data.data[i+2] = finalColor[2];
+            }
+        }
+        ctx.putImageData(data,0,0);
+
+    }
+
     me.reduce = function(){
 
         if (targetColorCount>256 && !targetPalette){

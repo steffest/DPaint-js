@@ -311,6 +311,10 @@ var EditPanel = function(parent,type){
             toolPanel.innerHTML = "";
             toolPanel.appendChild(ToolOptions.getOptions(tool));
         })
+        EventBus.on(COMMAND.TRANSFORMLAYER,()=>{
+            toolPanel.innerHTML = "";
+            toolPanel.appendChild(ToolOptions.getOptions(COMMAND.TRANSFORMLAYER));
+        })
     }
     if (thisPanel === 1){
         let viewPanel = $div("viewstyle","",toolbar);

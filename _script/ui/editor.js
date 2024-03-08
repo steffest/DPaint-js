@@ -9,10 +9,11 @@ import Selection from "./selection.js";
 import Palette from "./palette.js";
 import Color from "../util/color.js";
 import Modal, {DIALOG} from "./modal.js";
-import {releaseCanvas} from "../util/canvasUtils.js";
+import {releaseCanvas, duplicateCanvas} from "../util/canvasUtils.js";
 import Input from "./input.js";
 import HistoryService from "../services/historyservice.js";
 import Cursor from "./cursor.js";
+import ToolOptions from "./components/toolOptions.js";
 
 var Editor = function(){
     var me = {};
@@ -25,6 +26,7 @@ var Editor = function(){
     var currentTool = COMMAND.DRAW;
     let previousTool;
     var touchData = {};
+    let rotSprite;
     var state= {
         splitPanel: false
     }
@@ -213,6 +215,7 @@ var Editor = function(){
             ctx.imageSmoothingEnabled = false;
             ctx.drawImage(ImageFile.getActiveContext().canvas,box.x,box.y,box.w,box.h,0,0,box.w,box.h);
 
+            HistoryService.start(EVENT.layerContentHistory);
             touchData.transformLayer = ImageFile.getActiveLayer();
             resizer.setOnUpdate(updateTransform);
         });
@@ -343,11 +346,13 @@ var Editor = function(){
         if (currentTool === COMMAND.TRANSFORMLAYER){
             console.log("commit layer");
             resizer.commit();
-            updateTransform();
-            clearTransform();
-            EventBus.trigger(COMMAND.CLEARSELECTION);
-            currentTool = undefined;
-            if (previousTool) EventBus.trigger(previousTool);
+            updateTransform(true).then(()=>{
+                clearTransform();
+                EventBus.trigger(COMMAND.CLEARSELECTION);
+                currentTool = undefined;
+                HistoryService.end();
+                if (previousTool) EventBus.trigger(previousTool);
+            });
         }
         if (currentTool === COMMAND.POLYGONSELECT){
             EventBus.trigger(COMMAND.ENDPOLYGONSELECT);
@@ -360,6 +365,7 @@ var Editor = function(){
             resetTransform();
             clearTransform();
             currentTool = undefined;
+            HistoryService.neverMind();
         }
         EventBus.trigger(COMMAND.CLEARSELECTION);
     }
@@ -394,25 +400,64 @@ var Editor = function(){
         return !(ct === COMMAND.SELECT || ct === COMMAND.SQUARE || ct === COMMAND.GRADIENT || ct === COMMAND.LINE || ct === COMMAND.CIRCLE  ||  ct === COMMAND.TRANSFORMLAYER);
     }
 
-    function updateTransform(){
+    async function updateTransform(final,onDone){
         if (!touchData.transformLayer) return;
         console.log("update transform layer");
         let d = resizer.get();
         touchData.transformLayer.clear();
         if (d.width === 0 || d.height === 0) return;
         let ctx = touchData.transformLayer.getContext();
-        ctx.imageSmoothingEnabled = false;
-        if (d.rotation){
-            console.log("rotate " + d.rotation);
 
-            let dw = (d.left + d.width/2);
-            let dh = (d.top + d.height/2);
-            ctx.translate(dw,dh);
-            ctx.rotate((d.rotation * Math.PI) / 180);
-            ctx.translate(-dw,-dh);
+        let smooth = ToolOptions.isSmooth();
+        let pixelOptimized = ToolOptions.isPixelPerfect();
+        if (pixelOptimized) smooth = false;
+
+        ctx.imageSmoothingEnabled = smooth;
+
+
+        let angled = d.rotation && (d.rotation % 90 !== 0);
+        let useHQ = final && pixelOptimized && angled && touchData.transformCanvas.width<=512 && touchData.transformCanvas.height<=512;
+
+        if (useHQ){
+            if (!rotSprite){
+                rotSprite = await import("../paintTools/rotSprite.js");
+                rotSprite = rotSprite.default;
+            }
+            let rotated = await rotSprite(touchData.transformCanvas,d.rotation);
+            let rotateScaleX = touchData.transformCanvas.width / rotated.width;
+            let rotateScaleY = touchData.transformCanvas.height / rotated.height;
+
+            let w = d.width / rotateScaleX;
+            let h = d.height / rotateScaleY;
+
+            let x = d.left + (d.width - w) / 2;
+            let y = d.top + (d.height - h) / 2;
+
+            if (Palette.isLocked()){
+                // rotated is a WEBGL canvas
+                rotated = duplicateCanvas(rotated,true);
+                Palette.applyToCanvas(rotated);
+            }
+
+            ctx.drawImage(rotated,x,y,w,h);
+        }else{
+            if (d.rotation){
+                console.log("rotate " + d.rotation);
+
+                let dw = (d.left + d.width/2);
+                let dh = (d.top + d.height/2);
+                ctx.translate(dw,dh);
+                ctx.rotate((d.rotation * Math.PI) / 180);
+                ctx.translate(-dw,-dh);
+            }
+
+            ctx.drawImage(touchData.transformCanvas,d.left,d.top,d.width,d.height);
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+
+            if (angled && final && Palette.isLocked()){
+                Palette.applyToCanvas(ctx.canvas,true);
+            }
         }
-        ctx.drawImage(touchData.transformCanvas,d.left,d.top,d.width,d.height);
-        ctx.setTransform(1, 0, 0, 1, 0, 0);
         EventBus.trigger(EVENT.layerContentChanged);
     }
 

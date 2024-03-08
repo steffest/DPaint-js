@@ -133,22 +133,7 @@ let Smudge = function(){
                     composeData = composeCtx.getImageData(0,0,w,h);
                 }
 
-                let data = tempCtx.getImageData(0,0,w,h);
-                for (let i = 0; i<data.data.length;i+=4){
-                    let r = data.data[i];
-                    let g = data.data[i+1];
-                    let b = data.data[i+2];
-                    let a = data.data[i+3];
-                    if (composeData) a = composeData.data[i+3];
-
-                    if (a){
-                        let finalColor = Palette.matchColor([r,g,b]);
-                        data.data[i] = finalColor[0];
-                        data.data[i+1] = finalColor[1];
-                        data.data[i+2] = finalColor[2];
-                    }
-                }
-                tempCtx.putImageData(data,0,0);
+                Palette.applyToCanvas(tempCtx.canvas,true,composeData);
 
                 ctx.drawImage(tempCtx.canvas,x,y);
 

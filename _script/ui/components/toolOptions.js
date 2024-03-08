@@ -9,6 +9,7 @@ import DitherPanel from "./ditherPanel.js";
 let ToolOptions = function(){
     let me = {}
     let smooth = false;
+    let pixelPerfect    = false;
     let fill = false;
     let lineSize = 1;
     let tolerance = 0;
@@ -19,6 +20,7 @@ let ToolOptions = function(){
     let pressure = false;
 
     let smoothCheckbox;
+    let pixelPerfectCheckbox;
     let maskCheckbox;
     let selectSection;
     let selectionOutlineCheckbox;
@@ -38,6 +40,10 @@ let ToolOptions = function(){
 
     me.isSmooth = ()=>{
         return smooth;
+    }
+
+    me.isPixelPerfect = ()=>{
+        return pixelPerfect;
     }
 
     me.isFill = ()=>{
@@ -130,6 +136,11 @@ let ToolOptions = function(){
             case COMMAND.FLOOD:
                 options.appendChild(toleranceSetting());
                 break;
+            case COMMAND.TRANSFORMLAYER:
+                options.appendChild(label("Transform rotation:"));
+                options.appendChild(smoothSetting());
+                options.appendChild(pixelPerfectSetting());
+                break;
         }
 
         let activeLayer = ImageFile.getActiveLayer();
@@ -144,6 +155,13 @@ let ToolOptions = function(){
             smooth = checked;
         });
         return smoothCheckbox;
+    }
+
+    function pixelPerfectSetting(){
+        if (!pixelPerfectCheckbox) pixelPerfectCheckbox=$checkbox("Pixel Optimized","","",(checked)=>{
+            pixelPerfect = checked;
+        });
+        return pixelPerfectCheckbox;
     }
 
     function fillSetting(){

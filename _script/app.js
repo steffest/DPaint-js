@@ -4,6 +4,7 @@ import {COMMAND, EVENT} from "./enum.js";
 import ImageFile from "./image.js";
 import Palette from "./ui/palette.js";
 import Modal, {DIALOG} from "./ui/modal.js";
+import {duplicateCanvas} from "./util/canvasUtils.js";
 
 let App = function(){
 	let me = {
@@ -226,6 +227,16 @@ let App = function(){
 	}
 
 */
+
+	window.rot = function(){
+		import("./paintTools/rotSprite.js").then(async rotSprite=>{
+			let canvas = ImageFile.getActiveLayer().getCanvas();
+			let c = duplicateCanvas(canvas,true);
+			let result = await rotSprite.default(c,90);
+			console.log(result);
+			console.error("ok");
+		});
+	}
 	
 	return me;
 }();
