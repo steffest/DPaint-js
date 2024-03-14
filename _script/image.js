@@ -845,8 +845,15 @@ let ImageFile = function(){
         let h = ImageFile.getCurrentFile().height;
 
         function doPaste() {
-            let index = me.addLayer();
-            me.activateLayer(index);
+            // check if a mask is active on the current layer
+            let layer = me.getActiveLayer();
+            if (layer.hasMask && layer.isMaskActive()) {
+               console.log("Pasting into mask");
+            }else{
+                let index = me.addLayer();
+                me.activateLayer(index);
+            }
+
             me.getActiveLayer().drawImage(image, 0, 0);
             EventBus.trigger(EVENT.layerContentChanged);
         }

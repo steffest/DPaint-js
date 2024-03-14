@@ -379,6 +379,7 @@ var Input = function(){
 					case "b": EventBus.trigger(COMMAND.EFFECTS); break;
 					case "d": EventBus.trigger(COMMAND.DUPLICATELAYER); break;
 					case "e": EventBus.trigger(COMMAND.STAMP); break;
+					case "g": EventBus.trigger(COMMAND.TOGGLEGRID); break;
 					case "i": EventBus.trigger(COMMAND.IMPORTFRAME); break;
 					case "j": EventBus.trigger(COMMAND.TOLAYER); break;
 					case "k": EventBus.trigger(COMMAND.CUTTOLAYER); break;
@@ -397,7 +398,7 @@ var Input = function(){
 				case "a": EventBus.trigger(COMMAND.TOGGLEMASK); break;
 				case "b": EventBus.trigger(COMMAND.DRAW); break;
 				case "c": EventBus.trigger(COMMAND.CIRCLE); break;
-				case "d": EventBus.trigger(COMMAND.TOGGLEGRID); break;
+				case "d": EventBus.trigger(COMMAND.TOGGLEDITHER); break;
 				case "e": EventBus.trigger(COMMAND.ERASE); break;
 				case "f": EventBus.trigger(COMMAND.FLOOD); break;
 				case "g": EventBus.trigger(COMMAND.GRADIENT); break;

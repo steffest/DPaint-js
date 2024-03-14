@@ -137,6 +137,11 @@ let DitherPanel = function(){
         ditherPattern = undefined;
     })
 
+    EventBus.on(COMMAND.TOGGLEDITHER,()=>{
+        dither = !dither;
+        EventBus.trigger(EVENT.brushOptionsChanged);
+    })
+
     EventBus.on(COMMAND.TOGGLEINVERT,()=>{
         invert = !invert;
         ditherPattern = undefined;

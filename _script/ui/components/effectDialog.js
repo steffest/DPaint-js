@@ -26,6 +26,8 @@ var EffectDialog = function() {
             previewCanvas = document.createElement("canvas");
             previewCanvas.width = 200;
             previewCanvas.height = 200;
+        }else{
+            previewCanvas.getContext("2d").clearRect(0,0,previewCanvas.width,previewCanvas.height);
         }
 
         container.innerHTML = "";
@@ -102,6 +104,7 @@ var EffectDialog = function() {
             {name: "Lines", file:"lines"},
             {name: "Glow", file:"glow"},
             {name: "Frost", file:"web"},
+            {name: "Displace", file:"displace"},
             //{name: "Texture", file:"texture"},
         ]
 

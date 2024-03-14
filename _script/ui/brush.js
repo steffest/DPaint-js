@@ -6,6 +6,7 @@ import Color from "../util/color.js";
 import Editor from "./editor.js";
 import ImageFile from "../image.js";
 import ToolOptions from "./components/toolOptions.js";
+import {duplicateCanvas} from "../util/canvasUtils.js";
 
 var Brush = function(){
     var me = {};
@@ -23,6 +24,7 @@ var Brush = function(){
     var brushBackCanvas = document.createElement("canvas");
     let brushCtx = brushCanvas.getContext("2d");
     let brushBackCtx = brushBackCanvas.getContext("2d");
+    let brushAlphaLayer;
 
     me.init = function(parent){
         container = $div("brushes info","",parent);
@@ -45,8 +47,12 @@ var Brush = function(){
         }
         
         EventBus.on(EVENT.drawColorChanged,()=>{
-            if (brushType === 'canvas' && brushIndex>=0){
-                generateBrush();
+            if (brushType === 'canvas'){
+                if (brushIndex>=0){
+                    generateBrush();
+                }else{
+                    generateStencil();
+                }
             }
         })
         EventBus.on(EVENT.backgroundColorChanged,()=>{
@@ -123,6 +129,7 @@ var Brush = function(){
             brushBackCtx.clearRect(0,0,brushCanvas.width,brushCanvas.height);
             brushBackCtx.drawImage(index,0,0);
             // TODO: What do we draw when grabbing a stencil with right-click draw ?
+            brushAlphaLayer = undefined;
         }
 
         if (type === "dynamic"){
@@ -324,6 +331,29 @@ var Brush = function(){
         brushBackCtx.globalCompositeOperation = "source-over";
 
 
+    }
+
+    function generateStencil(){
+        console.error("generateStencil");
+        let w = brushCanvas.width;
+        let h = brushCanvas.height;
+
+        if (!brushAlphaLayer){
+            brushAlphaLayer = duplicateCanvas(brushCanvas,true);
+            let ctx = brushAlphaLayer.getContext("2d");
+            ctx.globalCompositeOperation = "source-in";
+            ctx.fillStyle = "black";
+            ctx.fillRect(0,0,w,h);
+        }
+
+        brushCtx.fillStyle = Palette.getDrawColor();
+        brushCtx.fillRect(0,0,w,h);
+        brushCtx.globalCompositeOperation = "destination-in";
+        brushCtx.drawImage(brushAlphaLayer,0,0);
+        brushCtx.globalCompositeOperation = "source-over";
+
+       // brushCtx.clearRect(0,0,width,height);
+        //brushCtx.fillStyle = Palette.getDrawColor();
     }
 
     return me;

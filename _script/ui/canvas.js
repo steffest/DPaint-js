@@ -221,20 +221,25 @@ let Canvas = function(parent){
         // zoom around point
         var x = Math.floor((event.clientX - rect.left)) + panelParent.scrollLeft;
         var y = Math.floor((event.clientY - rect.top)) + panelParent.scrollTop;
+        //console.error(x,y);
 
         zoom=zoom*amount;
-        canvas.style.width = Math.floor(canvas.width * zoom) + "px";
-        canvas.style.height = Math.floor(canvas.height * zoom) + "px";
-        overlayCanvas.style.width = Math.floor(canvas.width * zoom) + "px";
-        overlayCanvas.style.height = Math.floor(canvas.height * zoom) + "px";
+        let _w = Math.floor(canvas.width * zoom);
+        let _h = Math.floor(canvas.height * zoom);
+        let _z = (zoom/z - 1);
 
-        var _z = (zoom/z - 1);
+
+        canvas.style.width = _w + "px";
+        canvas.style.height = _h + "px";
+        overlayCanvas.style.width = _w + "px";
+        overlayCanvas.style.height = _h + "px";
+
+
         panelParent.scrollLeft += _z*x;
         panelParent.scrollTop += _z*y;
 
         if (selectBox.isActive()) selectBox.zoom(zoom);
         if (resizer.isActive()) resizer.zoom(zoom);
-
         gridOverlay.zoom(zoom);
 
     }

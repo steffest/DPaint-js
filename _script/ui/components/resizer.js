@@ -4,6 +4,7 @@ import {$div} from "../../util/dom.js";
 import Editor from "../editor.js";
 import Input from "../input.js";
 import Cursor from "../cursor.js";
+import StatusBar from "../statusbar.js";
 
 var Resizer = function(editor){
     let me = {};
@@ -213,6 +214,8 @@ var Resizer = function(editor){
                 h = currentSize.height;
                 w = h * aspectRatio;
             }
+            w = Math.round(w);
+            h = Math.round(h);
             currentSize.width = w;
             currentSize.height = h;
         }
@@ -220,8 +223,11 @@ var Resizer = function(editor){
         let wz = currentSize.width*zoom;
         let hz = currentSize.height*zoom;
 
-        sizeBox.style.left =  (rect.left - rect2.left + viewport.scrollLeft + currentSize.left*zoom) + "px";
-        sizeBox.style.top =  (rect.top - rect2.top + viewport.scrollTop + currentSize.top*zoom)  + "px";
+        let xz = (rect.left - rect2.left + viewport.scrollLeft + currentSize.left*zoom);
+        let yz = (rect.top - rect2.top + viewport.scrollTop + currentSize.top*zoom);
+
+        sizeBox.style.left =  xz + "px";
+        sizeBox.style.top =  yz  + "px";
         sizeBox.style.width =  wz  + "px";
         sizeBox.style.height =  hz + "px";
 
@@ -245,6 +251,10 @@ var Resizer = function(editor){
         rotateDots[2].style.top = dots[4].style.top;
         rotateDots[2].style.left = dots[4].style.left;
         rotateDots[3].style.top = dots[6].style.top;
+
+        let text = "x:" +currentSize.left + " y:" + currentSize.top + " w:" + currentSize.width + " h:" + currentSize.height;
+        if (currentSize.rotation) text += " " + Math.round(currentSize.rotation) + "°";
+        StatusBar.setToolTip(text);
 
         if (updateHandler) updateHandler();
 
