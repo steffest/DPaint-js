@@ -556,6 +556,10 @@ body.presentation .menu {
   background-image: url("../_img/stamp.svg");
   background-size: 80% 80%;
 }
+.toolbar .button.spray {
+  background-image: url("../_img/spray.svg");
+  background-size: 80% 80%;
+}
 .toolbar .button.gradient {
   background-image: url("../_img/gradient.svg");
 }

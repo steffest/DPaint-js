@@ -41,6 +41,7 @@ let Menu = function(){
                 {label: "Gradient",command: COMMAND.GRADIENT,shortKey: "G"},
                 {label: "Erase",command: COMMAND.ERASE,shortKey: "E"},
                 {label: "Smudge",command: COMMAND.SMUDGE,shortKey: "M"},
+                {label: "Spray",command: COMMAND.SPRAY,shortKey: "P"},
                 {label: "Hand",command: COMMAND.PAN,shortKey: "H"},
                 {label: "Color Picker",command: COMMAND.COLORPICKER,shortKey: "K"}
             ]},

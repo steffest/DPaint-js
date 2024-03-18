@@ -80,6 +80,9 @@ var Editor = function(){
         EventBus.on(COMMAND.SMUDGE,function(){
             currentTool = COMMAND.SMUDGE;
         });
+        EventBus.on(COMMAND.SPRAY,function(){
+            currentTool = COMMAND.SPRAY;
+        });
         EventBus.on(COMMAND.FLOOD,function(){
             currentTool = COMMAND.FLOOD;
         });

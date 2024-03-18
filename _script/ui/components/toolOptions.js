@@ -14,6 +14,7 @@ let ToolOptions = function(){
     let lineSize = 1;
     let tolerance = 0;
     let strength = 50;
+    let spread = 20;
     let mask = false;
     let selectionOutline = true;
     let selectionMask = false;
@@ -29,10 +30,12 @@ let ToolOptions = function(){
     let ditherCheckbox;
     let invertCheckbox;
     let pressureCheckbox;
+    let pressureOpacityCheckbox;
     let fillCheckbox;
     let lineSizeRange;
     let toleranceRange;
     let strengthRange;
+    let spreadRange;
     let brushOptionGroup;
     let brushSettings={};
     let smudgeAction = "Smudge";
@@ -87,6 +90,10 @@ let ToolOptions = function(){
         return strength/100;
     }
 
+    me.getSpread = ()=>{
+        return spread;
+    }
+
     me.getSmudgeAction = ()=>{
         return smudgeAction.toLowerCase();
     }
@@ -106,6 +113,11 @@ let ToolOptions = function(){
                 options.appendChild(strengthSetting());
                 options.appendChild(ditherSetting());
 
+                break;
+            case COMMAND.SPRAY:
+                options.appendChild(spreadSetting());
+                options.appendChild(strengthSetting());
+                options.appendChild(pressureOpacitySetting());
                 break;
             case COMMAND.LINE:
                 options.appendChild(label("Line:"));
@@ -292,6 +304,15 @@ let ToolOptions = function(){
         return pressureCheckbox;
     }
 
+    function pressureOpacitySetting(){
+        if (!pressureOpacityCheckbox) pressureOpacityCheckbox=$checkbox("Opacity","","pressure info inline",(checked)=>{
+            pressure = checked;
+        });
+        pressureOpacityCheckbox.info="Use random opacity when spraying";
+        pressureOpacityCheckbox.setState(pressure);
+        return pressureOpacityCheckbox;
+    }
+
     function strengthSetting(){
         if (!strengthRange){
             strengthRange = $div("range");
@@ -310,6 +331,26 @@ let ToolOptions = function(){
 
         }
         return strengthRange;
+    }
+
+    function spreadSetting(){
+        if (!spreadRange){
+            spreadRange = $div("range");
+            $elm("label","Spread:",spreadRange,"inline");
+            let range = document.createElement("input");
+            range.type="range";
+            range.min=1;
+            range.max=100;
+            range.value = spread;
+            spreadRange.appendChild(range);
+            let value = $elm("span",spread,spreadRange);
+            range.oninput = function(){
+                value.innerText = range.value;
+                spread = range.value;
+            }
+
+        }
+        return spreadRange;
     }
 
 

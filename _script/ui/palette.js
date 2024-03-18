@@ -1,6 +1,6 @@
 import $, {$checkbox, $div, $input} from "../util/dom.js";
 import EventBus from "../util/eventbus.js";
-import {COMMAND, EVENT} from "../enum.js";
+import {ANIMATION, COMMAND, EVENT} from "../enum.js";
 import Color from "../util/color.js";
 import ImageProcessing from "../util/imageProcessing.js";
 import ImageFile from "../image.js";
@@ -58,6 +58,18 @@ let Palette = function(){
         [170,144,124],
         [255,169,151]
     ];
+
+    var grayPalette = [
+        [0,0,0],
+        [36,36,36],
+        [72,72,72],
+        [108,108,108],
+        [144,144,144],
+        [180,180,180],
+        [216,216,216],
+        [255,255,255]
+    ]
+
 
     // https://pixeljoint.com/forum/forum_posts.asp?TID=12795
     var db16Palette = [
@@ -123,6 +135,7 @@ let Palette = function(){
         optimized: {label: "Optimized", palette: null},
         current: {label: "Current", palette: null},
         mui: {label: "MUI", palette:muiPalette},
+        grays: {label: "Grays 8", palette:grayPalette},
         db8: {label: "DawnBringer 8", palette:[[20, 12, 28],[85, 65, 95],[100, 105, 100],[215, 115, 85],[80, 140, 215],[100, 185, 100],[230, 200, 110],[220, 245, 255]]},
         db16: {label: "DawnBringer 16", palette:db16Palette},
         db32: {label: "DawnBringer 32", palette:db32Palette},
@@ -784,8 +797,8 @@ let Palette = function(){
             // probably a good idea to move the color cycling to a separate layer anyway
             hasLayers = true;
 
-            if (Animator.isRunning()){
-                Animator.stop();
+            if (Animator.isRunning(ANIMATION.CYCLE)){
+                Animator.stop(ANIMATION.CYCLE);
                 if (hasLayers){
                     let cycleLayer = ImageFile.getActiveFrame().layers.findIndex(l=>l.name === "Colour Cycling" && l.locked);
                     if (cycleLayer>=0){
@@ -815,7 +828,7 @@ let Palette = function(){
                 generateColorLayers();
                 image.colorRange.forEach((range,index)=>{
                     let fps = Math.abs(range.fps || 10);
-                    if (range.active) Animator.start(()=>{
+                    if (range.active) Animator.start(ANIMATION.CYCLE,()=>{
                         if (range.reverse){
                             range.index--;
                             if (range.index<0) range.index=range.max-1;
@@ -841,7 +854,7 @@ let Palette = function(){
     }
 
     me.isCycling = function(){
-        return Animator.isRunning();
+        return Animator.isRunning(ANIMATION.CYCLE);
     }
 
     function generateColorLayers(){
@@ -955,7 +968,7 @@ let Palette = function(){
 
     EventBus.on(EVENT.colorCycleToggled,()=>{
         if (cycleButton){
-            cycleButton.classList.toggle("active",Animator.isRunning());
+            cycleButton.classList.toggle("active",Animator.isRunning(ANIMATION.CYCLE));
         }
     })
 

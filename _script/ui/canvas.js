@@ -18,6 +18,7 @@ import {duplicateCanvas} from "../util/canvasUtils.js";
 import HistoryService from "../services/historyservice.js";
 import Cursor from "./cursor.js";
 import Smudge from "../paintTools/smudge.js";
+import Spray  from "../paintTools/spray.js";
 import historyservice from "../services/historyservice.js";
 import GridOverlay from "./components/gridOverlay.js";
 
@@ -375,6 +376,10 @@ let Canvas = function(parent){
                         Smudge.start(touchData);
                         if (!isOnCanvas) return;
                         break;
+                    case COMMAND.SPRAY:
+                        HistoryService.start(EVENT.layerContentHistory);
+                        Spray.start(touchData);
+                        break;
                     case COMMAND.SELECT:
                         touchData.isSelecting = true;
                         selectBox.boundingBoxSelect(point);
@@ -635,7 +640,7 @@ let Canvas = function(parent){
                         break;
                 }
                 break;
-            case 'up':
+            case "up":
                 if (touchData.isDrawing){
                     let layer = touchData.drawLayer || ImageFile.getActiveLayer();
                     layer.commitDraw();
@@ -644,6 +649,14 @@ let Canvas = function(parent){
 
                 if (touchData.isSmudging){
                     historyservice.end();
+                    EventBus.trigger(EVENT.layerContentChanged,{commit:true});
+                }
+
+                if (touchData.isSpraying){
+                   // historyservice.end();
+                    Spray.stop();
+                    let layer = touchData.drawLayer || ImageFile.getActiveLayer();
+                    layer.commitDraw();
                     EventBus.trigger(EVENT.layerContentChanged,{commit:true});
                 }
 
@@ -746,6 +759,12 @@ let Canvas = function(parent){
                         hideOverlay();
                         getCursorPosition(canvas,e,true);
                         draw();
+                    }
+
+                    if (touchData.isSpraying){
+                        hideOverlay();
+                        getCursorPosition(canvas,e,true);
+                        //Spray.update(touchData);
                     }
 
                     if (touchData.isSmudging){

@@ -87,6 +87,7 @@ export let COMMAND = {
     DISABLELAYERMASK: 1086,
     ENABLELAYERMASK: 1087,
     TOGGLEDITHER: 1088,
+    SPRAY: 1089,
 };
 
 export let EVENT = {
@@ -125,3 +126,8 @@ export let EVENT = {
     sizerStartChange: 33,
     panelResized: 34,
 };
+
+export let ANIMATION = {
+    CYCLE: 1,
+    SPRAY: 2
+}
