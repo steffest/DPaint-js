@@ -40,6 +40,8 @@ let ToolOptions = function(){
     let brushSettings={};
     let smudgeAction = "Smudge";
     let smudgeSelect;
+    let fontOptionGroup;
+    let fontSettings={};
 
     me.isSmooth = ()=>{
         return smooth;
@@ -98,6 +100,14 @@ let ToolOptions = function(){
         return smudgeAction.toLowerCase();
     }
 
+    me.getFont = ()=>{
+        return fontSettings.name;
+    }
+
+    me.getFontSize = ()=>{
+        return fontSettings.size;
+    }
+
     me.getOptions = (command)=>{
         let options = $div("options");
         switch (command){
@@ -115,6 +125,7 @@ let ToolOptions = function(){
 
                 break;
             case COMMAND.SPRAY:
+                options.appendChild(label("Spray:"));
                 options.appendChild(spreadSetting());
                 options.appendChild(strengthSetting());
                 options.appendChild(pressureOpacitySetting());
@@ -146,12 +157,17 @@ let ToolOptions = function(){
                 if (command === COMMAND.FLOODSELECT) options.appendChild(toleranceSetting());
                 break;
             case COMMAND.FLOOD:
+                options.appendChild(label("Fill:"));
                 options.appendChild(toleranceSetting());
                 break;
             case COMMAND.TRANSFORMLAYER:
                 options.appendChild(label("Transform rotation:"));
                 options.appendChild(smoothSetting());
                 options.appendChild(pixelPerfectSetting());
+                break;
+            case COMMAND.TEXT:
+                options.appendChild(label("Font:"));
+                options.appendChild(fontSetting());
                 break;
         }
 
@@ -390,6 +406,44 @@ let ToolOptions = function(){
             }
         }
         return smudgeSelect;
+    }
+
+    function fontSetting(){
+        let options = ["Arial","Courier New","Georgia","GillSans-UltraBold","Times New Roman","Verdana"];
+        if (!fontOptionGroup){
+            fontOptionGroup = $div("optionsgroup");
+
+
+            let fontSelect = $elm("select","",fontOptionGroup,"inline");
+            options.forEach((option)=>{
+                let opt = document.createElement("option");
+                opt.value = option;
+                opt.innerText = option;
+                fontSelect.appendChild(opt);
+            });
+            fontSettings.name = options[0];
+            fontSelect.onchange = function(){
+                fontSettings.name = fontSelect.value;
+                EventBus.trigger(EVENT.fontStyleChanged,fontSettings);
+            }
+
+            let fontSizeRange = $div("range","",fontOptionGroup);
+            $elm("label","Size:",fontSizeRange,"inline");
+            let range = document.createElement("input");
+            range.type="range";
+            range.min=5;
+            range.max=100;
+            range.value = 30;
+            fontSizeRange.appendChild(range);
+            fontSettings.size = range.value;
+            let value = $elm("span",fontSettings.size+"px",fontSizeRange);
+            range.oninput = function(){
+                value.innerText = range.value + "px";
+                fontSettings.size = range.value;
+                EventBus.trigger(EVENT.fontStyleChanged,fontSettings);
+            }
+        }
+        return fontOptionGroup;
     }
 
     function label(text){

@@ -296,14 +296,16 @@ var Input = function(){
 		if (me.isAltDown() && !e.altKey) modifierKeyUp("alt");
 		if (keyDown["meta"] && !e.metaKey) modifierKeyUp("meta");
 
-		if (code === "keyv" && Input.isMetaDown()){
-			// allow default paste
-			return;
-		}
+		if (Editor.getCurrentTool() !== COMMAND.TEXT){
+			if (code === "keyv" && Input.isMetaDown()){
+				// allow default paste
+				return;
+			}
 
-		if (code === "keyc" && Input.isMetaDown()){
-			// allow default copy
-			return;
+			if (code === "keyc" && Input.isMetaDown()){
+				// allow default copy
+				return;
+			}
 		}
 
 		e.preventDefault();
@@ -318,7 +320,7 @@ var Input = function(){
 
 
 		if (activeKeyHandler){
-			let handled = activeKeyHandler(code);
+			let handled = activeKeyHandler(code,key);
 			if (handled) return;
 		}
 
@@ -411,7 +413,7 @@ var Input = function(){
 				case "q": EventBus.trigger(COMMAND.TOGGLEOVERRIDE); break;
 				case "r": EventBus.trigger(COMMAND.SQUARE); break;
 				case "s": EventBus.trigger(COMMAND.SELECT); break;
-				case "t": EventBus.trigger(COMMAND.TRANSFORMLAYER); break;
+				case "t": EventBus.trigger(COMMAND.TEXT); break;
 				case "v": EventBus.trigger(COMMAND.TRANSFORMLAYER); break;
 				case "w": EventBus.trigger(COMMAND.FLOODSELECT); break;
 				case "x": EventBus.trigger(COMMAND.SWAPCOLORS); break;

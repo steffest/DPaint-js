@@ -54,6 +54,10 @@ body.hoverviewport{
     cursor: crosshair;
   }
 
+  &.cursor-text{
+    cursor: text;
+  }
+
   &.cursor-pan{
     cursor: grab;
 

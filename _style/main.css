@@ -579,6 +579,10 @@ body.presentation .menu {
   background-image: url("../_img/magicwand.svg");
   background-size: 80% 80%;
 }
+.toolbar .button.text {
+  background-image: url("../_img/text.svg");
+  background-size: 80% 80%;
+}
 .toolbar .button.flood {
   background-image: url("../_img/fill.svg");
   background-size: 90% 90%;
@@ -2019,6 +2023,9 @@ body.hoverviewport.cursor-rotate {
 }
 body.hoverviewport.cursor-select {
   cursor: crosshair;
+}
+body.hoverviewport.cursor-text {
+  cursor: text;
 }
 body.hoverviewport.cursor-pan {
   cursor: grab;

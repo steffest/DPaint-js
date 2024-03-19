@@ -83,6 +83,10 @@ var Editor = function(){
         EventBus.on(COMMAND.SPRAY,function(){
             currentTool = COMMAND.SPRAY;
         });
+        EventBus.on(COMMAND.TEXT,function(){
+            currentTool = COMMAND.TEXT;
+            Cursor.set("text");
+        });
         EventBus.on(COMMAND.FLOOD,function(){
             currentTool = COMMAND.FLOOD;
         });

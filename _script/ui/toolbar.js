@@ -25,7 +25,7 @@ let Toolbar = function(){
         {name: "gradient", isTool: true, command: COMMAND.GRADIENT, info: "<b>G</b> Gradient fill, draw line to set start- and endpoint."},
         {name: "flood", isTool: true, command: COMMAND.FLOOD, info: "<b>F</b> Fill an area."},
         {name: "spray", isTool: true, command: COMMAND.SPRAY, info: "<b>P</b>  Spray brush."},
-        {name: "stamp", command: COMMAND.STAMP, info: "Make brush from selection."},
+        {name: "text", command: COMMAND.TEXT,isTool: true, info: "Write text."},
         {name: "smudge", isTool: true, command: COMMAND.SMUDGE, info: "<b>M</b>  Smudge/Smear colors."},
         {name: "erase", isTool: true, command: COMMAND.ERASE, info: "<b>E</b> Erase."},
         {name: "split", command: COMMAND.SPLITSCREEN, toggleProperty: "<b>Tab</b> splitPanel", info: "Toggle split view."},

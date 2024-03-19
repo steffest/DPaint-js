@@ -19,6 +19,7 @@ import HistoryService from "../services/historyservice.js";
 import Cursor from "./cursor.js";
 import Smudge from "../paintTools/smudge.js";
 import Spray  from "../paintTools/spray.js";
+import Text  from "../paintTools/text.js";
 import historyservice from "../services/historyservice.js";
 import GridOverlay from "./components/gridOverlay.js";
 
@@ -161,7 +162,6 @@ let Canvas = function(parent){
         let c = ImageFile.getCanvas();
         if (c) ctx.drawImage(c,0,0);
     })
-
 
     EventBus.on(COMMAND.TOGGLEGRID,()=>{
         if (!parent.isVisible()) return;
@@ -379,6 +379,9 @@ let Canvas = function(parent){
                     case COMMAND.SPRAY:
                         HistoryService.start(EVENT.layerContentHistory);
                         Spray.start(touchData);
+                        break;
+                    case COMMAND.TEXT:
+                        Text.start(touchData);
                         break;
                     case COMMAND.SELECT:
                         touchData.isSelecting = true;
