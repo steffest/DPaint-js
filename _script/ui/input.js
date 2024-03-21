@@ -8,6 +8,7 @@ import ImageFile from "../image.js";
 import Selection from "./selection.js";
 import Cursor from "./cursor.js";
 import UI from "./ui.js";
+import Palette from "./palette.js";
 
 var Input = function(){
 	let me = {}
@@ -347,15 +348,21 @@ var Input = function(){
 			case "numpad4":
 				ImageFile.nextFrame(-1);
 				break;
+			case "numpad6":
+				ImageFile.nextFrame();
+				break;
+			case "numpad7":
+				Palette.prev();
+				break;
+			case "numpad9":
+				Palette.next();
+				break;
 			case "intlbackslash":
 				if (me.isShiftDown()){
 					ImageFile.nextFrame();
 				}else{
 					ImageFile.nextFrame(-1);
 				}
-				break;
-			case "numpad6":
-				ImageFile.nextFrame();
 				break;
 			case "arrowleft":
 			case "arrowup":

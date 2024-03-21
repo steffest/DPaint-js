@@ -317,16 +317,19 @@ const GIF = (()=>{
                 transp = 1;
                 disp = 2; // force clear if using transparent color
             }
-            if (dispose >= 0) {
-                disp = dispose & 7; // user override
-            }
+            // TODO: what was this for, again?
+            // disp should remain at 2 when transparency is used, no ?
+            //if (dispose >= 0) {
+                //disp = dispose & 7; // user override
+            //}
             disp <<= 2;
+
             // packed fields
-            file.writeUbyte(0 | // 1:3 reserved
+            let packed = 0 | // 1:3 reserved
                 disp | // 4:6 disposal
                 0 | // 7 user input - 0 = none
-                transp); // 8 transparency flag
-
+                transp; // 8 transparency flag
+            file.writeUbyte(packed);
 
             file.writeWord(delayTime); //delay time x 1/100 sec
             file.writeUbyte(0); //transparent color index

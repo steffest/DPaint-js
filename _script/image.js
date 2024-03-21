@@ -386,8 +386,12 @@ let ImageFile = function(){
     };
 
     me.activateFrame = function(index){
+        let frame = currentFile.frames[activeFrameIndex];
+        if (frame) frame.activeLayerIndex = activeLayerIndex;
+
+        frame = currentFile.frames[index];
+        if (frame)  activeLayerIndex = frame.activeLayerIndex || 0;
         activeFrameIndex = index;
-        activeLayerIndex = 0;
         cachedImage = undefined;
         activeLayer = currentFrame().layers[activeLayerIndex];
         EventBus.trigger(EVENT.layersChanged);
@@ -419,7 +423,10 @@ let ImageFile = function(){
         struct.errorCount = 0;
 
         currentFile.frames.forEach((frame) => {
-            let _frame = { layers: [] };
+            let _frame = {
+                layers: [],
+                activeLayerIndex: frame.activeLayerIndex || 0
+            };
             frame.layers.forEach((layer) => {
                 let _layer = layer.clone(true, indexed);
                 struct.errorCount += (_layer.conversionErrors || 0);
@@ -446,6 +453,7 @@ let ImageFile = function(){
                 addFrame();
                 frame = currentFile.frames[frameIndex];
             }
+            frame.activeLayerIndex = _frame.activeLayerIndex || 0;
             _frame.layers.forEach((_layer, layerIndex) => {
                 let layer = frame.layers[layerIndex];
                 if (!layer) {
@@ -454,7 +462,7 @@ let ImageFile = function(){
                 }
                 layer.restore(_layer).then(() => {
 
-                    if (image.activeLayerIndex === layerIndex && image.activeFrameIndex === frameIndex) {
+                    if (frame.activeLayerIndex === layerIndex && image.activeFrameIndex === frameIndex) {
                         me.activateFrame(frameIndex);
                         me.activateLayer(layerIndex);
                     }
@@ -486,6 +494,10 @@ let ImageFile = function(){
     me.addLayer = addLayer;
     me.removeLayer = removeLayer;
     me.moveLayer = moveLayer;
+
+    me.hasMultipleFrames = function(){
+        return currentFile.frames.length > 1;
+    }
 
     function handleUpload(files,target){
         if (files.length) {
