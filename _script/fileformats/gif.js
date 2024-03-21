@@ -82,7 +82,7 @@ const GIF = (()=>{
                             //0xFE: Comment Extension
                             //0x01: Plain Text Extension
                             // ignore for now
-                            console.error("Comment Extension");
+                            console.log("Comment Extension found, skipping");
                             file.jump(1);
                             let size = file.readUbyte();
                             file.jump(size);
@@ -225,7 +225,9 @@ const GIF = (()=>{
             });
         }
 
-        console.error(frames);
+        // TODO: scan for transparent pixels and add transparent to palette
+        // TODO: set loop count in UI
+        // TODO: set frame delay in UI
 
 
         let delayTime = 0;
@@ -233,6 +235,10 @@ const GIF = (()=>{
 
         let encodedFrames = [];
         let palette = Palette.get();
+
+        // add transparent color to palette as color 0;
+        palette.unshift([0,0,0]);
+
         let colorDepth = 1;
         while (1 << colorDepth < palette.length) colorDepth++;
         let gctSize = colorDepth - 1;
@@ -247,9 +253,10 @@ const GIF = (()=>{
         let headerSize = 13 + colorCount*3;
         let gceSize = 8;
         let imageDescriptorSize = 10;
+        let applicationExtensionSize = 19;
 
 
-        let totalSize = headerSize + 1;
+        let totalSize = headerSize + 1 + applicationExtensionSize;
         encodedFrames.forEach((frame)=>{
             totalSize += gceSize + imageDescriptorSize + frame.length;
         });
@@ -281,6 +288,16 @@ const GIF = (()=>{
         for (var i = 0; i < remaining*3; i++) file.writeUbyte(0);
 
 
+        // write application extension to enable loop
+        file.writeUbyte(0x21); //extension introducer
+        file.writeUbyte(0xFF); //application extension label
+        file.writeUbyte(0x0B); //block size
+        file.writeString("NETSCAPE2.0");
+        file.writeUbyte(0x03); //sub-block size
+        file.writeUbyte(0x01); //sub-block id
+        file.writeWord(0); //loop count
+        file.writeUbyte(0x00); //block terminator
+
 
         frames.forEach((frame,index)=>{
             ////Graphics Control Extension
@@ -290,7 +307,7 @@ const GIF = (()=>{
 
             var transp;
             var disp;
-            let transparent = null;
+            let transparent = 0;
             let dispose = 0;
 
             if (transparent === null) {

@@ -178,6 +178,7 @@ export function indexPixelsToPalette(ctx,palette,oneDimensional){
     let pixels = [];
     let data = ctx.getImageData(0,0,width,height).data;
     let notFoundCount = 0;
+    let transparentIndex = 0;
 
     function getIndex(color,x,y){
         let index = palette.findIndex((c)=>{return c[0] === color[0] && c[1] === color[1] && c[2] === color[2]});
@@ -196,7 +197,7 @@ export function indexPixelsToPalette(ctx,palette,oneDimensional){
         let b = data[i+2];
         let a = data[i+3];
 
-        let index = a?getIndex([r,g,b,a],x,y):-1;
+        let index = a?getIndex([r,g,b,a],x,y):transparentIndex;
         if (oneDimensional){
             pixels.push(index);
         }else{
