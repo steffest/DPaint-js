@@ -2,6 +2,7 @@ import $ from "../../util/dom.js";
 import EventBus from "../../util/eventbus.js";
 import {COMMAND} from "../../enum.js";
 import ImageFile from "../../image.js";
+import Modal from "../modal.js";
 
 let Gallery = (()=>{
     let me = {};
@@ -43,7 +44,6 @@ let Gallery = (()=>{
             listContainer.innerHTML = "";
 
             data.forEach(item=>{
-                console.log(item);
                 if (item.url){
                     if (!firstItem) firstItem = item;
                     let thumb;
@@ -84,12 +84,25 @@ let Gallery = (()=>{
                         EventBus.trigger(COMMAND.CYCLEPALETTE);
                     },200);
                 }
+                if (item.generatePalette){
+                    EventBus.trigger(COMMAND.PALETTEFROMIMAGE);
+                }
+
                 // update the url
                 let url = new URL(window.location.href);
                 url.searchParams.delete("gallery");
                 url.searchParams.set("file",item.url);
                 url.searchParams.set("zoom","1");
-                if (item.cycle) url.searchParams.set("play","1");
+                if (item.cycle){
+                    url.searchParams.set("play","1");
+                }else{
+                    url.searchParams.delete("play");
+                }
+                if (item.generatePalette){
+                    url.searchParams.set("palette","1");
+                }else{
+                    url.searchParams.delete("palette");
+                }
                 url.search = decodeURIComponent(url.search);
                 window.history.pushState({},"",url);
             },200);
