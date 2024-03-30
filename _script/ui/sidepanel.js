@@ -22,7 +22,7 @@ var SidePanel = function(){
         },
         frames:{
             label: "Frames",
-            height: 100,
+            height: 116,
             content: parent=>{
                 FramesPanel.generate(parent);
             }

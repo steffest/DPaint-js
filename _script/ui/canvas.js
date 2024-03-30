@@ -111,7 +111,14 @@ let Canvas = function(parent){
         overlayCanvas.style.opacity = 1;
         overlayCtx.clearRect(0,0, canvas.width, canvas.height);
         overlayCtx.globalAlpha = Brush.getOpacity();
-        Brush.draw(overlayCtx,point.x,point.y,Palette.getDrawColor(),(Input.isControlDown() || Input.isMetaDown()));
+        let color = Palette.getDrawColor();
+        if (window.override){
+            let c = ImageFile.getActiveLayer().getCanvasType();
+            let p = c.getContext("2d").getImageData(point.x,point.y,1,1).data;
+            color = "rgb("+p[0]+","+p[1]+","+p[2]+")";
+            Palette.setColor(p,false,true);
+        }
+        Brush.draw(overlayCtx,point.x,point.y,color,(Input.isControlDown() || Input.isMetaDown()));
         overlayCtx.globalAlpha = 1;
         currentCursorPoint = point;
     });
@@ -190,6 +197,10 @@ let Canvas = function(parent){
         let layer = ImageFile.getActiveLayer();
         selectBox.activate(COMMAND.TOSELECTION);
         selectBox.applyCanvas(layer.getCanvas());
+    });
+
+    EventBus.on(EVENT.toolChanged,(tool)=>{
+        if (!Editor.usesBrush(tool)) hideOverlay();
     });
 
     me.clear = function(){
@@ -271,6 +282,7 @@ let Canvas = function(parent){
     function draw() {
         // button=0 -> left, button=2: right
         let color = touchData.button?Palette.getBackgroundColor():Palette.getDrawColor();
+        if (window.override) color = "white";
         if (Editor.getCurrentTool() === COMMAND.ERASE) color = "transparent";
         let {x,y} = touchData;
 
@@ -715,7 +727,11 @@ let Canvas = function(parent){
                     if (touchData.isPolySelect){
                         selectBox.updatePoint(point);
                     }else{
-                        drawOverlay(point);
+                        if (Editor.usesBrush()){
+                            drawOverlay(point);
+                        }else{
+                            hideOverlay();
+                        }
                     }
                 }
                 break;

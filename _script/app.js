@@ -33,6 +33,9 @@ let App = function(){
 						if (urlParams.has("zoom")){
 							EventBus.trigger(COMMAND.ZOOMFIT);
 						}
+						if (urlParams.has("palette")){
+							EventBus.trigger(COMMAND.PALETTEFROMIMAGE);
+						}
 					},200);
 				}).catch((err)=>{});
 			}

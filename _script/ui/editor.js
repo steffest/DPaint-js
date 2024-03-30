@@ -390,7 +390,12 @@ var Editor = function(){
             x*=10;
             y*=10;
         }
-        if (currentTool === COMMAND.DRAW){
+        if (me.canDrawColor()){
+            if (Input.isMetaDown() && ImageFile.hasMultipleFrames()){
+                if (x>0) ImageFile.nextFrame();
+                if (x<0) ImageFile.nextFrame(-1);
+                return;
+            }
             if (x>0) Palette.next();
             if (x<0) Palette.prev();
             return;
@@ -403,8 +408,16 @@ var Editor = function(){
     }
 
     me.canPickColor = ()=>{
-        let ct = Editor.getCurrentTool();
-        return !(ct === COMMAND.SELECT || ct === COMMAND.SQUARE || ct === COMMAND.GRADIENT || ct === COMMAND.LINE || ct === COMMAND.CIRCLE  ||  ct === COMMAND.TRANSFORMLAYER);
+        return !(currentTool === COMMAND.SELECT || currentTool === COMMAND.GRADIENT  ||  currentTool === COMMAND.TRANSFORMLAYER);
+    }
+
+    me.canDrawColor = ()=>{
+        return (currentTool === COMMAND.DRAW || currentTool === COMMAND.SQUARE || currentTool === COMMAND.GRADIENT || currentTool === COMMAND.LINE || currentTool === COMMAND.CIRCLE  ||  currentTool === COMMAND.SPRAY ||  currentTool === COMMAND.ERASE);
+    }
+
+    me.usesBrush = (tool)=>{
+        let t = tool || currentTool;
+        return (t === COMMAND.DRAW || t === COMMAND.SPRAY || t === COMMAND.ERASE);
     }
 
     async function updateTransform(final,onDone){

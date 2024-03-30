@@ -54,7 +54,7 @@ let Menu = function(){
                         {label: "Flip Vertical",command: COMMAND.FLIPVERTICAL}
                     ]},
                 {label: "Duplicate",command: COMMAND.DUPLICATELAYER,shortKey: "meta+D"},
-                {label: "Effects",command: COMMAND.EFFECTS,shortKey: "meta+B"},
+                {label: "Effects",command: COMMAND.EFFECTS,shortKey: "meta+E"},
                 {label: "Move Up",command: COMMAND.LAYERUP},
                 {label: "Move Down",command: COMMAND.LAYERDOWN},
                 {label: "Merge Down",command: COMMAND.MERGEDOWN, shortKey: "meta+Shift+↓"},
@@ -71,9 +71,9 @@ let Menu = function(){
                         {label: "Transparent pixels",command: COMMAND.ALPHASELECT},
                     ]},
                 {label: "Deselect",command: COMMAND.CLEARSELECTION,shortKey: "Esc"},
-                {label: "Copy To Layer",command: COMMAND.TOLAYER,shortKey: "meta+J"},
+                {label: "Copy To Layer",command: COMMAND.TOLAYER,shortKey: "meta+L"},
                 {label: "Cut To Layer",command: COMMAND.CUTTOLAYER,shortKey: "meta+K"},
-                {label: "Copy To Brush",command: COMMAND.STAMP,shortKey: "meta+E"}
+                {label: "Copy To Brush",command: COMMAND.STAMP,shortKey: "meta+B"}
             ]},
         {label: "Palette", items:[
                 {label: "Edit",command: COMMAND.EDITPALETTE},

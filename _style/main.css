@@ -1019,17 +1019,18 @@ body.presentation .statusbar {
   position: absolute;
   left: 0;
   bottom: 0;
-  background-color: rgba(0, 0, 0, 0.4);
-  color: #8f8f8f;
+  background-color: rgba(0, 0, 0, 0.5);
+  color: #BBBBBB;
   font-size: 12px;
   padding: 4px;
 }
 .sidepanel .panel .inner .frame.active {
-  box-shadow: 0 0 3px 1px rgba(255, 255, 255, 0.7);
+  box-shadow: 0 0 3px 1px rgba(255, 255, 255, 0.8);
   opacity: 1;
 }
 .sidepanel .panel .inner .frame.active .label {
-  color: #BBBBBB;
+  color: #CCCCCC;
+  background-color: rgba(0, 0, 0, 0.7);
 }
 .sidepanel .panel .inner .frame.ghost {
   opacity: 0.2;
@@ -1410,7 +1411,7 @@ body.override .splitpanel .panel .toolbar .toolpanel .options .checkbox.pressure
   border: 1px solid black;
   width: 100px;
   background-color: #313335;
-  z-index: 10;
+  z-index: 101;
   display: none;
 }
 .palettelist.active {
@@ -2260,13 +2261,13 @@ body.hovercanvas.pointerdown.cursor-colorpicker .cursor .mark {
 }
 .modalwindow .inner .about .text.info {
   width: 380px;
-  bottom: 80px;
+  bottom: 110px;
 }
 .modalwindow .inner .about .text.copyright {
-  bottom: 50px;
+  bottom: 82px;
 }
 .modalwindow .inner .about .text.github {
-  bottom: 24px;
+  bottom: 55px;
 }
 .modalwindow .inner .about .text.link {
   pointer-events: all;
@@ -2278,7 +2279,7 @@ body.hovercanvas.pointerdown.cursor-colorpicker .cursor .mark {
 }
 .modalwindow .inner .about .text.version {
   left: 556px;
-  bottom: 24px;
+  bottom: 55px;
 }
 .modalwindow .inner .optiondialog p {
   margin: 0;

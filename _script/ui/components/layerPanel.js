@@ -92,7 +92,8 @@ let LayerPanel = function(){
                     systemLayers++;
                 }
             }
-            startY = (systemLayers*23);
+            startY = -(systemLayers*23);
+            startY = -23;
         }
 
         let offset = 0;

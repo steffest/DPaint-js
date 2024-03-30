@@ -1,0 +1,34 @@
+
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1" xmlns:xlink="http://www.w3.org/1999/xlink" preserveAspectRatio="none" x="0px" y="0px" width="100px" height="100px" viewBox="0 0 100 100">
+<defs/>
+
+<g id="Layer_15">
+<g>
+<g>
+<g>
+<path fill="#FFFFFF" stroke="none" d="
+M 79.45 35.2
+L 73.25 35.2 73.25 41.4 79.45 41.4 79.45 35.2
+M 60.25 28.2
+L 60.25 34.4 66.45 34.4 66.45 28.2 60.25 28.2
+M 53.25 21.2
+L 47.05 21.2 47.05 27.4 53.25 27.4 53.25 21.2
+M 79.45 21.2
+L 73.25 21.2 73.25 27.4 79.45 27.4 79.45 21.2
+M 66.45 20.4
+L 66.45 14.2 60.25 14.2 60.25 20.4 66.45 20.4
+M 79.45 7.2
+L 73.25 7.2 73.25 13.4 79.45 13.4 79.45 7.2 Z"/>
+</g>
+</g>
+
+<g>
+<path stroke="#FFFFFF" stroke-width="6" stroke-linejoin="round" stroke-linecap="round" fill="none" d="
+M 36.85 30.2
+L 50.8 44.15 50.8 90.25 22.85 90.25 22.85 44.15 36.85 30.2 36.85 24.6
+M 22.85 44.15
+L 50.8 44.15"/>
+</g>
+</g>
+</g>
+</svg>

@@ -1,9 +1,9 @@
 let process = function(source,target){
     let expose = {
-        colsWidth:{min:0,max:32,value:4},
-        rowWidth:{min:0,max:32,value:0},
-        horizontalShift:{min:-10,max:10,value:0},
-        verticalShift:{min:-10,max:10,value:2},
+        colsWidth:{min:0,max:32,value:0},
+        rowWidth:{min:0,max:32,value:2},
+        horizontalShift:{min:-10,max:10,value:-1},
+        verticalShift:{min:-10,max:10,value:0},
         rippleSpeed:{min:0,max:100,value:0},
         rippleSize:{min:-50,max:50,value:0},
 

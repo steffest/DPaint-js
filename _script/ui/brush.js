@@ -183,6 +183,7 @@ var Brush = function(){
             ctx.globalAlpha = pressure;
         }
 
+
         if (brushType === "canvas"){
             if (onBackground){
                 ctx.drawImage(brushBackCanvas,x,y);

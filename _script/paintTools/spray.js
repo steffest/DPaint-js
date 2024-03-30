@@ -35,8 +35,10 @@ let Spray = (()=>{
             let color = currentData.button?Palette.getBackgroundColor():Palette.getDrawColor();
 
             for (let i = 0; i < speed; i++){
-                let _x = Math.round(x + Math.random()*size-(size/2));
-                let _y =  Math.round(y + Math.random()*size-(size/2));
+                let angle = Math.random() * Math.PI * 2;
+                let radius = Math.sqrt(Math.random()) * size;
+                let _x = Math.round(x + radius * Math.cos(angle));
+                let _y = Math.round(y + radius * Math.sin(angle));
                 if (useOpacity) Brush.setPressure(Math.random());
                 currentData.drawLayer.draw(_x,_y,color,currentData);
             }

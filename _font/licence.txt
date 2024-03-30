@@ -1,0 +1,14 @@
+The FontStruction “Amiga Topaz”
+(https://fontstruct.com/fontstructions/show/675155) by Patrick H. Lauke is
+licensed under a Creative Commons Attribution license
+(http://creativecommons.org/licenses/by/3.0/).
+
+Derived from the original Topaz-8 Amiga font, included with Workbench 1.x by Bob Burns
+
+-------
+Topaz-8 TTF Font
+by Danny Amor
+Freeware
+https://www.fontsaddict.com/font/topaz-8.html
+
+Derived from the original Topaz-8 Amiga font, included with Workbench 2.x/3.x by Peter J Cherna

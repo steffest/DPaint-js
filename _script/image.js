@@ -915,7 +915,7 @@ let ImageFile = function(){
     }
 
     me.generateIndexedPixels = function(frameIndex,oneDimensional){
-        console.log("generate indexed pixels");
+        console.log("generate indexed pixels for frame " + frameIndex);
         let now = performance.now();
         let ctx = me.getCanvas(frameIndex).getContext("2d");
         let colors = Palette.get();
@@ -1068,6 +1068,10 @@ let ImageFile = function(){
         if (activeLayer) activeLayer.update();
         me.render();
         EventBus.trigger(EVENT.imageContentChanged);
+    });
+
+    EventBus.on(EVENT.layersChanged, () => {
+        cachedImage = undefined;
     });
 
     EventBus.on(EVENT.imageSizeChanged, () => {

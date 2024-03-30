@@ -144,6 +144,7 @@ let Layer = function(width,height,name){
         if (color === "transparent"){
             drawColor = "black";
         }
+
         //Brush.draw(me.getContext(),x,y,color,true);
         let b = Brush.draw(drawCtx,x,y,drawColor,touchData.button,true); // TODO: color should not be part of the brush?
 

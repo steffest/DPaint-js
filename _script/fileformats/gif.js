@@ -231,7 +231,7 @@ const GIF = (()=>{
 
 
         let delayTime = 0;
-        if (frames.length > 1) delayTime = 10;
+        if (frames.length > 1) delayTime = 15;
 
         let encodedFrames = [];
         let palette = Palette.get();

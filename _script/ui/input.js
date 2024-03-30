@@ -385,13 +385,14 @@ var Input = function(){
 			}else{
 				switch (key){
 					case "a": EventBus.trigger(COMMAND.SELECTALL); break;
-					case "b": EventBus.trigger(COMMAND.EFFECTS); break;
+					case "b": EventBus.trigger(COMMAND.STAMP); break;
 					case "d": EventBus.trigger(COMMAND.DUPLICATELAYER); break;
-					case "e": EventBus.trigger(COMMAND.STAMP); break;
+					case "e": EventBus.trigger(COMMAND.EFFECTS); break;
 					case "g": EventBus.trigger(COMMAND.TOGGLEGRID); break;
 					case "i": EventBus.trigger(COMMAND.IMPORTFRAME); break;
 					case "j": EventBus.trigger(COMMAND.TOLAYER); break;
 					case "k": EventBus.trigger(COMMAND.CUTTOLAYER); break;
+					case "l": EventBus.trigger(COMMAND.TOLAYER); break;
 					case "n": EventBus.trigger(COMMAND.NEW); break;
 					case "o": EventBus.trigger(COMMAND.OPEN); break;
 					case "p": EventBus.trigger(COMMAND.RESIZE); break;

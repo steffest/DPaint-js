@@ -5,6 +5,7 @@ import ImageFile from "../../image.js";
 import BrushPanel from "./brushPanel.js";
 import Brush from "../brush.js";
 import DitherPanel from "./ditherPanel.js";
+import Text from "../../paintTools/text.js";
 
 let ToolOptions = function(){
     let me = {}
@@ -409,7 +410,7 @@ let ToolOptions = function(){
     }
 
     function fontSetting(){
-        let options = ["Arial","Courier New","Georgia","GillSans-UltraBold","Times New Roman","Verdana"];
+        let options = Text.getFonts();
         if (!fontOptionGroup){
             fontOptionGroup = $div("optionsgroup");
 
@@ -433,7 +434,7 @@ let ToolOptions = function(){
             range.type="range";
             range.min=5;
             range.max=100;
-            range.value = 30;
+            range.value = 32;
             fontSizeRange.appendChild(range);
             fontSettings.size = range.value;
             let value = $elm("span",fontSettings.size+"px",fontSizeRange);
