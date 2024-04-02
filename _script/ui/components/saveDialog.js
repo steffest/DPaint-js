@@ -6,6 +6,7 @@ import Palette from "../palette.js";
 import EventBus from "../../util/eventbus.js";
 import {COMMAND, EVENT} from "../../enum.js";
 import Generate from "../../fileformats/generate.js";
+import Brush from "../brush.js";
 
 var SaveDialog = function(){
     let me ={};
@@ -376,6 +377,14 @@ var SaveDialog = function(){
         }
         let blob = new Blob([JSON.stringify(struct,null,2)], { type: 'application/json' })
         saveFile(blob,getFileName() + '_palette.json',filetypes.PALETTE).then(()=>{
+
+        });
+    });
+
+    EventBus.on(COMMAND.SAVEBRUSH,()=>{
+        let struct = Brush.export();
+        let blob = new Blob([JSON.stringify(struct,null,2)], { type: 'application/json' })
+        saveFile(blob,getFileName() + '_brush.json',filetypes.PALETTE).then(()=>{
 
         });
     });

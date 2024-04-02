@@ -70,7 +70,7 @@ var Cursor = function(){
     }
 
     Eventbus.on(EVENT.modifierKeyChanged,()=>{
-        if ((Input.isShiftDown() || Input.isAltDown()) && Editor.canPickColor()){
+        if ((Input.isShiftDown() || Input.isAltDown()) && !Input.isMetaDown() && Editor.canPickColor()){
             me.override("colorpicker");
         }else{
             me.resetOverride();

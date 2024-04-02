@@ -386,6 +386,21 @@ var Editor = function(){
             case "up": y=-1; break;
             case "down": y=1; break;
         }
+        if (Input.isMetaAndShiftDown()){
+            switch (direction){
+                case "left":
+                    EventBus.trigger(COMMAND.BRUSHFLIPHORIZONTAL)
+                    break;
+                case "right":
+                    EventBus.trigger(COMMAND.BRUSHROTATERIGHT);
+                    break;
+                case "up":
+                    EventBus.trigger(COMMAND.BRUSHFLIPVERTICAL);
+                    break;
+                //case "down": y=1; break;
+            }
+            return;
+        }
         if (Input.isMetaDown()){
             x*=10;
             y*=10;

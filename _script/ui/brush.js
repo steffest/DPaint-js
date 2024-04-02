@@ -6,7 +6,9 @@ import Color from "../util/color.js";
 import Editor from "./editor.js";
 import ImageFile from "../image.js";
 import ToolOptions from "./components/toolOptions.js";
-import {duplicateCanvas} from "../util/canvasUtils.js";
+import {duplicateCanvas, releaseCanvas} from "../util/canvasUtils.js";
+import ImageProcessing from "../util/imageProcessing.js";
+import Modal from "./modal.js";
 
 var Brush = function(){
     var me = {};
@@ -148,7 +150,7 @@ var Brush = function(){
             }
         }
 
-        EventBus.trigger(EVENT.brushOptionsChanged);
+        //EventBus.trigger(EVENT.brushOptionsChanged);
     }
 
     me.setPressure = (p)=>{
@@ -240,6 +242,68 @@ var Brush = function(){
         };
 
     }
+
+    me.rotate = (left)=>{
+        if (brushType === "canvas"){
+            ImageProcessing.rotate(brushCanvas,left);
+            width = brushCanvas.width;
+            height = brushCanvas.height;
+            brushAlphaLayer = undefined;
+            EventBus.trigger(EVENT.drawCanvasOverlay);
+
+        }
+    }
+
+    me.flip = (horizontal)=>{
+        let canvas = duplicateCanvas(brushCanvas, true);
+        brushCtx.clearRect(0,0,canvas.width,canvas.height);
+        if (horizontal) {
+            brushCtx.translate(canvas.width, 0);
+            brushCtx.scale(-1, 1);
+        }else{
+            brushCtx.translate(0, canvas.height);
+            brushCtx.scale(1, -1);
+        }
+        brushCtx.drawImage(canvas, 0, 0);
+        brushCtx.setTransform(1, 0, 0, 1, 0, 0);
+        releaseCanvas(canvas);
+        brushAlphaLayer = undefined;
+
+        //brushBackCtx.clearRect(0,0,brushCanvas.width,brushCanvas.height);
+        //brushBackCtx.drawImage(brushCanvas,0,0);
+        generateBackBrush();
+        window.debug = true;
+
+        EventBus.trigger(EVENT.drawCanvasOverlay);
+
+    }
+
+    me.export = ()=>{
+        let currentFile = ImageFile.getCurrentFile();
+        let struct = {
+            type: "dpaint",
+            version: "1",
+            image: {},
+        };
+        struct.image.name = currentFile.name + "_brush";
+        struct.image.width = brushCanvas.width;
+        struct.image.height = brushCanvas.height;
+        struct.image.frames = [{
+            layers: [{
+                name: "brush",
+                opacity:1,
+                visible:true,
+                hasMask: false,
+                canvas: brushCanvas.toDataURL()
+            }]
+        }];
+
+        return struct;
+    }
+
+    me.openLocal = ()=>{
+        Modal.alert("Not implemented yet","Open Brush");
+    }
     
     function generateBrush(){
         brushCanvas.width = brushBackCanvas.width = width;
@@ -325,17 +389,18 @@ var Brush = function(){
                 break;
         }
 
+        generateBackBrush();
+    }
+
+    function generateBackBrush(){
         brushBackCtx.fillStyle = Palette.getBackgroundColor();
         brushBackCtx.fillRect(0,0,width,height);
         brushBackCtx.globalCompositeOperation = "destination-in";
         brushBackCtx.drawImage(brushCanvas,0,0);
         brushBackCtx.globalCompositeOperation = "source-over";
-
-
     }
 
     function generateStencil(){
-        console.error("generateStencil");
         let w = brushCanvas.width;
         let h = brushCanvas.height;
 
@@ -356,6 +421,22 @@ var Brush = function(){
        // brushCtx.clearRect(0,0,width,height);
         //brushCtx.fillStyle = Palette.getDrawColor();
     }
+
+    EventBus.on(COMMAND.BRUSHROTATERIGHT,()=>{
+        me.rotate();
+    });
+
+    EventBus.on(COMMAND.BRUSHROTATELEFT,()=>{
+        me.rotate(true);
+    });
+
+    EventBus.on(COMMAND.BRUSHFLIPVERTICAL,()=>{
+        me.flip(false);
+    });
+
+    EventBus.on(COMMAND.BRUSHFLIPHORIZONTAL,()=>{
+        me.flip(true);
+    });
 
     return me;
 }();

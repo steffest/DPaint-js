@@ -107,6 +107,10 @@ let Canvas = function(parent){
     });
 
     EventBus.on(EVENT.drawCanvasOverlay,(point)=>{
+        let onBackGround = (Input.isControlDown() || Input.isMetaDown());
+        if (!point) onBackGround = false;
+        point = point || currentCursorPoint;
+        if (!point) return;
         if (!Input.hasPointerEvents()) return;
         overlayCanvas.style.opacity = 1;
         overlayCtx.clearRect(0,0, canvas.width, canvas.height);
@@ -118,7 +122,8 @@ let Canvas = function(parent){
             color = "rgb("+p[0]+","+p[1]+","+p[2]+")";
             Palette.setColor(p,false,true);
         }
-        Brush.draw(overlayCtx,point.x,point.y,color,(Input.isControlDown() || Input.isMetaDown()));
+
+        Brush.draw(overlayCtx,point.x,point.y,color,onBackGround);
         overlayCtx.globalAlpha = 1;
         currentCursorPoint = point;
     });
@@ -367,7 +372,7 @@ let Canvas = function(parent){
                     containerTransform.startX = containerTransform.x;
                     containerTransform.startY = containerTransform.y;
                     return;
-                }else if ((Input.isShiftDown() || Input.isAltDown()) && Editor.canPickColor() || Editor.getCurrentTool() === COMMAND.COLORPICKER){
+                }else if ((Input.isShiftDown() || Input.isAltDown())  && Editor.canPickColor() || Editor.getCurrentTool() === COMMAND.COLORPICKER){
                     Cursor.override("colorpicker");
                     Cursor.attach("colorpicker");
                     var pixel = ctx.getImageData(point.x, point.y, 1, 1).data;

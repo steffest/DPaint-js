@@ -651,7 +651,7 @@ var ImageProcessing = function(){
 		}
 	}
 
-	me.rotate = function(canvas){
+	me.rotate = function(canvas,left){
 		let ctx = canvas.getContext("2d");
 		let newCanvas = document.createElement("canvas");
 		let w = canvas.height;
@@ -661,7 +661,7 @@ var ImageProcessing = function(){
 		let newCtx = newCanvas.getContext("2d");
 		newCtx.save();
 		newCtx.translate(w/2,h/2);
-		newCtx.rotate(90*Math.PI/180);
+		newCtx.rotate(90*Math.PI/180 * (left?-1:1));
 		newCtx.drawImage(canvas, -h/2,-w/2);
 		newCtx.restore();
 

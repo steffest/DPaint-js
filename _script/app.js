@@ -5,6 +5,7 @@ import ImageFile from "./image.js";
 import Palette from "./ui/palette.js";
 import Modal, {DIALOG} from "./ui/modal.js";
 import {duplicateCanvas} from "./util/canvasUtils.js";
+import Brush from "./ui/brush.js";
 
 let App = function(){
 	let me = {
@@ -72,6 +73,10 @@ let App = function(){
 
 		EventBus.on(COMMAND.LOADPALETTE,()=>{
 			Palette.openLocal();
+		})
+
+		EventBus.on(COMMAND.LOADBRUSH,()=>{
+			Brush.openLocal();
 		})
 
 		EventBus.on(COMMAND.ADF,()=>{

@@ -25,3 +25,12 @@ V 0.1.3
     - load files from url and other url parameter commands
     - presentation mode
     - support for saving indexed color PNGs
+V 0.1.4
+    - palette locking
+    - GIF export
+    - spray tool
+    - text tool
+    - rotsprite and mapped-smooth rotation
+    - Better touch screen support on Android
+    - pressure sensitivity support for stylus
+    - smear/blur tools

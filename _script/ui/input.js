@@ -124,7 +124,6 @@ var Input = function(){
 
 	me.isMultiTouch = function(){
 		return me.getTouches().length>1;
-
 	}
 
 	function onPointerDown(e){

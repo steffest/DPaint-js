@@ -75,6 +75,17 @@ let Menu = function(){
                 {label: "Cut To Layer",command: COMMAND.CUTTOLAYER,shortKey: "meta+K"},
                 {label: "Copy To Brush",command: COMMAND.STAMP,shortKey: "meta+B"}
             ]},
+        {label: "Brush", items:[
+                {label: "Transform",items:[
+                        {label: "Rotate Right",command: COMMAND.BRUSHROTATERIGHT,shortKey: "meta+Shift+→"},
+                        {label: "Rotate Left",command: COMMAND.BRUSHROTATELEFT},
+                        {label: "Flip Horizontal",command: COMMAND.BRUSHFLIPHORIZONTAL,shortKey: "meta+Shift+←"},
+                        {label: "Flip Vertical",command: COMMAND.BRUSHFLIPVERTICAL,shortKey: "meta+Shift+↑"}
+                    ]},
+                {label: "Save Brush",command: COMMAND.SAVEBRUSH},
+                {label: "Load Brush",command: COMMAND.LOADBRUSH},
+
+            ]},
         {label: "Palette", items:[
                 {label: "Edit",command: COMMAND.EDITPALETTE},
                 {label: "From Image",command: COMMAND.PALETTEFROMIMAGE},
