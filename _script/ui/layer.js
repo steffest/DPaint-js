@@ -3,7 +3,7 @@ import ToolOptions from "./components/toolOptions.js";
 import {duplicateCanvas, indexPixelsToPalette, releaseCanvas} from "../util/canvasUtils.js";
 import Brush from "./brush.js";
 import HistoryService from "../services/historyservice.js";
-import DitherPanel from "./components/ditherPanel.js";
+import DitherPanel from "./toolPanels/ditherPanel.js";
 import historyservice from "../services/historyservice.js";
 import Palette from "./palette.js";
 import ImageFile from "../image.js";

@@ -2,9 +2,9 @@ import {$checkbox, $div, $elm, $input} from "../../util/dom.js";
 import {COMMAND, EVENT} from "../../enum.js";
 import EventBus from "../../util/eventbus.js";
 import ImageFile from "../../image.js";
-import BrushPanel from "./brushPanel.js";
+import BrushPanel from "../toolPanels/brushPanel.js";
 import Brush from "../brush.js";
-import DitherPanel from "./ditherPanel.js";
+import DitherPanel from "../toolPanels/ditherPanel.js";
 import Text from "../../paintTools/text.js";
 
 let ToolOptions = function(){

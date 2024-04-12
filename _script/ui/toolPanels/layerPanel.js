@@ -4,7 +4,7 @@ import EventBus from "../../util/eventbus.js";
 import {COMMAND, EVENT} from "../../enum.js";
 import input from "../input.js";
 import Input from "../input.js";
-import ContextMenu from "./contextMenu.js";
+import ContextMenu from "../components/contextMenu.js";
 import Historyservice from "../../services/historyservice.js";
 import HistoryService from "../../services/historyservice.js";
 

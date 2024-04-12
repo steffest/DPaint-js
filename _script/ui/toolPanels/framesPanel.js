@@ -2,7 +2,7 @@ import ImageFile from "../../image.js";
 import $,{$div} from "../../util/dom.js";
 import EventBus from "../../util/eventbus.js";
 import {COMMAND, EVENT} from "../../enum.js";
-import ContextMenu from "./contextMenu.js";
+import ContextMenu from "../components/contextMenu.js";
 import Input from "../input.js";
 import Cursor from "../cursor.js";
 

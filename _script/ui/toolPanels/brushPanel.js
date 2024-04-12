@@ -20,6 +20,7 @@ let BrushPanel = function(){
         $elm("label","Size",sizeSelect);
         sizeRange = $input("range",0,sizeSelect,()=>{
             update();
+            sizeInput.value = sizeRange.value;
         });
         sizeInput = $input("text",1,sizeSelect);
         sizeRange.min = 1;
@@ -39,6 +40,7 @@ let BrushPanel = function(){
         $elm("label","Opacity",opacitySelect);
         opacityRange = $input("range",100,opacitySelect,()=>{
             update();
+            opacityInput.value = opacityRange.value;
         });
         opacityInput = $input("text",100,opacitySelect);
         opacityRange.min = 1;

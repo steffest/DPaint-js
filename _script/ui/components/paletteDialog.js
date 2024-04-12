@@ -29,10 +29,12 @@ var PaletteDialog = function() {
     let palettePage = 0;
     let swapButton;
     let spreadButton;
+    let pickButton;
     let paletteClickAction = "";
     let withActions = false;
     let panelContainer;
     let hsv = false;
+    let isActive = false;
 
     me.render = function (container,modal) {
         container.innerHTML = "";
@@ -94,7 +96,22 @@ var PaletteDialog = function() {
                 },"Spread"),
                 $(".button.small",{onClick:()=>{Palette.addColor(Color.fromString(inputHex.value))},"info":"Add a new color"},"Add"),
                 $(".button.small",{onClick:()=>{Palette.removeColor(currentIndex)},"info":"Remove the selected color"},"Remove"),
-                $(".spacer"),
+                pickButton = $(".button.small",{
+                    onClick:()=>{
+                        let active = paletteClickAction === "pick";
+                        active = !active;
+                        paletteClickAction = active?"pick":"";
+                        pickButton.classList.toggle("highlight",active);
+                        if (active){
+                            let dupe = $div("dragelement tooltip","Pick color from image");
+                            Input.setDragElement(dupe,true);
+                            EventBus.trigger(COMMAND.COLORPICKER);
+                        }else{
+                            Input.removeDragElement();
+                        }
+                    },
+                    info:"Pick a color from the image"
+                },"Pick"),$(".spacer"),
                 $(".button.small",{onClick:()=>{contextMenu.classList.toggle("active")}},"Sort",contextMenu = $(".contextmenu",
                         $(".item",{onClick:()=>{Palette.reverse(); contextMenu.classList.remove("active")},"info":"Reverse the colors in the palette"},"Reverse"),
                         $(".item",{onClick:()=>{Palette.sortByHue(); contextMenu.classList.remove("active")},"info":"Sort by hue"},"Hue"),
@@ -112,7 +129,8 @@ var PaletteDialog = function() {
                     colorCanvas = $("canvas",{
                         width:60,
                         height:30,
-                        onclick:()=>{colorPicker.click();}
+                        onclick:()=>{colorPicker.click();},
+                        info: "Click to open Color Picker"
                     }),
                     colorPicker = $("input.masked",{
                         type:"color",
@@ -131,8 +149,8 @@ var PaletteDialog = function() {
                         },
                         onkeydown: modal.inputKeyDown
                     }), $(".tabs",
-                            tabs.rgb = $(".tab",{onClick:toggleHSV}, $("span","R G B")),
-                            tabs.hsv = $(".tab.inactive",{onClick:toggleHSV},$("span","H S V")),
+                            tabs.rgb = $(".tab",{onClick:toggleHSV, info:"Choose RGB color model"}, $("span","R G B")),
+                            tabs.hsv = $(".tab.inactive",{onClick:toggleHSV, info:"Choose HSV color model"},$("span","H S V")),
                             subPanel=$(".panel"))
                     ),
                     buttons = $(".buttons"),
@@ -191,6 +209,9 @@ var PaletteDialog = function() {
                 if (value>255) value=255;
                 range.value = input.value;
                 let newColor = [sliders[0].range.value,sliders[1].range.value,sliders[2].range.value];
+                if (hsv){
+                    newColor = Color.fromHSV(sliders[0].range.value/360,sliders[1].range.value/100,sliders[2].range.value/100);
+                }
                 updateColor(newColor);
             }
 
@@ -232,6 +253,7 @@ var PaletteDialog = function() {
             hsv = false;
             toggleHSV();
         }
+        isActive = true;
     }
 
     me.onClose = function(){
@@ -239,15 +261,26 @@ var PaletteDialog = function() {
         me.clearPaletteClickAction();
         paletteCanvas = null;
         ColorRange.cleanUp();
+        isActive = false;
     }
 
     me.setPaletteClickAction = (action)=>{
         paletteClickAction = action;
     }
 
+    me.getPaletteClickAction = ()=>{
+        return isActive?paletteClickAction:"";
+    }
+
     me.clearPaletteClickAction = function(){
         paletteClickAction="";
         Input.removeDragElement();
+    }
+
+    me.updateColor = function(color){
+        color = Color.toHex(color);
+        inputHex.value = color;
+        updateColor(color);
     }
 
     function toggleHSV(){
@@ -430,9 +463,10 @@ var PaletteDialog = function() {
             color = color + "000000";
             color=color.substr(0, 7);
             color = Color.fromString(color);
-            if (hsv) color = Color.toHSV(color,true);
+            let sliderValues = color;
+            if (hsv) sliderValues = Color.toHSV(color,true);
             sliders.forEach((slider,index)=>{
-                slider.range.value = slider.input.value = color[index];
+                slider.range.value = slider.input.value = sliderValues[index];
             })
         }else{
             inputHex.value = Color.toHex(color);

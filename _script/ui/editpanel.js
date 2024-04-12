@@ -7,9 +7,7 @@ import ImageFile from "../image.js";
 import ToolOptions from "./components/toolOptions.js";
 import Input from "./input.js";
 import Brush from "./brush.js";
-import BrushPanel from "./components/brushPanel.js";
-import UI from "./ui.js";
-import StatusBar from "./statusbar.js";
+import BrushPanel from "./toolPanels/brushPanel.js";
 
 var EditPanel = function(parent,type){
     var me = {};

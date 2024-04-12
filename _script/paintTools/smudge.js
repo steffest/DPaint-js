@@ -5,7 +5,7 @@ import Brush from "../ui/brush.js";
 import Palette from "../ui/palette.js";
 import Color from "../util/color.js";
 import {duplicateCanvas} from "../util/canvasUtils.js";
-import DitherPanel from "../ui/components/ditherPanel.js";
+import DitherPanel from "../ui/toolPanels/ditherPanel.js";
 import ToolOptions from "../ui/components/toolOptions.js";
 import effects from "../ui/effects.js";
 

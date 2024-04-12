@@ -1,6 +1,6 @@
 import {$div} from "../../util/dom.js";
 import ImageFile from "../../image.js";
-import GridPanel from "./gridPanel.js";
+import GridPanel from "../toolPanels/gridPanel.js";
 
 let GridOverlay = ((parent)=>{
     let container = parent;

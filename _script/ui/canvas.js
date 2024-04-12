@@ -12,7 +12,7 @@ import ToolOptions from "./components/toolOptions.js";
 import StatusBar from "./statusbar.js";
 import SelectBox from "./components/selectbox.js";
 import ImageProcessing from "../util/imageProcessing.js";
-import DitherPanel from "./components/ditherPanel.js";
+import DitherPanel from "./toolPanels/ditherPanel.js";
 import Color from "../util/color.js";
 import {duplicateCanvas} from "../util/canvasUtils.js";
 import HistoryService from "../services/historyservice.js";
@@ -22,6 +22,7 @@ import Spray  from "../paintTools/spray.js";
 import Text  from "../paintTools/text.js";
 import historyservice from "../services/historyservice.js";
 import GridOverlay from "./components/gridOverlay.js";
+import PaletteDialog from "./components/paletteDialog.js";
 
 let Canvas = function(parent){
 	let me = {};
@@ -376,7 +377,12 @@ let Canvas = function(parent){
                     Cursor.override("colorpicker");
                     Cursor.attach("colorpicker");
                     var pixel = ctx.getImageData(point.x, point.y, 1, 1).data;
-                    Palette.setColor(pixel,!!e.button,true);
+                    if (PaletteDialog.getPaletteClickAction() === "pick"){
+                        PaletteDialog.updateColor(pixel);
+                    }else{
+                        Palette.setColor(pixel,!!e.button,true);
+                    }
+
                     return;
                 }
 

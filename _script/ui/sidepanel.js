@@ -4,11 +4,11 @@ import ImageProcessing from "../util/imageProcessing.js";
 import ImageFile from "../image.js";
 import EventBus from "../util/eventbus.js";
 import Palette from "./palette.js";
-import LayerPanel from "./components/layerPanel.js";
-import FramesPanel from "./components/framesPanel.js";
-import BrushPanel from "./components/brushPanel.js";
+import LayerPanel from "./toolPanels/layerPanel.js";
+import FramesPanel from "./toolPanels/framesPanel.js";
+import BrushPanel from "./toolPanels/brushPanel.js";
 import ColorPicker from "./components/colorPicker.js";
-import GridPanel from "./components/gridPanel.js";
+import GridPanel from "./toolPanels/gridPanel.js";
 
 var SidePanel = function(){
     let me = {}

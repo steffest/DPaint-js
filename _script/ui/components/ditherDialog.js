@@ -1,7 +1,5 @@
 import {$elm, $title, $div} from "../../util/dom.js";
-import ditherPanel from "./ditherPanel.js";
-import Modal, {DIALOG} from "../modal.js";
-import DitherPanel from "./ditherPanel.js";
+import ditherPanel from "../toolPanels/ditherPanel.js";
 import Storage from "../../util/storage.js";
 
 let DitherDialog = (()=>{
@@ -163,7 +161,7 @@ let DitherDialog = (()=>{
         drawGridLines();
         updatePattern();
 
-        if(isUserPreset) DitherPanel.setDitherPattern(patternCanvas);
+        if(isUserPreset) ditherPanel.setDitherPattern(patternCanvas);
     }
 
     function userPresetToCanvas(preset){
@@ -192,7 +190,7 @@ let DitherDialog = (()=>{
         drawPixel(x,y,touchData.rightButton);
         drawGridLines();
         updatePattern();
-        DitherPanel.setDitherPattern(patternCanvas);
+        ditherPanel.setDitherPattern(patternCanvas);
     }
 
     function drawPixel(x,y,erase){
@@ -263,7 +261,7 @@ let DitherDialog = (()=>{
         for (let i = 0; i<8; i++){
             $div("preset p"+i,"",presetPanel,()=>{
                 loadPreset(i);
-                DitherPanel.setDitherPattern(i+1);
+                ditherPanel.setDitherPattern(i+1);
             })
         }
 
