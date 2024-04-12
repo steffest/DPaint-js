@@ -76,15 +76,15 @@ let Menu = function(){
                 {label: "Copy To Brush",command: COMMAND.STAMP,shortKey: "meta+B"}
             ]},
         {label: "Brush", items:[
+                {label: "Load Brush",command: COMMAND.LOADBRUSH},
+                {label: "Save Brush",command: COMMAND.SAVEBRUSH},
                 {label: "Transform",items:[
                         {label: "Rotate Right",command: COMMAND.BRUSHROTATERIGHT,shortKey: "meta+Shift+→"},
                         {label: "Rotate Left",command: COMMAND.BRUSHROTATELEFT},
                         {label: "Flip Horizontal",command: COMMAND.BRUSHFLIPHORIZONTAL,shortKey: "meta+Shift+←"},
                         {label: "Flip Vertical",command: COMMAND.BRUSHFLIPVERTICAL,shortKey: "meta+Shift+↑"}
                     ]},
-                {label: "Save Brush",command: COMMAND.SAVEBRUSH},
-                {label: "Load Brush",command: COMMAND.LOADBRUSH},
-
+                {label: "From Selection",command: COMMAND.STAMP,shortKey: "meta+B"}
             ]},
         {label: "Palette", items:[
                 {label: "Edit",command: COMMAND.EDITPALETTE},

@@ -10,6 +10,7 @@ import Palette from "./ui/palette.js";
 import SaveDialog from "./ui/components/saveDialog.js";
 import HistoryService from "./services/historyservice.js";
 import ImageProcessing from "./util/imageProcessing.js";
+import Brush from "./ui/brush.js";
 
 let ImageFile = function(){
     let me = {};
@@ -139,12 +140,12 @@ let ImageFile = function(){
         }
     }
 
-    me.openLocal = function(){
+    me.openLocal = function(target){
         stop();
         var input = document.createElement("input");
         input.type = "file";
         input.onchange = function (e) {
-            handleUpload(e.target.files, "file");
+            handleUpload(e.target.files, target || "file");
         };
         input.click();
     };
@@ -500,6 +501,7 @@ let ImageFile = function(){
     }
 
     function handleUpload(files,target){
+        stop();
         if (files.length) {
             var file = files[0];
             var detectType;
@@ -527,18 +529,14 @@ let ImageFile = function(){
                         }
                     }
                     if (data) {
-                        me.handleJSON(data);
+                        me.handleJSON(data,target);
                     }
                 } else {
                     // load as Image, fallback to detectType if it fails
                     var image = new Image();
                     image.onload = function(){
                         URL.revokeObjectURL(this.src);
-                        if (target === "frame") {
-                            drawFrame(image, fileName);
-                        } else {
-                            newFile(image, fileName);
-                        }
+                        handleOpenedImage(image,fileName,target)
                     };
                     image.onerror = function(){
                         URL.revokeObjectURL(this.src);
@@ -598,23 +596,7 @@ let ImageFile = function(){
                     }
                 }
                 let image = result.image;
-                if (target === "frame") {
-                    if (Array.isArray(image)) {
-                        drawFrame(image[0], fileName);
-                    } else {
-                        drawFrame(image, fileName);
-                    }
-                } else {
-                    if (Array.isArray(image)) {
-                        newFile(image[0],fileName,currentFile.originalType,currentFile.originalData);
-                        EventBus.hold();
-                        for (let i = 1; i < image.length; i++) addFrame(image[i]);
-                        EventBus.release();
-                        EventBus.trigger(EVENT.framesChanged);
-                    } else {
-                        newFile(image,fileName,currentFile.originalType,currentFile.originalData)
-                    }
-                }
+                handleOpenedImage(image,fileName,target);
 
                 let time = performance.now() - now;
                 console.log("File loaded in " + time + "ms");
@@ -624,11 +606,7 @@ let ImageFile = function(){
                     var image = new Image();
                     image.onload = function(){
                         URL.revokeObjectURL(this.src);
-                        if (target === "frame") {
-                            drawFrame(image, fileName);
-                        } else {
-                            newFile(image,fileName,currentFile.originalType,currentFile.originalData)
-                        }
+                        handleOpenedImage(image,fileName,target);
                     };
                     image.onerror = function(){
                         URL.revokeObjectURL(this.src);
@@ -645,7 +623,7 @@ let ImageFile = function(){
         });
     };
 
-    me.handleJSON = function(data,next){
+    me.handleJSON = function(data,target){
         if (data.type === "dpaint") {
             if (data.palette){
                 Palette.set(data.palette);
@@ -653,12 +631,44 @@ let ImageFile = function(){
             if (data.colorRange){
                 currentFile.colorRange = data.colorRange;
             }
-            me.restore(data);
+            switch (target){
+                case "frame":
+                    break;
+                case "brush":
+                    Brush.import(data);
+                    break;
+                default:
+                    me.restore(data);
+            }
         }
         if (data.type === "palette") {
             Palette.set(data.palette);
         }
-        if (next) next();
+    }
+
+    function handleOpenedImage(image,fileName,target){
+        switch (target){
+            case "frame":
+                if (Array.isArray(image)) {
+                    drawFrame(image[0], fileName);
+                } else {
+                    drawFrame(image, fileName);
+                }
+                break;
+            case "brush":
+                Brush.import(image);
+                break;
+            default:
+                if (Array.isArray(image)) {
+                    newFile(image[0],fileName,currentFile.originalType,currentFile.originalData);
+                    EventBus.hold();
+                    for (let i = 1; i < image.length; i++) addFrame(image[i]);
+                    EventBus.release();
+                    EventBus.trigger(EVENT.framesChanged);
+                } else {
+                    newFile(image,fileName,currentFile.originalType,currentFile.originalData)
+                }
+        }
     }
 
     function newFile(image,fileName,type,originalData){

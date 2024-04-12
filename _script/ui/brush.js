@@ -301,8 +301,27 @@ var Brush = function(){
         return struct;
     }
 
+    me.import = (data)=>{
+        if (!data) return;
+        if (data.image && data.type === "dpaint"){
+            let frame = data.image.frames[0];
+            let layer = frame.layers[0];
+            let canvas = new Image();
+            canvas.onload = ()=>{
+                me.set("canvas",canvas);
+                EventBus.trigger(EVENT.drawCanvasOverlay);
+            }
+            canvas.src = layer.canvas;
+        }else{
+            if (data.width && data.height){
+                me.set("canvas",data);
+                EventBus.trigger(EVENT.drawCanvasOverlay);
+            }
+        }
+    }
+
     me.openLocal = ()=>{
-        Modal.alert("Not implemented yet","Open Brush");
+        ImageFile.openLocal("brush");
     }
     
     function generateBrush(){
