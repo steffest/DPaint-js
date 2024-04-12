@@ -57,6 +57,19 @@ let IndexedPng = function(){
         stream.writeUint(crc32.get(type.concat(Array.from(data))));
     }
 
+    function readChunk(file,includeData){
+        let index = file.index;
+        let data;
+        let len = file.readUint();
+        let type = file.readBytes(4);
+        if (includeData) data = file.readBytes(len);
+        let crc = file.readUint();
+
+        file.goto(index + 4 + 4 + len + 4);
+
+        return {type, data};
+    }
+
     function chunkSize(data){
         return data.length + 12;
     }
@@ -72,6 +85,18 @@ let IndexedPng = function(){
         data.writeUbyte(filterMethod);
         data.writeUbyte(interlaceMethod);
         return new Uint8Array(data.buffer);
+    }
+
+    function readHeaderChunk(file){
+        let width = file.readUint();
+        let height = file.readUint();
+        let bitDepth = file.readUbyte();
+        let colorType = file.readUbyte();
+        let compressionMethod = file.readUbyte();
+        let filterMethod = file.readUbyte();
+        let interlaceMethod = file.readUbyte();
+        file.jump(4); // skip CRC
+        return {width, height, bitDepth, colorType, compressionMethod, filterMethod, interlaceMethod};
     }
 
     function getPaletteChunk(){
@@ -108,6 +133,64 @@ let IndexedPng = function(){
 
         let zData = new Zlib.Deflate(data).compress();
         return zData;
+    }
+
+    function isArrayEqual(a,b){
+        if (a.length !== b.length) return false;
+        for (let i = 0; i < a.length; i++){
+            if (a[i] !== b[i]) return false;
+        }
+        return true;
+    }
+
+    // detect 8-bit indexed PNG
+    me.detect = file=>{
+        let header = file.readBytes(8, 0);
+        let isIndexedPng = isArrayEqual(header, pngHeader);
+        if (isIndexedPng){
+            // according to specs the IHDR chunk should be the first chunk
+           let chunk = readChunk(file);
+           if (isArrayEqual(chunk.type, IHDR)){
+               file.goto(8 + 4 + 4);
+               let header =  readHeaderChunk(file);
+               isIndexedPng = header.colorType === 3;
+           }
+        }
+        return isIndexedPng;
+    }
+
+    me.parse = file=>{
+        return new Promise((next)=>{
+            let result = {data:{}};
+            file.goto(8 + 4 + 4);
+            let header =  readHeaderChunk(file);
+
+            // find palette chunk
+            let paletteFound = false;
+            let palette;
+            while (!paletteFound && file.index < file.length - 12){
+                let index = file.index;
+                let chunk = readChunk(file, false);
+                if (isArrayEqual(chunk.type, PLTE)){
+                    paletteFound = true;
+                    file.goto(index);
+                    chunk = readChunk(file, true);
+                    palette = [];
+                    for (let i = 0; i < chunk.data.length; i+=3){
+                        palette.push([chunk.data[i], chunk.data[i+1], chunk.data[i+2]]);
+                    }
+                   result.data.palette = palette;
+                }
+            }
+
+            // use the browser's built-in PNG parser
+            var image = new Image();
+            image.src = URL.createObjectURL(new Blob([file.buffer], {type: "image/png"}));
+            image.onload = function(){
+                result.image = image;
+                next(result);
+            }
+        });
     }
 
     return me;

@@ -9,7 +9,7 @@ import Brush from "./ui/brush.js";
 
 let App = function(){
 	let me = {
-		version: "0.1.4.1 alpha"
+		version: "0.1.4.2 alpha"
 	}
 	
 	me.init = function(){

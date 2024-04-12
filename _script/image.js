@@ -510,12 +510,13 @@ let ImageFile = function(){
 
             if (ext === "info") detectType = true;
             if (ext === "gif") detectType = true;
+            if (ext === "png") detectType = true;
             if (ext === "json") isText = true;
 
             var reader = new FileReader();
             reader.onload = function(){
                 if (detectType) {
-                    me.handleBinary(reader.result, file.name, target);
+                    me.handleBinary(reader.result, file.name, target,true);
                 } else if (isText) {
                     let data = {};
                     if (ext === "json") {
