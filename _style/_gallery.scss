@@ -44,6 +44,14 @@
     font-style: italic;
   }
 
+  a.artist{
+    color: $menu-text-color-high;
+    &:hover{
+      color: white;
+    }
+  }
+
+
   .section{
     padding: 4px 8px;
     .title{

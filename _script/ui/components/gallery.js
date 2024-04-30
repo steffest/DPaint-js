@@ -55,14 +55,16 @@ let Gallery = (()=>{
                         thumb = $(".thumb"),
                         $(".fileinfo",
                             $(".title",item.title),
-                            $(".artist",item.artist),
+                            item.artistUrl
+                                ? $("a.artist",{href:item.artistUrl, target:"_blank"},item.artist)
+                                : $(".artist",item.artist),
                             $(".year",item.year)
                         ))
                     ;
                     thumb.style.backgroundImage = "url('" + item.image +"')";
                 }else{
                     $(".section",{parent:listContainer}
-                        ,$(".title",item.title)
+                        ,item.title ? $(".title",item.title): ""
                         ,$(".description",item.description));
                 }
             });
