@@ -173,6 +173,17 @@ var Color = function(){
         return color1[0]===color2[0] && color1[1]===color2[1] && color1[2]===color2[2];
     }
 
+    me.setBitDepth = (color,depth)=>{
+        color = me.fromString(color);
+        let mask = 0xff;
+        let shift = 8-depth;
+        mask = mask >> shift << shift;
+        let r = color[0] & mask;
+        let g = color[1] & mask;
+        let b = color[2] & mask;
+        return [r,g,b];
+    }
+
     function hexByte(nr){
         if (typeof nr === "string") nr=parseInt(nr);
         let result = nr.toString(16);

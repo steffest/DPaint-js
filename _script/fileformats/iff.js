@@ -574,7 +574,7 @@ const IFF = (function () {
                     if (color[2] > 128) direction[2] = -1;
                     let count = 0;
 
-                    while (colorIndex !== -1 && count < 60) {
+                    while (colorIndex !== -1 && count < 150) {
                         color[offsetIndex] += direction[offsetIndex];
                         if (color[offsetIndex] < 0) color[offsetIndex] = 0;
                         if (color[offsetIndex] > 255) color[offsetIndex] = 255;

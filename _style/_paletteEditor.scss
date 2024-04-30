@@ -547,6 +547,24 @@
     }
   }
 
+  .depthinfo{
+    position: absolute;
+    bottom: 62px;
+    left: 40px;
+    color: #c99721;
+    padding: 3px 3px 3px 18px;
+    font-size: 11px;
+    display: none;
+    background-image: url("../_img/warning.svg");
+    background-size: 16px 16px;
+    background-repeat: no-repeat;
+    background-position: 0 0;
+
+    &.active{
+      display: block;
+    }
+  }
+
   .button.small{
     line-height: 14px;
     font-size: 12px;

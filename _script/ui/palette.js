@@ -35,6 +35,7 @@ let Palette = function(){
     var backgroundColor = "white";
     var drawColorIndex = 1;
     var backColorIndex = 0;
+    let colorDepth = 24;
 
     var colors = [
         [149,149,149],
@@ -857,6 +858,10 @@ let Palette = function(){
         return Animator.isRunning(ANIMATION.CYCLE);
     }
 
+    me.getColorDepth = function(){
+        return colorDepth;
+    }
+
     function generateColorLayers(){
         colorLayers = {};
         let image = ImageFile.getCurrentFile();
@@ -925,6 +930,19 @@ let Palette = function(){
         }
     }
 
+    function reduceBits(bits){
+        bits = bits || 24;
+        colorDepth = bits;
+        bits = Math.floor(bits/3);
+        currentPalette.forEach((color,index)=>{
+            currentPalette[index] = Color.setBitDepth(color,bits);
+        });
+        me.set(currentPalette);
+        EventBus.trigger(EVENT.paletteChanged);
+        me.apply();
+        EventBus.trigger(EVENT.colorDepthChanged);
+    }
+    
 
     EventBus.on(COMMAND.PALETTEFROMIMAGE,me.fromImage);
     EventBus.on(COMMAND.PALETTEREDUCE,me.reduce);
@@ -986,6 +1004,18 @@ let Palette = function(){
             me.cycle();
             me.cycle();
         }
+    });
+
+    EventBus.on(COMMAND.COLORDEPTH24,()=>{
+        reduceBits(24);
+    });
+
+    EventBus.on(COMMAND.COLORDEPTH12,()=>{
+        reduceBits(12);
+    });
+
+    EventBus.on(COMMAND.COLORDEPTH9,()=>{
+        reduceBits(9);
     });
 
 

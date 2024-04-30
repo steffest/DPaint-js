@@ -8,6 +8,7 @@ let Menu = function(){
     let activeMenu;
     let isMenuActive;
     let isMac = navigator.platform.toUpperCase().indexOf('MAC')>=0;
+    let refs = {};
 
     let items=[
         {label: "File", items:[
@@ -94,6 +95,11 @@ let Menu = function(){
                 {label: "Save Palette",command: COMMAND.SAVEPALETTE},
                 {label: "Load Palette",command: COMMAND.LOADPALETTE},
                 {label: "Toggle Color Cycle",command: COMMAND.CYCLEPALETTE,shortKey: "tab"},
+                {label: "Color Depth",items:[
+                        {label: "24bit",info:"16 Million",command: COMMAND.COLORDEPTH24,checked:true,ref:true},
+                        {label: "12bit",info:"4096 - Amiga OCS",command: COMMAND.COLORDEPTH12,checked:false,ref:true},
+                        {label: "9bit",info:"512 - Atari ST",command: COMMAND.COLORDEPTH9,checked:false,ref:true},
+                    ]},
             ]},
         {label: "View", items:[
                 {label: "Grid",command: COMMAND.TOGGLEGRID,shortKey: "D",checked:false},
@@ -185,6 +191,10 @@ let Menu = function(){
             }
             $div("shortkey",k,menuItem);
         }
+        if (item.info){
+            menuItem.classList.add("hasinfo");
+            $div("info",item.info,menuItem);
+        }
         if (typeof item.checked !== "undefined"){
             parent.classList.add("checkable");
             EventBus.on(item.command,(e)=>{
@@ -194,6 +204,9 @@ let Menu = function(){
         }
         if (item.checked){
             menuItem.classList.add("checked");
+        }
+        if (item.ref){
+            refs[item.command] = menuItem;
         }
     }
 
@@ -218,6 +231,20 @@ let Menu = function(){
             }
         })
     }
+
+    EventBus.on(COMMAND.COLORDEPTH24,()=>{
+        refs[COMMAND.COLORDEPTH12].classList.remove("checked");
+        refs[COMMAND.COLORDEPTH9].classList.remove("checked");
+    });
+    EventBus.on(COMMAND.COLORDEPTH12,()=>{
+        console.log(refs);
+        refs[COMMAND.COLORDEPTH24].classList.remove("checked");
+        refs[COMMAND.COLORDEPTH9].classList.remove("checked");
+    });
+    EventBus.on(COMMAND.COLORDEPTH9,()=>{
+        refs[COMMAND.COLORDEPTH12].classList.remove("checked");
+        refs[COMMAND.COLORDEPTH24].classList.remove("checked");
+    });
 
     return me;
 

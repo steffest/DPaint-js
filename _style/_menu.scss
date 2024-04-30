@@ -101,6 +101,15 @@
         }
       }
 
+      .info{
+        position: absolute;
+        right: 6px;
+        top: 1px;
+        color: $menu-text-color-dim;
+        font-size: 11px;
+      }
+
+
       .subsub{
         position: absolute;
         background-color: $panel-background-color;
@@ -109,6 +118,16 @@
         top: 0;
         left: 50%;
         display: none;
+
+        &.checkable{
+          a{
+            padding: 0 24px 0 20px;
+
+            &.hasinfo{
+              padding-right: 120px;
+            }
+          }
+        }
       }
     }
 

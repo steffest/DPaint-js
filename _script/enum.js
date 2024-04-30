@@ -94,7 +94,11 @@ export let COMMAND = {
     BRUSHFLIPHORIZONTAL: 1093,
     BRUSHFLIPVERTICAL: 1094,
     SAVEBRUSH: 1095,
-    LOADBRUSH: 1096
+    LOADBRUSH: 1096,
+    TOGGLEPIXELGRID: 1097,
+    COLORDEPTH24: 1098,
+    COLORDEPTH12: 1099,
+    COLORDEPTH9: 1100,
 
 };
 
@@ -134,6 +138,7 @@ export let EVENT = {
     sizerStartChange: 33,
     panelResized: 34,
     fontStyleChanged: 35,
+    colorDepthChanged: 36,
 };
 
 export let ANIMATION = {

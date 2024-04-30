@@ -19,6 +19,7 @@ var PaletteDialog = function() {
     let panels = {};
     let buttons;
     let inputHex;
+    let depthInfo;
     let colorHighlight;
     let colorPicker;
     let lockToImage = true;
@@ -153,6 +154,7 @@ var PaletteDialog = function() {
                             tabs.hsv = $(".tab.inactive",{onClick:toggleHSV, info:"Choose HSV color model"},$("span","H S V")),
                             subPanel=$(".panel"))
                     ),
+                    depthInfo = $(".depthinfo"),
                     buttons = $(".buttons"),
                     optionsPanel=$(".options")
                 ),
@@ -167,6 +169,7 @@ var PaletteDialog = function() {
 
 
         let RGBValues = Color.fromString(currentColor);
+        let colorDepth = Palette.getColorDepth()/3;
         ["red","green","blue"].forEach((color,index)=>{
             let slider = $div("slider","",subPanel);
             let range =  document.createElement("input");
@@ -174,7 +177,16 @@ var PaletteDialog = function() {
             range.type = "range";
             range.className = "slider " + color;
             range.max = 255;
-            range.value = RGBValues[index];
+            let multiplier = 1;
+            if (colorDepth === 4){
+                range.max = 15;
+                multiplier = 16;
+            }
+            if (colorDepth === 3){
+                range.max = 7;
+                multiplier = 32;
+            }
+            range.value = Math.floor(RGBValues[index]/multiplier);
             range.addEventListener("wheel",function(e){
                 range.value = parseInt(range.value) + Math.sign(e.deltaY);
                 range.oninput();
@@ -184,7 +196,7 @@ var PaletteDialog = function() {
             let input = document.createElement("input");
             input.type = "text";
             input.className = "rangevalue";
-            input.value = RGBValues[index];
+            input.value = range.value;
             input.onkeydown = modal.inputKeyDown;
             slider.appendChild(input);
             sliders.push({
@@ -194,21 +206,40 @@ var PaletteDialog = function() {
             })
 
             range.oninput = ()=>{
+                let value = range.value;
+                let colorDepth = Palette.getColorDepth()/3;
                 input.value = range.value;
-                let newColor = [sliders[0].input.value,sliders[1].input.value,sliders[2].input.value];
+                let multiplier = 1;
+                if (colorDepth === 4) multiplier = 16;
+                if (colorDepth === 3) multiplier = 32;
+
+                let newColor = [sliders[0].input.value*multiplier,sliders[1].input.value*multiplier,sliders[2].input.value*multiplier];
                 if (hsv){
-                    newColor = Color.fromHSV(sliders[0].range.value/360,sliders[1].range.value/100,sliders[2].range.value/100);
+                    newColor = Color.fromHSV(sliders[0].range.value*multiplier/360,sliders[1].range.value*multiplier/100,sliders[2].range.value*multiplier/100);
+                    if (multiplier>1) newColor = Color.setBitDepth(newColor,colorDepth);
                 }
                 updateColor(newColor);
             }
 
             input.oninput = ()=>{
                 let value = parseInt(input.value);
+                let colorDepth = Palette.getColorDepth()/3;
+                let max=255;
+                let multiplier = 1;
+                if (colorDepth === 4){
+                    max = 15;
+                    multiplier = 16;
+                }
+                if (colorDepth === 3){
+                    max = 7;
+                    multiplier = 32;
+                }
                 if (isNaN(value)) value=0;
                 if (value<0) value=0;
-                if (value>255) value=255;
-                range.value = input.value;
-                let newColor = [sliders[0].range.value,sliders[1].range.value,sliders[2].range.value];
+                if (value>max) value=max;
+                range.value = input.value = value;
+                console.log("colorDepth",colorDepth,value,max);
+                let newColor = [sliders[0].range.value*multiplier,sliders[1].range.value*multiplier,sliders[2].range.value*multiplier];
                 if (hsv){
                     newColor = Color.fromHSV(sliders[0].range.value/360,sliders[1].range.value/100,sliders[2].range.value/100);
                 }
@@ -253,6 +284,9 @@ var PaletteDialog = function() {
             hsv = false;
             toggleHSV();
         }
+
+        setColorDepth();
+
         isActive = true;
     }
 
@@ -283,6 +317,17 @@ var PaletteDialog = function() {
         updateColor(color);
     }
 
+    function setColorDepth(){
+        let depth = Palette.getColorDepth();
+        depthInfo.innerHTML = "Color depth: " + depth + " bits";
+        depthInfo.classList.toggle("active",depth<24);
+
+        let colorDepth = depth/3;
+        sliders.forEach((slider,index)=>{
+            slider.range.max = Math.pow(2,colorDepth)-1;
+        });
+    }
+
     function toggleHSV(){
         hsv = !hsv;
         tabs.rgb.classList.toggle("inactive",hsv);
@@ -291,6 +336,9 @@ var PaletteDialog = function() {
         let color = Color.fromString(inputHex.value);
         let labels = ["Red","Green","Blue"];
         let max = [255,255,255];
+        let colorDepth = Palette.getColorDepth()/3;
+        if (colorDepth === 4) max = [15,15,15];
+        if (colorDepth === 3) max = [7,7,7];
         if (hsv){
             color = Color.toHSV(color,true);
             labels = ["Hue","Sat.","Value"];
@@ -492,6 +540,33 @@ var PaletteDialog = function() {
         //buttons.forEach(button=>{button.classList.add("active")})
     }
 
+    function setColorRanges(){
+        if (paletteCanvas){
+            let color = Palette.getDrawColor();
+            currentIndex = Palette.getDrawColorIndex();
+
+            colorCanvasCtx.fillStyle = Color.toString(color);
+            colorCanvasCtx.fillRect(0,0,60,30);
+            inputHex.value = colorPicker.value = Color.toHex(color);
+
+            color = hsv ? Color.toHSV(color,true) : Color.fromString(color);
+
+            let colorDepth = Palette.getColorDepth()/3;
+            let multiplier = 1;
+            if (colorDepth === 4) multiplier = 16;
+            if (colorDepth === 3) multiplier = 32;
+
+            sliders.forEach((slider,_index)=>{
+                let v = Math.floor(color[_index]/multiplier);
+                slider.range.value = v;
+                slider.input.value = v;
+            });
+            setPixelHighLights();
+            setColorSelection();
+            buttons.classList.remove("active");
+        }
+    }
+
     EventBus.on(EVENT.colorCount,(count)=>{
         if (highlight) pixelCount.innerHTML = "Used on<br>"  + count + " pixels";
     })
@@ -532,24 +607,18 @@ var PaletteDialog = function() {
     });
 
     EventBus.on(EVENT.drawColorChanged,()=>{
-        if (paletteCanvas){
-            let color = Palette.getDrawColor();
-            currentIndex = Palette.getDrawColorIndex();
+        setColorRanges();
+    });
 
-            colorCanvasCtx.fillStyle = Color.toString(color);
-            colorCanvasCtx.fillRect(0,0,60,30);
-            inputHex.value = colorPicker.value = Color.toHex(color);
-
-            color = hsv ? Color.toHSV(color,true) : Color.fromString(color);
-
-            sliders.forEach((slider,_index)=>{
-                slider.range.value = color[_index];
-                slider.input.value = color[_index];
-            });
-            setPixelHighLights();
-            setColorSelection();
-            buttons.classList.remove("active");
+    EventBus.on(EVENT.colorDepthChanged,()=>{
+        if (isActive){
+            setColorDepth();
+            setColorRanges();
         }
+    });
+
+    EventBus.on(EVENT.paletteChanged,()=>{
+        if (isActive) renderPalette(paletteCanvas.parentNode);
     });
 
 

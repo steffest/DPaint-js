@@ -384,6 +384,13 @@ input[type=range]:focus::-ms-fill-upper {
 .menu a.main .sub.checkable a {
   padding: 0 24px 0 20px;
 }
+.menu a.main .sub .info {
+  position: absolute;
+  right: 6px;
+  top: 1px;
+  color: #8f8f8f;
+  font-size: 11px;
+}
 .menu a.main .sub .subsub {
   position: absolute;
   background-color: #313335;
@@ -392,6 +399,12 @@ input[type=range]:focus::-ms-fill-upper {
   top: 0;
   left: 50%;
   display: none;
+}
+.menu a.main .sub .subsub.checkable a {
+  padding: 0 24px 0 20px;
+}
+.menu a.main .sub .subsub.checkable a.hasinfo {
+  padding-right: 120px;
 }
 .menu a.main:hover, .menu a.main.active {
   background-color: #3C3F41;
@@ -2291,7 +2304,7 @@ body.hovercanvas.pointerdown.cursor-colorpicker .cursor .mark {
   width: 13px;
   border: 1px solid transparent;
   border-left: none;
-  top: 67px;
+  top: 46px;
   left: 246px;
   opacity: 0.7;
 }
@@ -2886,6 +2899,22 @@ body.hovercanvas.pointerdown.cursor-colorpicker .cursor .mark {
 .modalwindow .inner .palette .buttons.active {
   opacity: 1;
   pointer-events: all;
+}
+.modalwindow .inner .palette .depthinfo {
+  position: absolute;
+  bottom: 62px;
+  left: 40px;
+  color: #c99721;
+  padding: 3px 3px 3px 18px;
+  font-size: 11px;
+  display: none;
+  background-image: url("../_img/warning.svg");
+  background-size: 16px 16px;
+  background-repeat: no-repeat;
+  background-position: 0 0;
+}
+.modalwindow .inner .palette .depthinfo.active {
+  display: block;
 }
 .modalwindow .inner .palette .button.small {
   line-height: 14px;
@@ -3738,6 +3767,12 @@ body.hovercanvas.pointerdown.cursor-colorpicker .cursor .mark {
 }
 .gallery .artist {
   font-style: italic;
+}
+.gallery a.artist {
+  color: #DDDDDD;
+}
+.gallery a.artist:hover {
+  color: white;
 }
 .gallery .section {
   padding: 4px 8px;
