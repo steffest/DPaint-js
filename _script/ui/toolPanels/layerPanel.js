@@ -254,6 +254,7 @@ let LayerPanel = function(){
         let elm=contentPanel.querySelector("#layer" + index);
         let layer = ImageFile.getLayer(index);
         if (elm){
+            if (elm.classList.contains('hasinput')) return;
             let input = $input("text",layer.name);
             input.onkeydown = function(e){
                 e.stopPropagation();
@@ -269,6 +270,7 @@ let LayerPanel = function(){
             }
             elm.appendChild(input);
             elm.classList.add('hasinput');
+            elm.classList.remove('handle');
             input.focus();
 
             // needed for rename from context menu
