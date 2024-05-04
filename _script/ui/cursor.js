@@ -46,6 +46,10 @@ var Cursor = function(){
         setCursor();
     }
 
+    me.hasOverride = function(name){
+        return overrideCursor === name;
+    }
+
     me.resetOverride = function(name){
         overrideCursor = undefined;
         setCursor();
@@ -70,11 +74,18 @@ var Cursor = function(){
     }
 
     Eventbus.on(EVENT.modifierKeyChanged,()=>{
-        if ((Input.isShiftDown() || Input.isAltDown()) && !Input.isMetaDown() && Editor.canPickColor()){
+        /*if ((Input.isShiftDown() || Input.isAltDown()) && !Input.isMetaDown() && Editor.canPickColor()){
+            me.override("colorpicker");
+        }else{
+            me.resetOverride();
+        }*/
+
+        if ((Input.isShiftDown() || Input.isAltDown()) && Editor.canPickColor(Input.isPointerDown())){
             me.override("colorpicker");
         }else{
             me.resetOverride();
         }
+
 
         if (Input.isSpaceDown()){
             me.override("pan");

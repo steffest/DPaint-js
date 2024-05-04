@@ -778,7 +778,7 @@ let Canvas = function(parent){
                         return;
                     }
 
-                    if ((Input.isShiftDown() || Input.isAltDown()) && Editor.canPickColor()){
+                    if ((Input.isShiftDown() || Input.isAltDown()) && Editor.canPickColor(true) || Editor.getCurrentTool() === COMMAND.COLORPICKER){
                         var pixel = ctx.getImageData(point.x, point.y, 1, 1).data;
                         Palette.setColor(pixel,false,true);
                         return;

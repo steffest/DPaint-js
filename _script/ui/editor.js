@@ -422,8 +422,19 @@ var Editor = function(){
         activePanel.setZoom(factor,center);
     }
 
-    me.canPickColor = ()=>{
-        return !(currentTool === COMMAND.SELECT || currentTool === COMMAND.GRADIENT  ||  currentTool === COMMAND.TRANSFORMLAYER);
+    me.canPickColor = (isDown)=>{
+        console.log("can pick color");
+        if (isDown && !Cursor.hasOverride("colorpicker")){
+            return false;
+        }
+        return (
+            currentTool === COMMAND.DRAW ||
+            currentTool === COMMAND.CIRCLE ||
+            currentTool === COMMAND.SQUARE ||
+            currentTool === COMMAND.LINE ||
+            currentTool === COMMAND.TEXT ||
+            currentTool === COMMAND.SPRAY ||
+            currentTool === COMMAND.FLOOD);
     }
 
     me.canDrawColor = ()=>{
