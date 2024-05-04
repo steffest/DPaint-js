@@ -11,6 +11,7 @@ import SaveDialog from "./ui/components/saveDialog.js";
 import HistoryService from "./services/historyservice.js";
 import ImageProcessing from "./util/imageProcessing.js";
 import Brush from "./ui/brush.js";
+import storage from "./util/storage.js";
 
 let ImageFile = function(){
     let me = {};
@@ -22,6 +23,7 @@ let ImageFile = function(){
         name: "Untitled",
         layers: [],
     };
+    let autoSaveTimer;
 
     me.getCurrentFile = function(){
         return currentFile;
@@ -490,6 +492,23 @@ let ImageFile = function(){
         }
         console.log(struct);
         return struct;
+    }
+
+    me.autoSave = function(){
+        let data = me.export();
+        storage.putFile("autosave",data);
+    }
+    window.autoSave = me.autoSave;
+
+    me.restoreAutoSave = function(){
+        storage.getFile("autosave").then(data=>{
+            if (data) me.restore(data);
+        });
+    }
+
+    function autoSave(){
+        if (autoSaveTimer) clearTimeout(autoSaveTimer);
+        autoSaveTimer = setTimeout(me.autoSave,1000);
     }
 
     me.addLayer = addLayer;
@@ -1083,10 +1102,19 @@ let ImageFile = function(){
 
     EventBus.on(EVENT.layersChanged, () => {
         cachedImage = undefined;
+        autoSave();
     });
 
-    EventBus.on(EVENT.imageSizeChanged, () => {
-        cachedImage = undefined;
+    EventBus.on(EVENT.imageContentChanged, () => {
+        autoSave();
+    });
+
+    EventBus.on(EVENT.imageSizeChanged,()=>{
+        autoSave();
+    });
+
+    EventBus.on(EVENT.historyChanged,()=>{
+        autoSave();
     });
 
 

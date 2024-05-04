@@ -4,7 +4,6 @@ import {COMMAND, EVENT} from "./enum.js";
 import ImageFile from "./image.js";
 import Palette from "./ui/palette.js";
 import Modal, {DIALOG} from "./ui/modal.js";
-import {duplicateCanvas} from "./util/canvasUtils.js";
 import Brush from "./ui/brush.js";
 
 let App = function(){
@@ -56,6 +55,9 @@ let App = function(){
 				},200);
 
 			}
+
+			// check for local autoSave
+			ImageFile.restoreAutoSave();
 		}
 
 		if (window.self !== window.top && window.parent){
@@ -234,8 +236,6 @@ let App = function(){
 		return image;
 	}
 
-*/
-
 	window.rot = function(){
 		import("./paintTools/rotSprite.js").then(async rotSprite=>{
 			let canvas = ImageFile.getActiveLayer().getCanvas();
@@ -245,7 +245,8 @@ let App = function(){
 			console.error("ok");
 		});
 	}
-	
+	*/
+
 	return me;
 }();
 
