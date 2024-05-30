@@ -307,17 +307,21 @@
   }
 
   .palettebuttons{
-    height: 22px;
     background-color: $panel-background-color;
     border: 1px solid black;
     margin: 2px auto 0 auto;
-    display: flex;
+
+    &.hidden{
+      display: nones;
+    }
 
     >div{
-      width: 100%;
-      text-align: center;
       color: white;
       opacity: 0.4;
+      font-size: 12px;
+      display: inline-block;
+      width: 30px;
+      height: 30px;
 
       &:hover{
         background-color: $panel-background-active;
@@ -330,20 +334,27 @@
       }
 
       .icon{
-        width: 16px;
-        height: 20px;
+        width: 24px;
+        height: 24px;
         display: inline-block;
         vertical-align: middle;
         background-color: transparent;
         background-size: 16px 16px;
         background-repeat: no-repeat;
         background-position: center center;
+        margin: 4px;
       }
 
 
       &.edit{
         .icon{
           background-image: url("../_img/palette.svg");
+        }
+      }
+
+      &.plus{
+        .icon{
+          background-image: url("../_img/add.svg");
         }
       }
 
@@ -383,6 +394,9 @@
     bottom: 2px;
     left: 0;
     right: 0;
+  }
+
+  .palettenav,.paletteListNav{
     .nav{
       height: 20px;
       background-color: $panel-background-color;
@@ -420,6 +434,10 @@
         text-align: center;
       }
     }
+  }
+
+  .paletteListNav{
+    position: relative;
   }
 
   .viewstyle{

@@ -2,7 +2,7 @@ let process = function(source,target){
     let mode;
     mode = "MUI";
     //mode = "COLOR";
-    //mode = "ALPHA";
+    mode = "ALPHA";
 
     let colors;
     if (mode==="MUI"){

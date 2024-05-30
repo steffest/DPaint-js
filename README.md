@@ -25,6 +25,7 @@ Online version available at https://www.stef.be/dpaint/
    - Writes IFF ILBM images (up to 256 colors)
    - Read and write directly from Amiga Disk Files (ADF)
    - Embedded Amiga Emulator to preview your work in the real Deluxe Paint.
+   - Limit the palette to 12 bit for Amiga OCS/ECS mode, or 9 bit for Atari ST mode.
 
 ## Free and Open
 It runs in your browser, works on any system and works fine on touch-screen devices like iPads.  
@@ -65,9 +66,9 @@ Bug reports and pull requests are welcome.
 
 ### Missing Features
 Planned for the next release, already in the works:
-   - Color Cycling
+   - <strike>Color Cycling</strike> (done)
    - Animation support (GIf and Amiga ANIM files)
-   - Shading/transparency tools that stay within the palette.
+   - <strike>Shading/transparency tools that stay within the palette.</strike> (done)
 
 Planned for a future release if there's a need for it.
   - Support for non-square pixel modes such as HiRes and Interlaced

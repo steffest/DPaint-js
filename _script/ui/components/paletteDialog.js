@@ -435,6 +435,8 @@ var PaletteDialog = function() {
             info:"Show palette and color actions"},"Palette"));
         parent.appendChild(paletteCanvas);
 
+
+
         if (colors.length>colorsPerPage){
             $(".nav",{parent:parent},
                 $(".prev"+(palettePage?".active":""),{onClick:()=>{palettePage--;renderPalette(parent);}}),

@@ -705,17 +705,20 @@ body.presentation .menu {
   display: inline-block;
 }
 .toolbar .palettebuttons {
-  height: 22px;
   background-color: #313335;
   border: 1px solid black;
   margin: 2px auto 0 auto;
-  display: flex;
+}
+.toolbar .palettebuttons.hidden {
+  display: nones;
 }
 .toolbar .palettebuttons > div {
-  width: 100%;
-  text-align: center;
   color: white;
   opacity: 0.4;
+  font-size: 12px;
+  display: inline-block;
+  width: 30px;
+  height: 30px;
 }
 .toolbar .palettebuttons > div:hover {
   background-color: #3C3F41;
@@ -723,17 +726,21 @@ body.presentation .menu {
   opacity: 1;
 }
 .toolbar .palettebuttons > div .icon {
-  width: 16px;
-  height: 20px;
+  width: 24px;
+  height: 24px;
   display: inline-block;
   vertical-align: middle;
   background-color: transparent;
   background-size: 16px 16px;
   background-repeat: no-repeat;
   background-position: center center;
+  margin: 4px;
 }
 .toolbar .palettebuttons > div.edit .icon {
   background-image: url("../_img/palette.svg");
+}
+.toolbar .palettebuttons > div.plus .icon {
+  background-image: url("../_img/add.svg");
 }
 .toolbar .palettebuttons > div.lock .icon {
   background-image: url("../_img/lock_open.svg");
@@ -761,7 +768,7 @@ body.presentation .menu {
   left: 0;
   right: 0;
 }
-.toolbar .palettenav .nav {
+.toolbar .palettenav .nav, .toolbar .paletteListNav .nav {
   height: 20px;
   background-color: #313335;
   border: 1px solid black;
@@ -769,7 +776,7 @@ body.presentation .menu {
   display: flex;
   color: #BBBBBB;
 }
-.toolbar .palettenav .nav .prev, .toolbar .palettenav .nav .next {
+.toolbar .palettenav .nav .prev, .toolbar .palettenav .nav .next, .toolbar .paletteListNav .nav .prev, .toolbar .paletteListNav .nav .next {
   width: 20px;
   background-image: url("../_img/caret.svg");
   background-size: 16px 16px;
@@ -778,20 +785,23 @@ body.presentation .menu {
   opacity: 0.1;
   pointer-events: none;
 }
-.toolbar .palettenav .nav .prev.active, .toolbar .palettenav .nav .next.active {
+.toolbar .palettenav .nav .prev.active, .toolbar .palettenav .nav .next.active, .toolbar .paletteListNav .nav .prev.active, .toolbar .paletteListNav .nav .next.active {
   opacity: 0.5;
   pointer-events: all;
 }
-.toolbar .palettenav .nav .prev:hover, .toolbar .palettenav .nav .next:hover {
+.toolbar .palettenav .nav .prev:hover, .toolbar .palettenav .nav .next:hover, .toolbar .paletteListNav .nav .prev:hover, .toolbar .paletteListNav .nav .next:hover {
   opacity: 1;
   cursor: pointer;
 }
-.toolbar .palettenav .nav .prev {
+.toolbar .palettenav .nav .prev, .toolbar .paletteListNav .nav .prev {
   transform: rotate(180deg);
 }
-.toolbar .palettenav .nav .page {
+.toolbar .palettenav .nav .page, .toolbar .paletteListNav .nav .page {
   width: 20px;
   text-align: center;
+}
+.toolbar .paletteListNav {
+  position: relative;
 }
 .toolbar .viewstyle {
   display: flex;

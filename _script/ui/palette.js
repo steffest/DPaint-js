@@ -18,6 +18,8 @@ let Palette = function(){
     var paletteNav;
     var size = 14;
     var currentPalette;
+    let paletteList = [];
+    let paletteListIndex = 0;
     var alphaThreshold = 44;
     let useAlphaThreshold = true;
     var ditherIndex = 0;
@@ -28,8 +30,10 @@ let Palette = function(){
     let colorLayers = {};
     let cycleButton;
     let lockButton;
+    let paletteToolsPanel;
     let isLocked = false;
     let hasDuplicates = false;
+    let paletteListIndexElm;
 
     var drawColor = "black";
     var backgroundColor = "white";
@@ -189,14 +193,28 @@ let Palette = function(){
 
         $(".togglepanel.showpalettelist",{
             parent: container,
-            onClick: ()=>{EventBus.trigger(COMMAND.TOGGLEPALETTES)},
+            onClick: ()=>{
+                //EventBus.trigger(COMMAND.TOGGLEPALETTES);
+                paletteToolsPanel.classList.toggle("hidden");
+            },
             info:"Show palettes"
         },"Palette");
 
-        $('.palettebuttons',{parent: paletteParent},
+        paletteToolsPanel = $('.palettebuttons.hidden',{parent: paletteParent},
             $(".edit",{onClick: ()=>{EventBus.trigger(COMMAND.EDITPALETTE)}, info:"Edit palette"},$(".icon")),
             cycleButton = $(".cycle",{onClick: ()=>{EventBus.trigger(COMMAND.CYCLEPALETTE)}, info:"<b>tab</b> Toggle Color Cycle"},$(".icon")),
             lockButton = $(".lock",{onClick: ()=>{EventBus.trigger(COMMAND.LOCKPALETTE)}, info:"Lock Palette"},$(".icon")),
+            $(".plus",{onClick: ()=>{EventBus.trigger(COMMAND.ADDPALETTE)}, info:"Add new Palette"},$(".icon")),
+        );
+
+
+
+        $(".paletteListNav",{parent: paletteParent},$(".nav",
+            $(".prev.active",{onClick: ()=>{me.setPaletteListIndex(paletteListIndex,-1)}}),
+            paletteListIndexElm = $(".page","" + (paletteListIndex+1)),
+            $(".next.active",{
+                onClick: ()=>{me.setPaletteListIndex(paletteListIndex,1)}
+            }))
         );
 
         paletteCanvas = $("canvas.info.palettecanvas",{
@@ -222,6 +240,9 @@ let Palette = function(){
                     drawColorIndex = index;
                 }
                 me.setColor([p[0],p[1],p[2]],e.button,false);
+            },
+            onDoubleClick: function(e){
+                EventBus.trigger(COMMAND.EDITPALETTE);
             }
         })
 
@@ -350,6 +371,7 @@ let Palette = function(){
                 pageNext = $(".next.active",{onClick:()=>{setPage(1)}})));
         }
         currentPalette = palette;
+        paletteList[paletteListIndex] = currentPalette.slice();
         scanDuplicates();
         drawPalette();
 
@@ -396,6 +418,21 @@ let Palette = function(){
 
     me.get = function(){
         return currentPalette;
+    }
+
+    me.getPaletteList = function(){
+        return paletteList;
+    }
+    me.setPaletteList = function(list){
+        paletteList = list;
+    }
+
+    me.getPaletteIndex = function(){
+        return paletteListIndex;
+    }
+    me.setPaletteIndex = function(index){
+        paletteListIndex = index;
+        me.setPaletteListIndex(index,0);
     }
 
     me.getColorRanges = function(){
@@ -462,6 +499,8 @@ let Palette = function(){
     }
 
     me.apply = function(){
+        // TODO: this squashes all the layers together :-/
+        // probably not what we want ?
         let base = ImageFile.getOriginal();
         let c = duplicateCanvas(base,true);
         ImageProcessing.reduce(c,currentPalette,alphaThreshold,0,useAlphaThreshold);
@@ -779,6 +818,58 @@ let Palette = function(){
         });
     }
 
+    me.addPalette = function(){
+        paletteList.push(currentPalette.slice());
+        me.setPaletteListIndex(paletteList.length-1);
+    }
+
+    me.setPaletteListIndex = function(index,offset){
+
+        let fromPalette = currentPalette.slice()
+
+        paletteListIndex = index + (offset || 0);
+        if (paletteListIndex<0) paletteListIndex = paletteList.length-1;
+        if (paletteListIndex>=paletteList.length) paletteListIndex = 0;
+        if (paletteListIndexElm) paletteListIndexElm.innerHTML = paletteListIndex+1;
+        me.set(paletteList[paletteListIndex]);
+        let toPalette = currentPalette.slice();
+        let map = {};
+        let hasChanges = false;
+        fromPalette.forEach((color,index)=>{
+            let t = Color.toString(toPalette[index]);
+            let c = Color.toString(color);
+            if (t!==c) hasChanges = true;
+            map[c] = t;
+        });
+        if (hasChanges){
+            me.reMap(map);
+            me.setColor(currentPalette[drawColorIndex],false,false);
+            me.setColor(currentPalette[backColorIndex],true,false);
+        }
+    }
+
+    me.reMap = function(map){
+        let image = ImageFile.getCurrentFile();
+        let layers = ImageFile.getActiveFrame().layers;
+        layers.forEach(layer=>{
+            console.log("remap",layer.name);
+            let ctx = layer.getContext();
+            let data = ctx.getImageData(0,0,image.width,image.height);
+            for (let i=0;i<data.data.length;i+=4){
+                let color = Color.toString([data.data[i],data.data[i+1],data.data[i+2]]);
+                let mapped = map[color];
+                if (mapped){
+                    let c = Color.fromString(mapped);
+                    data.data[i] = c[0];
+                    data.data[i+1] = c[1];
+                    data.data[i+2] = c[2];
+                }
+            }
+            ctx.putImageData(data,0,0);
+        });
+        EventBus.trigger(EVENT.imageContentChanged);
+    }
+
     me.cycle = function(){
 
         let image = ImageFile.getCurrentFile();
@@ -1016,6 +1107,18 @@ let Palette = function(){
 
     EventBus.on(COMMAND.COLORDEPTH9,()=>{
         reduceBits(9);
+    });
+
+    EventBus.on(COMMAND.ADDPALETTE,()=>{
+       me.addPalette();
+    });
+
+    EventBus.on(COMMAND.NEXTPALETTE,()=>{
+        me.setPaletteListIndex(paletteListIndex,1);
+    });
+
+    EventBus.on(COMMAND.PREVPALETTE,()=>{
+        me.setPaletteListIndex(paletteListIndex,1);
     });
 
 

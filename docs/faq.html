@@ -5,7 +5,8 @@
 <div class="faq padded">
     You are using safari, right? (or another IOS browser)<br>
     Safari <a href="https://developer.mozilla.org/en-US/docs/Web/API/CanvasRenderingContext2D/filter">doesn't support Canvas filters.</a><br>
-    I might one day implement them in plain JavaScript, but currently I'm not spending too much time on all the weird and crippling quirks of Safari.
+    I might one day implement them in plain JavaScript, but currently I'm not spending too much time on all the weird and crippling quirks of Safari.<br>
+    Please use a modern browser like Chrome, Firefox or Edge, or at least one that doesn't actively tries to hold back the web.
 </div>
 
 <h3>Dude, When I copy and paste an image, I loose transparency</h3>
@@ -22,12 +23,14 @@
     Yep. It's certainly not a remake of Deluxe Paint, but it's heavily inspired by it, regarding Amiga spirit and pixel handling.<br>
     I like to think of as "What if Deluxe Paint was made today?"<br>
     <small>Besides: Deluxe Paint on Atari has the tools at the bottom, blasphemy!</small>
+    <br>If you're looking for a more faithful recreation of Deluxe Paint, check out <a href="https://github.com/mriale/PyDPainter">PyDPainter</a>.
 </div>
 
 <h3>Can I import palettes from <a href="https://lospec.com/">Lospec</a>?</h3>
 <div class="faq padded">
     Yes.<br>
-    Download the <a href="https://lospec.com/">Lospec Palette</a> as PNG, open that image in DPaint.js and select Palette -> From image.
+    Download the <a href="https://lospec.com/">Lospec Palette</a> as PNG, open that image in DPaint.js.<br>
+    Next to that, you can extract the palette from any image by selecting the menu Palette -> From image.
 </div>
 
 <h3>How do I save Amiga Icons in the "New Icon" format?</h3>
@@ -41,6 +44,7 @@
 
 <h3>How do I save images as JPEG?</h3>
 <div class="faq padded">
+    Apologies for being opinionated and pedantic.<br>
     DPaint.js is targeted at pixel art and lo-spec images.<br>
     While the JPEG format is fine for high resolution photos,
     it's not a good match if you want to preserve each pixel of an image because it's a lossy compression that blurs and alters the image.<br>

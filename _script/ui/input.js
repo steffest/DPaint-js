@@ -369,6 +369,12 @@ var Input = function(){
 			case "arrowdown":
 				Editor.arrowKey(code.replace("arrow",""));
 				break;
+			case "pageup":
+				EventBus.trigger(COMMAND.NEXTPALETTE);
+				break;
+			case "pagedown":
+				EventBus.trigger(COMMAND.PREVPALETTE);
+				break;
 		}
 
 		if (me.isMetaDown()){

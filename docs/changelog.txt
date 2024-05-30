@@ -34,3 +34,8 @@ V 0.1.4
     - Better touch screen support on Android
     - pressure sensitivity support for stylus
     - smear/blur tools
+V 0.1.5
+    - Load/Save Brushes
+    - support for 12 and 9 bit color depths (Amiga OCS / Atari ST)
+    - Grid tool
+    - Autosave current image in local storage

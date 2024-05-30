@@ -476,12 +476,26 @@ let ImageFile = function(){
         });
 
         if (image.colorRange) currentFile.colorRange = image.colorRange;
+
+        if (data.palette) Palette.set(data.palette);
+
+        if (data.paletteList){
+            Palette.setPaletteList(data.paletteList);
+            Palette.setPaletteIndex(data.paletteIndex);
+        }
+
     };
 
     me.export = function(indexed){
         let struct = me.clone(indexed);
 
         struct.palette = Palette.get();
+        let paletteList = Palette.getPaletteList();
+        if (paletteList.length>1){
+            struct.paletteList = paletteList;
+            struct.paletteIndex = Palette.getPaletteIndex();
+        }
+
         if (currentFile.colorRange) struct.colorRange = currentFile.colorRange;
         if (currentFile.indexedPixels){
             struct.indexedPixels = currentFile.indexedPixels;
@@ -646,6 +660,10 @@ let ImageFile = function(){
         if (data.type === "dpaint") {
             if (data.palette){
                 Palette.set(data.palette);
+            }
+            if (data.paletteList){
+                Palette.setPaletteList(data.paletteList);
+                Palette.setPaletteIndex(data.paletteIndex);
             }
             if (data.colorRange){
                 currentFile.colorRange = data.colorRange;
