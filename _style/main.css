@@ -472,7 +472,7 @@ body.presentation .menu {
   background-position: center center;
   width: 16px;
   height: 16px;
-  background-image: url("../_img/caret.svg");
+  background-image: url("../_img/hamburger.svg");
   background-repeat: no-repeat;
   background-size: contain;
   opacity: 0.5;
@@ -484,12 +484,20 @@ body.presentation .menu {
 .toolbar .togglepanel:hover:after {
   opacity: 1;
 }
-.toolbar .togglepanel.showpalettelist {
+.toolbar .togglepanel.showpalettetools {
   border-top: 1px solid black;
   border-bottom: none;
   line-height: 20px;
   text-align: left;
-  padding-left: 4px;
+  padding-left: 16px;
+}
+.toolbar .togglepanel.showpalettetools:after {
+  right: unset;
+  left: 0;
+  background-image: url("../_img/caret.svg");
+}
+.toolbar .togglepanel.showpalettetools.active:after {
+  transform: rotate(90deg);
 }
 .toolbar .tools {
   display: flex;
@@ -710,9 +718,9 @@ body.presentation .menu {
   margin: 2px auto 0 auto;
 }
 .toolbar .palettebuttons.hidden {
-  display: nones;
+  display: none;
 }
-.toolbar .palettebuttons > div {
+.toolbar .palettebuttons .button {
   color: white;
   opacity: 0.4;
   font-size: 12px;
@@ -720,12 +728,12 @@ body.presentation .menu {
   width: 30px;
   height: 30px;
 }
-.toolbar .palettebuttons > div:hover {
+.toolbar .palettebuttons .button:hover {
   background-color: #3C3F41;
   cursor: pointer;
   opacity: 1;
 }
-.toolbar .palettebuttons > div .icon {
+.toolbar .palettebuttons .button .icon {
   width: 24px;
   height: 24px;
   display: inline-block;
@@ -736,29 +744,29 @@ body.presentation .menu {
   background-position: center center;
   margin: 4px;
 }
-.toolbar .palettebuttons > div.edit .icon {
+.toolbar .palettebuttons .button.edit .icon {
   background-image: url("../_img/palette.svg");
 }
-.toolbar .palettebuttons > div.plus .icon {
+.toolbar .palettebuttons .button.plus .icon {
   background-image: url("../_img/add.svg");
 }
-.toolbar .palettebuttons > div.lock .icon {
+.toolbar .palettebuttons .button.lock .icon {
   background-image: url("../_img/lock_open.svg");
 }
-.toolbar .palettebuttons > div.lock.active {
+.toolbar .palettebuttons .button.lock.active {
   opacity: 1;
 }
-.toolbar .palettebuttons > div.lock.active .icon {
+.toolbar .palettebuttons .button.lock.active .icon {
   background-image: url("../_img/lock_closed.svg");
   filter: brightness(0) saturate(100%) invert(91%) sepia(54%) saturate(6141%) hue-rotate(14deg) brightness(92%) contrast(90%);
 }
-.toolbar .palettebuttons > div.cycle .icon {
+.toolbar .palettebuttons .button.cycle .icon {
   background-image: url("../_img/cycle.svg");
 }
-.toolbar .palettebuttons > div.cycle.active {
+.toolbar .palettebuttons .button.cycle.active {
   opacity: 1;
 }
-.toolbar .palettebuttons > div.cycle.active .icon {
+.toolbar .palettebuttons .button.cycle.active .icon {
   animation: spin 1s infinite linear;
   filter: brightness(0) saturate(100%) invert(91%) sepia(54%) saturate(6141%) hue-rotate(14deg) brightness(92%) contrast(90%);
 }
@@ -828,10 +836,7 @@ body.presentation .menu {
 
 body.withsidepanel .toolbar .togglepanel.sidebar:after {
   transform: rotate(180deg);
-}
-
-body.withpalettelist .toolbar .togglepanel.showpalettelist:after {
-  transform: rotate(180deg);
+  background-image: url("../_img/caret.svg");
 }
 
 body.presentation .toolbar {

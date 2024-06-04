@@ -25,7 +25,7 @@
       background-position: center center;
       width: 16px;
       height: 16px;
-      background-image: url("../_img/caret.svg");
+      background-image: url("../_img/hamburger.svg");
       background-repeat: no-repeat;
       background-size: contain;
       opacity: 0.5;
@@ -39,12 +39,25 @@
       }
     }
 
-    &.showpalettelist{
+    &.showpalettetools{
       border-top: 1px solid black;
       border-bottom: none;
       line-height: 20px;
       text-align: left;
-      padding-left: 4px;
+      padding-left: 16px;
+
+      &:after{
+        right: unset;
+        left: 0;
+        background-image: url("../_img/caret.svg");
+      }
+
+      &.active{
+        &:after{
+          transform: rotate(90deg);
+        }
+
+      }
     }
   }
 
@@ -312,10 +325,10 @@
     margin: 2px auto 0 auto;
 
     &.hidden{
-      display: nones;
+      display: none;
     }
 
-    >div{
+    .button{
       color: white;
       opacity: 0.4;
       font-size: 12px;
@@ -480,16 +493,7 @@ body.withsidepanel{
     .togglepanel.sidebar {
       &:after {
         transform: rotate(180deg);
-      }
-    }
-  }
-}
-
-body.withpalettelist{
-  .toolbar {
-    .togglepanel.showpalettelist {
-      &:after {
-        transform: rotate(180deg);
+        background-image: url("../_img/caret.svg");
       }
     }
   }

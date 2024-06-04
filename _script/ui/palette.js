@@ -191,29 +191,29 @@ let Palette = function(){
         });
         noColor.info = "Select transparent color, left click to select front, right click to select back";
 
-        $(".togglepanel.showpalettelist",{
+        let paletteToolsButton = $(".togglepanel.showpalettetools",{
             parent: container,
             onClick: ()=>{
-                //EventBus.trigger(COMMAND.TOGGLEPALETTES);
+                paletteToolsButton.classList.toggle("active");
                 paletteToolsPanel.classList.toggle("hidden");
             },
-            info:"Show palettes"
+            info:"Show palette tools"
         },"Palette");
 
         paletteToolsPanel = $('.palettebuttons.hidden',{parent: paletteParent},
-            $(".edit",{onClick: ()=>{EventBus.trigger(COMMAND.EDITPALETTE)}, info:"Edit palette"},$(".icon")),
-            cycleButton = $(".cycle",{onClick: ()=>{EventBus.trigger(COMMAND.CYCLEPALETTE)}, info:"<b>tab</b> Toggle Color Cycle"},$(".icon")),
-            lockButton = $(".lock",{onClick: ()=>{EventBus.trigger(COMMAND.LOCKPALETTE)}, info:"Lock Palette"},$(".icon")),
-            $(".plus",{onClick: ()=>{EventBus.trigger(COMMAND.ADDPALETTE)}, info:"Add new Palette"},$(".icon")),
+            $(".button.edit",{onClick: ()=>{EventBus.trigger(COMMAND.EDITPALETTE)}, info:"Edit palette"},$(".icon")),
+            cycleButton = $(".button.cycle",{onClick: ()=>{EventBus.trigger(COMMAND.CYCLEPALETTE)}, info:"<b>tab</b> Toggle Color Cycle"},$(".icon")),
+            lockButton = $(".button.lock",{onClick: ()=>{EventBus.trigger(COMMAND.LOCKPALETTE)}, info:"Lock Palette"},$(".icon")),
+            $(".button.plus",{onClick: ()=>{EventBus.trigger(COMMAND.ADDPALETTE)}, info:"Add new Palette"},$(".icon")),
         );
 
 
 
-        $(".paletteListNav",{parent: paletteParent},$(".nav",
-            $(".prev.active",{onClick: ()=>{me.setPaletteListIndex(paletteListIndex,-1)}}),
+        $(".paletteListNav",{parent: paletteToolsPanel},$(".nav",
+            $(".prev.active",{onClick: ()=>{me.setPaletteListIndex(paletteListIndex,-1)},info:"<b>Pg Up</b> Previous Palette"}),
             paletteListIndexElm = $(".page","" + (paletteListIndex+1)),
             $(".next.active",{
-                onClick: ()=>{me.setPaletteListIndex(paletteListIndex,1)}
+                onClick: ()=>{me.setPaletteListIndex(paletteListIndex,1)},info:"<b>Pg Dn</b> Next Palette"
             }))
         );
 
