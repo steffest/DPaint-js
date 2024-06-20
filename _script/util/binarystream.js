@@ -71,18 +71,36 @@ function BinaryStream(arrayBuffer, bigEndian){
 		return i;
 	};
 
+	obj.readUWord = function(position) {
+		setIndex(position);
+		var i = this.dataView.getUint16(this.index, this.littleEndian);
+		this.index += 2;
+		return i;
+	}
+
 	obj.writeUint = function(value,position){
 		setIndex(position);
 		this.dataView.setUint32(this.index,value,this.litteEndian);
 		this.index+=4;
 	};
 
-	obj.readBytes = function(len,position,buffer) {
+	obj.readUBytes = function(len,position,buffer) {
 		setIndex(position);
 		if (!buffer) buffer = new Uint8Array(len);
 		var i = this.index;
 		var offset = 0;
 		for (; offset < len; offset++) buffer[offset] = this.dataView.getUint8(i+offset);
+
+		this.index += len;
+		return buffer;
+	};
+
+	obj.readBytes = function(len,position,buffer) {
+		setIndex(position);
+		if (!buffer) buffer = new Int8Array(len);
+		var i = this.index;
+		var offset = 0;
+		for (; offset < len; offset++) buffer[offset] = this.dataView.getInt8(i+offset);
 
 		this.index += len;
 		return buffer;

@@ -68,8 +68,6 @@ const IFF = (function () {
         while (index < file.length - 4) {
             file.goto(index);
             const chunk = readChunk();
-            index += chunk.size + 8;
-            if (chunk.size % 2 === 1) index++;
 
             switch (chunk.name) {
                 case "BMHD":
@@ -248,53 +246,133 @@ const IFF = (function () {
                             let lineWidth = (img.width + 15) >> 4; // in words
                             lineWidth *= 2; // in bytes
 
-                            for (let y = 0; y < img.height; y++) {
-                                pixels[y] = [];
-                                if (img.ham) img.hamPixels[y] = [];
-
-                                for (let plane = 0; plane < img.numPlanes; plane++) {
-                                    planes[plane] = planes[plane] || [];
-                                    planes[plane][y] = planes[plane][y] || [];
-                                    const line = [];
-                                    if (img.compression) {
-
-                                        // RLE compression
-                                        let pCount = 0;
-                                        while (pCount < lineWidth) {
-                                            var b = file.readUbyte();
-                                            if (b === 128) break;
-                                            if (b > 128) {
-                                                let b2 = file.readUbyte();
-                                                for (var k = 0; k < 257 - b; k++) {
-                                                    line.push(b2);
-                                                    pCount++;
+                            if (img.compression < 2) {
+                                for (let y = 0; y < img.height; y++) {
+                                    pixels[y] = [];
+                                    if (img.ham) img.hamPixels[y] = [];
+    
+                                    for (let plane = 0; plane < img.numPlanes; plane++) {
+                                        planes[plane] = planes[plane] || [];
+                                        planes[plane][y] = planes[plane][y] || [];
+                                        const line = [];
+                                        if (img.compression) {
+    
+                                            // RLE compression
+                                            let pCount = 0;
+                                            while (pCount < lineWidth) {
+                                                var b = file.readUbyte();
+                                                if (b === 128) break;
+                                                if (b > 128) {
+                                                    let b2 = file.readUbyte();
+                                                    for (var k = 0; k < 257 - b; k++) {
+                                                        line.push(b2);
+                                                        pCount++;
+                                                    }
+                                                } else {
+                                                    for (k = 0; k <= b; k++) {
+                                                        line.push(file.readUbyte());
+                                                    }
+                                                    pCount += b + 1;
                                                 }
-                                            } else {
-                                                for (k = 0; k <= b; k++) {
-                                                    line.push(file.readUbyte());
-                                                }
-                                                pCount += b + 1;
+                                            }
+                                        } else {
+                                            for (let x = 0; x < lineWidth; x++) {
+                                                line.push(file.readUbyte());
                                             }
                                         }
-                                    } else {
-                                        for (let x = 0; x < lineWidth; x++) {
-                                            line.push(file.readUbyte());
+    
+                                        // add bitplane line to pixel values;
+                                        for (b = 0; b < lineWidth; b++) {
+                                            const val = line[b];
+                                            for (i = 7; i >= 0; i--) {
+                                                let x = b * 8 + (7 - i);
+                                                const bit = val & (1 << i) ? 1 : 0;
+                                                if (plane < img.colorPlanes) {
+                                                    var p = pixels[y][x] || 0;
+                                                    pixels[y][x] = p + (bit << plane);
+                                                    planes[plane][y][x] = bit;
+                                                } else {
+                                                    p = img.hamPixels[y][x] || 0;
+                                                    img.hamPixels[y][x] = p + (bit << (plane - img.colorPlanes));
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            } else {
+                                // Atari ST ByteRun2 compression: each bitplane is stored in column
+                                for (let plane = 0; plane < img.numPlanes; plane++) {
+                                    planes[plane] = planes[plane] || [];
+                                    const lines = [];
+                                    // each plane is stored in a 'VDAT' chunk inside the 'BODY' chunk
+                                    readChunk();
+                                    const count = file.readWord() - 2;
+
+                                    const cmds = file.readBytes(count)
+                                    let x = y = 0;
+                                    let dataCount = 0;
+                                    for (let i = 0; i < count && x < lineWidth; ++i) {
+                                        const cmd = cmds[i]
+
+                                        if (cmd === 0) {
+                                            dataCount = file.readWord()
+                                            while (dataCount-- > 0 && x < lineWidth) {
+                                                lines[x + y * lineWidth] = file.readUbyte();
+                                                lines[x + y++ * lineWidth + 1] = file.readUbyte();
+                                                if (y >= img.height) {
+                                                    y = 0;
+                                                    x += 2;
+                                                }
+                                            }
+                                        } else if (cmd < 0) {
+                                            dataCount = -cmd;
+                                            while (dataCount-- > 0 && x < lineWidth) {
+                                                lines[x + y * lineWidth] = file.readUbyte();
+                                                lines[x + y++ * lineWidth + 1] = file.readUbyte();
+                                                if (y >= img.height) {
+                                                    y = 0;
+                                                    x += 2;
+                                                }
+                                            }
+                                        }
+                                        else if (cmd === 1) {
+                                            dataCount = file.readWord();
+                                            let repeat = file.readWord();
+
+                                            while (dataCount-- > 0 && x < lineWidth) {
+                                                lines[x + y * lineWidth] = repeat >> 8;
+                                                lines[x + y++ * lineWidth + 1] = repeat & 0xFF;
+                                                if (y >= img.height) {
+                                                    y = 0;
+                                                    x += 2;
+                                                }
+                                            }
+                                        } else {
+                                            dataCount = cmd;
+                                            let repeat = file.readWord();
+                                            while (dataCount-- > 0 && x < lineWidth) {
+                                                lines[x + y * lineWidth] = repeat >> 8;
+                                                lines[x + y++ * lineWidth + 1] = repeat & 0xFF;
+                                                if (y >= img.height) {
+                                                    y = 0;
+                                                    x += 2;
+                                                }
+                                            }
                                         }
                                     }
 
-                                    // add bitplane line to pixel values;
-                                    for (b = 0; b < lineWidth; b++) {
-                                        const val = line[b];
-                                        for (i = 7; i >= 0; i--) {
-                                            let x = b * 8 + (7 - i);
-                                            const bit = val & (1 << i) ? 1 : 0;
-                                            if (plane < img.colorPlanes) {
+                                    for (let y = 0; y < img.height; ++y) {
+                                        planes[plane][y] = planes[plane][y] || [];
+                                        pixels[y] = pixels[y] || [];
+                                        for (b = 0; b < lineWidth; b++) {
+                                            const val = lines[y * lineWidth + b];
+                                            for (i = 7; i >= 0; i--) {
+                                                let x = b * 8 + (7 - i);
+                                                const bit = val & (1 << i) ? 1 : 0;
+    
                                                 var p = pixels[y][x] || 0;
                                                 pixels[y][x] = p + (bit << plane);
                                                 planes[plane][y][x] = bit;
-                                            } else {
-                                                p = img.hamPixels[y][x] || 0;
-                                                img.hamPixels[y][x] = p + (bit << (plane - img.colorPlanes));
                                             }
                                         }
                                     }
@@ -304,6 +382,7 @@ const IFF = (function () {
                             img.planes = planes;
                         }
                     }
+
                     break;
                 case "FORM": // ANIM or other embedded IFF structure
                     img.frames = img.frames || [];
@@ -313,7 +392,7 @@ const IFF = (function () {
                     }
                     let buffer = new ArrayBuffer(chunk.size+8);
                     const view = new DataView(buffer);
-                    file.readBytes(chunk.size+8,file.index-8,view);
+                    file.readUBytes(chunk.size+8,file.index-8,view);
                     let subFile = new BinaryStream(buffer,true);
                     let subImg = me.parse(subFile, true,fileType,img);
                     if (subImg){
@@ -495,6 +574,9 @@ const IFF = (function () {
                     console.warn(`unhandled IFF chunk: ${chunk.name}`);
                     break;
             }
+
+            index += chunk.size + 8;
+            if (chunk.size % 2 === 1) index++;
         }
 
         return img;

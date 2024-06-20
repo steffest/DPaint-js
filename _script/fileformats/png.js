@@ -61,8 +61,8 @@ let IndexedPng = function(){
         let index = file.index;
         let data;
         let len = file.readUint();
-        let type = file.readBytes(4);
-        if (includeData) data = file.readBytes(len);
+        let type = file.readUBytes(4);
+        if (includeData) data = file.readUBytes(len);
         let crc = file.readUint();
 
         file.goto(index + 4 + 4 + len + 4);
@@ -145,7 +145,7 @@ let IndexedPng = function(){
 
     // detect 8-bit indexed PNG
     me.detect = file=>{
-        let header = file.readBytes(8, 0);
+        let header = file.readUBytes(8, 0);
         let isIndexedPng = isArrayEqual(header, pngHeader);
         if (isIndexedPng){
             // according to specs the IHDR chunk should be the first chunk
