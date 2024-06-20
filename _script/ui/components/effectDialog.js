@@ -105,7 +105,8 @@ var EffectDialog = function() {
             {name: "Glow", file:"glow"},
             {name: "Frost", file:"web"},
             {name: "Displace", file:"displace"},
-            {name: "BeachShadow", file:"beachshadow"},
+            {name: "Offset", file:"offset"},
+            //{name: "BeachShadow", file:"beachshadow"},
             //{name: "Texture", file:"texture"},
         ]
 
