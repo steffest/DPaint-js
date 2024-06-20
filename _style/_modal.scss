@@ -197,6 +197,12 @@
           bottom: 55px;
         }
 
+        &.nobullshit{
+          bottom: 10px;
+          opacity: 0.5;
+        }
+
+
         &.link{
           pointer-events: all;
 
@@ -208,8 +214,23 @@
         }
 
         &.version{
-          left: 556px;
+          left: unset;
+          right: 66px;
           bottom: 55px;
+        }
+
+        &.contrib{
+
+          i{
+            opacity: 0.8;
+            display: block;
+            font-style: normal;
+          }
+          bottom: 10px;
+          text-align: right;
+          left: unset;
+          right: 66px;
+          opacity: 0.5;
         }
       }
 
