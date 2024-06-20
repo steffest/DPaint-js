@@ -26,7 +26,9 @@ Online version available at https://www.stef.be/dpaint/
    - Read and write directly from Amiga Disk Files (ADF)
    - Embedded Amiga Emulator to preview your work in the real Deluxe Paint.
    - Limit the palette to 12 bit for Amiga OCS/ECS mode, or 9 bit for Atari ST mode.
-
+ - Deluxe Paint Legacy
+   - Supports PBM files as used by the PC version of Deluxe Paint (Thanks to [Michael Smith](https://github.com/michaelshmitty))
+   - Supports Deluxe Paint Atari ST compression modes (Thanks to [Nicolas Ramz](https://github.com/warpdesign))
 ## Free and Open
 It runs in your browser, works on any system and works fine on touch-screen devices like iPads.  
 It is written in 100% plain JavaScript and has no dependencies.  
