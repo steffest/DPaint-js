@@ -617,7 +617,7 @@ let ImageFile = function(){
                         );
                     }
 
-                    if (result.data.palette) {
+                    if (result.data.palette && target==="file") {
                         Palette.set(result.data.palette);
                     }
 
@@ -658,16 +658,20 @@ let ImageFile = function(){
 
     me.handleJSON = function(data,target){
         if (data.type === "dpaint") {
-            if (data.palette){
-                Palette.set(data.palette);
+
+            if (target==="file"){
+                if (data.palette) Palette.set(data.palette);
+
+                if (data.paletteList){
+                    Palette.setPaletteList(data.paletteList);
+                    Palette.setPaletteIndex(data.paletteIndex);
+                }
+
+                if (data.colorRange){
+                    currentFile.colorRange = data.colorRange;
+                }
             }
-            if (data.paletteList){
-                Palette.setPaletteList(data.paletteList);
-                Palette.setPaletteIndex(data.paletteIndex);
-            }
-            if (data.colorRange){
-                currentFile.colorRange = data.colorRange;
-            }
+
             switch (target){
                 case "frame":
                     break;
@@ -1101,7 +1105,7 @@ let ImageFile = function(){
         HistoryService.end();
     });
 
-    EventBus.on(COMMAND.IMPORTFRAME, function(){
+    EventBus.on(COMMAND.IMPORTLAYER, function(){
         var input = document.createElement("input");
         input.type = "file";
         input.onchange = function (e) {
