@@ -309,7 +309,8 @@ const IFF = (function () {
                                     const count = file.readWord() - 2;
 
                                     const cmds = file.readBytes(count)
-                                    let x = y = 0;
+                                    let x = 0;
+                                    let y = 0;
                                     let dataCount = 0;
                                     for (let i = 0; i < count && x < lineWidth; ++i) {
                                         const cmd = cmds[i]
