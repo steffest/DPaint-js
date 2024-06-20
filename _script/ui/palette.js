@@ -145,7 +145,9 @@ let Palette = function(){
         db16: {label: "DawnBringer 16", palette:db16Palette},
         db32: {label: "DawnBringer 32", palette:db32Palette},
         gfxk16: {label: "Grafxkid 16", palette:[[26, 28, 44],[93, 39, 93],[177, 62, 83],[239, 125, 87],[255, 205, 117],[167, 240, 112],[56, 183, 100],[37, 113, 121],[41, 54, 111],[59, 93, 201],[65, 166, 246],[115, 239, 247],[244, 244, 244],[148, 176, 194],[86, 108, 134],[51, 60, 87]]},
+        //gfxk16ocs: {label: "Grafxkid 16 OCS", palette:[ "#000000" , "#443344" , "#BB2244" , "#EE7755" , "#FFCC77" , "#AAFF77","#33BB66","#227777","#112266","#3355CC","#44AAFF","#77EEFF","#FFFFFF","#99BBCC","#556688","#222244"]},
         gfxk: {label: "Grafxkid 32", palette:gfxkPalette},
+        tech16ocs: {label: "Tech 16 OCS", palette:["#000000","#222222","#444444","#666666","#888888","#AAAAAA","#CCCCCC","#EEEEEE","#225577","#5599dd","#773333","#bb4433","#447733","#44bb44","#ddaa33","#996622"]},
         pico8: {label: "PICO-8", palette:[[0, 0, 0],[29, 43, 83],[126, 37, 83],[0, 135, 81],[171, 82, 54],[95, 87, 79],[194, 195, 199],[255, 241, 232],[255, 0, 77],[255, 163, 0],[255, 236, 39],[0, 228, 54],[41, 173, 255],[131, 118, 156],[255, 119, 168],[255, 204, 170]]},
         dga:{label: "DGA-16",palette:["#010101","#031b75","#108c00","#17bbd3","#720c0a","#6c1c9e","#b25116","#b8b0a8","#4a4842","#0b63c4","#9bce00","#73f5d5","#e89e00","#ff7bdb","#fef255","#fffffe"]},
         micro: {label: "BBC Micro", platform: true, palette:[[0,0,0],[255,0,0],[0,255,0],[255,255,0],[0,0,255],[255,0,255],[0,255,255],[255,255,255]]},
@@ -196,6 +198,7 @@ let Palette = function(){
             onClick: ()=>{
                 paletteToolsButton.classList.toggle("active");
                 paletteToolsPanel.classList.toggle("hidden");
+                me.set(currentPalette);
             },
             info:"Show palette tools"
         },"Palette");

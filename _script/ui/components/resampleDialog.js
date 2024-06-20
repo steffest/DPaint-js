@@ -1,5 +1,6 @@
 import $,{$div, $elm, $title} from "../../util/dom.js";
 import ImageFile from "../../image.js";
+import UserSettings from "../../userSettings.js";
 
 var ResampleDialog = function() {
     let me = {};
@@ -15,6 +16,7 @@ var ResampleDialog = function() {
         let lock;
         let qbuttons;
         let qualitySelect;
+        let resampleQuality = UserSettings.get("resampleQuality") || "pixelated";
 
         $("h3",{parent:container},"Resize Image to:");
         $(".panel.form",{parent:container},
@@ -40,7 +42,7 @@ var ResampleDialog = function() {
                     lock.classList.toggle("active",lockAspectRatio);
                 }})),
             qbuttons = $(".quick"),
-            qualitySelect = $("select.resize",$("option","Pixelated"),$("option","Smooth"))
+            qualitySelect = $("select.resize",$("option",{selected:resampleQuality==="pixelated"},"Pixelated"),$("option",{selected:resampleQuality==="smooth"},"Smooth"))
         );
 
         $(".buttons",{parent:container},
@@ -53,6 +55,7 @@ var ResampleDialog = function() {
                     if (w<1)w=1;
                     if (h<1)h=1;
                     let quality = qualitySelect.value === "Pixelated" ? "pixelated" : "smooth";
+                    UserSettings.set("resampleQuality",quality);
                     modal.hide();
                     ImageFile.resample({width:w,height: h,quality:quality});
                 }},"Update")

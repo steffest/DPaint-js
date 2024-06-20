@@ -394,7 +394,7 @@ var Input = function(){
 					case "d": EventBus.trigger(COMMAND.DUPLICATELAYER); break;
 					case "e": EventBus.trigger(COMMAND.EFFECTS); break;
 					case "g": EventBus.trigger(COMMAND.TOGGLEGRID); break;
-					case "i": EventBus.trigger(COMMAND.IMPORTFRAME); break;
+					case "i": EventBus.trigger(COMMAND.IMPORTLAYER); break;
 					case "j": EventBus.trigger(COMMAND.TOLAYER); break;
 					case "k": EventBus.trigger(COMMAND.CUTTOLAYER); break;
 					case "l": EventBus.trigger(COMMAND.TOLAYER); break;

@@ -15,7 +15,7 @@ let Menu = function(){
                 {label: "New", command: COMMAND.NEW,shortKey: "meta+N"},
                 {label: "Open", command: COMMAND.OPEN,shortKey: "meta+O",needsRealClick: true},
                 {label: "Save", command: COMMAND.SAVE,shortKey: "meta+S"},
-                {label: "Import", command: COMMAND.IMPORTFRAME,shortKey: "meta+I",needsRealClick: true},
+                {label: "Import", command: COMMAND.IMPORTLAYER,shortKey: "meta+I",needsRealClick: true},
                 {label: "Info", command: COMMAND.INFO},
             ]},
         {label: "Edit", items:[

@@ -10,7 +10,12 @@ var Color = function(){
     }
 
     me.fromString = function(color){
-        if (typeof color === "object") return color;
+        if (typeof color === "object"){
+            color.forEach((c,i)=>{
+                color[i] = parseInt(c);
+            });
+            return color;
+        }
         if (color.indexOf("rgb") === 0){
             let parts = color.split("(")[1].split(")")[0].split(",");
             if (parts.length===4) return [parseInt(parts[0]),parseInt(parts[1]),parseInt(parts[2]),parseInt(parts[3])];
@@ -175,12 +180,42 @@ var Color = function(){
 
     me.setBitDepth = (color,depth)=>{
         color = me.fromString(color);
-        let mask = 0xff;
-        let shift = 8-depth;
-        mask = mask >> shift << shift;
-        let r = color[0] & mask;
-        let g = color[1] & mask;
-        let b = color[2] & mask;
+        if (depth===8) return color;
+        if (depth===4) return me.to24bit(me.to12bit(color),depth);
+        if (depth===3) return me.to24bit(me.to9bit(color),depth);
+    }
+
+    me.to24bit = (color,depth)=>{
+        depth = depth || 8;
+        color = me.fromString(color);
+        let r = color[0];
+        let g = color[1];
+        let b = color[2];
+
+        if (depth===4){
+            r = Math.min((r << 4) + r,255);
+            g = Math.min((g << 4) + g,255);
+            b = Math.min((b << 4) + b,255);
+        }
+        if (depth===3){
+            r = Math.min((r << 5) + (r<<1),255);
+            g = Math.min((g << 5) + (g<<1),255);
+            b = Math.min((b << 5) + (b<<1),255);
+        }
+        return [r,g,b];
+    }
+
+    me.to12bit = (color)=>{
+        let r = color[0] >> 4;
+        let g = color[1] >> 4;
+        let b = color[2] >> 4;
+        return [r,g,b];
+    }
+
+    me.to9bit = (color)=>{
+        let r = color[0] >> 5;
+        let g = color[1] >> 5;
+        let b = color[2] >> 5;
         return [r,g,b];
     }
 

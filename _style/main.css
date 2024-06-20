@@ -2297,6 +2297,10 @@ body.hovercanvas.pointerdown.cursor-colorpicker .cursor .mark {
 .modalwindow .inner .about .text.github {
   bottom: 55px;
 }
+.modalwindow .inner .about .text.nobullshit {
+  bottom: 10px;
+  opacity: 0.5;
+}
 .modalwindow .inner .about .text.link {
   pointer-events: all;
 }
@@ -2306,8 +2310,21 @@ body.hovercanvas.pointerdown.cursor-colorpicker .cursor .mark {
   text-decoration: underline;
 }
 .modalwindow .inner .about .text.version {
-  left: 556px;
+  left: unset;
+  right: 66px;
   bottom: 55px;
+}
+.modalwindow .inner .about .text.contrib {
+  bottom: 10px;
+  text-align: right;
+  left: unset;
+  right: 66px;
+  opacity: 0.5;
+}
+.modalwindow .inner .about .text.contrib i {
+  opacity: 0.8;
+  display: block;
+  font-style: normal;
 }
 .modalwindow .inner .optiondialog p {
   margin: 0;
