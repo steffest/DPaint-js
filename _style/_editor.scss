@@ -58,6 +58,12 @@
         &.closepresentation{
           display: none;
         }
+
+        &.right{
+          position: absolute;
+          right: 0;
+          border-left: 1px solid black;
+        }
       }
 
       .toolpanel{

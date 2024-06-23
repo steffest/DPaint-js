@@ -142,6 +142,7 @@ export let EVENT = {
     panelResized: 34,
     fontStyleChanged: 35,
     colorDepthChanged: 36,
+    previewModeChanged: 37,
 };
 
 export let ANIMATION = {

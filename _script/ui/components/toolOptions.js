@@ -118,12 +118,16 @@ let ToolOptions = function(){
                 options.appendChild(ditherSetting());
                 options.appendChild(pressureSetting());
                 break;
+            case COMMAND.ERASE:
+                options.appendChild(label("Erase:"));
+                options.appendChild(brushSetting(true));
+                options.appendChild(ditherSetting());
+                break;
             case COMMAND.SMUDGE:
                 options.appendChild(smudgeLabel());
                 options.appendChild(brushSetting());
                 options.appendChild(strengthSetting());
                 options.appendChild(ditherSetting());
-
                 break;
             case COMMAND.SPRAY:
                 options.appendChild(label("Spray:"));

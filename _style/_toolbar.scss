@@ -25,7 +25,7 @@
       background-position: center center;
       width: 16px;
       height: 16px;
-      background-image: url("../_img/hamburger.svg");
+      background-image: url("../_img/sidebar.svg");
       background-repeat: no-repeat;
       background-size: contain;
       opacity: 0.5;
@@ -456,6 +456,7 @@
   .viewstyle{
     display: flex;
     margin-left: 20px;
+    border-left: 1px solid black;
 
     .button{
       opacity: 0.5;

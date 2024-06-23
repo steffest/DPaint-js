@@ -252,6 +252,8 @@ var EditPanel = function(parent,type){
             tileContainer.classList.remove("hidden");
             updateTiles();
         }
+
+        EventBus.trigger(EVENT.previewModeChanged,type);
     }
 
     me.show = function(){
@@ -322,6 +324,16 @@ var EditPanel = function(parent,type){
         b1.info = "View in editor";
         b2.info = "Preview as icon";
         b3.info = "Preview as tile";
+
+        $div("button right","x",toolbar,()=>{
+            EventBus.trigger(COMMAND.SPLITSCREEN);
+        });
+
+        EventBus.on(EVENT.previewModeChanged,(mode)=>{
+            b1.classList.toggle("active",mode === "editor");
+            b2.classList.toggle("active",mode === "icons");
+            b3.classList.toggle("active",mode === "tiles");
+        });
     }
 
     function generateWindows(){
