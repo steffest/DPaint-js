@@ -1734,7 +1734,9 @@ body.override .splitpanel .panel .toolbar .toolpanel .options .checkbox.pressure
   display: block;
   position: relative;
   border: 1px solid black;
-  background-image: url("../_img/checkers.png");
+  background-position: 0 0, 8px 8px;
+  background-size: 16px 16px;
+  background-image: linear-gradient(45deg, #ccc 25%, transparent 25%, transparent 75%, #ccc 75%, #ccc 100%), linear-gradient(45deg, #ccc 25%, white 25%, white 75%, #ccc 75%, #ccc 100%);
 }
 .splitpanel canvas {
   image-rendering: optimizeSpeed;
@@ -3880,6 +3882,28 @@ body.hovercanvas.pointerdown.cursor-colorpicker .cursor .mark {
   pointer-events: none;
 }
 
+@media screen and (max-width: 760px) {
+  .modalwindow .inner .about {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: black;
+  }
+  .modalwindow .inner .about .text {
+    transform: translateY(-50px);
+    left: 32px;
+  }
+  .modalwindow .inner .about .text.contrib {
+    display: none;
+  }
+  .modalwindow .inner .about .text.version {
+    bottom: 155px;
+    right: unset;
+    left: 32px;
+  }
+}
 @media only screen and (max-width: 600px) {
   .menu {
     width: 100px;

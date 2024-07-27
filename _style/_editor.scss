@@ -215,7 +215,9 @@
     display: block;
     position: relative;
     border: 1px solid black;
-    background-image: url("../_img/checkers.png");
+    background-position: 0 0, 8px 8px;
+    background-size: 16px 16px;
+    background-image: linear-gradient(45deg, #ccc 25%, transparent 25%, transparent 75%, #ccc 75%, #ccc 100%),linear-gradient(45deg, #ccc 25%, white 25%, white 75%, #ccc 75%, #ccc 100%);
   }
 
   canvas{
