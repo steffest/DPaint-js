@@ -27,6 +27,8 @@ var Brush = function(){
     let brushCtx = brushCanvas.getContext("2d");
     let brushBackCtx = brushBackCanvas.getContext("2d");
     let brushAlphaLayer;
+    let currentType;
+    let currentIndex;
 
     me.init = function(parent){
         container = $div("brushes info","",parent);
@@ -122,8 +124,10 @@ var Brush = function(){
         }
 
         if (type === "canvas"){
+            // Note: "index" is an image object in this case.
             brushType = type;
             brushIndex = -1;
+            console.error(index);
             brushCanvas.width = brushBackCanvas.width = index.width;
             brushCanvas.height = brushBackCanvas.height = index.height;
             brushCtx.clearRect(0,0,brushCanvas.width,brushCanvas.height);
@@ -150,7 +154,7 @@ var Brush = function(){
             }
         }
 
-        //EventBus.trigger(EVENT.brushOptionsChanged);
+        EventBus.trigger(EVENT.brushOptionsChanged);
     }
 
     me.setPressure = (p)=>{
@@ -163,7 +167,6 @@ var Brush = function(){
 
 
     me.draw = function(ctx,x,y,color,onBackground,blendColor){
-
         let w,h,p;
         let useCustomBlend = blendColor && Palette.isLocked();
         let useOpacity = ToolOptions.usePressure() && !useCustomBlend;
@@ -187,6 +190,8 @@ var Brush = function(){
 
 
         if (brushType === "canvas"){
+            // TODO: blendColor when Palette is Locked !
+            // FIXME
             if (onBackground){
                 ctx.drawImage(brushBackCanvas,x,y);
             }else{

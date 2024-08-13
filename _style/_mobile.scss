@@ -1,3 +1,31 @@
+@media screen and (max-width: 760px){
+  .modalwindow{
+    .inner{
+      .about{
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: black;
+
+        .text{
+          transform: translateY(-50px);
+          left: 32px;
+          &.contrib{
+            display: none;
+          }
+          &.version{
+            bottom: 155px;
+            right: unset;
+            left: 32px;
+          }
+        }
+      }
+    }
+  }
+}
+
 @media only screen and (max-width: 600px) {
  .menu{
    width: 100px;

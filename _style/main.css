@@ -884,11 +884,34 @@ body.presentation .statusbar {
   left: 70px;
   top: 27px;
   bottom: 20px;
-  border: 1px solid black;
-  width: 175px;
-  background-color: #313335;
   display: none;
+}
+.sidepanel .panelcontainer {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
   overflow: auto;
+  border: 1px solid black;
+  background-color: #313335;
+}
+.sidepanel .panelsizer {
+  position: absolute;
+  right: -4;
+  bottom: 0;
+  top: 0;
+  width: 4px;
+  cursor: col-resize;
+}
+.sidepanel .panelsizer:hover:before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background-color: rgba(0, 0, 0, 0.5);
 }
 .sidepanel .panel {
   position: absolute;
@@ -1020,7 +1043,7 @@ body.presentation .statusbar {
   transform: rotate(-45deg);
   top: 6px;
   width: 22px;
-  height: 2;
+  height: 2px;
   background-color: orange;
 }
 .sidepanel .panel .inner .layer input[type=text] {
@@ -1086,7 +1109,8 @@ body.presentation .statusbar {
 .sidepanel .panel.collapsed .caption i {
   transform: rotate(0deg);
 }
-.sidepanel .panel.collapsed .inner {
+.sidepanel .panel.collapsed .inner,
+.sidepanel .panel.collapsed .sizer {
   display: none;
 }
 .sidepanel .panel .paneltools {
@@ -1311,6 +1335,25 @@ body.presentation .statusbar {
   top: 47px;
   bottom: 0;
   overflow: auto;
+}
+.sidepanel .panel .sizer {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 4px;
+  background-color: transparent;
+  cursor: row-resize;
+  z-index: 100;
+}
+.sidepanel .panel .sizer:hover:before {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  right: 0;
+  height: 2px;
+  background-color: rgba(0, 0, 0, 0.5);
 }
 .sidepanel .caption {
   background-color: #282A2C;
@@ -1722,8 +1765,19 @@ body.override .splitpanel .panel .toolbar .toolpanel .options .checkbox.pressure
   z-index: 10;
   display: none;
 }
-.splitpanel .splitter:hover {
-  background-color: rgba(0, 0, 0, 0.2);
+.splitpanel .splitter:hover:before, .splitpanel .splitter:hover:after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background-color: rgba(0, 0, 0, 0.5);
+}
+.splitpanel .splitter:hover:before {
+  left: -2;
+}
+.splitpanel .splitter:hover:after {
+  right: -2;
 }
 .splitpanel .canvaswrapper {
   display: block;

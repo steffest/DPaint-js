@@ -3,11 +3,37 @@
   left: 70px;
   top: 27px;
   bottom: 20px;
-  border: 1px solid black;
-  width: 175px;
-  background-color: $panel-background-color;
   display: none;
-  overflow: auto;
+
+  .panelcontainer{
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    overflow: auto;
+    border: 1px solid black;
+    background-color: $panel-background-color;
+  }
+
+  .panelsizer{
+    position: absolute;
+    right: -4;
+    bottom: 0;
+    top: 0;
+    width: 4px;
+    cursor: col-resize;
+
+    &:hover:before{
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 2px;
+      background-color: rgba(0, 0, 0, 0.5);
+    }
+  }
 
   .panel{
     position: absolute;
@@ -154,7 +180,7 @@
               transform: rotate(-45deg);
               top: 6px;
               width: 22px;
-              height: 2;
+              height: 2px;
               background-color: orange;
             }
           }
@@ -246,7 +272,8 @@
         }
       }
 
-      .inner{
+      .inner,
+      .sizer{
         display: none;
       }
     }
@@ -521,6 +548,27 @@
         overflow: auto;
       }
     }
+
+    .sizer{
+        position: absolute;
+        right: 0;
+        bottom: 0;
+        left: 0;
+        height: 4px;
+        background-color: transparent;
+        cursor: row-resize;
+        z-index: 100;
+
+      &:hover:before{
+        content: "";
+        position: absolute;
+        left: 0;
+        bottom: 0;
+        right: 0;
+        height: 2px;
+        background-color: rgba(0, 0, 0, 0.5);
+      }
+    }
   }
 
   .caption{
@@ -564,6 +612,7 @@
       cursor: pointer;
     }
   }
+
 
   .subpanel{
     color: $menu-text-color;
@@ -637,7 +686,6 @@
 
     }
   }
-
 }
 
 

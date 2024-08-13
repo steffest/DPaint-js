@@ -72,6 +72,8 @@ let BrushPanel = function(){
         let size = parseInt(sizeRange.value);
         let soft = parseInt(softRange.value);
         let opacity = parseInt(opacityRange.value);
+        // TODO: this is not always "dynamic" - it should be set to the current brush type
+        // FIXME
         Brush.set("dynamic",{width: size, height: size, softness: soft, opacity: opacity});
     }
 

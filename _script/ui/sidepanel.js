@@ -1,5 +1,5 @@
 import {COMMAND, EVENT} from "../enum.js";
-import {$div} from "../util/dom.js";
+import $, {$div} from "../util/dom.js";
 import ImageProcessing from "../util/imageProcessing.js";
 import ImageFile from "../image.js";
 import EventBus from "../util/eventbus.js";
@@ -30,6 +30,7 @@ var SidePanel = function(){
         layers:{
             label: "Layers",
             height: 180,
+            minHeight: 100,
             content: parent=>{
                 LayerPanel.generate(parent);
             }
@@ -66,8 +67,23 @@ var SidePanel = function(){
     }
 
     me.init = parent=>{
-        container = $div("sidepanel");
-        parent.appendChild(container);
+        let w=175;
+        let panel = $(".sidepanel",{
+            parent: parent,
+            style: {width: w + "px"}
+        },
+            container=$(".panelcontainer"),
+            $(".panelsizer",{
+                onDrag: (x)=>{
+                    let _w = Math.max(w + x,120);
+                    panel.style.width = _w + "px";
+                    EventBus.trigger(EVENT.panelResized,_w);
+                },
+                onDragStart: e=>{
+                    w=panel.offsetWidth;
+                }
+            })
+        );
         generate();
     }
 
@@ -133,6 +149,17 @@ var SidePanel = function(){
         let close = $div("close info","x",caption,()=>EventBus.trigger(COMMAND.TOGGLESIDEPANEL));
         close.info = "Close side panels";
         let inner = $div("inner","",panel);
+        let w;
+        $(".sizer",{
+            parent: panel,
+            onDrag: (x,y)=>{
+                panelInfo.height = Math.max(w + y,panelInfo.minHeight || 34);
+                setPanelsState();
+            },
+            onDragStart: e=>{
+                w = panelInfo.height;
+            }
+        });
         if (panelInfo.content){
             panelInfo.content(inner);
         }

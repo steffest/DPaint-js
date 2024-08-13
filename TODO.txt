@@ -1,21 +1,22 @@
 - Improve Undo/redo
 - Add/Remove from selection
 - invert selection
-- resize sidebar
 - dragging of panels?
+- Store/restore UI settings (panels states etc)
 - improve rotate layer/selection
 - polygon mask - deduplicate points
 - pen support (TouchData force => https://developer.mozilla.org/en-US/docs/Web/API/Touch/force )
 - small screen support
 - copy image larger than canvas => keep entire image?
 - deselect after resize
-- show grid function
 - ctrl-mousewheel should be zoom
 - save to JPG including EXIF data
 - EXIF editor?
-- add close buttons to second image panel
 - selection tool should hide the paint-shape cursor
 - open recent files?
+- add layer mask should activate it
+- painting on layer should show color in grayscale
+- clone stamp tool ?
 
 
 - filters: e.g. https://medium.com/skylar-salernos-tech-blog/mimicking-googles-pop-filter-using-canvas-blend-modes-d7da83590d1a
@@ -38,6 +39,8 @@ when aplying color palette changes - they get applied to the top layer instead o
 scrolling removes selection mask
 transform layer in touch screens?
 Drawing a line over the edge wraps around to the other side
+drag/drop should import as new layer ?
+Brush-settings: sliders/values don't sync between panel and toolbar
 
 
 TODO before release:

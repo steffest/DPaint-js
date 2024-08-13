@@ -102,6 +102,7 @@ let FramesPanel = function(){
                     let items = [];
                     if (hasMultipleItems) items.push ({label: "Remove Frame", command: COMMAND.DELETEFRAME});
                     items.push ({label: "Duplicate Frame", command: COMMAND.DUPLICATEFRAME});
+                    items.push ({label: "Move to End", command: COMMAND.FRAMEMOVETOEND});
 
                     ContextMenu.show(items);
                 }

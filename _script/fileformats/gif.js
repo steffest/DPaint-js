@@ -231,13 +231,13 @@ const GIF = (()=>{
 
 
         let delayTime = 0;
-        if (frames.length > 1) delayTime = 15;
+        if (frames.length > 1) delayTime = 20;
 
         let encodedFrames = [];
         let palette = Palette.get();
 
         // add transparent color to palette as color 0;
-        palette.unshift([0,0,0]);
+        //palette.unshift([0,0,0]);
 
         let colorDepth = 1;
         while (1 << colorDepth < palette.length) colorDepth++;
@@ -308,6 +308,7 @@ const GIF = (()=>{
             var transp;
             var disp;
             let transparent = 0;
+            transparent = null;
             let dispose = 0;
 
             if (transparent === null) {

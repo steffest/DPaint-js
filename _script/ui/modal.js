@@ -210,7 +210,7 @@ var Modal = function(){
             $(".text.info","Webbased image editor modeled after the legendary",$("br"),"Deluxe Paint with a focus on retro Amiga file formats."),
             $(".text.copyright.link",{onClick:()=>window.open("https://www.stef.be/")},"© 2023-2024 - Steffest"),
             $(".text.github.link",{onClick:()=>window.open("https://github.com/steffest/dpaint-js")},"Open Source - Plain JavaScript - Fork me on GitHub"),
-            $(".text.nobullshit","No cookies - No tracking - No ads - No accounts"),
+            $(".text.nobullshit","Free software: No cookies - No tracking - No ads - No accounts"),
             $(".text.contrib",$("i","With contributions from"),"Michael Smith and Nicolas Ramz"),
         ));
     }

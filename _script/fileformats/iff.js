@@ -200,6 +200,8 @@ const IFF = (function () {
                     }
 
                     if (decodeBody) {
+                        console.error(img.compression)
+                        console.error(img)
                         if (fileType === FILETYPE.PBM) {
                             let pixelData = [];
 
@@ -247,16 +249,17 @@ const IFF = (function () {
                             lineWidth *= 2; // in bytes
 
                             if (img.compression < 2) {
+
                                 for (let y = 0; y < img.height; y++) {
                                     pixels[y] = [];
                                     if (img.ham) img.hamPixels[y] = [];
-    
+
                                     for (let plane = 0; plane < img.numPlanes; plane++) {
                                         planes[plane] = planes[plane] || [];
                                         planes[plane][y] = planes[plane][y] || [];
                                         const line = [];
                                         if (img.compression) {
-    
+
                                             // RLE compression
                                             let pCount = 0;
                                             while (pCount < lineWidth) {
@@ -280,7 +283,7 @@ const IFF = (function () {
                                                 line.push(file.readUbyte());
                                             }
                                         }
-    
+
                                         // add bitplane line to pixel values;
                                         for (b = 0; b < lineWidth; b++) {
                                             const val = line[b];
@@ -671,6 +674,7 @@ const IFF = (function () {
         }
 
         let imageData = new ImageData(img.width, img.height);
+        let count = 0;
         for (let y = 0; y < img.height; y++) {
             let prevColor = [0, 0, 0];
             for (let x = 0; x < img.width; x++) {
@@ -694,6 +698,33 @@ const IFF = (function () {
                         (pixel & 0x00ff00) >> 8,
                         (pixel & 0xff0000) >> 16,
                     ];
+
+                    // NewTek deep ILBM bit ordering:
+                    // saved first ------------------------------------------------> saved last
+                    // R7 G7 B7 R6 G6 B6 R5 G5 B5 R4 G4 B4 R3 G3 B3 R2 G2 B2 R1 G1 B1 R0 G0 B0
+
+                    // extract bit and shift to the right position
+
+                    /*let bits = intTo24Bit(pixel);
+
+                    let r = (bits[0]<<0) + (bits[3]<<1) + (bits[6]<<2) + (bits[9]<<3) + (bits[12]<<4) + (bits[15]<<5) + (bits[18]<<6) + (bits[21]<<7);
+                    let g = (bits[1]<<0) + (bits[4]<<1) + (bits[7]<<2) + (bits[10]<<3) + (bits[13]<<4) + (bits[16]<<5) + (bits[19]<<6) + (bits[22]<<7);
+                    let b = (bits[2]<<0) + (bits[5]<<1) + (bits[8]<<2) + (bits[11]<<3) + (bits[14]<<4) + (bits[17]<<5) + (bits[20]<<6) + (bits[23]<<7);
+
+                    //let r = (pixel & (0b000000000000000000000100<<5)) + (pixel & (0b000000000000000000100000<<1)) + (pixel & (0b000000000000000100000000>>3)) + (pixel & (0b000000000000100000000000>>7)) + (pixel & (0b000000000010000000000000>>10))+ (pixel & (0b000000001000000000000000>>13));
+                    //let g = (pixel & (0b000000000000000000000010<<6)) + (pixel & (0b000000000000000000010000<<2)) + (pixel & (0b000000000000000010000000>>2)) + (pixel & (0b000000000000010000000000>>6)) + (pixel & (0b000000000001000000000000>>9)) + (pixel & (0b000000000100000000000000>>12));
+                    //let b = (pixel & (0b000000000000000000000001<<7)) + (pixel & (0b000000000000000000001000<<3)) + (pixel & (0b000000000000000001000000>>1)) + (pixel & (0b000000000000001000000000>>5)) + (pixel & (0b000000000000100000000000>>8)) + (pixel & (0b000000000010000000000000>>11));
+
+                    color = [r,g,b];
+
+                    count++;
+                    if (count<10){
+                        console.error(pixel);
+                        console.error(bits);
+                        console.error([r,g,b]);
+                    }*/
+
+
                 }
                 prevColor = color;
 
@@ -710,6 +741,35 @@ const IFF = (function () {
         ctx.putImageData(imageData, 0, 0);
         return canvas;
     };
+
+    function intTo24Bit(b){
+        return [
+            b>>23 & 1,
+            b>>22 & 1,
+            b>>21 & 1,
+            b>>20 & 1,
+            b>>19 & 1,
+            b>>18 & 1,
+            b>>17 & 1,
+            b>>16 & 1,
+            b>>15 & 1,
+            b>>14 & 1,
+            b>>13 & 1,
+            b>>12 & 1,
+            b>>11 & 1,
+            b>>10 & 1,
+            b>>9 & 1,
+            b>>8 & 1,
+            b>>7 & 1,
+            b>>6 & 1,
+            b>>5 & 1,
+            b>>4 & 1,
+            b>>3 & 1,
+            b>>2 & 1,
+            b>>1 & 1,
+            b    & 1
+        ]
+    }
 
     // creates an ArrayBuffer with the binary data of the image;
     me.write = function (canvas) {

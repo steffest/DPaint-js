@@ -201,7 +201,22 @@
     display: none;
 
     &:hover{
-      background-color: rgba(0, 0, 0, 0.2);
+      &:before,
+      &:after{
+        content: "";
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        width: 2px;
+        background-color: rgba(0,0,0,0.5);
+      }
+
+        &:before{
+            left: -2;
+        }
+        &:after{
+            right: -2;
+        }
     }
   }
 

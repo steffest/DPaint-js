@@ -36,8 +36,16 @@ export default function dom(tagName,options){
 
 		// custom dpaint.js stuff
 		if (key === 'onClick') addClass(elm,opt,"handle");
+		if (key === 'onDrag') addClass(elm,opt,"handle");
 		if (key === 'info') addClass(elm,opt,"info");
 		// end custom dpaint.js stuff
+
+		if (key==="style" && typeof opt[key] === "object"){
+			for (let style in opt[key]){
+				elm.style[style] = opt[key][style];
+			}
+			continue;
+		}
 
 		elm[key] = opt[key];
 	}

@@ -382,9 +382,11 @@ var Input = function(){
 			if (me.isMetaAndShiftDown()){
 				switch (key){
 					case "a": EventBus.trigger(COMMAND.LAYERMASK); break;
+					case "f": EventBus.trigger(COMMAND.FLATTEN); break;
 					case "h": EventBus.trigger(COMMAND.LAYERMASKHIDE); break;
 					case "l": EventBus.trigger(COMMAND.TOSELECTION); break;
 					case "p": EventBus.trigger(COMMAND.COLORSELECT); break;
+					case "x": EventBus.trigger(COMMAND.INFO); break;
 					case "arrowdown": EventBus.trigger(COMMAND.MERGEDOWN); break;
 				}
 			}else{

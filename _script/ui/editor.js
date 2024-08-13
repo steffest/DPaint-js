@@ -58,8 +58,27 @@ var Editor = function(){
             w = (touchData.startWith2-x)*100/touchData.totalWidth;
             panels[1].setWidth(w,true);
 
-            EventBus.trigger(EVENT.panelResized);
+            EventBus.trigger(EVENT.panelResized,0);
         }
+
+        EventBus.on(EVENT.panelResized,width=>{
+            if (!width) return;
+            state.left = width + 75;
+            container.style.left = state.left + "px";
+        });
+
+        EventBus.on(COMMAND.TOGGLESIDEPANEL,function(){
+            // TODO: this should probably move to a common UI service
+            setTimeout(()=>{
+                if (document.body.classList.contains("withsidepanel")){
+                    if (state.left){
+                        container.style.left = state.left + "px";
+                    }
+                }else{
+                    container.style.left = "70px";
+                }
+            },1);
+        });
         
         EventBus.on(COMMAND.ZOOMIN,function(center){
             activePanel.zoom(zoomFactor,center);
@@ -311,6 +330,9 @@ var Editor = function(){
                 Cursor.set("select");
                 EventBus.trigger(COMMAND.INITSELECTION,tool);
             }
+        });
+        EventBus.on(EVENT.sidePanelChanged,(tool)=>{
+
         });
 
     }

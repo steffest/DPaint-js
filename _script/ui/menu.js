@@ -29,7 +29,7 @@ let Menu = function(){
                 {label: "Clear", command: COMMAND.CLEAR},
                 {label: "Crop", command: COMMAND.CROP},
                 {label: "Trim", command: COMMAND.TRIM},
-                {label: "Flatten",command: COMMAND.FLATTEN},
+                {label: "Flatten",command: COMMAND.FLATTEN,shortKey: "meta+Shift+F"},
                 {label: "Image size", command: COMMAND.RESAMPLE,shortKey: "meta+R"},
                 {label: "Canvas Size", command: COMMAND.RESIZE,shortKey: "meta+P"},
             ]},

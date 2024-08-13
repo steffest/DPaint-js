@@ -810,7 +810,8 @@ let ImageFile = function(){
                 if (image.width) layer.getContext().drawImage(image, 0, 0);
             }
         }
-        EventBus.trigger(EVENT.imageSizeChanged);
+        //console.error(image);
+        //EventBus.trigger(EVENT.imageSizeChanged);
     }
 
     function removeFrame(){
@@ -1103,6 +1104,13 @@ let ImageFile = function(){
         HistoryService.start(EVENT.imageHistory);
         me.duplicateFrame();
         HistoryService.end();
+    });
+
+    EventBus.on(COMMAND.FRAMEMOVETOEND, function(){
+        HistoryService.start(EVENT.imageHistory);
+        me.moveFrame(activeFrameIndex,currentFile.frames.length-1);
+        HistoryService.end();
+        EventBus.trigger(EVENT.imageSizeChanged);
     });
 
     EventBus.on(COMMAND.IMPORTLAYER, function(){
