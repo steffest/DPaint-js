@@ -1,0 +1,18 @@
+
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1" xmlns:xlink="http://www.w3.org/1999/xlink" preserveAspectRatio="none" x="0px" y="0px" width="160px" height="160px" viewBox="0 0 160 160">
+<defs/>
+
+<g id="Layer_3">
+<g>
+<g>
+<path stroke="#FFFFFF" stroke-width="9" stroke-linejoin="round" stroke-linecap="square" fill="none" d="
+M 105 55
+L 105 105 145 105 145 25 105 25 105 55 140 55
+M 145 105
+L 145 135 105 135 15 135 15 25 105 25
+M 105 105
+L 105 135"/>
+</g>
+</g>
+</g>
+</svg>
