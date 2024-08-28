@@ -102,8 +102,8 @@ let Menu = function(){
                     ]},
             ]},
         {label: "View", items:[
-                {label: "Grid",command: COMMAND.TOGGLEGRID,shortKey: "D",checked:false},
-                {label: "Split Screen",command: COMMAND.SPLITSCREEN,shortKey: "Z", checked: false},
+                {label: "Grid",command: COMMAND.TOGGLEGRID,shortKey: "G",checked:false},
+                {label: "Split Screen",command: COMMAND.SPLITSCREEN,shortKey: "N", checked: false},
                 {label: "Tool Options",command: COMMAND.TOGGLESIDEPANEL, checked: false},
                 {label: "Gallery",command: COMMAND.TOGGLEGALLERY, checked: false},
                 {label: "Presentation mode",command: COMMAND.PRESENTATION, checked: false},

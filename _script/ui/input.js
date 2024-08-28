@@ -423,7 +423,8 @@ var Input = function(){
 				case "i": EventBus.trigger(COMMAND.TOGGLEINVERT); break;
 				case "k": EventBus.trigger(COMMAND.COLORPICKER); break;
 				case "l": EventBus.trigger(COMMAND.LINE); break;
-				case "m": EventBus.trigger(COMMAND.SMUDGE); break;
+				case "m": EventBus.trigger(COMMAND.SMUDGE); break;n
+				case "n": EventBus.trigger(COMMAND.SPLITSCREEN); break;
 				case "p": EventBus.trigger(COMMAND.SPRAY); break;
 				case "q": EventBus.trigger(COMMAND.TOGGLEOVERRIDE); break;
 				case "r": EventBus.trigger(COMMAND.SQUARE); break;
@@ -433,7 +434,7 @@ var Input = function(){
 				case "w": EventBus.trigger(COMMAND.FLOODSELECT); break;
 				case "x": EventBus.trigger(COMMAND.SWAPCOLORS); break;
 				case "y": EventBus.trigger(COMMAND.POLYGONSELECT); break;
-				case "z": EventBus.trigger(COMMAND.SPLITSCREEN); break;
+				case "z": EventBus.trigger(COMMAND.UNDO); break;
 				case "-": EventBus.trigger(COMMAND.ZOOMOUT); break;
 				case "+": EventBus.trigger(COMMAND.ZOOMIN); break;
 			}

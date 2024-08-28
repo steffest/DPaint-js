@@ -28,7 +28,7 @@ let Toolbar = function(){
         {name: "text", command: COMMAND.TEXT,isTool: true, info: "Write text."},
         {name: "smudge", isTool: true, command: COMMAND.SMUDGE, info: "<b>M</b>  Smudge/Smear colors."},
         {name: "erase", isTool: true, command: COMMAND.ERASE, info: "<b>E</b> Erase."},
-        {name: "split", command: COMMAND.SPLITSCREEN, toggleProperty: "splitPanel", info: "<b>Z</b> Toggle split view."},
+        {name: "split", command: COMMAND.SPLITSCREEN, toggleProperty: "splitPanel", info: "<b>N</b> Toggle split view."},
         {name: "pan", isTool: true, command: COMMAND.PAN, info: "<b>H</b> or <b>Space</b> Hand: Pan the image."},
         {name: "picker", isTool: true, command: COMMAND.COLORPICKER, info: "<b>K</b> or <b>Shift+Draw</b> Pick color from image."},
         {name: "zoom",label: "", command: COMMAND.ZOOMIN, info: "<b>+</b> Zoom in."},
