@@ -61,6 +61,11 @@ A quick way to do this is - for example - using the [Spark](https://github.com/r
 [Download the binary](https://github.com/rif/spark/releases) for your platform, drop the Spark executable in the folder where you downloaded the Dpaint.js source files and run it.
 If you then point your browser to http://localhost:8080/ it should work.  
 
+If you are using Chrome, you can also "install" dpaint.js as app.  
+![image](https://github.com/user-attachments/assets/fa4a1e8b-4e45-4fe1-9d77-8b1e3364e867)  
+It will then show up your Chrome apps and work offline.  
+
+
 ## Contributing
 Current version is still alpha.  
 I'm sure there are bugs and missing features.  
