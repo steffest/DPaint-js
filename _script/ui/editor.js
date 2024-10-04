@@ -28,7 +28,8 @@ var Editor = function(){
     var touchData = {};
     let rotSprite;
     var state= {
-        splitPanel: false
+        splitPanel: false,
+        left: 250
     }
 
     me.init=function(parent){
@@ -68,16 +69,18 @@ var Editor = function(){
         });
 
         EventBus.on(COMMAND.TOGGLESIDEPANEL,function(){
+            console.error("toggle side panel");
             // TODO: this should probably move to a common UI service
             setTimeout(()=>{
                 if (document.body.classList.contains("withsidepanel")){
+                    console.error(state.left);
                     if (state.left){
                         container.style.left = state.left + "px";
                     }
                 }else{
                     container.style.left = "70px";
                 }
-            },1);
+            },10);
         });
         
         EventBus.on(COMMAND.ZOOMIN,function(center){
