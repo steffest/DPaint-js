@@ -35,29 +35,47 @@ resizing sizebox negatively, makes the sizebox 0 width/height
 resize image to larger doesn't clear all cached data (like the drawlayer?)
 copy/paste/undo shortcut doesn't work on Firefox
 fill tool is active when scrollbar is clicked
-when aplying color palette changes - they get applied to the top layer instead of the active layer
+when applying color palette changes - they get applied to the top layer instead of the active layer
 scrolling removes selection mask
-transform layer in touch screens?
+How to transform layer in touch screens?
 Drawing a line over the edge wraps around to the other side
+Cropping an image should never enlarge the canvas (if the selection is greater than the canvas)
+When resizing the canvas, the selection should be resized as well
 drag/drop should import as new layer ?
-Brush-settings: sliders/values don't sync between panel and toolbar
+Transparency settings are not applied on canvas brush
+Palette Edit - pick color from image: apply button is not shown
+INVERT SELECTION!
 
 
 TODO before release:
 (why was there a check for "meta key down"? rotate brush stuff?
-eydropper should not beactive while drawing a line)
+eydropper should not be active while drawing a line)
 );
 
-Animated GIF feature previews
+feature previews
+
+- Animated GIF
 - color cycling
 - pressure sensitivity
 - Palette lock
 - 12 and 9 bit color depths
-
+- resizable panels
 
 Amiga Specific
  - 12 bit color depth
  - Color Cycle with IFF export
+
+
+
+ Rescale bug:
+
+ start with a layer
+ have area in the clipboard with a diffrent size
+ transform first layer
+ reposition the layer
+ paste the clipboard
+ transform (v)
+ -> the fist layer is rescaled to the pasted clipboard size
 
 
 

@@ -82,4 +82,12 @@ Planned for a future release if there's a need for it.
   - PSD import and export
   - SpriteSheet support
   - Write HAM,SHAM and Dynamic HiRes images
+  - 
+## Browser Quirks
+Please note that the **Brave** browser is using "farbling" that introduces random image noise in certain conditions.
+They claim this is to protect your privacy.
+Although I totally understand the sentiment, In my opinion a browser should not actively alter the content of a webpage or intentionally break functionality.  
+But hey, who am I to speak, it's a free world.
+Just be aware that if you are using Brave, you will run into issues, so please use another browser for this app or "lower you shields" for this app in Brave.
+
 
