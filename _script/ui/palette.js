@@ -176,12 +176,22 @@ let Palette = function(){
             colorPicker.click();
         });
         front.info = "Left click drawing color - click to pick color";
+        front.infoOnMove = (e)=>{
+            let color= Color.fromString(me.getDrawColor());
+            if (color.length>=3) return me.getColorInfo(color);
+            return "";
+        };
         let back = $div("back info","",display,()=>{
             colorPicker.value = Color.toHex(me.getBackgroundColor());
             colorPicker.isBack = true;
             colorPicker.click();
         });
         back.info = "Right click drawing color - click to pick color";
+        back.infoOnMove = (e)=>{
+            let color= Color.fromString(me.getBackgroundColor());
+            if (color.length>=3) return me.getColorInfo(color);
+            return "";
+        };
 
         let swapColors = $div("button swapcolors info","",display,()=>{
             EventBus.trigger(COMMAND.SWAPCOLORS);
@@ -228,8 +238,8 @@ let Palette = function(){
                 const x = Math.floor(e.clientX - rect.left);
                 const y = Math.floor(e.clientY - rect.top);
                 let p = paletteCtx.getImageData(x,y,1,1).data;
-                let color = "r: " + p[0] + " g: " + p[1] + " b: " + p[2] + " ";
-                return color;
+                let index = Math.floor(x/size) + Math.floor(y/size) * 4 + palettePageIndex * 4 * Math.floor(currentHeight/size);
+                return me.getColorInfo(p,index);
             },
             onClick: function(e){
                 const rect = paletteCanvas.getBoundingClientRect();
@@ -513,6 +523,14 @@ let Palette = function(){
         var index = currentPalette.findIndex((c)=>{return c[0] === color[0] && c[1] === color[1] && c[2] === color[2]});
         if (index<0 && forceMatch) index=0;
         return index;
+    }
+
+    me.getColorInfo = function(color,index){
+        let info =  "r:" + color[0] + " g:" + color[1] + " b:" + color[2] + " ";
+        if (typeof index !== "number") index = me.getColorIndex(color);
+        console.error(index);
+        if (index>=0) info = "i:" + index + " " + info;
+        return info;
     }
 
     me.getColor = index=>currentPalette[index];

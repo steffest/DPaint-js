@@ -729,9 +729,7 @@ let Canvas = function(parent){
                     var pixel = ctx.getImageData(point.x, point.y, 1, 1).data;
                     let tooltip = "x:" + point.x + " y:" + point.y;
 
-                    if (pixel[3]){
-                        tooltip += " r:" + pixel[0] + " g:" + pixel[1] + " b:" + pixel[2];
-                    }
+                    if (pixel[3]) tooltip = Palette.getColorInfo(pixel);
 
                     StatusBar.setToolTip(tooltip);
 
