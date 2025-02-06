@@ -727,9 +727,9 @@ let Canvas = function(parent){
                     if (e.pointerType === "touch") return;
                     point = getCursorPosition(canvas,e,false);
                     var pixel = ctx.getImageData(point.x, point.y, 1, 1).data;
-                    let tooltip = "x:" + point.x + " y:" + point.y;
+                    let tooltip = "x:" + point.x + " y:" + point.y + " ";
 
-                    if (pixel[3]) tooltip = Palette.getColorInfo(pixel);
+                    if (pixel[3]) tooltip += Palette.getColorInfo(pixel);
 
                     StatusBar.setToolTip(tooltip);
 
