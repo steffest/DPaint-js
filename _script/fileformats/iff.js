@@ -685,7 +685,7 @@ const IFF = (function () {
                     if (modifier) {
                         pixel <<= 8 - img.colorPlanes; // should the remaining (lower) bits also be filled?
                         color = prevColor.slice();
-                        if (modifier === 1) color[3] = pixel;
+                        if (modifier === 1) color[2] = pixel;
                         if (modifier === 2) color[0] = pixel;
                         if (modifier === 3) color[1] = pixel;
                     }
