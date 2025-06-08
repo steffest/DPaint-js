@@ -451,6 +451,8 @@
               margin-right: 0;
               background-color: transparent;
               background-image: url("../_img/caret.svg");
+              background-repeat: no-repeat;
+              background-position: center center;
               opacity: 0.5;
               &:hover{
                 background-color: transparent;

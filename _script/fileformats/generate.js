@@ -39,7 +39,7 @@ let Generate = function(){
     }
 
     // returns a blob
-    me.file = async type=>{
+    me.file = async (type,options)=>{
         switch (type){
             case "classicIcon":
                 return await me.classicIcon();
@@ -53,8 +53,22 @@ let Generate = function(){
                 return me.planes();
             case "BitMask":
                 return me.mask();
+            case "Sprite":
+                return me.sprite();
             case "PNG":
-                return await new Promise(resolve => ImageFile.getCanvas().toBlob(resolve));
+                return {
+                    result: "ok",
+                    file: await new Promise(resolve => ImageFile.getCanvas().toBlob(resolve))
+                };
+            case "JPG":
+                let q = (options && options.quality) ? (options.quality/100) : 0.8;
+                console.error(options);
+                console.error(options.quality);
+                console.error(q);
+                return {
+                    result: "ok",
+                    file: await new Promise(resolve => ImageFile.getCanvas().toBlob(resolve,"image/jpeg",q))
+                };
             case "PNG8":
                 return me.png8();
             case "GIF":
@@ -75,16 +89,18 @@ let Generate = function(){
         })
 
         if (!check.valid){
-            Modal.show(DIALOG.OPTION,{
+            return {
+                result: "error",
                 title: "Save as IFF",
-                text: [tooManyColorMessage||"Sorry, this image can't be saved as IFF."].concat(check.errors),
-                buttons: [{label:"OK"}]
-            });
-            return;
+                messages: ["Sorry, this image can't be saved as IFF."].concat(check.errors)
+            }
         }
 
         let buffer = IFF.write(ImageFile.getCanvas());
-        return new Blob([buffer], {type: "application/octet-stream"});
+        return {
+            result: "ok",
+            file: new Blob([buffer], {type: "application/octet-stream"})
+        }
     }
 
     me.planes=()=>{
@@ -102,7 +118,29 @@ let Generate = function(){
             return;
         }
 
-       return IFF.toBitPlanes(ImageFile.getCanvas());
+       return IFF.toBitPlanes(ImageFile.getCanvas(),true);
+
+    }
+
+    me.sprite=()=>{
+        let maxColors = 4;
+        // TODO: support for 16 color sprites
+        let check = me.validate({
+            maxColors: maxColors,
+            maxWidth: 16,
+            maxHeight: 320
+        })
+
+        if (!check.valid){
+            Modal.show(DIALOG.OPTION,{
+                title: "Save as Sprite data",
+                text: ["Sorry, this image can't be saved as Sprite data."].concat(check.errors),
+                buttons: [{label:"OK"}]
+            });
+            return;
+        }
+
+        return IFF.toBitPlanes(ImageFile.getCanvas(),true);
 
     }
 

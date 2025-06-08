@@ -1,5 +1,215 @@
 .saveform{
-  padding: 10px;
+  .panel{
+    padding: 10px;
+
+    &.flex{
+      display: flex;
+    }
+
+    .col{
+      width: 220px;
+
+      input{
+        width: 100%;
+      }
+
+      .select{
+        width: 100%;
+        display: flex;
+        background-color: $panel-background-color;
+        position: relative;
+        padding-left: 60px;
+        cursor: pointer;
+        border-left: none;
+
+        .ext{
+          position: absolute;
+          left: 1px;
+          top: 0px;
+          bottom: 0px;
+          width: 52px;
+          background-color: #2b2b2b;
+          border-right: 4px solid #6A6A6A;
+          display: flex;
+          align-items: center;
+          padding-left: 4px;
+
+          &.png{
+            border-color: #DD3B19;
+          }
+          &.json{
+            border-color: #FFCC02;
+          }
+          &.gif{
+            border-color: #249F63;
+          }
+          &.jpg{
+            border-color: #0099CC;
+          }
+        }
+
+        &:after{
+          content: "";
+          position: absolute;
+          right: 0;
+          width: 20px;
+          height: 20px;
+          background-image: url("../_img/caret.svg");
+          background-size: contain;
+          transform: rotate(90deg);
+          opacity: 0.5;
+
+        }
+
+        &:hover{
+          border-color: #7b7b7b;
+            &:after{
+              opacity: 1;
+            }
+        }
+      }
+    }
+  }
+
+  .menu{
+    position: absolute;
+    left: 0;
+    height: auto;
+    width: 200px;
+    top:28px;
+    display: none;
+
+    &.active{
+      display: block;
+    }
+
+    .button{
+      border: none;
+      position: relative;
+      padding: 8px 8px 8px 40px;
+      border-bottom: 1px solid black;
+      border-top: 1px solid #525252;
+      margin: 0;
+      transition: padding-left 0.3s ease-in;
+      z-index: 10;
+      background-color: $panel-background-color;
+
+      &:first-of-type{
+        border-top: none;
+      }
+
+      .icon{
+        width: 24px;
+        height:24px;
+        left: 8px;
+        top: 4px;
+        position: absolute;
+        background-size: contain;
+        background-repeat: no-repeat;
+        background-position: center;
+        transition: left 0.3s ease-in-out;
+
+        &.png{background-image: url("../_img/png.svg");}
+        &.json{background-image: url("../_img/json.svg");}
+        &.jpg{background-image: url("../_img/jpeg.svg");}
+        &.gif{background-image: url("../_img/gif.svg");}
+        &.psd{background-image: url("../_img/psd.svg");}
+        &.mui{background-image: url("../_img/mui.png");}
+        &.os3{background-image: url("../_img/os3.png");}
+        &.os4{background-image: url("../_img/os4.png");}
+        &.iff{background-image: url("../_img/iff.png");}
+        &.amiga{background-image: url("../_img/amigatick.png");}
+        &.adf{background-image: url("../_img/floppy.png");}
+      }
+
+      .info{
+        background-color: #4d5052;
+        position: absolute;
+        padding: 4px 4px 4px 8px;
+        border: 1px solid black;
+        top: 0;
+        left: -180px;
+        z-index: 10;
+        width: 200px;
+        opacity: 0;
+        pointer-events: none;
+        min-height: 40px;
+        transition: opacity 0.2s ease-in-out, left 0.2s ease-in-out;
+        text-wrap: auto;
+        font-size: 13px;
+
+        &:before{
+          content: "";
+          position: absolute;
+          top: 10px;
+          right: -21px;
+          border: 10px solid transparent;
+          border-left: 10px solid black;
+        }
+
+        &:after{
+          content: "";
+          position: absolute;
+          top: 10px;
+          right: -20px;
+          border: 10px solid transparent;
+          border-left: 10px solid #4d5052;
+        }
+
+      }
+
+      &:hover{
+        opacity: 1;
+        .info{
+          opacity: 1;
+          left: -200px;
+        }
+      }
+
+      &.more{
+        padding: 5px 8px 5px 60px;
+
+        &:after{
+          content: "";
+          position: absolute;
+          right: 2px;
+          width: 16px;
+          height: 17px;
+          background-image: url("../_img/caret.svg");
+          background-size: contain;
+          background-repeat: no-repeat;
+          background-position: center;
+          opacity: 0.5;
+        }
+      }
+
+      &.active{
+        background-color: #2d2d2d;
+        opacity: 1;
+        padding-left: 50px;
+        z-index: 10;
+
+        .icon{
+          left: 10px;
+        }
+
+        .title{
+          color: #e1e1e1;
+        }
+
+        &:after{
+          content: "";
+          position: absolute;
+          right: -2px;
+          width: 2px;
+          top: 0;
+          bottom: -1px;
+          background-color: #2d2d2d;
+        }
+      }
+    }
+  }
+
   h4{
     padding: 0;
     margin: 0 0 4px 0;
@@ -20,102 +230,8 @@
     }
   }
 
-  input{
-    width: 100%;
-    margin-bottom: 10px;
-  }
 
   .platform{
-    display: inline-block;
-    width: 50%;
-    vertical-align: top;
-
-    .button{
-      border: none;
-      position: relative;
-      padding: 5px 5px 5px 40px;
-
-      .icon{
-        width: 32px;
-        height:32px;
-        left: 0;
-        position: absolute;
-        background-size: contain;
-        background-repeat: no-repeat;
-        background-position: center;
-
-        &.png{background-image: url("../_img/png.svg");}
-        &.json{background-image: url("../_img/json.svg");}
-        &.psd{background-image: url("../_img/psd.svg");}
-        &.mui{background-image: url("../_img/mui.png");}
-        &.os3{background-image: url("../_img/os3.png");}
-        &.os4{background-image: url("../_img/os4.png");}
-        &.iff{background-image: url("../_img/iff.png");}
-        &.adf{background-image: url("../_img/floppy.png");}
-      }
-
-      .info{
-        background-color: #4d5052;
-        position: absolute;
-        padding: 4px 4px 4px 8px;
-        border: 1px solid black;
-        top: 0;
-        left: 140px;
-        z-index: 10;
-        width: 200px;
-        opacity: 0;
-        pointer-events: none;
-        min-height: 40px;
-        transition: opacity 0.2s ease-in-out, left 0.2s ease-in-out;
-
-        &:before{
-            content: "";
-            position: absolute;
-            top: 10px;
-            left: -21px;
-            border: 10px solid transparent;
-            border-right: 10px solid black;
-        }
-
-        &:after{
-          content: "";
-          position: absolute;
-          top: 10px;
-          left: -20px;
-          border: 10px solid transparent;
-          border-right: 10px solid #4d5052;
-        }
-
-      }
-
-      &:hover{
-        .info{
-          opacity: 1;
-          left: 160px;
-        }
-      }
-
-      &.more{
-        position: absolute;
-        bottom: 10px;
-        min-width: 60px;
-        padding: 5px 8px;
-
-        &:after{
-          content: "";
-          position: absolute;
-          right: 2px;
-          width: 16px;
-          height: 17px;
-          background-image: url("../_img/caret.svg");
-          background-size: contain;
-          background-repeat: no-repeat;
-          background-position: center;
-          opacity: 0.5;
-        }
-      }
-    }
-
     &.amiga{
       .button{
         .info{
@@ -146,18 +262,46 @@
 
 
   .moremenu{
-    z-index: 10;
     position: absolute;
-    top: 20px;
+    top: 0;
     bottom: 0;
     right: 0;
     width: 220px;
-    background-color: #2B2B2B;
-    border-left: 1px solid black;
+    background-color: #2d2d2d;
+    border-left: 1px solid #525252;
+    padding: 10px;
+    box-shadow: -1px 1px 0px 0px black;
     display: none;
 
+    h4{
+      margin-bottom: 16px;
+    }
+
+    .button.save{
+      background-color: $positive-background;
+      position: absolute;
+      right: 10px;
+      bottom: 10px;
+      width: 80px;
+      text-align: center;
+
+      &.loading{
+        pointer-events: none;
+        span{
+          opacity: 0;
+        }
+
+        .spinner{
+          width: 23px;
+          height: 23px;
+          border-width: 3px;
+          margin: -9px 0 0 -12px;
+        }
+      }
+    }
+
     .item{
-      padding:5px 5px 5px 44px;
+      padding:3px 5px 3px 44px;
       border-bottom: 1px solid black;
       position: relative;
 
@@ -190,12 +334,11 @@
         background-position: center;
       }
 
-      &.mask:after{
-        background-image: url("../_img/layers_mask.svg");
-      }
-      &.index:after{
-        background-image: url("../_img/pixelgrid.svg");
-      }
+      &.mask:after{background-image: url("../_img/layers_mask.svg");}
+      &.mui:after{background-image: url("../_img/mui.png");}
+      &.os3:after{background-image: url("../_img/os3.png");}
+      &.os4:after{background-image: url("../_img/os4.png");}
+      &.index:after{background-image: url("../_img/pixelgrid.svg");}
 
       &.loading{
         &:after{
@@ -249,6 +392,10 @@
       }
 
     }
+
+    &.active{
+      display: block;
+    }
   }
 
   &.hasmore{
@@ -263,6 +410,194 @@
     input{
       width: calc(100% - 220px);
     }
+  }
+
+  .optionspanel{
+    display: none;
+    .title{
+      padding: 0 0 4px 0;
+      margin-bottom: 8px;
+      border-bottom: 1px solid #525252;
+      position: relative;
+      cursor: pointer;
+
+      &:after{
+        content: "";
+        position: absolute;
+        right: 0;
+        width: 20px;
+        height: 20px;
+        background-image: url("../_img/caret.svg");
+        background-size: contain;
+        background-repeat: no-repeat;
+        background-position: center;
+        transform: rotate(0deg);
+        opacity: 0.5;
+        transition: transform 0.3s ease-in-out;
+      }
+
+      &:hover{
+        &:after{
+            opacity: 1;
+        }
+      }
+    }
+
+    .content{
+      opacity: 0;
+      overflow: hidden;
+      max-height: 0;
+      height: auto;
+      transition: all 0.3s ease-in-out;
+    }
+
+    &.active{
+      .title{
+        &:after{
+          transform: rotate(90deg);
+        }
+      }
+      .content{
+        opacity: 1;
+        overflow: hidden;
+        max-height: 200px;
+      }
+    }
+
+    .group{
+      display: flex;
+
+      label{
+        width:92px;
+        color:#8b8989;
+      }
+
+      .options{
+        display:  flex;
+        align-items: center;
+        gap: 4px;
+        width: 100%;
+
+        .option{
+          border: 1px solid silver;
+          width: 100%;
+          padding: 4px;
+          opacity: 0.4;
+          cursor:  pointer;
+
+          &:hover{
+            opacity: 0.7;
+          }
+
+          &.selected{
+            border: 1px solid #4e8337;
+            color: #a7d694;
+            box-shadow: 0 0 4px #4e8337;
+            opacity: 1;
+            &:hover{
+              opacity: 1;
+            }
+
+            span{
+              color: #6ca554;
+            }
+          }
+
+          span{
+            display: block;
+            font-size: 12px;
+            opacity: 0.8;
+          }
+        }
+
+        .range{
+          width: 100%;
+        }
+
+        .rangeinput{
+          width: 50px;
+        }
+      }
+
+      &.disabled{
+        pointer-events: none;
+        opacity: 0.5;
+        filter: grayscale(1);
+      }
+    }
+
+    &.visible{
+      display: block;
+    }
+  }
+
+  .options.list{
+    border: 1px solid #4b4a4a;
+    margin: 10px 0px 12px 10px;
+    position: relative;
+
+    .option{
+      padding: 4px 4px 4px 16px;
+      border-bottom: 1px solid black;
+      border-top: 1px solid #4b4a4a;
+      opacity: 0.6;
+
+      &:first-of-type{
+        margin-top:8px;
+        margin-top:8px;
+        border-top: none;
+      }
+
+      &.selected{
+        opacity: 1;
+        background-image: url("../_img/check.svg");
+        background-repeat: no-repeat;
+        background-size: 12px 12px;
+        background-position: 2px 5px;
+      }
+
+      &:hover{
+        cursor: pointer;
+        opacity: 1;
+        h5{
+          color: white;
+        }
+      }
+    }
+
+    label{
+      position: absolute;
+      left: 8px;
+      top: -6px;
+      font-size: 10px;
+      text-transform: uppercase;
+      background-color: #2D2D2D;
+    }
+
+    h5{
+      margin: 0 0 2px;
+      padding: 0;
+      font-size: 14px;
+    }
+
+    .info{
+      opacity: 0.7;
+      font-size: 12px;
+    }
+
+    &.disabled{
+      pointer-events: none;
+      opacity: 0.5;
+    }
+  }
+
+  .warning{
+    background-image: url("../_img/warning.svg");
+    background-size: 16px 16px;
+    background-repeat: no-repeat;
+    background-position: 4px 4px;
+    padding: 4px 3px 4px 24px;
+    margin-top: 10px;
   }
 
 

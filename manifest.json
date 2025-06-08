@@ -25,5 +25,15 @@
   "display": "standalone",
   "orientation": "any",
   "background_color": "#282A2C",
-  "theme_color": "#282A2C"
+  "theme_color": "#282A2C",
+  "file_handlers": [
+    {
+      "action": "/",
+      "accept": {
+        "image/jpeg": [".jpg", ".jpeg"],
+        "image/png": [".png"],
+        "image/iff": [".iff"]
+      }
+    }
+  ]
 }

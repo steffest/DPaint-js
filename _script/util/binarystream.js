@@ -97,7 +97,7 @@ function BinaryStream(arrayBuffer, bigEndian){
 
 	obj.readBytes = function(len,position,buffer) {
 		setIndex(position);
-		if (!buffer) buffer = new Int8Array(len);
+		if (!buffer) buffer = new Int8Array(len); // shouldn't this be Uint8Array ?
 		var i = this.index;
 		var offset = 0;
 		for (; offset < len; offset++) buffer[offset] = this.dataView.getInt8(i+offset);

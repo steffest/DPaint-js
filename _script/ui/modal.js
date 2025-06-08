@@ -8,6 +8,7 @@ import PaletteDialog from "./components/paletteDialog.js";
 import EffectDialog from "./components/effectDialog.js";
 import DitherDialog from "./components/ditherDialog.js";
 import OptionDialog from "./components/optionDialog.js";
+import TextOutputDialog from "./components/textOutputDialog.js";
 import EventBus from "../util/eventbus.js";
 import {COMMAND} from "../enum.js";
 
@@ -19,7 +20,8 @@ export let DIALOG={
     EFFECTS: 5,
     ABOUT: 6,
     DITHER: 7,
-    OPTION:8
+    OPTION:8,
+    TEXTOUTPUT:9
 }
 
 var Modal = function(){
@@ -33,14 +35,15 @@ var Modal = function(){
     let notification;
 
     let dialogs={
-        1: {title: "Save File", fuzzy: true,width:400,height:"auto", handler: SaveDialog, position: [0,0]},
+        1: {title: "Save File As", fuzzy: true,width:400,height:"auto", handler: SaveDialog, position: [0,0]},
         2: {title: "Canvas Size", fuzzy: true, handler: ResizeDialog, position: [0,0],width:406,height:220},
         3: {title: "Image Size", fuzzy: true, handler: ResampleDialog, position: [0,0],width:326,height:220},
         4: {title: "Palette Editor", handler: PaletteDialog, width:450,height:304, position: [0,0]},
         5: {title: "Effects", handler: EffectDialog, position: [0,0],width:500,height:530},
         6: {title: "About", action: showAbout, position: [0,0],width:750,height:470},
         7: {title: "DitherPattern",  handler: DitherDialog, position: [0,0],width:662,height:326},
-        8: {title: "Request", fuzzy: true, handler: OptionDialog, position: [0,0],width:300,height:"auto"}
+        8: {title: "Request", fuzzy: true, handler: OptionDialog, position: [0,0],width:300,height:"auto"},
+        9: {title: "Output", handler: TextOutputDialog, position: [0,0],width:300,height:220}
     }
 
     me.show = function(type,data){
@@ -208,7 +211,7 @@ var Modal = function(){
             $("img",{src:"./_img/dpaint-about.png",onclick:()=>me.hide()}),
             $(".text.version","version " + version),
             $(".text.info","Webbased image editor modeled after the legendary",$("br"),"Deluxe Paint with a focus on retro Amiga file formats."),
-            $(".text.copyright.link",{onClick:()=>window.open("https://www.stef.be/")},"© 2023-2024 - Steffest"),
+            $(".text.copyright.link",{onClick:()=>window.open("https://www.stef.be/")},"© 2023-2025 - Steffest"),
             $(".text.github.link",{onClick:()=>window.open("https://github.com/steffest/dpaint-js")},"Open Source - Plain JavaScript - Fork me on GitHub"),
             $(".text.nobullshit","Free software: No cookies - No tracking - No ads - No accounts"),
             $(".text.contrib",$("i","With contributions from"),"Michael Smith and Nicolas Ramz"),

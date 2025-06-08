@@ -146,6 +146,17 @@ let App = function(){
 		document.documentElement.addEventListener('gesturestart', (e)=>{e.preventDefault()}, {passive: false, capture:true});
 	}
 
+
+	if ("launchQueue" in window) {
+		launchQueue.setConsumer(async (launchParams) => {
+			for (const file of launchParams.files) {
+				await file.getFile().then((f)=>{
+					ImageFile.handleUpload(file,"file")
+				})
+			}
+		});
+	}
+
 /*
 	window.test = function(){
 		let canvas = ImageFile.getCanvas();

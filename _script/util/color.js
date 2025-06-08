@@ -219,6 +219,11 @@ var Color = function(){
         return [r,g,b];
     }
 
+    me.toOCSString = (color)=>{
+        let c = me.to12bit(color);
+        return "0x" + c[0].toString(16) + c[1].toString(16) + c[2].toString(16);
+    }
+
     function hexByte(nr){
         if (typeof nr === "string") nr=parseInt(nr);
         let result = nr.toString(16);

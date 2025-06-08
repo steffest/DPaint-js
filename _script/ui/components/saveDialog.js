@@ -1,4 +1,4 @@
-import $ from "../../util/dom.js";
+import $, {$input} from "../../util/dom.js";
 import ImageFile from "../../image.js";
 import saveAs from "../../util/filesaver.js";
 import Modal, {DIALOG} from "../modal.js";
@@ -7,15 +7,29 @@ import EventBus from "../../util/eventbus.js";
 import {COMMAND, EVENT} from "../../enum.js";
 import Generate from "../../fileformats/generate.js";
 import Brush from "../brush.js";
+import Color from "../../util/color.js";
+import BinaryStream from "../../util/binarystream.js";
 
 var SaveDialog = function(){
     let me ={};
     let nameInput;
     let currentFile;
+    let container;
+    let mainPanel;
+    let currentSaveOptions = {
+        type:"PNG",
+        quality: 90,
+        depth: 24,
+        palette: "optimized"
+    };
+    let UIelm = {};
+
 
     let filetypes = {
         IFF:{
             description: 'IFF ILBM Image',
+            extension: "iff",
+            generator: "IFF",
             accept: {
                 'image/x-ilbm': ['.iff'],
             }
@@ -32,20 +46,39 @@ var SaveDialog = function(){
                 'application/octet-stream': ['.mask'],
             }
         },
+        SPRITE:{
+            description: 'Sprite C Source',
+            accept: {
+                'application/octet-stream': ['.c'],
+            }
+        },
         PNG:{
             description: 'PNG Image',
+            extension: 'png',
+            generator: 'PNG',
             accept: {
                 'image/png': ['.png'],
             }
         },
         GIF:{
             description: 'GIF Image',
+            generator: "GIF",
+            extension: 'gif',
             accept: {
                 'image/gif': ['.gif'],
             }
         },
+        JPG:{
+            description: 'JPG Image',
+            generator: "JPG",
+            extension: 'jpg',
+            accept: {
+                'image/jpeg': ['.jpg'],
+            }
+        },
         ICO:{
             description: 'Amiga Icon',
+            extension: 'info',
             accept: {
                 'application/octet-stream': ['.info'],
             }
@@ -58,6 +91,8 @@ var SaveDialog = function(){
         },
         DPAINTJS:{
             description: 'DPaint.js File',
+            extension: 'json',
+            generator: 'DPAINT',
             accept: {
                 'application/json': ['.json'],
             }
@@ -108,39 +143,125 @@ var SaveDialog = function(){
         });
     }
 
-    me.render = function(container){
-        let submenu;
+    me.render = function(_container){
+        let menu;
+        container = _container;
         container.innerHTML = "";
-        let mainPanel;
         container.appendChild(
             mainPanel = $(".saveform",
-                $(".name",$("h4","Name"),nameInput = $("input",{type:"text",value:ImageFile.getName()})),
-                $("h4","Save as"),
-                $(".moremenu",
-                    $(".item.png",{onClick:(e,elm)=>{waitFor(writePNG8,elm)}},"PNG 8-bit",$(".subtitle","PNG with indexed colors"),$(".info","Max 256 colors, no layers, only the current frame gets saved.")),
-                    $(".item.gif",{onClick:(e,elm)=>{waitFor(writeGIF,elm)}},"GIF",$(".subtitle","(also animated)"),$(".info","Max 256 colors, no layers, frames get saved as animation.")),
-                    $(".item.index",{onClick:(e,elm)=>{waitFor(writeINDEXED,elm)}},"Indexed",$(".subtitle","Dpaint.json with indexed colors"),$(".info","Map each pixel to the current palette. Used e.g. for the Magrathea Living Worlds app.")),
-                    $(".item.planes",{onClick:writePLANES},"Planes",$(".subtitle","Binary bitplane data"),$(".info","Converts the current image to binary bitplane data. (Demoscene stuff)")),
-                    $(".item.mask",{onClick:writeMASK},"Mask",$(".subtitle","Binary bitplane mask"),$(".info","Converts the current image to a binary bitplane mask. (Demoscene stuff)")),
+                $(".panel.flex",
+                    $(".col.name",$("h4","Name"),nameInput = $("input",{type:"text",value:ImageFile.getName(true)})),
+                    $(".col",$("h4","Type"),
+                        $(".filetype.inputbox.select",
+                            {onClick:(e)=>{
+                                let button = e.target.closest(".button");
+                                if (button && button.value){
+                                    setSaveType(button.value);
+                                    menu.classList.remove("active");
+                                    return;
+                                }
+                                menu.classList.toggle("active")
+                            }},
+                            menu = $(".menu",
+                                $(".list",
+                                    renderButton("json","DPaint.JSON","The internal format of Dpaint. All features supported","DPAINTJS"),
+                                    renderButton("png","PNG Image","Full color and transparency, no layers, only the current frame gets saved.","PNG"),
+                                    renderButton("gif","GIF Img/anim","Max 256 colors, no layers, animation supported.","GIF"),
+                                    renderButton("jpg","JPG Image","Full color, no transparent, no layers, only the current frame gets saved. LOSSY!","JPG"),
+                                    renderButton("iff","Amiga IFF","Maximum 256 colors, only the current frame gets saved.","IFF"),
+                                    renderButton("amiga","Amiga Icon","Amiga OS Icon, Maximum 2 frames.","ICO"),
+
+                                    //renderButton("psd","PSD","Coming soon ...","Working on it!"),
+
+                                    //renderButton("planes","BIN","Bitplanes","Binary bitplane data",writePLANES)
+                                )
+                            ),
+                            UIelm.ext = $(".ext"),
+                            UIelm.info = $(".info")
+                        )
+                    ),
                 ),
-                $(".platform.general",
-                    $("h4.general","General"),
-                    renderButton("png","PNG Image","PNG file","Full color and transparency, no layers, only the current frame gets saved.",writePNG),
-                    renderButton("json","DPaint.JSON","JSON file","The internal format of Dpaint.. All features supported",writeJSON),
-                    renderButton("psd","PSD","Coming soon ...","Working on it!"),
-                    $(".button.more",{onclick:()=>{
-                            //submenu.classList.toggle("active");
-                            mainPanel.classList.toggle("hasmore");
-                            }},"More")
-                    //renderButton("planes","BIN","Bitplanes","Binary bitplane data",writePLANES)
+                $(".panel",
+                    $(".optionspanel.PNG",
+                        $(".title",{onClick:toggleOptionPanel},"Png options"),
+                        $(".content",
+                            $('.group',
+                                $("label","Colors"),
+                                $(".options",
+                                    {key:"depth"},
+                                    $(".option.selected",{value:24,onClick:selectOption},"24 Bit",$("span","Full color, Full alpha")),
+                                    $(".option",{value:8,onClick:selectOption},"8 Bit",$("span","Max 256 colors")),
+                                )
+                            ),
+                            $('.group.pal.disabled',
+                                $("label","Palette"),
+                                $(".options",
+                                    {key:"palette"},
+                                    $(".option.selected",{value:"optimized",onClick:selectOption},"Optimize"),
+                                    $(".option",{value:"locked",onClick:selectOption},"Use Current Palette"),
+                                )
+                            )
+                        )
+                    ),
+                    $(".optionspanel.DPAINTJS",
+                        $(".title",{onClick:toggleOptionPanel},"Dpaint.json options"),
+                        $(".content",
+                            $('.group',
+                                $("label","Colors"),
+                                $(".options",
+                                    {key:"depth"},
+                                    $(".option.selected",{value:24,onClick:selectOption},"24 Bit",$("span","Full color, Full alpha")),
+                                    $(".option",{value:8,onClick:selectOption},"8 Bit",$("span","Max 256 colors")),
+                                )
+                            ),
+                            $('.group.pal.disabled',
+                                $("label","Palette"),
+                                $(".options",
+                                    {key:"palette"},
+                                    $(".option.selected",{value:"optimized",onClick:selectOption},"Optimize"),
+                                    $(".option",{value:"locked",onClick:selectOption},"Use Current Palette"),
+                                )
+                            )
+                        )
+                    ),
+                    $(".optionspanel.JPG",
+                        $(".title",{onClick:toggleOptionPanel},"Jpeg options"),
+                        $(".content",
+                            $('.group',
+                                $("label","Quality"),
+                                $(".options",
+                                    $("input.range",{type:"range",min:1,max:100,value:currentSaveOptions.quality,oninput:(e)=>{
+                                        e.target.nextElementSibling.value = e.target.value;
+                                        currentSaveOptions.quality = parseInt(e.target.value);
+                                        }}),
+                                    $("input.rangeinput",{type:"text",value:currentSaveOptions.quality,
+                                        onkeydown: (e)=>{
+                                            e.stopPropagation();
+                                        },
+                                        oninput:(e)=>{
+                                            e.stopPropagation();
+                                            e.preventDefault();
+                                            let range = e.target.previousElementSibling;
+                                            let v = parseInt(e.target.value);
+                                            if (isNaN(v) || v < 1 || v > 100) v = 100;
+                                            range.value =v;
+                                            currentSaveOptions.quality = v;
+                                        }
+                                    }),
+                                )
+                            )
+                        )
+                    ),
+                    $(".optionspanel.ICO",
+                        $(".title",{onClick:toggleOptionPanel},"Amiga Icon options"),
+                        $(".content",
+                            "Currently under construction"
+                        )
+                    ),
                 ),
-                $(".platform.amiga",
-                    $("h4.amiga","Amiga"),
-                    currentFile ? renderButton("adf","ADF","Save to ADF","Save Back to ADF. (Download the ADF afterwards when you're done editing)",writeADF) : null,
-                    renderButton("iff","IFF Image","Amiga IFF file","Maximum 256 colors, only the current frame gets saved.",writeIFF),
-                    renderButton("mui","Amiga Classic Icon","OS1.3 Style","For all Amiga's. Use MUI palette for best compatibility",writeAmigaClassicIcon),
-                    renderButton("os3","Amiga Color Icon","OS3.2 Style","Also called 'Glowicons'. For modern Amiga systems and/or with PeterK's Icon Library. Max 256 colors.",writeAmigaColorIcon),
-                    renderButton("os4","Amiga Dual PNG Icon","OS4 Style","For modern Amiga systems and/or with PeterK's Icon Library. Full colors.",writeAmigaPNGIcon)
+                $(".buttons.relative.right",
+                    $(".button.cancel.ghost",{onClick:Modal.hide},$("span","Cancel")),
+                    $(".button.save.positive",{onClick:saveWithOptions},$("span","Save"))
                 )
         ));
 
@@ -150,6 +271,8 @@ var SaveDialog = function(){
         nameInput.onchange = function(){
             ImageFile.setName(getFileName());
         }
+
+        setSaveType(currentSaveOptions.type || "PNG");
 
         // check if we have a server to post back to
         let postBack;
@@ -174,17 +297,107 @@ var SaveDialog = function(){
             }
         }
         if (postBack) addPostBackOverlay(postBack,container);
+
     }
 
     me.setFile = function (file){
         currentFile = file;
     }
 
-    function renderButton(type,title,subtitle,info,onClick){
-        return $(".button",{onclick:onClick},
+    function toggleOptionPanel(e){
+        let panel = e.target.closest(".optionspanel");
+        if (!panel) return;
+        panel.classList.toggle("active");
+        currentSaveOptions.showOptions = panel.classList.contains("active");
+    }
+
+    function selectOption(e){
+        let parent = e.target.closest(".options");
+        let option = e.target.closest(".option");
+        if (!option || !parent) return;
+
+        let options = parent.querySelectorAll(".option");
+        options.forEach(elm=>{
+            elm.classList.remove("selected");
+        })
+        option.classList.add("selected");
+
+        if (parent.key && option.value){
+            currentSaveOptions[parent.key] = option.value;
+        }
+
+        if (parent.key === "depth"){
+            let panel = parent.closest(".optionspanel");
+            let paletteOption = panel.querySelector(".group.pal");
+            if(paletteOption){
+                paletteOption.classList.toggle("disabled",option.value===24);
+            }
+        }
+    }
+
+    function saveWithOptions(e){
+        let button = e.target.closest(".button");
+        waitFor(writeFile(),button);
+    }
+
+    function setSaveType(type){
+        let fileType = filetypes[type];
+        if (!fileType) {
+            console.error("Unknown file type",type);
+            return;
+        }
+        currentSaveOptions.type = type;
+        currentSaveOptions.fileType = fileType;
+
+        // Set UI elements
+        UIelm.ext.innerHTML = "." + fileType.extension;
+        UIelm.ext.className = "ext " + fileType.extension;
+        UIelm.info.innerHTML = fileType.description || "";
+
+        let optionsPanel = mainPanel.querySelector(".optionspanel." + type);
+        let active = mainPanel.querySelectorAll(".optionspanel.visible");
+        active.forEach(item => {
+            item.classList.remove("visible");
+        })
+        if (optionsPanel){
+            optionsPanel.classList.add("visible");
+            optionsPanel.classList.toggle("active",!!currentSaveOptions.showOptions);
+
+            // set options state
+            let options = optionsPanel.querySelectorAll(".options");
+            options.forEach(elm=>{
+                let key = elm.key;
+                if (key && currentSaveOptions[key]){
+                    let elms = elm.querySelectorAll(".option");
+                    elms.forEach(option=>{
+                        option.classList.toggle("selected", option.value === currentSaveOptions[key]);
+                    });
+                }
+
+                if (key === "depth"){
+                    let paletteOption = optionsPanel.querySelector(".group.pal");
+                    if (paletteOption){
+                        paletteOption.classList.toggle("disabled",currentSaveOptions[key] === 24);
+                    }
+                }
+            });
+        }
+
+    }
+
+    function renderTextOutput(text){
+        container.innerHTML = "";
+        let textarea = $("textarea",{value:text});
+        textarea.onkeydown = function(e){
+            e.stopPropagation();
+        }
+        container.appendChild(textarea);
+    }
+
+    function renderButton(type,title,info,value){
+        return $(".button.b"+type,{value:value},
             $(".icon."+type),
             $(".title",title),
-            $(".subtitle",subtitle),
             $(".info",info)
         );
     }
@@ -228,7 +441,8 @@ var SaveDialog = function(){
         elm.classList.add("loading");
 
         setTimeout(()=>{
-            action().then((result)=>{
+            if (typeof action === "function") action = action();
+            action.then((result)=>{
                 spinner.remove();
                 elm.classList.remove("loading");
                 if (result && result.messages && result.messages.length){
@@ -251,6 +465,24 @@ var SaveDialog = function(){
     function getFileName(){
         let name = nameInput ? nameInput.value.replace(/[ &\/\\#,+()$~%.'":*?<>{}]/g, ""):"";
         return name || "Untitled"
+    }
+
+    async function writeFile(){
+        let fileType = currentSaveOptions.fileType;
+        if (!fileType) {
+            console.error("Unknown file type",info.type);
+            return;
+        }
+        let generator = fileType.generator;
+        if (currentSaveOptions.depth === 8){
+            if (generator === "PNG") generator = "PNG8";
+            if (generator === "DPAINT") generator = "INDEXED";
+        }
+        let result = await Generate.file(generator,currentSaveOptions);
+        if (result && result.file){
+            await saveFile(result.file,getFileName() + "." + fileType.extension,fileType);
+        }
+        return result;
     }
 
     async function writeIFF(){
@@ -278,6 +510,7 @@ var SaveDialog = function(){
                 color.forEach(c=>{
                     c = Math.round(c/16);
                     if (c>15) c=15;
+                    if (c<0) c=0;
                     content += c.toString(16);
                 })
                 content += ",";
@@ -301,6 +534,108 @@ var SaveDialog = function(){
         return result;
     }
 
+    async function writeChunky(){
+        let outputType = "binary";
+
+        if (outputType === "text"){
+            let output = [];
+            output.push("static UWORD imagelist[] = {");
+            let frameCount = ImageFile.getCurrentFile().frames.length;
+            console.error(frameCount)
+
+            for (let frame = 0; frame < frameCount; frame++){
+                let image = ImageFile.getCanvas(frame);
+                let imageData = image.getContext("2d").getImageData(0,0,image.width,image.height);
+                let w = image.width;
+                let h = image.height;
+                let current = ""
+                for (let y = 0; y < h; y++){
+                    for (let x = 0; x < w; x++){
+                        let index = (y * w + x) * 4;
+                        let r = imageData.data[index];
+                        let g = imageData.data[index + 1];
+                        let b = imageData.data[index + 2];
+                        let color = Color.toOCSString([r,g,b]);
+                        current += color + ",";
+                    }
+                }
+                output.push(current);
+            }
+            output.push("};");
+            renderTextOutput(output.join("\n"));
+        }else{
+
+            let image = ImageFile.getCanvas();
+            let w = image.width;
+            let h = image.height;
+            let frameCount = ImageFile.getCurrentFile().frames.length;
+
+            let size = w * h * 2 * frameCount;
+
+            let buffer = new ArrayBuffer(size);
+            var file = BinaryStream(buffer,true);
+
+            for (let frame = 0; frame < frameCount; frame++){
+                let image = ImageFile.getCanvas(frame);
+                let imageData = image.getContext("2d").getImageData(0,0,image.width,image.height);
+
+                for (let y = 0; y < h; y++) {
+                    for (let x = 0; x < w; x++) {
+                        let index = (y * w + x) * 4;
+                        let r = imageData.data[index] || 0 ;
+                        let g = imageData.data[index + 1] || 0;
+                        let b = imageData.data[index + 2] || 0;
+                        let color = Color.toOCSString([r, g, b]);
+                        let value = parseInt(color, 16);
+                        file.writeWord(value);
+                    }
+                }
+            }
+
+
+            let blob = new Blob([file.buffer], {type: "application/octet-stream"});
+            let fileName = getFileName() + '.chunky';
+            await saveFile(blob,fileName,filetypes.FILE);
+
+
+        }
+
+
+    }
+
+    async function writeSPRITE(){
+        let result = await Generate.file("Sprite");
+        console.error(result);
+        if (result && result.planes){
+            let output = [];
+            let planeCount = result.planes.byteLength / result.bitPlaneSize;
+            output.push("static UWORD __chip sprite[] = {");
+            output.push("  0x0000, 0x0000, ");
+            var byteView = new Uint8Array(result.planes);
+            for (let i = 0; i < result.height; i++){
+                let b1 = byteView[i * 2];
+                let b2 = byteView[i * 2 + 1];
+                let w = (b1 << 8) | b2;
+                let hex = "0x" + w.toString(16).padStart(4,"0") + ", ";
+                if (planeCount > 1){
+                    b1 = byteView[i * 2 + result.height * 2];
+                    b2 = byteView[i * 2 + 1 + result.height * 2];
+                    w = (b1 << 8) | b2;
+                    hex += "0x" + w.toString(16).padStart(4,"0") + ", ";
+                }
+                output.push("  " + hex);
+            }
+
+            console.error(planeCount);
+
+            output.push("  0x0000, 0x0000");
+            output.push("};");
+
+            renderTextOutput(output.join("\n"));
+        }
+        return result;
+    }
+
     async function writeINDEXED(){
         let result = await Generate.file("DPAINTINDEXED");
         if (result.file){
@@ -313,21 +648,6 @@ var SaveDialog = function(){
         EventBus.trigger(COMMAND.SAVEFILETOADF,[currentFile,getFileName()]);
     }
 
-    async function writePNG(){
-        let blob = await Generate.file("PNG");
-        if (blob){
-            await saveFile(blob,getFileName() + ".png",filetypes.PNG);
-            Modal.hide();
-        }
-    }
-
-    async function writePNG8(){
-        let result = await Generate.file("PNG8");
-        if (result.file){
-            await saveFile(result.file,getFileName() + ".png",filetypes.PNG);
-        }
-        return result;
-    }
 
     async function writeGIF(){
         let result = await Generate.file("GIF");
@@ -398,7 +718,6 @@ var SaveDialog = function(){
         let blob = new Blob([data], {type: "application/octet-stream"})
         saveFile(blob,fileName,filetypes.FILE).then(()=>{});
     })
-
 
     return me;
 }();

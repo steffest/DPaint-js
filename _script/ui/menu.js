@@ -160,7 +160,6 @@ let Menu = function(){
         me.deActivateMenu();
     }
 
-
     function buildMenuItem(item,parent){
         let menuItem = $link("handle",item.label,parent,(e) =>{
             if (item.command){
@@ -174,6 +173,7 @@ let Menu = function(){
         });
         if (item.items){
             menuItem.classList.add("caret");
+            menuItem.classList.add("menuitem");
             let sub = $div("menuitem subsub","",menuItem);
             item.items.forEach(subitem=>{
                 buildMenuItem(subitem,sub);

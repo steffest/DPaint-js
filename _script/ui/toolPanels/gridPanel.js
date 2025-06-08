@@ -30,18 +30,15 @@ let GridPanel = function(){
             },info:"Show or hide the grid"},$(".option","Yes"),$(".option","No"));
 
 
-
-
         let sizeSelect = $div("rangeselect", "", parent);
         $elm("label","Size",sizeSelect);
         sizeRange = $input("range",options.size,sizeSelect,()=>{
             update();
         });
         sizeInput = $input("text",options.size,sizeSelect);
-        sizeRange.min = 16;
+        sizeRange.min = 1;
         sizeRange.max = 100;
         sanitize(sizeInput,sizeRange);
-
 
         let opacitySelect = $div("rangeselect", "", parent);
         $elm("label","Opacity",opacitySelect);

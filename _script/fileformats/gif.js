@@ -226,18 +226,25 @@ const GIF = (()=>{
         }
 
         // TODO: scan for transparent pixels and add transparent to palette
+        let hasTransparency = frames.some(frame => hasTransparentPixels(frame));
+        //hasTransparency = false;
         // TODO: set loop count in UI
         // TODO: set frame delay in UI
 
 
         let delayTime = 0;
-        if (frames.length > 1) delayTime = 20;
+        if (frames.length > 1) delayTime = 15;
 
         let encodedFrames = [];
         let palette = Palette.get();
 
-        // add transparent color to palette as color 0;
-        //palette.unshift([0,0,0]);
+        if (hasTransparency){
+            // add transparent color to palette as color 0;
+            //palette.unshift([0,0,0]);
+            // TODO: shouldn't we use a different non-existent color for transparency?
+            //console.error(palette.length);
+        }
+
 
         let colorDepth = 1;
         while (1 << colorDepth < palette.length) colorDepth++;
@@ -309,6 +316,7 @@ const GIF = (()=>{
             var disp;
             let transparent = 0;
             transparent = null;
+            transparent = hasTransparency;
             let dispose = 0;
 
             if (transparent === null) {
@@ -370,6 +378,18 @@ const GIF = (()=>{
 
         return file.buffer;
 
+    }
+
+    function hasTransparentPixels(canvas) {
+        let imageData = canvas.getContext("2d").getImageData(0, 0, canvas.width, canvas.height);
+        let pixels = imageData.data;
+
+        for (let i = 3; i < pixels.length; i += 4) {
+            if (pixels[i] === 0) { // fully transparent pixel found
+                return true;
+            }
+        }
+        return false;
     }
 
     return me;

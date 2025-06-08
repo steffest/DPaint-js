@@ -312,6 +312,7 @@ const IFF = (function () {
                                     const count = file.readWord() - 2;
 
                                     const cmds = file.readBytes(count)
+                                    // TODO: move this to Uint8 instead of int8
                                     let x = 0;
                                     let y = 0;
                                     let dataCount = 0;
@@ -684,8 +685,9 @@ const IFF = (function () {
                     const modifier = img.hamPixels[y][x];
                     if (modifier) {
                         pixel <<= 8 - img.colorPlanes; // should the remaining (lower) bits also be filled?
+                        //pixel *= 17;
                         color = prevColor.slice();
-                        if (modifier === 1) color[3] = pixel;
+                        if (modifier === 1) color[2] = pixel;
                         if (modifier === 2) color[0] = pixel;
                         if (modifier === 3) color[1] = pixel;
                     }
@@ -904,10 +906,14 @@ const IFF = (function () {
         return file.buffer;
     };
 
-    me.toBitPlanes = function (canvas) {
+    me.toBitPlanes = function (canvas,includeTransparent) {
         let addExtraPlane = false;
 
         let colors = Palette.isLocked()?Palette.get():ImageProcessing.getColors(canvas, 256);
+
+        if (colors.length === 3 && includeTransparent){
+            colors.unshift([-1,-1,-1]);
+        }
         let bitplaneCount = 1;
         while (1 << bitplaneCount < colors.length) bitplaneCount++;
         while (colors.length < 1 << bitplaneCount) colors.push([0, 0, 0]);
@@ -952,7 +958,11 @@ const IFF = (function () {
                     pixels[pixel + 1],
                     pixels[pixel + 2],
                 ];
-                colorIndex = getIndex(color);
+                if (includeTransparent && pixels[pixel + 3] < 128){
+                    colorIndex = 0;
+                }else{
+                    colorIndex = getIndex(color);
+                }
                 for (i = 0; i < bitplaneCount; i++) {
                     if (colorIndex & (1 << i)) {
                         let index = (y * bytesPerLine) + (x >> 3);
@@ -960,8 +970,6 @@ const IFF = (function () {
                     }
                 }
             }
-
-
         }
 
         for (i = 0; i < bitplaneCount; i++) {
@@ -980,7 +988,8 @@ const IFF = (function () {
             width: w,
             height: h,
             palette: colors,
-            planes: file.buffer
+            planes: file.buffer,
+            bitPlaneSize: bitPlaneSize,
         }
 
     }

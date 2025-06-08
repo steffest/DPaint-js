@@ -27,7 +27,6 @@ V 0.1.3
     - support for saving indexed color PNGs
 V 0.1.4
     - palette locking
-    - GIF export
     - spray tool
     - text tool
     - rotsprite and mapped-smooth rotation
@@ -37,5 +36,10 @@ V 0.1.4
 V 0.1.5
     - Load/Save Brushes
     - support for 12 and 9 bit color depths (Amiga OCS / Atari ST)
+    - animated GIF import/export
+    - IFF ANIM import
     - Grid tool
     - Autosave current image in local storage
+    - resizable sidebar panels
+    - improved Save Dialog with options
+    - Option to save as JPG (yeah... I caved)

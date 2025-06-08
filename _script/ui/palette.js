@@ -528,7 +528,6 @@ let Palette = function(){
     me.getColorInfo = function(color,index){
         let info =  "r:" + color[0] + " g:" + color[1] + " b:" + color[2] + " ";
         if (typeof index !== "number") index = me.getColorIndex(color);
-        console.error(index);
         if (index>=0) info = "i:" + index + " " + info;
         return info;
     }

@@ -17,6 +17,7 @@
 - add layer mask should activate it
 - painting on layer should show color in grayscale
 - clone stamp tool ?
+- use OffscreenCanvas
 
 
 - filters: e.g. https://medium.com/skylar-salernos-tech-blog/mimicking-googles-pop-filter-using-canvas-blend-modes-d7da83590d1a
@@ -45,6 +46,7 @@ drag/drop should import as new layer ?
 Transparency settings are not applied on canvas brush
 Palette Edit - pick color from image: apply button is not shown
 INVERT SELECTION!
+Save as Gif - when used in 24-bit alpha image, a black outcome
 
 
 TODO before release:

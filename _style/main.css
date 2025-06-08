@@ -140,15 +140,18 @@ h1.error a {
 }
 
 input[type=number],
-input[type=text] {
+input[type=text],
+.inputbox {
   display: inline-block;
   background-color: #2b2b2b;
   border: 1px solid #6A6A6A;
   color: #BBBBBB;
   padding: 4px;
+  font-size: 14px;
 }
 input[type=number]:focus,
-input[type=text]:focus {
+input[type=text]:focus,
+.inputbox:focus {
   outline: none;
 }
 
@@ -472,7 +475,7 @@ body.presentation .menu {
   background-position: center center;
   width: 16px;
   height: 16px;
-  background-image: url("../_img/sidebar.svg");
+  background-image: url("../_img/caret.svg");
   background-repeat: no-repeat;
   background-size: contain;
   opacity: 0.5;
@@ -1259,6 +1262,8 @@ body.presentation .statusbar {
   margin-right: 0;
   background-color: transparent;
   background-image: url("../_img/caret.svg");
+  background-repeat: no-repeat;
+  background-position: center center;
   opacity: 0.5;
 }
 .sidepanel .panel.brush .patterns .pattern:last-of-type:hover, .sidepanel .panel.grid .patterns .pattern:last-of-type:hover {
@@ -2225,6 +2230,7 @@ body.hovercanvas.pointerdown.cursor-colorpicker .cursor .mark {
   background-color: rgba(0, 0, 0, 0.2196078431);
   cursor: move;
   user-select: none;
+  font-size: 13px;
 }
 .modalwindow .caption .button {
   position: absolute;
@@ -2232,7 +2238,6 @@ body.hovercanvas.pointerdown.cursor-colorpicker .cursor .mark {
   height: 16px;
   line-height: 14px;
   text-align: center;
-  border: 1px solid black;
   top: 2px;
   right: 2px;
   font-size: 12px;
@@ -2324,6 +2329,9 @@ body.hovercanvas.pointerdown.cursor-colorpicker .cursor .mark {
 }
 .modalwindow .inner .buttons.relative {
   position: relative;
+}
+.modalwindow .inner .buttons.right {
+  justify-content: flex-end;
 }
 .modalwindow .inner .buttons .button {
   width: 150px;
@@ -2543,6 +2551,15 @@ body.hovercanvas.pointerdown.cursor-colorpicker .cursor .mark {
   top: 20px;
   right: 0;
   bottom: 0;
+}
+.modalwindow .inner textarea {
+  height: 200px;
+  width: 100%;
+  color: #adadad;
+  background-color: #2B2B2B;
+}
+.modalwindow .inner textarea:focus {
+  outline: none;
 }
 .modalwindow .inner .palette {
   position: relative;
@@ -3431,8 +3448,211 @@ body.hovercanvas.pointerdown.cursor-colorpicker .cursor .mark {
   left: 0;
   max-width: 49%;
 }
-.modalwindow .inner .saveform {
+.modalwindow .inner .saveform .panel {
   padding: 10px;
+}
+.modalwindow .inner .saveform .panel.flex {
+  display: flex;
+}
+.modalwindow .inner .saveform .panel .col {
+  width: 220px;
+}
+.modalwindow .inner .saveform .panel .col input {
+  width: 100%;
+}
+.modalwindow .inner .saveform .panel .col .select {
+  width: 100%;
+  display: flex;
+  background-color: #313335;
+  position: relative;
+  padding-left: 60px;
+  cursor: pointer;
+  border-left: none;
+}
+.modalwindow .inner .saveform .panel .col .select .ext {
+  position: absolute;
+  left: 1px;
+  top: 0px;
+  bottom: 0px;
+  width: 52px;
+  background-color: #2b2b2b;
+  border-right: 4px solid #6A6A6A;
+  display: flex;
+  align-items: center;
+  padding-left: 4px;
+}
+.modalwindow .inner .saveform .panel .col .select .ext.png {
+  border-color: #DD3B19;
+}
+.modalwindow .inner .saveform .panel .col .select .ext.json {
+  border-color: #FFCC02;
+}
+.modalwindow .inner .saveform .panel .col .select .ext.gif {
+  border-color: #249F63;
+}
+.modalwindow .inner .saveform .panel .col .select .ext.jpg {
+  border-color: #0099CC;
+}
+.modalwindow .inner .saveform .panel .col .select:after {
+  content: "";
+  position: absolute;
+  right: 0;
+  width: 20px;
+  height: 20px;
+  background-image: url("../_img/caret.svg");
+  background-size: contain;
+  transform: rotate(90deg);
+  opacity: 0.5;
+}
+.modalwindow .inner .saveform .panel .col .select:hover {
+  border-color: #7b7b7b;
+}
+.modalwindow .inner .saveform .panel .col .select:hover:after {
+  opacity: 1;
+}
+.modalwindow .inner .saveform .menu {
+  position: absolute;
+  left: 0;
+  height: auto;
+  width: 200px;
+  top: 28px;
+  display: none;
+}
+.modalwindow .inner .saveform .menu.active {
+  display: block;
+}
+.modalwindow .inner .saveform .menu .button {
+  border: none;
+  position: relative;
+  padding: 8px 8px 8px 40px;
+  border-bottom: 1px solid black;
+  border-top: 1px solid #525252;
+  margin: 0;
+  transition: padding-left 0.3s ease-in;
+  z-index: 10;
+  background-color: #313335;
+}
+.modalwindow .inner .saveform .menu .button:first-of-type {
+  border-top: none;
+}
+.modalwindow .inner .saveform .menu .button .icon {
+  width: 24px;
+  height: 24px;
+  left: 8px;
+  top: 4px;
+  position: absolute;
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+  transition: left 0.3s ease-in-out;
+}
+.modalwindow .inner .saveform .menu .button .icon.png {
+  background-image: url("../_img/png.svg");
+}
+.modalwindow .inner .saveform .menu .button .icon.json {
+  background-image: url("../_img/json.svg");
+}
+.modalwindow .inner .saveform .menu .button .icon.jpg {
+  background-image: url("../_img/jpeg.svg");
+}
+.modalwindow .inner .saveform .menu .button .icon.gif {
+  background-image: url("../_img/gif.svg");
+}
+.modalwindow .inner .saveform .menu .button .icon.psd {
+  background-image: url("../_img/psd.svg");
+}
+.modalwindow .inner .saveform .menu .button .icon.mui {
+  background-image: url("../_img/mui.png");
+}
+.modalwindow .inner .saveform .menu .button .icon.os3 {
+  background-image: url("../_img/os3.png");
+}
+.modalwindow .inner .saveform .menu .button .icon.os4 {
+  background-image: url("../_img/os4.png");
+}
+.modalwindow .inner .saveform .menu .button .icon.iff {
+  background-image: url("../_img/iff.png");
+}
+.modalwindow .inner .saveform .menu .button .icon.amiga {
+  background-image: url("../_img/amigatick.png");
+}
+.modalwindow .inner .saveform .menu .button .icon.adf {
+  background-image: url("../_img/floppy.png");
+}
+.modalwindow .inner .saveform .menu .button .info {
+  background-color: #4d5052;
+  position: absolute;
+  padding: 4px 4px 4px 8px;
+  border: 1px solid black;
+  top: 0;
+  left: -180px;
+  z-index: 10;
+  width: 200px;
+  opacity: 0;
+  pointer-events: none;
+  min-height: 40px;
+  transition: opacity 0.2s ease-in-out, left 0.2s ease-in-out;
+  text-wrap: auto;
+  font-size: 13px;
+}
+.modalwindow .inner .saveform .menu .button .info:before {
+  content: "";
+  position: absolute;
+  top: 10px;
+  right: -21px;
+  border: 10px solid transparent;
+  border-left: 10px solid black;
+}
+.modalwindow .inner .saveform .menu .button .info:after {
+  content: "";
+  position: absolute;
+  top: 10px;
+  right: -20px;
+  border: 10px solid transparent;
+  border-left: 10px solid #4d5052;
+}
+.modalwindow .inner .saveform .menu .button:hover {
+  opacity: 1;
+}
+.modalwindow .inner .saveform .menu .button:hover .info {
+  opacity: 1;
+  left: -200px;
+}
+.modalwindow .inner .saveform .menu .button.more {
+  padding: 5px 8px 5px 60px;
+}
+.modalwindow .inner .saveform .menu .button.more:after {
+  content: "";
+  position: absolute;
+  right: 2px;
+  width: 16px;
+  height: 17px;
+  background-image: url("../_img/caret.svg");
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+  opacity: 0.5;
+}
+.modalwindow .inner .saveform .menu .button.active {
+  background-color: #2d2d2d;
+  opacity: 1;
+  padding-left: 50px;
+  z-index: 10;
+}
+.modalwindow .inner .saveform .menu .button.active .icon {
+  left: 10px;
+}
+.modalwindow .inner .saveform .menu .button.active .title {
+  color: #e1e1e1;
+}
+.modalwindow .inner .saveform .menu .button.active:after {
+  content: "";
+  position: absolute;
+  right: -2px;
+  width: 2px;
+  top: 0;
+  bottom: -1px;
+  background-color: #2d2d2d;
 }
 .modalwindow .inner .saveform h4 {
   padding: 0;
@@ -3449,105 +3669,6 @@ body.hovercanvas.pointerdown.cursor-colorpicker .cursor .mark {
 .modalwindow .inner .saveform h4.general {
   background-image: url("../_img/image.svg");
   padding-left: 22px;
-}
-.modalwindow .inner .saveform input {
-  width: 100%;
-  margin-bottom: 10px;
-}
-.modalwindow .inner .saveform .platform {
-  display: inline-block;
-  width: 50%;
-  vertical-align: top;
-}
-.modalwindow .inner .saveform .platform .button {
-  border: none;
-  position: relative;
-  padding: 5px 5px 5px 40px;
-}
-.modalwindow .inner .saveform .platform .button .icon {
-  width: 32px;
-  height: 32px;
-  left: 0;
-  position: absolute;
-  background-size: contain;
-  background-repeat: no-repeat;
-  background-position: center;
-}
-.modalwindow .inner .saveform .platform .button .icon.png {
-  background-image: url("../_img/png.svg");
-}
-.modalwindow .inner .saveform .platform .button .icon.json {
-  background-image: url("../_img/json.svg");
-}
-.modalwindow .inner .saveform .platform .button .icon.psd {
-  background-image: url("../_img/psd.svg");
-}
-.modalwindow .inner .saveform .platform .button .icon.mui {
-  background-image: url("../_img/mui.png");
-}
-.modalwindow .inner .saveform .platform .button .icon.os3 {
-  background-image: url("../_img/os3.png");
-}
-.modalwindow .inner .saveform .platform .button .icon.os4 {
-  background-image: url("../_img/os4.png");
-}
-.modalwindow .inner .saveform .platform .button .icon.iff {
-  background-image: url("../_img/iff.png");
-}
-.modalwindow .inner .saveform .platform .button .icon.adf {
-  background-image: url("../_img/floppy.png");
-}
-.modalwindow .inner .saveform .platform .button .info {
-  background-color: #4d5052;
-  position: absolute;
-  padding: 4px 4px 4px 8px;
-  border: 1px solid black;
-  top: 0;
-  left: 140px;
-  z-index: 10;
-  width: 200px;
-  opacity: 0;
-  pointer-events: none;
-  min-height: 40px;
-  transition: opacity 0.2s ease-in-out, left 0.2s ease-in-out;
-}
-.modalwindow .inner .saveform .platform .button .info:before {
-  content: "";
-  position: absolute;
-  top: 10px;
-  left: -21px;
-  border: 10px solid transparent;
-  border-right: 10px solid black;
-}
-.modalwindow .inner .saveform .platform .button .info:after {
-  content: "";
-  position: absolute;
-  top: 10px;
-  left: -20px;
-  border: 10px solid transparent;
-  border-right: 10px solid #4d5052;
-}
-.modalwindow .inner .saveform .platform .button:hover .info {
-  opacity: 1;
-  left: 160px;
-}
-.modalwindow .inner .saveform .platform .button.more {
-  position: absolute;
-  bottom: 10px;
-  min-width: 60px;
-  padding: 5px 8px;
-}
-.modalwindow .inner .saveform .platform .button.more:after {
-  content: "";
-  position: absolute;
-  right: 2px;
-  width: 16px;
-  height: 17px;
-  background-image: url("../_img/caret.svg");
-  background-size: contain;
-  background-repeat: no-repeat;
-  background-position: center;
-  opacity: 0.5;
 }
 .modalwindow .inner .saveform .platform.amiga .button .info {
   left: unset;
@@ -3568,18 +3689,42 @@ body.hovercanvas.pointerdown.cursor-colorpicker .cursor .mark {
   right: 160px;
 }
 .modalwindow .inner .saveform .moremenu {
-  z-index: 10;
   position: absolute;
-  top: 20px;
+  top: 0;
   bottom: 0;
   right: 0;
   width: 220px;
-  background-color: #2B2B2B;
-  border-left: 1px solid black;
+  background-color: #2d2d2d;
+  border-left: 1px solid #525252;
+  padding: 10px;
+  box-shadow: -1px 1px 0px 0px black;
   display: none;
 }
+.modalwindow .inner .saveform .moremenu h4 {
+  margin-bottom: 16px;
+}
+.modalwindow .inner .saveform .moremenu .button.save {
+  background-color: #313c31;
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  width: 80px;
+  text-align: center;
+}
+.modalwindow .inner .saveform .moremenu .button.save.loading {
+  pointer-events: none;
+}
+.modalwindow .inner .saveform .moremenu .button.save.loading span {
+  opacity: 0;
+}
+.modalwindow .inner .saveform .moremenu .button.save.loading .spinner {
+  width: 23px;
+  height: 23px;
+  border-width: 3px;
+  margin: -9px 0 0 -12px;
+}
 .modalwindow .inner .saveform .moremenu .item {
-  padding: 5px 5px 5px 44px;
+  padding: 3px 5px 3px 44px;
   border-bottom: 1px solid black;
   position: relative;
 }
@@ -3610,6 +3755,15 @@ body.hovercanvas.pointerdown.cursor-colorpicker .cursor .mark {
 }
 .modalwindow .inner .saveform .moremenu .item.mask:after {
   background-image: url("../_img/layers_mask.svg");
+}
+.modalwindow .inner .saveform .moremenu .item.mui:after {
+  background-image: url("../_img/mui.png");
+}
+.modalwindow .inner .saveform .moremenu .item.os3:after {
+  background-image: url("../_img/os3.png");
+}
+.modalwindow .inner .saveform .moremenu .item.os4:after {
+  background-image: url("../_img/os4.png");
 }
 .modalwindow .inner .saveform .moremenu .item.index:after {
   background-image: url("../_img/pixelgrid.svg");
@@ -3656,6 +3810,9 @@ body.hovercanvas.pointerdown.cursor-colorpicker .cursor .mark {
   border: 10px solid transparent;
   border-right: 10px solid #232323;
 }
+.modalwindow .inner .saveform .moremenu.active {
+  display: block;
+}
 .modalwindow .inner .saveform.hasmore .moremenu {
   display: block;
 }
@@ -3664,6 +3821,161 @@ body.hovercanvas.pointerdown.cursor-colorpicker .cursor .mark {
 }
 .modalwindow .inner .saveform.hasmore input {
   width: calc(100% - 220px);
+}
+.modalwindow .inner .saveform .optionspanel {
+  display: none;
+}
+.modalwindow .inner .saveform .optionspanel .title {
+  padding: 0 0 4px 0;
+  margin-bottom: 8px;
+  border-bottom: 1px solid #525252;
+  position: relative;
+  cursor: pointer;
+}
+.modalwindow .inner .saveform .optionspanel .title:after {
+  content: "";
+  position: absolute;
+  right: 0;
+  width: 20px;
+  height: 20px;
+  background-image: url("../_img/caret.svg");
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+  transform: rotate(0deg);
+  opacity: 0.5;
+  transition: transform 0.3s ease-in-out;
+}
+.modalwindow .inner .saveform .optionspanel .title:hover:after {
+  opacity: 1;
+}
+.modalwindow .inner .saveform .optionspanel .content {
+  opacity: 0;
+  overflow: hidden;
+  max-height: 0;
+  height: auto;
+  transition: all 0.3s ease-in-out;
+}
+.modalwindow .inner .saveform .optionspanel.active .title:after {
+  transform: rotate(90deg);
+}
+.modalwindow .inner .saveform .optionspanel.active .content {
+  opacity: 1;
+  overflow: hidden;
+  max-height: 200px;
+}
+.modalwindow .inner .saveform .optionspanel .group {
+  display: flex;
+}
+.modalwindow .inner .saveform .optionspanel .group label {
+  width: 92px;
+  color: #8b8989;
+}
+.modalwindow .inner .saveform .optionspanel .group .options {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+}
+.modalwindow .inner .saveform .optionspanel .group .options .option {
+  border: 1px solid silver;
+  width: 100%;
+  padding: 4px;
+  opacity: 0.4;
+  cursor: pointer;
+}
+.modalwindow .inner .saveform .optionspanel .group .options .option:hover {
+  opacity: 0.7;
+}
+.modalwindow .inner .saveform .optionspanel .group .options .option.selected {
+  border: 1px solid #4e8337;
+  color: #a7d694;
+  box-shadow: 0 0 4px #4e8337;
+  opacity: 1;
+}
+.modalwindow .inner .saveform .optionspanel .group .options .option.selected:hover {
+  opacity: 1;
+}
+.modalwindow .inner .saveform .optionspanel .group .options .option.selected span {
+  color: #6ca554;
+}
+.modalwindow .inner .saveform .optionspanel .group .options .option span {
+  display: block;
+  font-size: 12px;
+  opacity: 0.8;
+}
+.modalwindow .inner .saveform .optionspanel .group .options .range {
+  width: 100%;
+}
+.modalwindow .inner .saveform .optionspanel .group .options .rangeinput {
+  width: 50px;
+}
+.modalwindow .inner .saveform .optionspanel .group.disabled {
+  pointer-events: none;
+  opacity: 0.5;
+  filter: grayscale(1);
+}
+.modalwindow .inner .saveform .optionspanel.visible {
+  display: block;
+}
+.modalwindow .inner .saveform .options.list {
+  border: 1px solid #4b4a4a;
+  margin: 10px 0px 12px 10px;
+  position: relative;
+}
+.modalwindow .inner .saveform .options.list .option {
+  padding: 4px 4px 4px 16px;
+  border-bottom: 1px solid black;
+  border-top: 1px solid #4b4a4a;
+  opacity: 0.6;
+}
+.modalwindow .inner .saveform .options.list .option:first-of-type {
+  margin-top: 8px;
+  margin-top: 8px;
+  border-top: none;
+}
+.modalwindow .inner .saveform .options.list .option.selected {
+  opacity: 1;
+  background-image: url("../_img/check.svg");
+  background-repeat: no-repeat;
+  background-size: 12px 12px;
+  background-position: 2px 5px;
+}
+.modalwindow .inner .saveform .options.list .option:hover {
+  cursor: pointer;
+  opacity: 1;
+}
+.modalwindow .inner .saveform .options.list .option:hover h5 {
+  color: white;
+}
+.modalwindow .inner .saveform .options.list label {
+  position: absolute;
+  left: 8px;
+  top: -6px;
+  font-size: 10px;
+  text-transform: uppercase;
+  background-color: #2D2D2D;
+}
+.modalwindow .inner .saveform .options.list h5 {
+  margin: 0 0 2px;
+  padding: 0;
+  font-size: 14px;
+}
+.modalwindow .inner .saveform .options.list .info {
+  opacity: 0.7;
+  font-size: 12px;
+}
+.modalwindow .inner .saveform .options.list.disabled {
+  pointer-events: none;
+  opacity: 0.5;
+}
+.modalwindow .inner .saveform .warning {
+  background-image: url("../_img/warning.svg");
+  background-size: 16px 16px;
+  background-repeat: no-repeat;
+  background-position: 4px 4px;
+  padding: 4px 3px 4px 24px;
+  margin-top: 10px;
 }
 .modalwindow .inner .saveoverlay {
   position: absolute;

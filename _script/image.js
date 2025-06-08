@@ -29,8 +29,16 @@ let ImageFile = function(){
         return currentFile;
     };
 
-    me.getName = function(){
-        return currentFile.name || "Untitled";
+    me.getName = function(withoutExtension){
+        let name = currentFile.name || "Untitled";
+        if (withoutExtension) {
+            let parts = name.split(".");
+            if (parts.length > 1) {
+                parts.pop();
+                name = parts.join(".");
+            }
+        }
+        return name;
     };
 
     me.setName = function(name){
@@ -811,7 +819,7 @@ let ImageFile = function(){
             }
         }
         //console.error(image);
-        //EventBus.trigger(EVENT.imageSizeChanged);
+        EventBus.trigger(EVENT.imageSizeChanged);
     }
 
     function removeFrame(){

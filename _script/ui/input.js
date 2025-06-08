@@ -162,7 +162,6 @@ var Input = function(){
 	function handlePointerDown(e,target){
 		if (holdPointerEvents) return;
 		document.body.classList.add("pointerdown");
-		console.log(target);
 
 		if (!target || !target.classList.contains("menuitem")){
 			Menu.close();
@@ -297,20 +296,22 @@ var Input = function(){
 		if (keyDown["meta"] && !e.metaKey) modifierKeyUp("meta");
 
 		if (Editor.getCurrentTool() !== COMMAND.TEXT){
-			if (code === "keyv" && Input.isMetaDown()){
-				// allow default paste
-				return;
-			}
+			if (Input.isMetaDown()){
+				if (code === "keyc" || code === "keyx" || code === "keyv"){
+					// allow default copy, cut, paste
+					return;
+				}
 
-			if (code === "keyc" && Input.isMetaDown()){
-				// allow default copy
-				return;
+				if (code === "keyq"){
+					// allow default quit
+					//console.error("quit");
+					//return;
+				}
 			}
 		}
 
 		e.preventDefault();
 		e.stopPropagation();
-		//                                                      console.log(e);
 
 		keyDown[code] = true;
 		if (modifiers.indexOf(code)>=0){
@@ -546,6 +547,7 @@ var Input = function(){
 
 			// allow default copy for input fields
 			if (e.target.tagName.toLowerCase() === "input") return;
+			if (e.target.tagName.toLowerCase() === "textarea") return;
 			if (e.target.closest("code")) return;
 		}
 

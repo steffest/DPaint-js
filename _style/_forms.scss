@@ -72,12 +72,14 @@
 }
 
 input[type="number"],
-input[type="text"]{
+input[type="text"],
+.inputbox{
   display: inline-block;
   background-color: #2b2b2b;
   border: 1px solid #6A6A6A;
   color: #BBBBBB;
   padding: 4px;
+  font-size: 14px;
 
   &:focus{
     outline: none;

@@ -13,6 +13,8 @@ $dimmed-text-color: #adadad;
 $active-color: #b1e00f;
 $active-color-dim: #b2970e;
 
+$positive-background: #313c31;
+
 @mixin pixelated{
   image-rendering: optimizeSpeed;
   image-rendering: optimize-contrast;

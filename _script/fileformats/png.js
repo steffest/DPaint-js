@@ -19,6 +19,7 @@ const PLTE = [80,76,84,69];
 const IHDR = [73,72,68,82];
 const IDAT = [73,68,65,84];
 const IEND = [73,69,78,68];
+const tRNS = [116,82,78,83];
 
 let IndexedPng = function(){
     let me = {};
@@ -34,14 +35,16 @@ let IndexedPng = function(){
 
         let header = getHeaderChunk(canvas.width, canvas.height, bitDepth, colorType, compressionMethod, filterMethod, interlaceMethod);
         let palette = getPaletteChunk();
+        let transparency = getTransparencyChunk(canvas);
         let data = getDataChunk(canvas);
 
-        let pngSize = pngHeader.length + chunkSize(header) + chunkSize(palette) + chunkSize(data) + chunkSize([]);
+        let pngSize = pngHeader.length + chunkSize(header) + chunkSize(palette) + (transparency ? chunkSize(transparency) : 0) + chunkSize(data) + chunkSize([]);
         let arrayBuffer = new ArrayBuffer(pngSize);
         let file = new BinaryStream(arrayBuffer, true);
         file.writeByteArray(pngHeader);
         writeChunk(file, IHDR, header);
         writeChunk(file, PLTE, palette);
+        if (transparency) writeChunk(file, tRNS, transparency);
         writeChunk(file, IDAT, data);
         writeChunk(file, IEND, []);
 
@@ -103,6 +106,42 @@ let IndexedPng = function(){
         let palette = Palette.get();
         let data = new Uint8Array(palette.length*3);
         for (let i = 0; i < palette.length; i++) data.set(palette[i], i*3);
+        return data;
+    }
+
+    function getTransparencyChunk(canvas){
+        let w = canvas.width;
+        let h = canvas.height;
+        let imageData = canvas.getContext("2d").getImageData(0, 0, w, h);
+        let pixels = imageData.data;
+        
+        let transparentIndices = new Set();
+        
+        // Find all fully transparent pixels and their color indices
+        for (let y = 0; y < h; y++){
+            for (let x = 0; x < w; x++){
+                let i = (y * w + x) * 4;
+                let a = pixels[i + 3];
+                if (a === 0) { // fully transparent
+                    let r = pixels[i];
+                    let g = pixels[i + 1];
+                    let b = pixels[i + 2];
+                    let colorIndex = Palette.getColorIndex([r, g, b], true);
+                    transparentIndices.add(colorIndex);
+                }
+            }
+        }
+        
+        if (transparentIndices.size === 0) return null;
+        
+        let palette = Palette.get();
+        let data = new Uint8Array(palette.length);
+        
+        // Set alpha values: 0 for transparent colors, 255 for opaque
+        for (let i = 0; i < palette.length; i++){
+            data[i] = transparentIndices.has(i) ? 0 : 255;
+        }
+        
         return data;
     }
 

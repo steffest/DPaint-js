@@ -7,6 +7,8 @@ import {COMMAND, EVENT} from "../../enum.js";
 import EventBus from "../../util/eventbus.js";
 import Input from "../input.js";
 import ColorRange from "./colorRange.js";
+import Generate from "../../fileformats/generate.js";
+import Modal, {DIALOG} from "../modal.js";
 
 var PaletteDialog = function() {
     let me = {};
@@ -122,6 +124,28 @@ var PaletteDialog = function() {
                         $(".item",{onClick:()=>{Palette.sortByUseCount(true); contextMenu.classList.remove("active")},"info":"optimize and test compression results"},"File Size"))),
                 $(".button.small",{onClick:()=>{EventBus.trigger(COMMAND.LOADPALETTE)},"info":"Open palette from disk"},"Load"),
                 $(".button.small",{onClick:()=>{EventBus.trigger(COMMAND.SAVEPALETTE)},"info":"Save palette to disk"},"Save"),
+                $(".button.small",{onClick:()=>{
+                        let palette = Palette.get();
+                        console.error(palette);
+                        let content = "{";
+                        for (let i=0;i<palette.length;i++){
+                            let color = palette[i];
+                            content += "0x";
+                            color.forEach(c=>{
+                                c = Math.round(c/16);
+                                if (c>15) c=15;
+                                if (c<0) c=0;
+                                content += c.toString(16);
+                            })
+                            content += ",";
+                        }
+                        content = content.slice(0,-1) + "}";
+
+                        Modal.show(DIALOG.TEXTOUTPUT,content);
+
+
+
+                    },"info":"Export Palette"},"Export"),
             ),
             $(".mainpanel",
                 $('.tabs',panels.colortab = $(".caption.sub",{onClick:toggleRangePanel},"Color"),panels.rangestab = $(".caption.sub.inactive",{onClick:toggleRangePanel},"Ranges")),
