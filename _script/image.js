@@ -224,6 +224,7 @@ let ImageFile = function(){
                     canvas.height = h;
                     ctx.drawImage(d, aX, aY);
                     releaseCanvas(d);
+                    layer.reset();
                 });
             });
             EventBus.trigger(EVENT.imageSizeChanged);

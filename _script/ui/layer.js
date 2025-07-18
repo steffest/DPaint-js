@@ -122,6 +122,14 @@ let Layer = function(width,height,name){
         }
     }
 
+    me.reset = function(){
+        drawLayer = undefined;
+        combined = undefined;
+        drawMask = undefined;
+        drawCtx = undefined;
+        drawMaskCtx = undefined;
+    }
+
     me.drawImage = function(image,x,y){
         x=x||0;y=y||0;
         let _ctx = me.getContext();
