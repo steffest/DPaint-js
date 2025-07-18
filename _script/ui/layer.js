@@ -7,6 +7,8 @@ import DitherPanel from "./toolPanels/ditherPanel.js";
 import historyservice from "../services/historyservice.js";
 import Palette from "./palette.js";
 import ImageFile from "../image.js";
+import EventBus from "../util/eventbus.js";
+import {EVENT} from "../enum.js";
 
 let Layer = function(width,height,name){
     let me = {
@@ -125,9 +127,63 @@ let Layer = function(width,height,name){
     me.reset = function(){
         drawLayer = undefined;
         combined = undefined;
-        drawMask = undefined;
-        drawCtx = undefined;
-        drawMaskCtx = undefined;
+        //drawMask = undefined;
+        //drawCtx = undefined;
+        //drawMaskCtx = undefined;
+    }
+
+    me.resize = function(width,height,x,y){
+        let d = duplicateCanvas(canvas, true);
+        canvas.width = width;
+        canvas.height = height;
+        ctx.drawImage(d, x, y);
+        releaseCanvas(d);
+
+        if (mask){
+            let m = duplicateCanvas(mask, true);
+            mask.width = width;
+            mask.height = height;
+            maskCtx.drawImage(m, x, y);
+            releaseCanvas(m);
+        }
+
+        if (alphaLayer){
+            let a = duplicateCanvas(alphaLayer, true);
+            alphaLayer.width = width;
+            alphaLayer.height = height;
+            alphaCtx.drawImage(a, x, y);
+            releaseCanvas(a);
+        }
+
+        me.reset();
+        EventBus.trigger(EVENT.layerContentChanged);
+    }
+
+    me.crop = function(x,y,w,h){
+        let d = duplicateCanvas(canvas, true);
+        canvas.width = w;
+        canvas.height = h;
+        ctx.drawImage(d, x, y, w, h, 0, 0, w, h);
+        releaseCanvas(d);
+
+        if (mask){
+            let m = duplicateCanvas(mask, true);
+            mask.width = w;
+            mask.height = h;
+            maskCtx.drawImage(m, x, y, w, h, 0, 0, w, h);
+            releaseCanvas(m);
+        }
+
+        if (alphaLayer){
+            let a = duplicateCanvas(alphaLayer, true);
+            alphaLayer.width = w;
+            alphaLayer.height = h;
+            alphaCtx.drawImage(a, x, y, w, h, 0, 0, w, h);
+            releaseCanvas(a);
+        }
+
+        me.reset();
+        EventBus.trigger(EVENT.layerContentChanged);
     }
 
     me.drawImage = function(image,x,y){
@@ -398,7 +454,7 @@ let Layer = function(width,height,name){
         return indexPixelsToPalette(ctx,Palette.get());
 
     }
-    
+
     return me;
 }
 

@@ -178,19 +178,7 @@ var Editor = function(){
                 HistoryService.start(EVENT.imageHistory);
                 ImageFile.getCurrentFile().frames.forEach(frame=>{
                     frame.layers.forEach(layer=>{
-                        let c = layer.getCanvas();
-                        let ctx = c.getContext("2d");
-                        let canvas = document.createElement("canvas");
-                        canvas.width = s.width;
-                        canvas.height = s.height;
-                        canvas.getContext("2d").clearRect(0,0,s.width,s.height);
-                        canvas.getContext("2d").drawImage(c,s.left,s.top,s.width,s.height,0,0,s.width,s.height);
-
-                        c.width = s.width;
-                        c.height = s.height;
-                        ctx.clearRect(0,0,s.width,s.height);
-                        ctx.drawImage(canvas,0,0);
-                        releaseCanvas(canvas);
+                        layer.crop(s.left,s.top,s.width,s.height);
                     })
                 });
                 ImageFile.getCurrentFile().width = s.width;
@@ -201,19 +189,36 @@ var Editor = function(){
             }
         });
         EventBus.on(COMMAND.TRIM,()=>{
-            let ctx = ImageFile.getActiveContext();
-            let canvas = ctx.canvas;
-            let box = ImageFile.getLayerBoundingRect();
+            let frame = ImageFile.getActiveFrame();
+            let w = ImageFile.getCurrentFile().width;
+            let h = ImageFile.getCurrentFile().height;
+            let box = {
+                left: w,
+                right: 0,
+                top: h,
+                bottom: 0,
+            }
+            frame.layers.forEach((layer,i)=>{
+                let b = ImageFile.getLayerBoundingRect(i);
+                if (b.x < box.left) box.left = b.x;
+                if (b.x + b.w > box.right) box.right = b.x + b.w;
+                if (b.y < box.top) box.top = b.y;
+                if (b.y + b.h > box.bottom) box.bottom = b.y + b.h;
+            });
+
+            box.w = box.right - box.left;
+            box.h = box.bottom - box.top;
             if (!box.w || !box.h) return;
-            let cut = ctx.getImageData(box.x, box.y, box.w, box.h);
-            if (box.w === canvas.width && box.h === canvas.height && box.x === 0) return;
+            if (box.w === w && box.h === h && box.x === 0) return;
 
             HistoryService.start(EVENT.imageHistory);
-            canvas.width = box.w;
-            canvas.height = box.h;
-            ctx.putImageData(cut, 0, 0);
-            ImageFile.getCurrentFile().width = canvas.width;
-            ImageFile.getCurrentFile().height = canvas.height;
+
+            frame.layers.forEach(layer=>{
+                layer.crop(box.left,box.top,box.w,box.h);
+            });
+
+            ImageFile.getCurrentFile().width = box.w;
+            ImageFile.getCurrentFile().height = box.h;
             HistoryService.end();
             EventBus.trigger(EVENT.imageSizeChanged);
         })

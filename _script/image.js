@@ -216,15 +216,7 @@ let ImageFile = function(){
             console.log("Resizing image to " +w + "x" + h);
             currentFile.frames.forEach(frame=>{
                 frame.layers.forEach(layer=>{
-                    // TODO: what about mask canvas and dither canvas ?
-                    let canvas = layer.getCanvas();
-                    let ctx = layer.getContext();
-                    let d = duplicateCanvas(canvas, true);
-                    canvas.width = w;
-                    canvas.height = h;
-                    ctx.drawImage(d, aX, aY);
-                    releaseCanvas(d);
-                    layer.reset();
+                    layer.resize(w,h,aX,aY);
                 });
             });
             EventBus.trigger(EVENT.imageSizeChanged);

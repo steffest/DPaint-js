@@ -144,6 +144,8 @@ export let EVENT = {
     fontStyleChanged: 35,
     colorDepthChanged: 36,
     previewModeChanged: 37,
+    paletteProcessingStart: 38,
+    paletteProcessingEnd: 39,
 };
 
 export let ANIMATION = {
