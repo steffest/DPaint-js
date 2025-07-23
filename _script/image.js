@@ -12,6 +12,7 @@ import HistoryService from "./services/historyservice.js";
 import ImageProcessing from "./util/imageProcessing.js";
 import Brush from "./ui/brush.js";
 import storage from "./util/storage.js";
+import {DuplicateName} from "./util/textUtils.js";
 
 let ImageFile = function(){
     let me = {};
@@ -302,10 +303,13 @@ let ImageFile = function(){
     me.duplicateLayer = function(index){
         if (typeof index !== "number") index = activeLayerIndex;
         let layer = currentFrame().layers[index];
+
+        let newName = DuplicateName(layer.name, currentFrame().layers);
+
         let newLayer = Layer(
             currentFile.width,
             currentFile.height,
-            layer.name + " duplicate"
+            newName
         );
         newLayer.opacity = layer.opacity;
         newLayer.blendMode = layer.blendMode;
