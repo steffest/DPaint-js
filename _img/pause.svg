@@ -1,0 +1,22 @@
+
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1" xmlns:xlink="http://www.w3.org/1999/xlink" preserveAspectRatio="none" x="0px" y="0px" width="100px" height="100px" viewBox="0 0 100 100">
+<defs/>
+
+<g id="paused">
+<g>
+<g>
+<g>
+<path fill="#FFFFFF" stroke="none" d="
+M 86 86.55
+L 86 14.55 14 14.55 14 86.55 86 86.55
+M 78 78.55
+L 22 78.55 22 22.55 78 22.55 78 78.55
+M 69.85 30.55
+L 54.65 30.55 54.65 72.75 69.85 72.75 69.85 30.55
+M 45.85 72.75
+L 45.85 30.55 30.65 30.55 30.65 72.75 45.85 72.75 Z"/>
+</g>
+</g>
+</g>
+</g>
+</svg>

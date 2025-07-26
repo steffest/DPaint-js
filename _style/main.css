@@ -1090,6 +1090,12 @@ body.presentation .statusbar {
 .sidepanel .panel .inner .frame.ghost {
   opacity: 0.2;
 }
+.sidepanel .panel .inner.waiting {
+  opacity: 0.7;
+  pointer-events: none;
+  filter: brightness(0.5);
+  cursor: wait;
+}
 .sidepanel .panel h2 {
   font-size: 14px;
   color: #BBBBBB;
@@ -1097,14 +1103,51 @@ body.presentation .statusbar {
   padding: 2px;
   margin: 0;
 }
+.sidepanel .panel.frames .paneltools .framerange {
+  margin-left: 4px;
+  display: none;
+}
+.sidepanel .panel.frames .paneltools .framecontrols {
+  display: none;
+  position: absolute;
+  left: 0;
+  top: 25px;
+  right: 0;
+}
+.sidepanel .panel.frames .paneltools .framecontrols .rangeselectinline {
+  display: flex;
+  margin-left: 4px;
+  align-items: center;
+  width: 100%;
+}
+.sidepanel .panel.frames .paneltools .framecontrols .rangeselectinline label {
+  opacity: 0.7;
+}
+.sidepanel .panel.frames .paneltools .framecontrols .rangeselectinline input[type=text] {
+  padding: 0 4px;
+  width: 30px;
+  height: 19px;
+  margin-left: 4px;
+  margin-right: 2px;
+  font-size: 11px;
+}
+.sidepanel .panel.frames .paneltools.multirow .framerange {
+  display: block;
+}
+.sidepanel .panel.frames .paneltools.multirow .framecontrols {
+  display: flex;
+}
 .sidepanel .panel.frames .panelcontent {
   position: absolute;
   left: 0;
   right: 0;
-  top: 22px;
+  top: 24px;
   bottom: 0;
   overflow: auto;
   overflow-y: hidden;
+}
+.sidepanel .panel.frames .panelcontent.multirow {
+  top: 48px;
 }
 .sidepanel .panel.frames .panelcontent.inactive {
   pointer-events: none;
@@ -1135,16 +1178,22 @@ body.presentation .statusbar {
   font-size: 12px;
   line-height: 20px;
   border: none;
-  border-right: 1px solid black;
   background-color: #282A2C;
   background-image: url("../_img/add.svg");
   background-position: center center;
   background-repeat: no-repeat;
   background-size: contain;
   opacity: 0.5;
+  flex-shrink: 0;
 }
 .sidepanel .panel .paneltools .button.delete {
   background-image: url("../_img/trashcan.svg");
+}
+.sidepanel .panel .paneltools .button.play {
+  background-image: url("../_img/play.svg");
+}
+.sidepanel .panel .paneltools .button.play.paused {
+  background-image: url("../_img/pause.svg");
 }
 .sidepanel .panel .paneltools .button:hover {
   cursor: pointer;
@@ -3593,6 +3642,7 @@ body.hovercanvas.pointerdown.cursor-colorpicker .cursor .mark {
   min-height: 40px;
   transition: opacity 0.2s ease-in-out, left 0.2s ease-in-out;
   text-wrap: auto;
+  white-space: break-spaces;
   font-size: 13px;
 }
 .modalwindow .inner .saveform .menu .button .info:before {

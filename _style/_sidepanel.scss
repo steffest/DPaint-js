@@ -235,6 +235,13 @@
         }
       }
 
+      &.waiting{
+        opacity: 0.7;
+        pointer-events: none;
+        filter: brightness(0.5);
+        cursor: wait;
+      }
+
     }
 
     h2{
@@ -250,14 +257,65 @@
     }
 
     &.frames{
+
+      .paneltools{
+        .framerange{
+          margin-left: 4px;
+          display: none;
+        }
+
+        .framecontrols{
+          display: none;
+          position: absolute;
+          left: 0;
+          top: 25px;
+          right: 0;
+
+          .rangeselectinline{
+            display: flex;
+            margin-left: 4px;
+            align-items: center;
+            width: 100%;
+
+            label{
+              opacity: 0.7;
+            }
+
+            input[type="text"]{
+              padding: 0 4px;
+              width: 30px;
+              height: 19px;
+              margin-left: 4px;
+              margin-right: 2px;
+              font-size: 11px;
+            }
+
+          }
+        }
+
+        &.multirow{
+          .framerange{
+            display: block;
+          }
+          .framecontrols{
+            display: flex;
+          }
+        }
+      }
+
+
       .panelcontent{
         position: absolute;
         left: 0;
         right: 0;
-        top: 22px;
+        top: 24px;
         bottom: 0;
         overflow: auto;
         overflow-y: hidden;
+
+        &.multirow{
+          top: 48px;
+        }
 
         &.inactive{
           pointer-events: none;
@@ -298,16 +356,23 @@
         font-size: 12px;
         line-height: 20px;
         border: none;
-        border-right: 1px solid black;
         background-color: #282A2C;
         background-image: url("../_img/add.svg");
         background-position: center center;
         background-repeat: no-repeat;
         background-size: contain;
         opacity: 0.5;
+        flex-shrink: 0;
 
         &.delete{
           background-image: url("../_img/trashcan.svg");
+        }
+
+        &.play{
+          background-image: url("../_img/play.svg");
+          &.paused{
+            background-image: url("../_img/pause.svg");
+          }
         }
 
         &:hover{
@@ -391,7 +456,6 @@
       .rangeselect{
         display: flex;
         margin-bottom: 3px;
-
 
         input[type="text"]{
           padding: 0 4px;

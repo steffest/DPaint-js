@@ -1,5 +1,5 @@
 import ImageFile from "../../image.js";
-import $,{$div} from "../../util/dom.js";
+import $, {$div, $elm, $input} from "../../util/dom.js";
 import EventBus from "../../util/eventbus.js";
 import {COMMAND, EVENT} from "../../enum.js";
 import ContextMenu from "../components/contextMenu.js";
@@ -10,18 +10,40 @@ let FramesPanel = function(){
     let me = {};
     let contentPanel;
     let frames=[];
+    let frameRange;
+    let fpsRange;
+    let fpsInput;
+    let panelTools;
+    let isPlaying = false;
 
     me.generate = (parent)=>{
-        $(".paneltools",{parent:parent},
+        panelTools = $(".paneltools",{parent:parent},
+            frameRange = $("input.framerange.hidden",{type:"range",max:1,min:0,value:0,oninput:()=>{
+                    ImageFile.activateFrame(parseInt(frameRange.value));
+                }}),
             $(".button.delete",{
                 onClick:()=>{EventBus.trigger(COMMAND.DELETEFRAME)},
                 info: "Delete active frame"}),
             $(".button.add",{
                 onClick:()=>{EventBus.trigger(COMMAND.ADDFRAME)},
                 info: "Add new frame"}),
+            $(".framecontrols",
+                $(".button.play",{
+                    onClick:(e)=>{
+                        me.togglePlay();
+                        e.target.classList.toggle("paused",isPlaying);
+                    },
+                    info: "Play frames as animation"}),
+                $(".rangeselectinline",
+                    $("label","FPS"),
+                    fpsRange = $("input",{type:"range",min:1,max:60,value:12}),
+                    fpsInput = $("input",{type:"text",value:12})
+                )
+            )
          );
 
         contentPanel = $div("panelcontent","",parent);
+        connectRange(fpsRange,fpsInput);
 
     }
 
@@ -29,10 +51,12 @@ let FramesPanel = function(){
         contentPanel.innerHTML = "";
         frames=[];
         let activeIndex = ImageFile.getActiveFrameIndex() || 0;
+        frameRange.value = activeIndex;
         let imageFile = ImageFile.getCurrentFile();
         if (imageFile && imageFile.frames){
             let hasMultipleItems = imageFile.frames.length>1;
             let max = imageFile.frames.length-1;
+            frameRange.max = max;
             imageFile.frames.forEach((frame,index)=>{
                 let elm = $div("frame info" + ((activeIndex === index && hasMultipleItems) ? " active":""),"",contentPanel,()=>{
                     ImageFile.activateFrame(index);
@@ -112,6 +136,9 @@ let FramesPanel = function(){
                 frames.push(elm);
 
             });
+
+            panelTools.classList.toggle("multirow",hasMultipleItems);
+            contentPanel.classList.toggle("multirow",hasMultipleItems);
         }
     }
 
@@ -125,6 +152,50 @@ let FramesPanel = function(){
                 ctx.clearRect(0, 0,canvas.width,canvas.height);
                 ctx.drawImage(ImageFile.getCanvas(index),0,0,48,48);
             }
+        }
+    }
+
+    me.togglePlay = ()=>{
+        isPlaying = !isPlaying;
+
+        if (isPlaying){
+            let lastFrameTime = 0;
+            function playFrames(now) {
+                if (!isPlaying) return;
+                let fps = parseInt(fpsInput.value, 10) || 12;
+                let interval = 1000 / fps;
+                if (now - lastFrameTime >= interval) {
+                    ImageFile.nextFrame();
+                    lastFrameTime = now;
+                }
+                requestAnimationFrame(playFrames);
+            }
+            requestAnimationFrame(playFrames);
+        }
+    }
+
+    function connectRange(range,input){
+        range.min = range.min || 0;
+        range.max = range.max || 100;
+        let min = parseInt(range.min);
+        let max = parseInt(range.max);
+
+        input.onkeydown = (e)=>{
+            console.error("dd");
+            e.stopPropagation();
+        }
+
+        input.onchange = (e)=>{
+            let val = parseInt(input.value,10);
+            if (isNaN(val)) val = min;
+            if (val<min) val = min;
+            if (val>max) val = max;
+            range.value = val;
+            input.value = val;
+        }
+
+        range.oninput = (e)=>{
+            input.value = range.value;
         }
     }
 
