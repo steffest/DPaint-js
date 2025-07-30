@@ -9,6 +9,7 @@ import FramesPanel from "./toolPanels/framesPanel.js";
 import BrushPanel from "./toolPanels/brushPanel.js";
 import ColorPicker from "./components/colorPicker.js";
 import GridPanel from "./toolPanels/gridPanel.js";
+import UserSettings from "../userSettings.js";
 
 var SidePanel = function(){
     let me = {}
@@ -85,6 +86,8 @@ var SidePanel = function(){
             })
         );
         generate();
+
+        if (UserSettings.get("sidepanel") === true) me.show();
     }
 
     me.show = (section)=>{
@@ -97,14 +100,17 @@ var SidePanel = function(){
             })
             setPanelsState();
         }
+        UserSettings.set("sidepanel",true);
     }
 
     me.hide = ()=>{
         document.body.classList.remove("withsidepanel");
+        UserSettings.set("sidepanel",false);
     }
 
     me.toggle = ()=>{
         document.body.classList.toggle("withsidepanel");
+        UserSettings.set("sidepanel",me.isVisible());
         EventBus.trigger(EVENT.UIresize);
     }
 
