@@ -7,6 +7,7 @@ import Input from "../input.js";
 import ContextMenu from "../components/contextMenu.js";
 import Historyservice from "../../services/historyservice.js";
 import HistoryService from "../../services/historyservice.js";
+import Editor from "../editor.js";
 
 let LayerPanel = function(){
     let me = {};
@@ -224,11 +225,13 @@ let LayerPanel = function(){
                     parent:elm,
                     onClick:()=>{
                         if (!layer.isMaskEnabled()) return;
-                        Historyservice.start(EVENT.layerPropertyHistory,i);
-                        layer.toggleMask();
-                        Historyservice.end();
-                        EventBus.trigger(EVENT.toolChanged);
-                        EventBus.trigger(EVENT.layersChanged);
+                        Editor.commit().then(()=>{
+                            Historyservice.start(EVENT.layerPropertyHistory,i);
+                            layer.toggleMask();
+                            Historyservice.end();
+                            EventBus.trigger(EVENT.toolChanged);
+                            EventBus.trigger(EVENT.layersChanged);
+                        });
                     },
                     info : "Toggle layer mask"
                 })

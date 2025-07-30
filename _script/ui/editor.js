@@ -379,17 +379,16 @@ var Editor = function(){
         return !!state[name];
     }
 
-    me.commit = function(){
+    me.commit = async function(){
         if (currentTool === COMMAND.TRANSFORMLAYER){
             console.log("commit layer");
             resizer.commit();
-            updateTransform(true).then(()=>{
-                clearTransform();
-                EventBus.trigger(COMMAND.CLEARSELECTION);
-                currentTool = undefined;
-                HistoryService.end();
-                if (previousTool) EventBus.trigger(previousTool);
-            });
+            await updateTransform(true);
+            clearTransform();
+            EventBus.trigger(COMMAND.CLEARSELECTION);
+            currentTool = undefined;
+            HistoryService.end();
+            if (previousTool) EventBus.trigger(previousTool);
         }
         if (currentTool === COMMAND.POLYGONSELECT){
             EventBus.trigger(COMMAND.ENDPOLYGONSELECT);
