@@ -345,11 +345,11 @@ let Layer = function(width,height,name){
             struct.indexedPixels = indexed.pixels;
             struct.conversionErrors=indexed.notFoundCount;
         }else{
-            struct.canvas = forSerialization ? canvas.toDataURL() : duplicateCanvas(canvas);
+            struct.canvas = forSerialization ? canvas.toDataURL() : duplicateCanvas(canvas,true);
         }
 
         if (me.hasMask){
-            struct.mask = forSerialization ? mask.toDataURL() : duplicateCanvas(mask);
+            struct.mask = forSerialization ? mask.toDataURL() : duplicateCanvas(mask,true);
         }
 
         return struct;
@@ -357,7 +357,6 @@ let Layer = function(width,height,name){
 
     me.restore = (struct)=> {
         return new Promise((next)=>{
-
             me.name = struct.name;
             me.blendMode = struct.blendMode;
             me.opacity = struct.opacity;
@@ -399,6 +398,7 @@ let Layer = function(width,height,name){
                     img.src = struct.canvas;
                 }else{
                     ctx.drawImage(struct.canvas,0,0);
+                    canvasRestored = true;
                 }
             }else if (struct.indexedPixels){
                 console.log("restoring indexed pixels")
@@ -444,6 +444,7 @@ let Layer = function(width,height,name){
                     img.src = struct.mask;
                 }else{
                     maskCtx.drawImage(struct.mask,0,0);
+                    maskRestored = true;
                 }
             }
             isDone();

@@ -860,9 +860,8 @@ let ImageFile = function(){
                 currentFile.height,
                 layer.name
             );
-            newLayer.opacity = layer.opacity;
-            newLayer.blendMode = layer.blendMode;
-            newLayer.drawImage(layer.getCanvas());
+            let struct = layer.clone(false);
+            newLayer.restore(struct);
             newFrame.layers.push(newLayer);
         });
         currentFile.frames.splice(index + 1, 0, newFrame);
@@ -1100,15 +1099,11 @@ let ImageFile = function(){
     });
 
     EventBus.on(COMMAND.DELETEFRAME, function(){
-        HistoryService.start(EVENT.imageHistory);
         removeFrame();
-        HistoryService.end();
     });
 
     EventBus.on(COMMAND.DUPLICATEFRAME, function(){
-        HistoryService.start(EVENT.imageHistory);
         me.duplicateFrame();
-        HistoryService.end();
     });
 
     EventBus.on(COMMAND.FRAMEMOVETOEND, function(){
