@@ -252,6 +252,10 @@ const GIF = (()=>{
         let colorCount = 1 << colorDepth;
 
         frames.forEach((frame,index)=>{
+            ImageFile.activateFrame(index);
+            if (Palette.isLocked()){
+                Palette.apply();
+            }
             let pixels = ImageFile.generateIndexedPixels(index,true);
             encodedFrames.push(LZW.encode(pixels,frame.width, frame.height, colorDepth));
         });
