@@ -10,6 +10,7 @@
   padding: 2px 0 0 10px;
   border-top: 1px solid black;
   overflow: hidden;
+  display: flex;
 
   .tooltip{
     b{
@@ -22,6 +23,18 @@
       text-align: center;
     }
 
+  }
+
+  .permatip{
+    display: none;
+
+    &.active{
+      border: 1px solid #ff610e;
+      color: #ff610e;
+      padding: 0 2px;
+      display: block;
+      margin-right: 6px;
+    }
   }
 }
 

@@ -73,9 +73,13 @@
           width: 60px;
         }
 
+        dt{
+          min-width: 60px;
+        }
+
         dd{
           opacity: 0.7;
-          width: 100px;
+          width: 100%;
         }
       }
 
@@ -252,6 +256,25 @@
       margin: 0;
     }
 
+    &.info{
+      .button.refresh{
+        position: absolute;
+        right: 3px;
+        top: 40px;
+        width: 14px;
+        height: 14px;
+        background-image: url("../_img/cycle.svg");
+        background-size: contain;
+        background-repeat: no-repeat;
+        opacity: 0.5;
+
+        &:hover{
+          cursor: pointer;
+          opacity: 1;
+        }
+      }
+    }
+
     &.color{
 
     }
@@ -259,6 +282,20 @@
     &.frames{
 
       .paneltools{
+        .frameselectinline{
+          display: flex;
+          width: 100%;
+
+          input[type="text"]{
+            padding: 0 4px;
+            width: 30px;
+            height: 19px;
+            margin-left: 4px;
+            margin-right: 2px;
+            font-size: 11px;
+          }
+        }
+
         .framerange{
           margin-left: 4px;
           display: none;

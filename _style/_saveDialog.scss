@@ -118,6 +118,7 @@
         &.os3{background-image: url("../_img/os3.png");}
         &.os4{background-image: url("../_img/os4.png");}
         &.iff{background-image: url("../_img/iff.png");}
+        &.anim{background-image: url("../_img/iff.png");}
         &.amiga{background-image: url("../_img/amigatick.png");}
         &.adf{background-image: url("../_img/floppy.png");}
       }
@@ -136,6 +137,7 @@
         min-height: 40px;
         transition: opacity 0.2s ease-in-out, left 0.2s ease-in-out;
         text-wrap: auto;
+        white-space: break-spaces;
         font-size: 13px;
 
         &:before{

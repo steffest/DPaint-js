@@ -867,6 +867,7 @@ body.presentation .toolbar {
   padding: 2px 0 0 10px;
   border-top: 1px solid black;
   overflow: hidden;
+  display: flex;
 }
 .statusbar .tooltip b {
   font-weight: normal;
@@ -876,6 +877,16 @@ body.presentation .toolbar {
   height: 14px;
   padding: 0 3px;
   text-align: center;
+}
+.statusbar .permatip {
+  display: none;
+}
+.statusbar .permatip.active {
+  border: 1px solid #ff610e;
+  color: #ff610e;
+  padding: 0 2px;
+  display: block;
+  margin-right: 6px;
 }
 
 body.presentation .statusbar {
@@ -953,9 +964,12 @@ body.presentation .statusbar {
   background-color: rgba(255, 255, 255, 0.05);
   width: 60px;
 }
+.sidepanel .panel .inner dl dt {
+  min-width: 60px;
+}
 .sidepanel .panel .inner dl dd {
   opacity: 0.7;
-  width: 100px;
+  width: 100%;
 }
 .sidepanel .panel .inner .layer {
   padding: 5px;
@@ -1102,6 +1116,33 @@ body.presentation .statusbar {
   font-weight: 100;
   padding: 2px;
   margin: 0;
+}
+.sidepanel .panel.info .button.refresh {
+  position: absolute;
+  right: 3px;
+  top: 40px;
+  width: 14px;
+  height: 14px;
+  background-image: url("../_img/cycle.svg");
+  background-size: contain;
+  background-repeat: no-repeat;
+  opacity: 0.5;
+}
+.sidepanel .panel.info .button.refresh:hover {
+  cursor: pointer;
+  opacity: 1;
+}
+.sidepanel .panel.frames .paneltools .frameselectinline {
+  display: flex;
+  width: 100%;
+}
+.sidepanel .panel.frames .paneltools .frameselectinline input[type=text] {
+  padding: 0 4px;
+  width: 30px;
+  height: 19px;
+  margin-left: 4px;
+  margin-right: 2px;
+  font-size: 11px;
 }
 .sidepanel .panel.frames .paneltools .framerange {
   margin-left: 4px;
@@ -3620,6 +3661,9 @@ body.hovercanvas.pointerdown.cursor-colorpicker .cursor .mark {
   background-image: url("../_img/os4.png");
 }
 .modalwindow .inner .saveform .menu .button .icon.iff {
+  background-image: url("../_img/iff.png");
+}
+.modalwindow .inner .saveform .menu .button .icon.anim {
   background-image: url("../_img/iff.png");
 }
 .modalwindow .inner .saveform .menu .button .icon.amiga {
