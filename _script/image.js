@@ -13,6 +13,7 @@ import ImageProcessing from "./util/imageProcessing.js";
 import Brush from "./ui/brush.js";
 import storage from "./util/storage.js";
 import {DuplicateName} from "./util/textUtils.js";
+import Recorder from "./services/recorder.js";
 
 let ImageFile = function(){
     let me = {};
@@ -719,6 +720,7 @@ let ImageFile = function(){
 
     function newFile(image,fileName,type,originalData){
         Historyservice.clear();
+        Recorder.clear();
         cachedImage = undefined;
         let w = 320;
         let h = 256;
@@ -815,8 +817,8 @@ let ImageFile = function(){
                 if (image.width) layer.getContext().drawImage(image, 0, 0);
             }
         }
-        //console.error(image);
         EventBus.trigger(EVENT.imageSizeChanged);
+
     }
 
     function removeFrame(){
@@ -867,6 +869,7 @@ let ImageFile = function(){
         currentFile.frames.splice(index + 1, 0, newFrame);
         Historyservice.end();
         EventBus.trigger(EVENT.imageSizeChanged);
+        ImageFile.nextFrame();
     };
 
     me.moveFrame = (fromIndex,toIndex) => {

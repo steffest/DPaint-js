@@ -20,6 +20,7 @@ let ToolOptions = function(){
     let selectionOutline = true;
     let selectionMask = false;
     let pressure = false;
+    let penOnly = false;
 
     let smoothCheckbox;
     let pixelPerfectCheckbox;
@@ -31,6 +32,7 @@ let ToolOptions = function(){
     let ditherCheckbox;
     let invertCheckbox;
     let pressureCheckbox;
+    let penOnlyCheckbox;
     let pressureOpacityCheckbox;
     let fillCheckbox;
     let lineSizeRange;
@@ -70,6 +72,10 @@ let ToolOptions = function(){
 
     me.usePressure = ()=>{
        return pressure;
+    }
+
+    me.usePenOnly = ()=>{
+        return penOnly;
     }
 
     me.setFill = (state)=>{
@@ -117,6 +123,7 @@ let ToolOptions = function(){
                 options.appendChild(brushSetting(true));
                 options.appendChild(ditherSetting());
                 options.appendChild(pressureSetting());
+                options.appendChild(penOnlySetting());
                 break;
             case COMMAND.ERASE:
                 options.appendChild(label("Erase:"));
@@ -323,6 +330,16 @@ let ToolOptions = function(){
         pressureCheckbox.info="Toggle brush pressure sensitivity";
         pressureCheckbox.setState(pressure);
         return pressureCheckbox;
+    }
+
+    function penOnlySetting(){
+        if (!penOnlyCheckbox) penOnlyCheckbox=$checkbox("Pen Only","","penonly info",(checked)=>{
+            penOnly = checked;
+            EventBus.trigger(EVENT.penOnlyChanged,penOnly);
+        });
+        penOnlyCheckbox.info="Toggle pen-only mode";
+        penOnlyCheckbox.setState(penOnly);
+        return penOnlyCheckbox;
     }
 
     function pressureOpacitySetting(){
