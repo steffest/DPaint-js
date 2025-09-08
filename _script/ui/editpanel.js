@@ -74,115 +74,67 @@ var EditPanel = function(parent,type){
         }
     });
 
-    if ("gesturestart" in window){
-        // TODO: I probably shouldn't bother with gestures, as it's not supported on Android.
-        // better to implement a generic solution with touch events
-        // besides ... we still need to track touches to get the center of the gesture
-        viewport.addEventListener("gesturestart", function (e) {
+    viewport.addEventListener("touchstart", function (e) {
+        if (e.touches.length>1){
             e.preventDefault();
             e.stopPropagation();
             Input.holdPointerEvents();
-            startScale = e.scale || 1;
-            startZoom = canvas.getZoom();
             touchData.startScrollX = viewport.scrollLeft;
             touchData.startScrollY = viewport.scrollTop;
-            touchData.startDragX = e.clientX;
-            touchData.startDragY = e.clientY;
-            //console.log("gesturestart");
-        });
+            touchData.startDragX = e.touches[0].clientX;
+            touchData.startDragY = e.touches[0].clientY;
+            touchData.startZoom = canvas.getZoom();
+            touchData.startScale = 1;
 
-        viewport.addEventListener("gesturechange", function (e) {
+
+            let dx = e.touches[0].clientX - e.touches[1].clientX;
+            let dy = e.touches[0].clientY - e.touches[1].clientY;
+            touchData.startDistance = Math.sqrt(dx*dx+dy*dy);
+            touchData.startAngle = Math.atan2(dy, dx);
+            touchData.startCanvasRotation = canvas.getRotation();
+        }
+    });
+
+    viewport.addEventListener("touchmove", function (e) {
+        if (e.touches.length>1){
             e.preventDefault();
             e.stopPropagation();
-            let scale = startScale *  (e.scale || 1);
-            let touches = Input.getTouches();
 
-            if (touches.length>1){
+            let dx = e.touches[0].clientX - e.touches[1].clientX;
+            let dy = e.touches[0].clientY - e.touches[1].clientY;
+            let distance = Math.sqrt(dx*dx+dy*dy);
+            let scale = distance / touchData.startDistance;
 
-                if (scale>1.2 || scale<0.8 || isZooming){ // avoid zoom jittering when 2-finger pan is used
+            let angle = Math.atan2(dy, dx);
+            let angleDiff = angle - touchData.startAngle;
+            canvas.setRotation(touchData.startCanvasRotation + angleDiff * 180 / Math.PI);
 
-                    let zoom = scale * startZoom;
-                    canvas.setZoom(zoom,e);
-                    syncZoomLevel();
-                    isZooming = true;
+            if (scale>1.1 || scale<0.9 || isZooming) { // avoid zoom jittering when 2-finger pan is used
+                let zoom = touchData.startZoom * scale;
+                syncZoomLevel();
+                isZooming = true;
+                let center = {
+                    clientX: (e.touches[0].clientX + e.touches[1].clientX) / 2,
+                    clientY: (e.touches[0].clientY + e.touches[1].clientY) / 2
+                };
+                canvas.setZoom(zoom,center);
+            }else{
+                // pan
+                dx = (touchData.startDragX-e.touches[0].clientX);
+                dy = (touchData.startDragY-e.touches[0].clientY);
 
-                    // TODO also apply panning ?
-
-                }else{
-                    // pan
-                    let dx = (touchData.startDragX-e.clientX);
-                    let dy = (touchData.startDragY-e.clientY);
-
-                    viewport.scrollLeft = touchData.startScrollX + dx;
-                    viewport.scrollTop = touchData.startScrollY + dy;
-                }
+                viewport.scrollLeft = touchData.startScrollX + dx;
+                viewport.scrollTop = touchData.startScrollY + dy;
             }
+        }
+    });
 
-            //console.log("gesturechange");
-
-        });
-
-        viewport.addEventListener("gestureend", function (e) {
-            e.preventDefault();
-            e.stopPropagation();
-            Input.releasePointerEvents();
-            isZooming = false;
-        });
-    }else{
-
-
-        viewport.addEventListener("touchstart", function (e) {
-            if (e.touches.length>1){
-                e.preventDefault();
-                e.stopPropagation();
-                Input.holdPointerEvents();
-                touchData.startScrollX = viewport.scrollLeft;
-                touchData.startScrollY = viewport.scrollTop;
-                touchData.startDragX = e.touches[0].clientX;
-                touchData.startDragY = e.touches[0].clientY;
-                touchData.startZoom = canvas.getZoom();
-                touchData.startScale = 1;
-
-
-                let dx = e.touches[0].clientX - e.touches[1].clientX;
-                let dy = e.touches[0].clientY - e.touches[1].clientY;
-                touchData.startDistance = Math.sqrt(dx*dx+dy*dy);
-            }
-        });
-
-        viewport.addEventListener("touchmove", function (e) {
-            if (e.touches.length>1){
-                e.preventDefault();
-                e.stopPropagation();
-
-                let dx = e.touches[0].clientX - e.touches[1].clientX;
-                let dy = e.touches[0].clientY - e.touches[1].clientY;
-                let distance = Math.sqrt(dx*dx+dy*dy);
-                let scale = distance / touchData.startDistance;
-
-                if (scale>1.1 || scale<0.9 || isZooming) { // avoid zoom jittering when 2-finger pan is used
-                    let zoom = touchData.startZoom * scale;
-                    syncZoomLevel();
-                    isZooming = true;
-                    canvas.setZoom(zoom);
-                }else{
-                    // pan
-                    dx = (touchData.startDragX-e.touches[0].clientX);
-                    dy = (touchData.startDragY-e.touches[0].clientY);
-
-                    viewport.scrollLeft = touchData.startScrollX + dx;
-                    viewport.scrollTop = touchData.startScrollY + dy;
-                }
-            }
-        });
-
-        viewport.addEventListener("touchend", function (e) {
-            e.preventDefault();
-            e.stopPropagation();
-            Input.releasePointerEvents();
-            isZooming = false;
-        });
-    }
+    viewport.addEventListener("touchend", function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        Input.releasePointerEvents();
+        isZooming = false;
+    });
 
     viewport.addEventListener("pointerenter", function (e) {
         Input.setPointerOver("viewport");

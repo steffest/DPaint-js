@@ -38,7 +38,7 @@ let Canvas = function(parent){
     let resizer;
     let gridOverlay;
     let drawFunction;
-    let containerTransform = {x:0,y:0,startX:0,startY:0};
+    let containerTransform = {x:0,y:0,startX:0,startY:0, rotation:0, startRotation: 0};
     let currentCursorPoint;
 
     canvas = document.createElement("canvas");
@@ -266,6 +266,15 @@ let Canvas = function(parent){
         return zoom;
     }
 
+    me.getRotation = function(){
+        return containerTransform.rotation;
+    }
+
+    me.setRotation = function(angle){
+        containerTransform.rotation = angle;
+        setContainer();
+    }
+
     me.setZoom = function(amount,center){
         prevZoom = zoom;
         zoom = amount;
@@ -341,6 +350,8 @@ let Canvas = function(parent){
             case "down":
                 if (Input.isMultiTouch()) return;
                 // let the editPanel parent handle this for pan/zoom
+
+                if (ToolOptions.usePenOnly() && e.pointerType !== "pen") return;
 
                 if (touchData.touchUpTime){
                     let delta = (performance.now() - touchData.touchUpTime);
@@ -837,15 +848,30 @@ let Canvas = function(parent){
 
     function getCursorPosition(elm, event, persist) {
         const rect = elm.getBoundingClientRect();
-        const x = Math.floor((event.clientX - rect.left)/zoom);
-        const y = Math.floor((event.clientY - rect.top)/zoom);
+
+        const centerX = rect.left + rect.width / 2;
+        const centerY = rect.top + rect.height / 2;
+
+        const px = event.clientX - centerX;
+        const py = event.clientY - centerY;
+
+        const angle = -containerTransform.rotation * Math.PI / 180;
+        const rotatedX = px * Math.cos(angle) - py * Math.sin(angle);
+        const rotatedY = px * Math.sin(angle) + py * Math.cos(angle);
+
+        const canvasRotatedX = rotatedX / zoom;
+        const canvasRotatedY = rotatedY / zoom;
+
+        const finalX = Math.floor(canvasRotatedX + canvas.width / 2);
+        const finalY = Math.floor(canvasRotatedY + canvas.height / 2);
+
         if (persist){
             touchData.prevX = touchData.x;
             touchData.prevY = touchData.y;
-            touchData.x = x;
-            touchData.y = y;
+            touchData.x = finalX;
+            touchData.y = finalY;
         }
-        return{x:x,y:y};
+        return{x:finalX,y:finalY};
     }
 
     me.getCursorPosition = function(event){
@@ -868,12 +894,13 @@ let Canvas = function(parent){
     }
 
     function setContainer(){
-        container.style.transform = "translate(" + containerTransform.x + "px," + containerTransform.y + "px)";
+        container.style.transform = "translate(" + containerTransform.x + "px," + containerTransform.y + "px) rotate(" + containerTransform.rotation + "deg)";
     }
 
     function resetContainer(){
         containerTransform.x = 0;
         containerTransform.y = 0;
+        containerTransform.rotation = 0;
         setContainer();
     }
 
