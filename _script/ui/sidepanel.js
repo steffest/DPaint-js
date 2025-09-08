@@ -119,6 +119,7 @@ var SidePanel = function(){
     }
 
     me.showInfo = (file)=>{
+        file = file || ImageFile.getCurrentFile();
         let contentPanel = panels.info.container.querySelector(".inner");
         if (contentPanel){
             if (file && file.width){
@@ -126,6 +127,7 @@ var SidePanel = function(){
                 generateInfoLine("Width",file.width + "px",contentPanel);
                 generateInfoLine("Height",file.height + "px",contentPanel);
                 generateInfoLine("Colors",ImageProcessing.getColors(ImageFile.getCanvas()).length,contentPanel);
+                $(".button.refresh",{parent: contentPanel, onClick:()=>{me.showInfo(file);}});
             }else{
                 contentPanel.innerHTML = "<small>No file present</small>";
             }

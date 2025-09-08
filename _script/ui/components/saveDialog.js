@@ -34,6 +34,14 @@ var SaveDialog = function(){
                 'image/x-ilbm': ['.iff'],
             }
         },
+        ANIM:{
+            description: 'IFF Animation',
+            extension: "anim",
+            generator: "ANIM",
+            accept: {
+                'image/x-ilbm': ['.anim'],
+            }
+        },
         PLANES:{
             description: 'Binary Bitplane Data',
             accept: {
@@ -167,8 +175,9 @@ var SaveDialog = function(){
                                     renderButton("json","DPaint.JSON","The internal format of Dpaint. All features supported","DPAINTJS"),
                                     renderButton("png","PNG Image","Full color and transparency, no layers, only the current frame gets saved.","PNG"),
                                     renderButton("gif","GIF Img/anim","Max 256 colors, no layers, animation supported.","GIF"),
-                                    renderButton("jpg","JPG Image","Full color, no transparent, no layers, only the current frame gets saved. LOSSY!","JPG"),
+                                    renderButton("jpg","JPG Image","Full color, no transparency, no layers, only the current frame gets saved. LOSSY!","JPG"),
                                     renderButton("iff","Amiga IFF","Maximum 256 colors, only the current frame gets saved.","IFF"),
+                                    renderButton("anim","Amiga ANIM","Maximum 256 colors, animation supported.","ANIM"),
                                     renderButton("amiga","Amiga Icon","Amiga OS Icon, Maximum 2 frames.","ICO"),
 
                                     //renderButton("psd","PSD","Coming soon ...","Working on it!"),

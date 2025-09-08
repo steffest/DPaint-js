@@ -11,6 +11,7 @@ let FramesPanel = function(){
     let contentPanel;
     let frames=[];
     let frameRange;
+    let frameInput;
     let fpsRange;
     let fpsInput;
     let panelTools;
@@ -18,9 +19,12 @@ let FramesPanel = function(){
 
     me.generate = (parent)=>{
         panelTools = $(".paneltools",{parent:parent},
-            frameRange = $("input.framerange.hidden",{type:"range",max:1,min:0,value:0,oninput:()=>{
-                    ImageFile.activateFrame(parseInt(frameRange.value));
-                }}),
+            $(".frameselectinline",
+                frameRange = $("input.framerange.hidden",{type:"range",max:1,min:0,value:0,oninput:()=>{
+                        ImageFile.activateFrame(parseInt(frameRange.value));
+                    }}),
+                frameInput = $("input",{type:"text",value:0})
+                ),
             $(".button.delete",{
                 onClick:()=>{EventBus.trigger(COMMAND.DELETEFRAME)},
                 info: "Delete active frame"}),
@@ -45,6 +49,18 @@ let FramesPanel = function(){
         contentPanel = $div("panelcontent","",parent);
         connectRange(fpsRange,fpsInput);
 
+        frameInput.onkeydown = (e)=>{
+            e.stopPropagation();
+        }
+        frameInput.onchange = (e)=>{
+            let val = parseInt(frameInput.value,10);
+            if (isNaN(val)) val = 0;
+            if (val<0) val = 0;
+            if (val>=ImageFile.getCurrentFile().frames.length) val = ImageFile.getCurrentFile().frames.length-1;
+            frameRange.value = val;
+            frameRange.dispatchEvent(new Event("input"));
+        }
+
     }
 
     me.list = ()=>{
@@ -52,6 +68,7 @@ let FramesPanel = function(){
         frames=[];
         let activeIndex = ImageFile.getActiveFrameIndex() || 0;
         frameRange.value = activeIndex;
+        frameInput.value = activeIndex;
         let imageFile = ImageFile.getCurrentFile();
         if (imageFile && imageFile.frames){
             let hasMultipleItems = imageFile.frames.length>1;
@@ -177,15 +194,14 @@ let FramesPanel = function(){
     function connectRange(range,input){
         range.min = range.min || 0;
         range.max = range.max || 100;
-        let min = parseInt(range.min);
-        let max = parseInt(range.max);
 
         input.onkeydown = (e)=>{
-            console.error("dd");
             e.stopPropagation();
         }
 
         input.onchange = (e)=>{
+            let min = parseInt(range.min);
+            let max = parseInt(range.max);
             let val = parseInt(input.value,10);
             if (isNaN(val)) val = min;
             if (val<min) val = min;

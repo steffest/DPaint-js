@@ -109,6 +109,11 @@ let Menu = function(){
                 {label: "Presentation mode",command: COMMAND.PRESENTATION, checked: false},
                 {label: "Full Screen",command: COMMAND.FULLSCREEN,needsRealClick: true, checked: false},
             ]},
+        {label: "Recorder", items:[
+                {label: "Start",command: COMMAND.RECORDINGSTART},
+                {label: "Stop",command: COMMAND.RECORDINGSTOP},
+                {label: "Export",command: COMMAND.RECORDINGEXPORT}
+            ]},
         {label: "Amiga", items:[
                 {label: "Open ADF image",command: COMMAND.ADF, needsRealClick: true},
                 {label: "Preview in Deluxe Paint",command: COMMAND.DELUXE},
