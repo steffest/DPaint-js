@@ -103,6 +103,9 @@ export let COMMAND = {
     NEXTPALETTE: 1102,
     PREVPALETTE: 1103,
     FRAMEMOVETOEND: 1104,
+    RECORDINGSTART: 1105,
+    RECORDINGSTOP: 1106,
+    RECORDINGEXPORT: 1107,
 
 };
 
@@ -146,6 +149,7 @@ export let EVENT = {
     previewModeChanged: 37,
     paletteProcessingStart: 38,
     paletteProcessingEnd: 39,
+    penOnlyChanged: 40,
 };
 
 export let ANIMATION = {

@@ -34,6 +34,8 @@ let Palette = function(){
     let isLocked = false;
     let hasDuplicates = false;
     let paletteListIndexElm;
+    let colorReducePanel;
+    let perf = {};
 
     var drawColor = "black";
     var backgroundColor = "white";
@@ -464,7 +466,7 @@ let Palette = function(){
         Palette.set(palette);
     }
 
-    me.applyToCanvas= function(canvas,removeAlpha,maskData){
+    me.applyToCanvas= function(canvas,removeAlpha){
         let ctx = canvas.getContext("2d");
         let data = ctx.getImageData(0,0,canvas.width,canvas.height);
         for (let i = 0; i<data.data.length;i+=4){
@@ -472,7 +474,6 @@ let Palette = function(){
             let g = data.data[i+1];
             let b = data.data[i+2];
             let a = data.data[i+3];
-            if (maskData) a = maskData.data[i+3];
 
             if (removeAlpha){
                a = (a<128)?0:255;
@@ -491,11 +492,14 @@ let Palette = function(){
     }
 
     me.reduce = function(){
-
+        console.log("Reducing palette to " + targetColorCount + " colors");
+        EventBus.trigger(EVENT.paletteProcessingStart);
         if (targetColorCount>256 && !targetPalette){
             ImageFile.restoreOriginal();
+            EventBus.trigger(EVENT.paletteProcessingEnd);
         }else{
             let base = ImageFile.getOriginal();
+            //let base = ImageFile.getActiveLayer().getCanvas();
             let c = duplicateCanvas(base,true);
             if (targetColorCount === 2 && ditherIndex){
                 ImageProcessing.bayer(c.getContext("2d"),Math.floor(alphaThreshold*2.56),false);
@@ -503,6 +507,7 @@ let Palette = function(){
                 layer.clear();
                 layer.drawImage(c,0,0);
                 EventBus.trigger(EVENT.layerContentChanged,{keepImageCache:true});
+                EventBus.trigger(EVENT.paletteProcessingEnd);
             }else{
                 ImageProcessing.reduce(c,targetPalette || targetColorCount,alphaThreshold,ditherIndex,useAlphaThreshold);
             }
@@ -512,9 +517,7 @@ let Palette = function(){
     }
 
     me.apply = function(){
-        // TODO: this squashes all the layers together :-/
-        // probably not what we want ?
-        let base = ImageFile.getOriginal();
+        let base = ImageFile.getActiveLayer().getCanvas();
         let c = duplicateCanvas(base,true);
         ImageProcessing.reduce(c,currentPalette,alphaThreshold,0,useAlphaThreshold);
     }
@@ -667,7 +670,7 @@ let Palette = function(){
     }
 
     me.generateControlPanel = function(parent){
-
+        colorReducePanel = parent
         let palettePanel = $div("subpanel","",parent);
         $div("label","Palette",palettePanel);
         let pselect = document.createElement("select");
@@ -1101,6 +1104,28 @@ let Palette = function(){
         }
     })
 
+    EventBus.on(EVENT.paletteProcessingStart,()=>{
+        perf.start = performance.now();
+        if (colorReducePanel){
+            colorReducePanel.classList.add("waiting");
+            let spinner = colorReducePanel.querySelector('.spinner');
+            if (!spinner){
+                $div("spinner","",colorReducePanel);
+            }
+        }
+    })
+
+    EventBus.on(EVENT.paletteProcessingEnd,()=>{
+        if (colorReducePanel){
+            colorReducePanel.classList.remove("waiting");
+            let spinner = colorReducePanel.querySelector('.spinner');
+            if (spinner) spinner.remove();
+        }
+        perf.end = performance.now();
+        perf.time = perf.end - perf.start;
+        console.log("Palette processing took " + perf.time + "ms");
+    })
+
     EventBus.on(COMMAND.LOCKPALETTE,()=>{
         isLocked = !isLocked;
         lockButton.classList.toggle("active",isLocked);
@@ -1140,6 +1165,7 @@ let Palette = function(){
     EventBus.on(COMMAND.PREVPALETTE,()=>{
         me.setPaletteListIndex(paletteListIndex,1);
     });
+
 
 
     return me;

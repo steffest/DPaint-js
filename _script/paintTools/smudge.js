@@ -19,7 +19,7 @@ let Smudge = function(){
     let hardness = 0.01;
     let radius = 10;
     const brushCtx = document.createElement('canvas').getContext('2d');
-    let composeCtx = document.createElement('canvas').getContext('2d');
+    let composeCtx = document.createElement('canvas').getContext('2d', {willReadFrequently: true});
     let featherGradient;
     let ctx;
     let lastX;
@@ -67,7 +67,7 @@ let Smudge = function(){
         let tempCtx;
         if (Palette.isLocked()){
             let tempCanvas = duplicateCanvas(brushCtx.canvas);
-            tempCtx = tempCanvas.getContext("2d");
+            tempCtx = tempCanvas.getContext("2d", {willReadFrequently: true} );
         }
 
         let w = brushCtx.canvas.width;
@@ -126,17 +126,8 @@ let Smudge = function(){
                 tempCtx.clearRect(0,0,w,h);
                 tempCtx.drawImage(ctx.canvas,x,y,w,h,0,0,w,h);
                 tempCtx.drawImage(composeCtx.canvas,0,0);
-
-                // reapply dither
-                let composeData;
-                if (dither){
-                    composeData = composeCtx.getImageData(0,0,w,h);
-                }
-
-                Palette.applyToCanvas(tempCtx.canvas,true,composeData);
-
+                Palette.applyToCanvas(tempCtx.canvas,true);
                 ctx.drawImage(tempCtx.canvas,x,y);
-
             }else{
                 ctx.drawImage(composeCtx.canvas, x, y);
             }
