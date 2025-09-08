@@ -106,6 +106,7 @@ var EffectDialog = function() {
             {name: "Frost", file:"web"},
             {name: "Displace", file:"displace"},
             {name: "Offset", file:"offset"},
+            {name: "Ripples", file:"ripples"},
             //{name: "BeachShadow", file:"beachshadow"},
             //{name: "Texture", file:"texture"},
         ]
@@ -303,6 +304,11 @@ var EffectDialog = function() {
                     });
                     expose += "    };";
                     textarea.setValue(currentRecipeSource.replace("###exposed###",expose));
+
+                    textarea.onChange();
+                    run.onClick();
+
+
                 },true,()=>{
                     textarea.onChange();
                     run.onClick();
