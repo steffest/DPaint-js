@@ -122,9 +122,9 @@ var EditPanel = function(parent,type){
                 // pan
                 dx = (touchData.startDragX-e.touches[0].clientX);
                 dy = (touchData.startDragY-e.touches[0].clientY);
-
-                viewport.scrollLeft = touchData.startScrollX + dx;
-                viewport.scrollTop = touchData.startScrollY + dy;
+                let tx = touchData.startScrollX+dx;
+                let ty = touchData.startScrollY+dy;
+                canvas.setPanning(tx,ty);
             }
         }
     });

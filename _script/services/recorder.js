@@ -1,151 +1,207 @@
 import EventBus from "../util/eventbus.js";
 import {COMMAND, EVENT} from "../enum.js";
 import ImageFile from "../image.js";
-import {duplicateCanvas} from "../util/canvasUtils.js";
 
 let Recorder = (()=>{
     let me = {};
     let recordedChunks = [];
-    let frames = [];
-    let mediaRecorder;
-    let format = "mp4";
+    let mediaRecorder = null;
     let isRecording = false;
-    let canvas;
-    let ctx;
-    let stream;
-
-    let recordOnTheFly = false;
-
-    me.clear = function(){
-        recordedChunks = [];
-        frames = [];
-        canvas = undefined;
+    let recordingCanvas = null;
+    let recordingCtx = null;
+    let stream = null;
+    
+    // Simple configuration for timelapse
+    const config = {
+        framerate: 60,
+        maxWidth: 1280,   // HD width
+        maxHeight: 720,   // HD height
+        bitrate: 2000000  // 2 Mbps
+    };
+    
+    // Detect best supported format
+    function getSupportedMimeType() {
+        if (!MediaRecorder || !MediaRecorder.isTypeSupported) {
+            return 'video/webm';
+        }
+        
+        const types = [
+            'video/webm;codecs=vp9',
+            'video/webm;codecs=vp8',
+            'video/webm',
+            'video/mp4'
+        ];
+        
+        for (let type of types) {
+            if (MediaRecorder.isTypeSupported(type)) {
+                console.log('Using format:', type);
+                return type;
+            }
+        }
+        
+        return 'video/webm'; // fallback
     }
 
-        EventBus.on(COMMAND.RECORDINGSTART,()=>{
-        if (window.MediaRecorder) {
-            if (recordOnTheFly){
-                const firstFrame = ImageFile.getCanvas();
-                const width = firstFrame.width;
-                const height = firstFrame.height;
-
-                canvas = document.createElement('canvas');
-                canvas.width = width;
-                canvas.height = height;
-                ctx = canvas.getContext('2d');
-
-                stream = canvas.captureStream(25); // 25 fps
-                mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/mp4' });
-
-                mediaRecorder.ondataavailable = (e) => {
-                    if (e.data.size > 0) {
-                        recordedChunks.push(e.data);
-                    }
-                };
-
-                mediaRecorder.onstop = () => {
-                    const blob = new Blob(recordedChunks, { type: 'video/' + format });
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = 'recording.' + format;
-                    document.body.appendChild(a);
-                    a.click();
-                    setTimeout(() => {
-                        document.body.removeChild(a);
-                        window.URL.revokeObjectURL(url);
-                        me.clear();
-                    }, 0);
-                };
-
-                mediaRecorder.start();
-                isRecording = true;
-                EventBus.trigger(EVENT.historyChanged,[0,0]);
-            }else{
-                isRecording = true;
-                frames.push(duplicateCanvas(ImageFile.getCanvas(),true));
-            }
-        }else{
-            alert("Recording not supported in this browser");
-        }
-    })
-
-    EventBus.on(COMMAND.RECORDINGSTOP,()=>{
+    // Clean up resources
+    me.cleanup = function() {
         isRecording = false;
-    })
-
-    EventBus.on(COMMAND.RECORDINGEXPORT,()=>{
-        if (recordOnTheFly){
-            if (mediaRecorder) mediaRecorder.stop();
-        }else{
-            if (frames.length > 0) {
-                const firstFrame = frames[0];
-                const width = firstFrame.width;
-                const height = firstFrame.height;
-
-                canvas = document.createElement('canvas');
-                canvas.width = width;
-                canvas.height = height;
-                ctx = canvas.getContext('2d');
-
-                stream = canvas.captureStream(25); // 25 fps
-                mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/mp4' });
-
-                mediaRecorder.ondataavailable = (e) => {
-                    if (e.data.size > 0) {
-                        recordedChunks.push(e.data);
-                    }
-                };
-
-                mediaRecorder.onstop = () => {
-                    const blob = new Blob(recordedChunks, { type: 'video/' + format });
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = 'recording.' + format;
-                    document.body.appendChild(a);
-                    a.click();
-                    setTimeout(() => {
-                        document.body.removeChild(a);
-                        window.URL.revokeObjectURL(url);
-                        me.clear();
-                    }, 0);
-                };
-
-                mediaRecorder.start();
-
-                let frameIndex = 0;
-                function drawFrame() {
-                    if (frameIndex < frames.length) {
-                        ctx.drawImage(frames[frameIndex], 0, 0);
-                        requestAnimationFrame(drawFrame);
-                        frameIndex++;
-                    } else {
-                        mediaRecorder.stop();
-                    }
-                }
-
-                drawFrame();
-            }
+        recordedChunks = [];
+        
+        if (stream) {
+            stream.getTracks().forEach(track => track.stop());
+            stream = null;
         }
-    })
-
-    EventBus.on(EVENT.historyChanged,()=>{
-        if (isRecording){
-            if (recordOnTheFly){
-                if (ctx) ctx.drawImage(ImageFile.getCanvas(), 0, 0);
-                if (stream && stream.getVideoTracks && stream.getVideoTracks().length>0){
-                    let track = stream.getVideoTracks()[0];
-                    if (track.requestFrame){
-                        console.log("record frame");
-                        track.requestFrame();
-                    }
-                }
-            }else{
-                frames.push(duplicateCanvas(ImageFile.getCanvas(),true));
-            }
+        
+        if (recordingCanvas) {
+            recordingCanvas.width = 1;
+            recordingCanvas.height = 1;
+            recordingCanvas = null;
+            recordingCtx = null;
         }
-    })
+        
+        mediaRecorder = null;
+    };
+
+    // Start recording
+    me.startRecording = function() {
+        if (!MediaRecorder) {
+            alert('Video recording not supported in this browser');
+            return;
+        }
+        
+        if (isRecording) {
+            alert('Recording already in progress');
+            return;
+        }
+        
+        try {
+            const sourceCanvas = ImageFile.getCanvas();
+            
+            // Calculate recording size maintaining aspect ratio
+            const aspectRatio = sourceCanvas.width / sourceCanvas.height;
+            let width = Math.min(sourceCanvas.width, config.maxWidth);
+            let height = Math.min(sourceCanvas.height, config.maxHeight);
+            
+            if (width / height > aspectRatio) {
+                width = height * aspectRatio;
+            } else {
+                height = width / aspectRatio;
+            }
+            
+            // Ensure even dimensions
+            width = Math.floor(width / 2) * 2;
+            height = Math.floor(height / 2) * 2;
+            
+            // Create recording canvas
+            recordingCanvas = document.createElement('canvas');
+            recordingCanvas.width = width;
+            recordingCanvas.height = height;
+            recordingCtx = recordingCanvas.getContext('2d');
+            recordingCtx.imageSmoothingEnabled = true;
+            
+            // Draw initial frame
+            recordingCtx.drawImage(sourceCanvas, 0, 0, width, height);
+            
+            // Create stream
+            stream = recordingCanvas.captureStream();
+            
+            // Create recorder
+            const mimeType = getSupportedMimeType();
+            mediaRecorder = new MediaRecorder(stream, {
+                mimeType: mimeType,
+                videoBitsPerSecond: config.bitrate
+            });
+            
+            recordedChunks = [];
+            
+            mediaRecorder.ondataavailable = (e) => {
+                if (e.data.size > 0) {
+                    recordedChunks.push(e.data);
+                }
+            };
+            
+            mediaRecorder.onstop = () => {
+                me.download();
+            };
+            
+            mediaRecorder.onerror = (e) => {
+                console.error('Recording error:', e);
+                alert('Recording failed');
+                me.cleanup();
+            };
+            
+            mediaRecorder.start();
+            isRecording = true;
+            
+            console.log(`Recording started: ${width}x${height}`);
+            
+        } catch (error) {
+            console.error('Failed to start recording:', error);
+            alert('Recording failed: ' + error.message);
+            me.cleanup();
+        }
+    };
+
+    // Stop and download recording
+    me.stopAndDownload = function() {
+        if (!isRecording || !mediaRecorder) {
+            alert('No active recording');
+            return;
+        }
+        
+        isRecording = false;
+        mediaRecorder.stop();
+    };
+    
+    // Download the recording
+    me.download = function() {
+        if (!recordedChunks.length) {
+            alert('No data to download');
+            me.cleanup();
+            return;
+        }
+        
+        const mimeType = getSupportedMimeType();
+        const blob = new Blob(recordedChunks, { type: mimeType });
+        const url = URL.createObjectURL(blob);
+        
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `dpaint-timelapse-${Date.now()}.${mimeType.includes('webm') ? 'webm' : 'mp4'}`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        
+        URL.revokeObjectURL(url);
+        me.cleanup();
+        
+        console.log('Recording downloaded');
+    };
+
+    // Capture current frame
+    me.captureFrame = function() {
+        if (!isRecording || !recordingCanvas || !recordingCtx) return;
+        
+        const sourceCanvas = ImageFile.getCanvas();
+        recordingCtx.drawImage(sourceCanvas, 0, 0, recordingCanvas.width, recordingCanvas.height);
+    };
+
+    // Event handlers
+    EventBus.on(COMMAND.RECORDINGSTART, me.startRecording);
+    EventBus.on(COMMAND.RECORDINGSTOP, me.stopAndDownload);
+    EventBus.on(COMMAND.RECORDINGEXPORT, me.stopAndDownload);
+    
+    // Capture frames on history changes (undo points)
+    EventBus.on(EVENT.historyChanged, () => {
+        if (isRecording) {
+            me.captureFrame();
+        }
+    });
+    
+    // Public API
+    me.isRecording = () => isRecording;
+
+    me.clear = me.cleanup;
 
     return me;
 })();

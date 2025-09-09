@@ -83,7 +83,7 @@ let Canvas = function(parent){
         }
     }
 
-    canvas.addEventListener("pointermove", function (e) {handle('over', e)}, false);
+    canvas.addEventListener("pointermove", function (e) {handle('over', e)}, { passive: false });
     canvas.addEventListener("pointerenter", function (e) {
         Input.setPointerOver("canvas");
     }, false);
@@ -279,6 +279,24 @@ let Canvas = function(parent){
         prevZoom = zoom;
         zoom = amount;
         me.zoom(1,center);
+    }
+
+    me.setPanning = (tx,ty)=>{
+        panelParent.scrollLeft = tx;
+        panelParent.scrollTop = ty;
+
+        let fx = parseInt(panelParent.scrollLeft);
+        let fy = parseInt(panelParent.scrollTop);
+
+        if (fx !== tx){
+            containerTransform.x = containerTransform.startX+fx-tx;
+            setContainer();
+        }
+        if (fy !== ty){
+            containerTransform.y = containerTransform.startY+fy-ty ;
+            setContainer();
+        }
+
     }
 
     me.getCanvas = function(){
@@ -766,19 +784,7 @@ let Canvas = function(parent){
                         var dy = touchData.startDragY-e.clientY;
                         let tx = touchData.startScrollX+dx;
                         let ty = touchData.startScrollY+dy;
-                        panelParent.scrollLeft = tx;
-                        panelParent.scrollTop = ty;
-                        let fx = parseInt(panelParent.scrollLeft);
-                        let fy = parseInt(panelParent.scrollTop);
-
-                        if (fx !== tx){
-                            containerTransform.x = containerTransform.startX+fx-tx;
-                            setContainer();
-                        }
-                        if (fy !== ty){
-                            containerTransform.y = containerTransform.startY+fy-ty ;
-                            setContainer();
-                        }
+                        me.setPanning(tx,ty);
                         return;
                     }
 
