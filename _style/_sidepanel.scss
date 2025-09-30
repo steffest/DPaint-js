@@ -1,4 +1,5 @@
-.sidepanel{
+.sidepanel,
+.contentpanel{
   position: absolute;
   left: 70px;
   top: 27px;
@@ -577,6 +578,29 @@
             box-shadow: 0 0 2px yellow;
           }
 
+        }
+      }
+
+      .presets{
+        .subcaption{
+          background-color: $button-background-dark;
+          color: $menu-text-color;
+          padding: 3px 5px 3px 5px;
+          font-size: 12px;
+          margin-top: 2px;
+        }
+
+        .preset{
+          height: 25px;
+          background-image: url("../_img/brushes/preview/1.png");
+          background-size: 100% 100%;
+          border-bottom: 1px solid black;
+          filter: brightness(0.8);
+
+          &:hover{
+            cursor: pointer;
+            filter: none;
+          }
         }
       }
 

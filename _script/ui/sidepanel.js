@@ -38,7 +38,7 @@ var SidePanel = function(){
         },
         brush:{
             label: "Brush",
-            height: 118,
+            height: 168,
             content: parent=>{
                 BrushPanel.generate(parent);
             }
@@ -126,7 +126,7 @@ var SidePanel = function(){
                 contentPanel.innerHTML = "";
                 generateInfoLine("Width",file.width + "px",contentPanel);
                 generateInfoLine("Height",file.height + "px",contentPanel);
-                generateInfoLine("Colors",ImageProcessing.getColors(ImageFile.getCanvas()).length,contentPanel);
+                generateInfoLine("Colors",ImageProcessing.getColors(ImageFile.getCanvasWithFilters()).length,contentPanel);
                 $(".button.refresh",{parent: contentPanel, onClick:()=>{me.showInfo(file);}});
             }else{
                 contentPanel.innerHTML = "<small>No file present</small>";

@@ -235,7 +235,7 @@ let ToolOptions = function(){
     function brushSetting(withOpacity){
         let brushOpacityRange;
         if (!brushOptionGroup){
-            let settings = Brush.getSettings();
+            let settings = Brush.get();
             brushOptionGroup = $div("optionsgroup");
             let brushSizeRange = $div("range","",brushOptionGroup);
             $elm("label","Size:",brushSizeRange);
@@ -259,7 +259,7 @@ let ToolOptions = function(){
             }
 
             EventBus.on(EVENT.brushOptionsChanged,()=>{
-                let settings = Brush.getSettings();
+                let settings = Brush.get();
                 brushSettings.sizeRange.value = settings.width;
                 brushSettings.sizeInput.innerText = settings.width + "px" ;
                 brushSettings.opacityRange.value = settings.opacity;

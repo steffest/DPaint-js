@@ -163,6 +163,11 @@
       }
     }
 
+    .viewport{
+      overflow: hidden;
+      display: block;
+    }
+
     .windowContainer{
       .window{
         width: 300px;
@@ -246,13 +251,14 @@
     -ms-interpolation-mode: nearest-neighbor;
     -webkit-touch-callout: none;
     display: block;
-    position: relative;
+    position: absolute;
     z-index: 1;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
     
     &.overlaycanvas{
-      position: absolute;
-      left: 0;
-      top: 0;
       z-index: 2;
       pointer-events: none;
     }

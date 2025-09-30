@@ -210,7 +210,7 @@ let Layer = function(width,height,name){
         }
 
         //Brush.draw(me.getContext(),x,y,color,true);
-        let b = Brush.draw(drawCtx,x,y,drawColor,touchData.button,true); // TODO: color should not be part of the brush?
+        let b = Brush.draw(drawCtx,x,y,drawColor,touchData.button,true,true); // TODO: color should not be part of the brush?
 
         if (DitherPanel.getDitherState()){
             let pattern = DitherPanel.getDitherPattern();

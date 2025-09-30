@@ -41,7 +41,7 @@ let Smudge = function(){
         lastForce = touchData.force || 1;
 
 
-         let settings = Brush.getSettings();
+         let settings = Brush.get();
             alpha = settings.opacity/100;
             hardness = 1-(settings.softness/10);
             radius = settings.width;

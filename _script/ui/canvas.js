@@ -23,6 +23,7 @@ import Text  from "../paintTools/text.js";
 import historyservice from "../services/historyservice.js";
 import GridOverlay from "./components/gridOverlay.js";
 import PaletteDialog from "./components/paletteDialog.js";
+import {resetShaders, runWebGLQuantizer} from "../util/webgl-quantizer.js";
 
 let Canvas = function(parent){
 	let me = {};
@@ -84,6 +85,10 @@ let Canvas = function(parent){
     }
 
     canvas.addEventListener("pointermove", function (e) {handle('over', e)}, { passive: false });
+
+    // this makes the CPU usage spike.
+    // TODO: investigate
+    // (this is used for the color picker preview)
     canvas.addEventListener("pointerenter", function (e) {
         Input.setPointerOver("canvas");
     }, false);
@@ -157,6 +162,7 @@ let Canvas = function(parent){
         canvas.height = overlayCanvas.height = c.height;
         me.update();
         me.zoom(1);
+        me.resetPan();
         gridOverlay.update();
     })
 
@@ -209,6 +215,20 @@ let Canvas = function(parent){
         if (!Editor.usesBrush(tool)) hideOverlay();
     });
 
+    EventBus.on(EVENT.layerContentChanged,()=>{
+       me.applyGlobalFilter();
+    });
+
+    EventBus.on(EVENT.paletteChanged,()=>{
+        if (Palette.isLockedGlobal()){
+            me.resetGlobalFilter();
+            EventBus.trigger(COMMAND.LOCKPALETTE);
+            setTimeout(()=>{
+                EventBus.trigger(COMMAND.LOCKPALETTE);
+            },50);
+        }
+    });
+
     me.clear = function(){
         ctx.clearRect(0,0,canvas.width,canvas.height);
     }
@@ -226,40 +246,53 @@ let Canvas = function(parent){
     me.update = function(){
         me.clear();
         ctx.drawImage(ImageFile.getCanvas(),0,0);
+
+        let palette = Palette.get();
+
+        me.applyGlobalFilter();
     }
 
-    me.zoom = function(amount,event){
+    me.zoom = function(amount, event) {
         hideOverlay();
 
         var z = prevZoom || zoom;
         prevZoom = undefined;
         const rect = panelParent.getBoundingClientRect();
-        if (!event) event = {clientX: rect.width/2, clientY: rect.height/2};
+        if (!event) event = { clientX: rect.width / 2, clientY: rect.height / 2 };
 
-        // zoom around point
-        var x = Math.floor((event.clientX - rect.left)) + panelParent.scrollLeft;
-        var y = Math.floor((event.clientY - rect.top)) + panelParent.scrollTop;
-        //console.error(x,y);
+        // Step 1: Get mouse position relative to canvas before zoom
+        var mouseX = event.clientX - rect.left - containerTransform.x;
+        var mouseY = event.clientY - rect.top - containerTransform.y;
+        var canvasX = mouseX / z;
+        var canvasY = mouseY / z;
 
-        zoom=zoom*amount;
+        // Step 2: Apply zoom
+        zoom = zoom * amount;
         let _w = Math.floor(canvas.width * zoom);
         let _h = Math.floor(canvas.height * zoom);
-        let _z = (zoom/z - 1);
 
+        // Step 3: Calculate new mouse position after zoom
+        var newMouseX = canvasX * zoom;
+        var newMouseY = canvasY * zoom;
 
-        canvas.style.width = _w + "px";
-        canvas.style.height = _h + "px";
-        overlayCanvas.style.width = _w + "px";
-        overlayCanvas.style.height = _h + "px";
+        // Step 4: Adjust panning so the mouse stays at the same spot
+        containerTransform.x += mouseX - newMouseX;
+        containerTransform.y += mouseY - newMouseY;
 
+        //canvas.style.width = _w + "px";
+        //canvas.style.height = _h + "px";
+        //overlayCanvas.style.width = _w + "px";
+        //overlayCanvas.style.height = _h + "px";
+        container.style.width = (_w + 2) + "px";
+        container.style.height = (_h + 2) + "px";
 
-        panelParent.scrollLeft += _z*x;
-        panelParent.scrollTop += _z*y;
+        setContainer();
 
         if (selectBox.isActive()) selectBox.zoom(zoom);
         if (resizer.isActive()) resizer.zoom(zoom);
         gridOverlay.zoom(zoom);
 
+        me.applyGlobalFilter();
     }
 
     me.getZoom = function(){
@@ -282,21 +315,13 @@ let Canvas = function(parent){
     }
 
     me.setPanning = (tx,ty)=>{
-        panelParent.scrollLeft = tx;
-        panelParent.scrollTop = ty;
+        containerTransform.x = tx;
+        containerTransform.y = ty;
+        setContainer();
+    }
 
-        let fx = parseInt(panelParent.scrollLeft);
-        let fy = parseInt(panelParent.scrollTop);
-
-        if (fx !== tx){
-            containerTransform.x = containerTransform.startX+fx-tx;
-            setContainer();
-        }
-        if (fy !== ty){
-            containerTransform.y = containerTransform.startY+fy-ty ;
-            setContainer();
-        }
-
+    me.getPanning = ()=>{
+        return {x:containerTransform.x,y:containerTransform.y};
     }
 
     me.getCanvas = function(){
@@ -397,8 +422,6 @@ let Canvas = function(parent){
                     Cursor.override("pan");
                     touchData.startDragX = e.clientX;
                     touchData.startDragY =  e.clientY;
-                    touchData.startScrollX = panelParent.scrollLeft;
-                    touchData.startScrollY = panelParent.scrollTop;
                     containerTransform.startX = containerTransform.x;
                     containerTransform.startY = containerTransform.y;
                     return;
@@ -780,11 +803,9 @@ let Canvas = function(parent){
                 point = getCursorPosition(canvas,e,false);
                 if (touchData.isdown){
                     if (Input.isSpaceDown() || touchData.button===1 || Editor.getCurrentTool() === COMMAND.PAN){
-                        var dx = (touchData.startDragX-e.clientX);
-                        var dy = touchData.startDragY-e.clientY;
-                        let tx = touchData.startScrollX+dx;
-                        let ty = touchData.startScrollY+dy;
-                        me.setPanning(tx,ty);
+                        var panDeltaX = e.clientX - touchData.startDragX;
+                        var panDeltaY = e.clientY - touchData.startDragY;
+                        me.setPanning(containerTransform.startX + panDeltaX, containerTransform.startY + panDeltaY);
                         return;
                     }
 
@@ -843,6 +864,7 @@ let Canvas = function(parent){
                     if (touchData.hotDrawFunction){
                         touchData.hotDrawFunction(point.x,point.y);
                     }
+
                     
                 }
                 break;
@@ -884,13 +906,6 @@ let Canvas = function(parent){
         return getCursorPosition(canvas,event);
     }
 
-    function getElementPosition(el) {
-        var rect = el.getBoundingClientRect(),
-            scrollLeft = window.pageXOffset || document.documentElement.scrollLeft,
-            scrollTop = window.pageYOffset || document.documentElement.scrollTop;
-        return { top: rect.top + scrollTop, left: rect.left + scrollLeft }
-    }
-    
     function hideOverlay(){
         EventBus.trigger(EVENT.hideCanvasOverlay);
     }
@@ -912,8 +927,24 @@ let Canvas = function(parent){
 
     me.resetPan = function(){
         resetContainer();
-        panelParent.scrollLeft = 0;
-        panelParent.scrollTop = 0;
+
+        // center the canvas in the panel
+        let rect = panelParent.getBoundingClientRect();
+        let w = Math.floor(canvas.width * zoom);
+        let h = Math.floor(canvas.height * zoom);
+        containerTransform.x = (rect.width - w)/2;
+        containerTransform.y = (rect.height - h)/2;
+        setContainer();
+    }
+
+    me.resetGlobalFilter = function(){
+        resetShaders();
+    }
+
+    me.applyGlobalFilter = function(){
+        if (Palette.isLockedGlobal()){
+            runWebGLQuantizer(canvas, Palette.get(), false, undefined, 1, 0);
+        }
     }
 
     //Bresenham's_line_algorithm

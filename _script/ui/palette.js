@@ -9,6 +9,7 @@ import {duplicateCanvas} from "../util/canvasUtils.js";
 import Animator from "../util/animator.js";
 import ColorRange from "./components/colorRange.js";
 import Modal from "./modal.js";
+import Statusbar from "./statusbar.js";
 
 let Palette = function(){
     let me = {};
@@ -32,6 +33,7 @@ let Palette = function(){
     let lockButton;
     let paletteToolsPanel;
     let isLocked = false;
+    let isLockedGlobal = false;
     let hasDuplicates = false;
     let paletteListIndexElm;
     let colorReducePanel;
@@ -219,18 +221,19 @@ let Palette = function(){
             $(".button.edit",{onClick: ()=>{EventBus.trigger(COMMAND.EDITPALETTE)}, info:"Edit palette"},$(".icon")),
             cycleButton = $(".button.cycle",{onClick: ()=>{EventBus.trigger(COMMAND.CYCLEPALETTE)}, info:"<b>tab</b> Toggle Color Cycle"},$(".icon")),
             lockButton = $(".button.lock",{onClick: ()=>{EventBus.trigger(COMMAND.LOCKPALETTE)}, info:"Lock Palette"},$(".icon")),
-            $(".button.plus",{onClick: ()=>{EventBus.trigger(COMMAND.ADDPALETTE)}, info:"Add new Palette"},$(".icon")),
+            $(".button.hamburger",{onClick: ()=>{EventBus.trigger(COMMAND.TOGGLEPALETTES)}, info:"Show Palette Presets"},$(".icon")),
+            //$(".button.plus",{onClick: ()=>{EventBus.trigger(COMMAND.ADDPALETTE)}, info:"Add new Palette"},$(".icon")),
         );
 
 
 
-        $(".paletteListNav",{parent: paletteToolsPanel},$(".nav",
+        /*$(".paletteListNav",{parent: paletteToolsPanel},$(".nav",
             $(".prev.active",{onClick: ()=>{me.setPaletteListIndex(paletteListIndex,-1)},info:"<b>Pg Up</b> Previous Palette"}),
             paletteListIndexElm = $(".page","" + (paletteListIndex+1)),
             $(".next.active",{
                 onClick: ()=>{me.setPaletteListIndex(paletteListIndex,1)},info:"<b>Pg Dn</b> Next Palette"
             }))
-        );
+        );*/
 
         paletteCanvas = $("canvas.info.palettecanvas",{
             parent: paletteParent,
@@ -359,6 +362,10 @@ let Palette = function(){
 
     me.isLocked = function(){
         return isLocked;
+    }
+
+    me.isLockedGlobal = function(){
+        return isLockedGlobal;
     }
 
     me.set = function(palette){
@@ -1127,8 +1134,11 @@ let Palette = function(){
     })
 
     EventBus.on(COMMAND.LOCKPALETTE,()=>{
-        isLocked = !isLocked;
-        lockButton.classList.toggle("active",isLocked);
+        //isLocked = !isLocked;
+        isLockedGlobal = !isLockedGlobal;
+        lockButton.classList.toggle("active",isLockedGlobal);
+        EventBus.trigger(EVENT.layerContentChanged);
+        EventBus.trigger(EVENT.paletteLockChanged,isLockedGlobal);
     });
 
     EventBus.on(COMMAND.CYCLEPALETTE,me.cycle);

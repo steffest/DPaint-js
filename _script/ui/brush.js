@@ -9,26 +9,164 @@ import ToolOptions from "./components/toolOptions.js";
 import {duplicateCanvas, releaseCanvas} from "../util/canvasUtils.js";
 import ImageProcessing from "../util/imageProcessing.js";
 import Modal from "./modal.js";
+import BrushPanel from "./toolPanels/brushPanel.js";
+
+/*
+Brush Types:
+ - square
+ - circle
+ - cross (fixed size)
+ - canvas (fixed size)
+ - brush (canvas with dynamic size)
+ */
 
 var Brush = function(){
     var me = {};
     var container;
-    var width = 1;
-    var height = 1;
-    var brushType = "square";
-    var presets = [];
-    var brushIndex = 0;
-    let dynamicSettings;
-    let opacity = 100;
     let pressure = 1;
+
+    let presets = [
+        {
+            type: "square",
+            width: 1,
+            height: 1,
+            softness: 0,
+            opacity: 100,
+            flow: 100,
+            jitter: 0
+        },
+        {
+            type: "circle",
+            width: 3,
+            height: 3,
+            softness: 0,
+            opacity: 100,
+            flow: 100,
+            jitter: 0
+        },
+        {
+            type: "cross",
+            width: 5,
+            height: 5,
+            softness: 0,
+            opacity: 100,
+            flow: 100,
+            jitter: 0
+        },
+        {
+            type: "circle",
+            width: 5,
+            height: 5,
+            softness: 0,
+            opacity: 100,
+            flow: 100,
+            jitter: 0
+        },
+        {
+            type: "circle",
+            width: 7,
+            height: 7,
+            softness: 0,
+            opacity: 100,
+            flow: 100,
+            jitter: 0
+        },
+        {
+            type: "square",
+            width: 9,
+            height: 9,
+            softness: 0,
+            opacity: 100,
+            flow: 100,
+            jitter: 0
+        },
+        {
+            type: "square",
+            width: 7,
+            height: 7,
+            softness: 0,
+            opacity: 100,
+            flow: 100,
+            jitter: 0
+        },
+        {
+            type: "square",
+            width: 5,
+            height: 5,
+            softness: 0,
+            opacity: 100,
+            flow: 100,
+            jitter: 0
+        },
+        {
+            type: "square",
+            width: 3,
+            height: 3,
+            softness: 0,
+            opacity: 100,
+            flow: 100,
+            jitter: 0
+        },
+        {
+            type: "canvas",
+            width: 7,
+            height: 7,
+            softness: 0,
+            opacity: 100,
+            flow: 100,
+            jitter: 0
+        },
+        {
+            type: "brush",
+            width: 3,
+            height: 3,
+            softness: 0,
+            opacity:90,
+            flow: 90,
+            jitter:10,
+            url: "brush1.png"
+        },
+        {
+            type: "brush",
+            width: 6,
+            height: 6,
+            softness: 0,
+            opacity:80,
+            flow: 80,
+            jitter:10,
+            url: "brush2.png"
+        },
+        {
+            type: "brush",
+            width: 10,
+            height: 10,
+            softness: 0,
+            opacity:80,
+            flow: 80,
+            jitter:10,
+            url: "brush3.png"
+        },
+        {
+            type: "brush",
+            width: 14,
+            height: 14,
+            softness: 0,
+            opacity:70,
+            flow: 70,
+            jitter:20,
+            url: "brush3.png"
+        }
+
+    ]
+
+    let currentBrush =  Object.assign({},presets[0]);
+
 
     var brushCanvas = document.createElement("canvas");
     var brushBackCanvas = document.createElement("canvas");
     let brushCtx = brushCanvas.getContext("2d");
     let brushBackCtx = brushBackCanvas.getContext("2d");
     let brushAlphaLayer;
-    let currentType;
-    let currentIndex;
 
     me.init = function(parent){
         container = $div("brushes info","",parent);
@@ -47,84 +185,57 @@ var Brush = function(){
             b.style.backgroundPosition = x + " " + y;
             b.index = i;
             if (!i) b.classList.add("active");
-            presets.push(b);
+            let p = presets[i];
+            p.element = b;
         }
         
         EventBus.on(EVENT.drawColorChanged,()=>{
-            if (brushType === 'canvas'){
-                if (brushIndex>=0){
-                    generateBrush();
-                }else{
-                    generateStencil();
-                }
-            }
+            generateBrush();
+            //  generateStencil();
         })
         EventBus.on(EVENT.backgroundColorChanged,()=>{
-            if (brushType === 'canvas' && brushIndex>=0){
-                generateBrush();
-            }
+            generateBrush();
         })
     }
 
     me.get = function(){
-
+        return currentBrush;
     }
 
-    me.getOpacity = ()=>{
-        return opacity/100;
-    }
+    me.set = function(type,data){
+        if (type === "preset" && typeof(data) === "number") {
+            if (data<10){
+                // these are the fixed presets from the toolbar
+                for (let i = 0; i<10;i++){
+                    let p = presets[i];
+                    p.element.classList.toggle("active",i===data);
+                }
+            }
+            data = presets[data] || presets[0];
 
-    me.getSettings=()=>{
-        let settings = {
-            width:width,
-            height:height,
-            opacity: opacity
-        };
-        if (dynamicSettings){
-            settings.softness = dynamicSettings.softness;
-        }
-        return settings;
-    }
-
-    me.set = function(type,index){
-        if (type === "preset"){
-            presets.forEach((b,i)=>{
-                b.classList.toggle("active",i===index);
-            });
-            brushIndex = index;
-            switch (index){
-                case 0:
-                    brushType = "square";
-                    width = height = 1;
-                    break;
-                case 1:
-                case 2:
-                case 3:
-                case 4:
-                    brushType = "canvas";
-                    let size = (index*2) + 1;
-                    if (brushIndex === 3) size = 5;
-                    if (brushIndex === 4) size = 7;
-                    width = height = size;
-                    generateBrush();
-                    break;
-                case 5:
-                case 6:
-                case 7:
-                case 8:
-                    brushType = "square";
-                    width = height  = (9-index)*2 + 1;
-                    break;
-                case 9:
-                    brushType = "canvas";
-                    width = height = 7;
-                    generateBrush();
-                    break;
+            if (data.type === "brush" && data.url && !data.img){
+                let img = new Image();
+                img.onload = ()=>{
+                    console.log("Loaded brush " + data.url);
+                    data.img = img;
+                    me.set("brush",data);
+                }
+                img.onerror = ()=>{
+                    Modal.alert("Failed to load brush preset");
+                }
+                img.src = "./_img/brushes/" + data.url;
+                return;
             }
         }
 
-        if (type === "canvas"){
-            // Note: "index" is an image object in this case.
+
+        currentBrush = Object.assign({},data);
+        brushAlphaLayer = undefined;
+        generateBrush();
+        EventBus.trigger(EVENT.brushOptionsChanged);
+
+        /*if (type === "canvas" || type === "brush"){
+            // Note: "data" is an image object in this case.
             brushType = type;
             brushIndex = -1;
             console.error(index);
@@ -136,25 +247,25 @@ var Brush = function(){
             brushBackCtx.drawImage(index,0,0);
             // TODO: What do we draw when grabbing a stencil with right-click draw ?
             brushAlphaLayer = undefined;
-        }
+        }*/
 
-        if (type === "dynamic"){
-            width = index.width;
-            height = index.height;
-            opacity = index.opacity || 100;
+    }
 
-            if (!index.softness){
-                brushType = "square";
-            }else{
-                brushIndex = 100;
-                brushType = "canvas";
-                dynamicSettings = index;
-                generateBrush();
-
-            }
-        }
-
+    me.setSize = function(width, height){
+        currentBrush.width = parseInt(width);
+        currentBrush.height = parseInt(height) || parseInt(width);
+        brushAlphaLayer = undefined;
+        generateBrush();
         EventBus.trigger(EVENT.brushOptionsChanged);
+    }
+
+    me.setOpacity = function(opacity){
+        currentBrush.opacity = parseInt(opacity);
+        EventBus.trigger(EVENT.brushOptionsChanged);
+    }
+
+    me.getOpacity = ()=>{
+        return currentBrush.opacity/100;
     }
 
     me.setPressure = (p)=>{
@@ -165,44 +276,95 @@ var Brush = function(){
         return pressure;
     }
 
+    me.setFlow = (f)=>{
+        currentBrush.flow = parseInt(f);
+        EventBus.trigger(EVENT.brushOptionsChanged);
+    }
 
-    me.draw = function(ctx,x,y,color,onBackground,blendColor){
-        let w,h,p;
+    me.getFlow = ()=>{
+        return currentBrush.flow;
+    }
+
+    me.setJitter = (j)=>{
+        currentBrush.jitter = j;
+        EventBus.trigger(EVENT.brushOptionsChanged);
+    }
+
+    me.getJitter = ()=>{
+        return currentBrush.jitter;
+    }
+
+    me.setSoftness = (f)=>{
+        currentBrush.softness = parseInt(f);
+        if (currentBrush.type === "square" && currentBrush.softness){
+            currentBrush.type = "circle";
+        }
+        generateBrush();
+        EventBus.trigger(EVENT.brushOptionsChanged);
+    }
+
+
+    me.draw = function(ctx,x,y,color,onBackground,blendColor,isDrawing){
+        let p;
         let useCustomBlend = blendColor && Palette.isLocked();
         let useOpacity = ToolOptions.usePressure() && !useCustomBlend;
         let finalColor = color;
 
-        if (brushType === "canvas"){
-            w = brushCanvas.width;
-            h = brushCanvas.height;
-        }else{
-            w = width;
-            h = height;
-        }
+        let w = currentBrush.width;
+        let h = currentBrush.height;
 
         if (w>1) x -= Math.floor((w-1)/2);
         if (h>1) y -= Math.floor((h-1)/2);
 
-        if (useOpacity){
-            p = ctx.globalAlpha;
-            ctx.globalAlpha = pressure;
+        if (isDrawing && currentBrush.jitter){
+            let jx = (Math.random() - 0.5) * currentBrush.jitter * w * 0.05;
+            let jy = (Math.random() - 0.5) * currentBrush.jitter * h  * 0.05;
+
+            if (currentBrush.type === "square" || ! currentBrush.softness){
+                jx = Math.round(jx);
+                jy = Math.round(jy);
+            }
+            x+=jx;
+            y+=jy;
         }
 
 
-        if (brushType === "canvas"){
-            // TODO: blendColor when Palette is Locked !
-            // FIXME
+        if (useOpacity){
+            p = ctx.globalAlpha;
+            ctx.globalAlpha = pressure;
+        }else{
+            ctx.globalAlpha = 1;
+        }
+
+        if (isDrawing && currentBrush.flow<100){
+            let c = currentBrush.flow * Math.random() * 0.01;
+            ctx.globalAlpha *= c;
+        }
+
+        if (isDrawing && ToolOptions.usePressure()){
+            let sizeFactor = 10;
+            w = Math.max(1, w * pressure * (Math.random() * 0.5 + 0.5) * sizeFactor);
+            h = Math.max(1, h * pressure * (Math.random() * 0.5 + 0.5) * sizeFactor);
+        }
+
+        if (currentBrush.type === "canvas" || currentBrush.type === "circle"){
             if (onBackground){
                 ctx.drawImage(brushBackCanvas,x,y);
             }else{
                 ctx.drawImage(brushCanvas,x,y);
+            }
+        }else if (currentBrush.type === "brush"){
+            if (onBackground){
+                ctx.drawImage(brushBackCanvas,x,y,w,h);
+            }else{
+                ctx.drawImage(brushCanvas,x,y,w,h);
             }
         }else{
             if (blendColor && Palette.isLocked()){
                 let c = Color.fromString(color);
                 let imageCtx = ImageFile.getContext();
                 let data = imageCtx.getImageData(x,y,w,h);
-                let opacity2 = opacity/100;
+                let opacity2 = currentBrush.opacity/100;
                 if (ToolOptions.usePressure()){
                     opacity2 *= pressure;
                 }
@@ -249,13 +411,12 @@ var Brush = function(){
     }
 
     me.rotate = (left)=>{
-        if (brushType === "canvas"){
+        if (currentBrush.type === "canvas"){
             ImageProcessing.rotate(brushCanvas,left);
             width = brushCanvas.width;
             height = brushCanvas.height;
             brushAlphaLayer = undefined;
             EventBus.trigger(EVENT.drawCanvasOverlay);
-
         }
     }
 
@@ -330,12 +491,104 @@ var Brush = function(){
     }
     
     function generateBrush(){
-        brushCanvas.width = brushBackCanvas.width = width;
-        brushCanvas.height = brushBackCanvas.height = height;
-        brushCtx.clearRect(0,0,width,height);
+        console.log("Generating brush",currentBrush);
+        brushCanvas.width = brushBackCanvas.width = currentBrush.width;
+        brushCanvas.height = brushBackCanvas.height = currentBrush.height;
+        brushCtx.clearRect(0,0,currentBrush.width,currentBrush.height);
         brushCtx.fillStyle = Palette.getDrawColor();
 
-        switch (brushIndex){
+        switch (currentBrush.type){
+            case "square":
+                brushCtx.fillRect(0,0,currentBrush.width,currentBrush.height);
+                break;
+            case "circle":
+                let wx = currentBrush.width/2;
+                let wh = currentBrush.height/2;
+
+                if (currentBrush.softness){
+                    console.error(typeof currentBrush.softness)
+                    if (currentBrush.softness === 1){
+                        // default anti-aliased circle
+                        brushCtx.beginPath();
+                        brushCtx.ellipse(wx,wh,wx,wh, 0, 0,
+                            2 * Math.PI);
+                        brushCtx.fill();
+                    }else{
+                        let opacityStep = 1/wx/currentBrush.softness;
+                        let opacity = opacityStep;
+                        let c=Color.fromString(Palette.getDrawColor());
+                        for (let radius=wx;radius>0;radius--){
+                            brushCtx.globalAlpha = Math.min(opacity,1);
+
+                            brushCtx.beginPath();
+                            brushCtx.ellipse(wx, wh, radius, radius, 0, 0, 2 * Math.PI);
+                            brushCtx.fill();
+                            opacity+=opacityStep;
+
+                        }
+
+                        // hmm... this doesn't preserve the color 100%
+                        // reset color
+                        // TODO: better way of generating transparent brushes;
+                        let data = brushCtx.getImageData(0,0,currentBrush.width,currentBrush.height);
+                        let d=data.data;
+                        for (let i = 0, max = d.length; i<max; i += 4){
+                            d[i]=c[0];
+                            d[i+1]=c[1];
+                            d[i+2]=c[2];
+                        }
+                        brushCtx.putImageData(data,0,0);
+                    }
+                }else{
+                    // non anti-aliased circle
+                    switch (currentBrush.width){
+                        case 3:
+                            brushCtx.fillRect(0,1,3,1);
+                            brushCtx.fillRect(1,0,1,3);
+                            break;
+                        case 5:
+                            brushCtx.fillRect(0,1,5,3);
+                            brushCtx.fillRect(1,0,3,5);
+                            break;
+                        case 7:
+                            brushCtx.fillRect(0,2,7,3);
+                            brushCtx.fillRect(2,0,3,7);
+                            brushCtx.fillRect(1,1,5,5);
+                            break;
+                        default:
+                            brushCtx.beginPath();
+                            brushCtx.ellipse(wx,  wh,wx, wh, 0, 0,
+                                2 * Math.PI);
+                            brushCtx.fill();
+
+                            // make sure we have solid edges
+                            let data = brushCtx.getImageData(0,0,currentBrush.width,currentBrush.height);
+                            let d=data.data;
+                            let c=Color.fromString(Palette.getDrawColor());
+                            for (let i = 0, max = d.length; i<max; i += 4){
+                                if (d[i+3]>0){
+                                    d[i]=c[0];
+                                    d[i+1]=c[1];
+                                    d[i+2]=c[2];
+                                    d[i+3]=255;
+                                }
+                            }
+                            brushCtx.putImageData(data,0,0);
+                    }
+                }
+                break;
+            case "brush":
+                if (currentBrush.img){
+                    brushCtx.drawImage(currentBrush.img,0,0,currentBrush.width,currentBrush.height);
+                }
+                // apply current color
+                generateStencil();
+                break;
+            default:
+                console.error("Invalid brush type");
+        }
+
+        /*switch (brushIndex){
             case 1:
                 brushCtx.fillRect(0,1,3,1);
                 brushCtx.fillRect(1,0,1,3);
@@ -411,14 +664,14 @@ var Brush = function(){
 
             default:
                 break;
-        }
+        }*/
 
         generateBackBrush();
     }
 
     function generateBackBrush(){
         brushBackCtx.fillStyle = Palette.getBackgroundColor();
-        brushBackCtx.fillRect(0,0,width,height);
+        brushBackCtx.fillRect(0,0,currentBrush.width,currentBrush.height);
         brushBackCtx.globalCompositeOperation = "destination-in";
         brushBackCtx.drawImage(brushCanvas,0,0);
         brushBackCtx.globalCompositeOperation = "source-over";

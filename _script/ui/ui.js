@@ -5,6 +5,7 @@ import Toolbar from "./toolbar.js";
 import Editor from "./editor.js";
 import Cursor from "./cursor.js";
 import Sidepanel from "./sidepanel.js";
+import Contentpanel from "./contentpanel.js";
 import StatusBar from "./statusbar.js";
 import PaletteList from "./components/paletteList.js";
 import EventBus from "../util/eventbus.js";
@@ -23,6 +24,7 @@ let UI = function(){
 		Toolbar.init(container);
 		StatusBar.init(container);
 		Sidepanel.init(container);
+		Contentpanel.init(container);
 		PaletteList.init(container);
 		Editor.init(container);
 

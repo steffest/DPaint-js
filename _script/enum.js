@@ -1,4 +1,4 @@
-export let COMMAND = {
+export const COMMAND = {
     NEW: 1001,
     OPEN: 1002,
     LINE: 1003,
@@ -106,6 +106,7 @@ export let COMMAND = {
     RECORDINGSTART: 1105,
     RECORDINGSTOP: 1106,
     RECORDINGEXPORT: 1107,
+    PREFERENCES: 1108,
 
 };
 
@@ -150,10 +151,15 @@ export let EVENT = {
     paletteProcessingStart: 38,
     paletteProcessingEnd: 39,
     penOnlyChanged: 40,
+    paletteLockChanged: 41,
 };
 
-export let ANIMATION = {
+export const ANIMATION = {
     CYCLE: 1,
     SPRAY: 2,
     TEXT: 3,
+}
+
+export const SETTING = {
+    touchRotate: "touchRotate"
 }

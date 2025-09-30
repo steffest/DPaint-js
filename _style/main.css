@@ -753,6 +753,9 @@ body.presentation .menu {
 .toolbar .palettebuttons .button.plus .icon {
   background-image: url("../_img/add.svg");
 }
+.toolbar .palettebuttons .button.hamburger .icon {
+  background-image: url("../_img/hamburger.svg");
+}
 .toolbar .palettebuttons .button.lock .icon {
   background-image: url("../_img/lock_open.svg");
 }
@@ -893,14 +896,16 @@ body.presentation .statusbar {
   display: none;
 }
 
-.sidepanel {
+.sidepanel,
+.contentpanel {
   position: absolute;
   left: 70px;
   top: 27px;
   bottom: 20px;
   display: none;
 }
-.sidepanel .panelcontainer {
+.sidepanel .panelcontainer,
+.contentpanel .panelcontainer {
   position: absolute;
   left: 0;
   right: 0;
@@ -910,7 +915,8 @@ body.presentation .statusbar {
   border: 1px solid black;
   background-color: #313335;
 }
-.sidepanel .panelsizer {
+.sidepanel .panelsizer,
+.contentpanel .panelsizer {
   position: absolute;
   right: -4;
   bottom: 0;
@@ -918,7 +924,8 @@ body.presentation .statusbar {
   width: 4px;
   cursor: col-resize;
 }
-.sidepanel .panelsizer:hover:before {
+.sidepanel .panelsizer:hover:before,
+.contentpanel .panelsizer:hover:before {
   content: "";
   position: absolute;
   left: 0;
@@ -927,13 +934,15 @@ body.presentation .statusbar {
   width: 2px;
   background-color: rgba(0, 0, 0, 0.5);
 }
-.sidepanel .panel {
+.sidepanel .panel,
+.contentpanel .panel {
   position: absolute;
   left: 0;
   right: 0;
   top: 0;
 }
-.sidepanel .panel .inner {
+.sidepanel .panel .inner,
+.contentpanel .panel .inner {
   position: absolute;
   top: 22px;
   bottom: 0;
@@ -941,21 +950,25 @@ body.presentation .statusbar {
   left: 0;
   right: 0;
 }
-.sidepanel .panel .inner small {
+.sidepanel .panel .inner small,
+.contentpanel .panel .inner small {
   font-size: 11px;
   color: #adadad;
   text-align: center;
   margin-top: 20px;
   display: block;
 }
-.sidepanel .panel .inner dl {
+.sidepanel .panel .inner dl,
+.contentpanel .panel .inner dl {
   margin: 0;
   padding: 0;
   border-bottom: 1px solid #4d4d4d;
   display: flex;
 }
 .sidepanel .panel .inner dl dt,
-.sidepanel .panel .inner dl dd {
+.sidepanel .panel .inner dl dd,
+.contentpanel .panel .inner dl dt,
+.contentpanel .panel .inner dl dd {
   display: inline-block;
   color: #adadad;
   font-size: 11px;
@@ -964,14 +977,17 @@ body.presentation .statusbar {
   background-color: rgba(255, 255, 255, 0.05);
   width: 60px;
 }
-.sidepanel .panel .inner dl dt {
+.sidepanel .panel .inner dl dt,
+.contentpanel .panel .inner dl dt {
   min-width: 60px;
 }
-.sidepanel .panel .inner dl dd {
+.sidepanel .panel .inner dl dd,
+.contentpanel .panel .inner dl dd {
   opacity: 0.7;
   width: 100%;
 }
-.sidepanel .panel .inner .layer {
+.sidepanel .panel .inner .layer,
+.contentpanel .panel .inner .layer {
   padding: 5px;
   color: #BBBBBB;
   border-bottom: 1px solid #626262;
@@ -982,26 +998,35 @@ body.presentation .statusbar {
   right: 0;
   height: 23px;
 }
-.sidepanel .panel .inner .layer.active {
+.sidepanel .panel .inner .layer.active,
+.contentpanel .panel .inner .layer.active {
   background-color: rgba(255, 255, 255, 0.1);
   color: white;
 }
-.sidepanel .panel .inner .layer.active .mask:after {
+.sidepanel .panel .inner .layer.active .mask:after,
+.contentpanel .panel .inner .layer.active .mask:after {
   background-color: #46484A;
 }
-.sidepanel .panel .inner .layer:hover {
+.sidepanel .panel .inner .layer:hover,
+.contentpanel .panel .inner .layer:hover {
   cursor: pointer;
 }
-.sidepanel .panel .inner .layer.ghost, .sidepanel .panel .inner .layer.hidden {
+.sidepanel .panel .inner .layer.ghost, .sidepanel .panel .inner .layer.hidden,
+.contentpanel .panel .inner .layer.ghost,
+.contentpanel .panel .inner .layer.hidden {
   opacity: 0.4;
 }
-.sidepanel .panel .inner .layer.ghost .eye, .sidepanel .panel .inner .layer.hidden .eye {
+.sidepanel .panel .inner .layer.ghost .eye, .sidepanel .panel .inner .layer.hidden .eye,
+.contentpanel .panel .inner .layer.ghost .eye,
+.contentpanel .panel .inner .layer.hidden .eye {
   opacity: 0.4;
 }
-.sidepanel .panel .inner .layer.locked {
+.sidepanel .panel .inner .layer.locked,
+.contentpanel .panel .inner .layer.locked {
   pointer-events: none;
 }
-.sidepanel .panel .inner .layer .eye {
+.sidepanel .panel .inner .layer .eye,
+.contentpanel .panel .inner .layer .eye {
   position: absolute;
   right: 4px;
   top: 7px;
@@ -1012,7 +1037,8 @@ body.presentation .statusbar {
   background-repeat: no-repeat;
   opacity: 0.7;
 }
-.sidepanel .panel .inner .layer .lock {
+.sidepanel .panel .inner .layer .lock,
+.contentpanel .panel .inner .layer .lock {
   position: absolute;
   right: 24px;
   top: 3px;
@@ -1023,7 +1049,8 @@ body.presentation .statusbar {
   background-repeat: no-repeat;
   opacity: 0.7;
 }
-.sidepanel .panel .inner .layer .mask {
+.sidepanel .panel .inner .layer .mask,
+.contentpanel .panel .inner .layer .mask {
   position: absolute;
   right: 27px;
   top: 4px;
@@ -1033,7 +1060,8 @@ body.presentation .statusbar {
   background-color: #C7C8C8;
   text-align: center;
 }
-.sidepanel .panel .inner .layer .mask:after {
+.sidepanel .panel .inner .layer .mask:after,
+.contentpanel .panel .inner .layer .mask:after {
   content: "";
   position: absolute;
   left: 50%;
@@ -1044,15 +1072,18 @@ body.presentation .statusbar {
   margin: -7px 0 0 -7px;
   background-color: #313335;
 }
-.sidepanel .panel .inner .layer .mask.active {
+.sidepanel .panel .inner .layer .mask.active,
+.contentpanel .panel .inner .layer .mask.active {
   border: 1px solid #b1e00f;
   background-color: #b1e00f;
   box-shadow: 0 0 2px yellow;
 }
-.sidepanel .panel .inner .layer .mask.disabled {
+.sidepanel .panel .inner .layer .mask.disabled,
+.contentpanel .panel .inner .layer .mask.disabled {
   pointer-events: none;
 }
-.sidepanel .panel .inner .layer .mask.disabled:before {
+.sidepanel .panel .inner .layer .mask.disabled:before,
+.contentpanel .panel .inner .layer .mask.disabled:before {
   content: "";
   position: absolute;
   z-index: 10;
@@ -1063,7 +1094,8 @@ body.presentation .statusbar {
   height: 2px;
   background-color: orange;
 }
-.sidepanel .panel .inner .layer input[type=text] {
+.sidepanel .panel .inner .layer input[type=text],
+.contentpanel .panel .inner .layer input[type=text] {
   position: absolute;
   z-index: 10;
   left: 0;
@@ -1071,7 +1103,8 @@ body.presentation .statusbar {
   font-size: 12px;
   right: 0;
 }
-.sidepanel .panel .inner .frame {
+.sidepanel .panel .inner .frame,
+.contentpanel .panel .inner .frame {
   width: 50px;
   height: 50px;
   border: 1px solid #626262;
@@ -1079,12 +1112,14 @@ body.presentation .statusbar {
   position: absolute;
   opacity: 0.8;
 }
-.sidepanel .panel .inner .frame:hover {
+.sidepanel .panel .inner .frame:hover,
+.contentpanel .panel .inner .frame:hover {
   border: 1px solid white;
   cursor: pointer;
   opacity: 1;
 }
-.sidepanel .panel .inner .frame .label {
+.sidepanel .panel .inner .frame .label,
+.contentpanel .panel .inner .frame .label {
   position: absolute;
   left: 0;
   bottom: 0;
@@ -1093,31 +1128,37 @@ body.presentation .statusbar {
   font-size: 12px;
   padding: 4px;
 }
-.sidepanel .panel .inner .frame.active {
+.sidepanel .panel .inner .frame.active,
+.contentpanel .panel .inner .frame.active {
   box-shadow: 0 0 3px 1px rgba(255, 255, 255, 0.8);
   opacity: 1;
 }
-.sidepanel .panel .inner .frame.active .label {
+.sidepanel .panel .inner .frame.active .label,
+.contentpanel .panel .inner .frame.active .label {
   color: #CCCCCC;
   background-color: rgba(0, 0, 0, 0.7);
 }
-.sidepanel .panel .inner .frame.ghost {
+.sidepanel .panel .inner .frame.ghost,
+.contentpanel .panel .inner .frame.ghost {
   opacity: 0.2;
 }
-.sidepanel .panel .inner.waiting {
+.sidepanel .panel .inner.waiting,
+.contentpanel .panel .inner.waiting {
   opacity: 0.7;
   pointer-events: none;
   filter: brightness(0.5);
   cursor: wait;
 }
-.sidepanel .panel h2 {
+.sidepanel .panel h2,
+.contentpanel .panel h2 {
   font-size: 14px;
   color: #BBBBBB;
   font-weight: 100;
   padding: 2px;
   margin: 0;
 }
-.sidepanel .panel.info .button.refresh {
+.sidepanel .panel.info .button.refresh,
+.contentpanel .panel.info .button.refresh {
   position: absolute;
   right: 3px;
   top: 40px;
@@ -1128,15 +1169,18 @@ body.presentation .statusbar {
   background-repeat: no-repeat;
   opacity: 0.5;
 }
-.sidepanel .panel.info .button.refresh:hover {
+.sidepanel .panel.info .button.refresh:hover,
+.contentpanel .panel.info .button.refresh:hover {
   cursor: pointer;
   opacity: 1;
 }
-.sidepanel .panel.frames .paneltools .frameselectinline {
+.sidepanel .panel.frames .paneltools .frameselectinline,
+.contentpanel .panel.frames .paneltools .frameselectinline {
   display: flex;
   width: 100%;
 }
-.sidepanel .panel.frames .paneltools .frameselectinline input[type=text] {
+.sidepanel .panel.frames .paneltools .frameselectinline input[type=text],
+.contentpanel .panel.frames .paneltools .frameselectinline input[type=text] {
   padding: 0 4px;
   width: 30px;
   height: 19px;
@@ -1144,27 +1188,32 @@ body.presentation .statusbar {
   margin-right: 2px;
   font-size: 11px;
 }
-.sidepanel .panel.frames .paneltools .framerange {
+.sidepanel .panel.frames .paneltools .framerange,
+.contentpanel .panel.frames .paneltools .framerange {
   margin-left: 4px;
   display: none;
 }
-.sidepanel .panel.frames .paneltools .framecontrols {
+.sidepanel .panel.frames .paneltools .framecontrols,
+.contentpanel .panel.frames .paneltools .framecontrols {
   display: none;
   position: absolute;
   left: 0;
   top: 25px;
   right: 0;
 }
-.sidepanel .panel.frames .paneltools .framecontrols .rangeselectinline {
+.sidepanel .panel.frames .paneltools .framecontrols .rangeselectinline,
+.contentpanel .panel.frames .paneltools .framecontrols .rangeselectinline {
   display: flex;
   margin-left: 4px;
   align-items: center;
   width: 100%;
 }
-.sidepanel .panel.frames .paneltools .framecontrols .rangeselectinline label {
+.sidepanel .panel.frames .paneltools .framecontrols .rangeselectinline label,
+.contentpanel .panel.frames .paneltools .framecontrols .rangeselectinline label {
   opacity: 0.7;
 }
-.sidepanel .panel.frames .paneltools .framecontrols .rangeselectinline input[type=text] {
+.sidepanel .panel.frames .paneltools .framecontrols .rangeselectinline input[type=text],
+.contentpanel .panel.frames .paneltools .framecontrols .rangeselectinline input[type=text] {
   padding: 0 4px;
   width: 30px;
   height: 19px;
@@ -1172,13 +1221,16 @@ body.presentation .statusbar {
   margin-right: 2px;
   font-size: 11px;
 }
-.sidepanel .panel.frames .paneltools.multirow .framerange {
+.sidepanel .panel.frames .paneltools.multirow .framerange,
+.contentpanel .panel.frames .paneltools.multirow .framerange {
   display: block;
 }
-.sidepanel .panel.frames .paneltools.multirow .framecontrols {
+.sidepanel .panel.frames .paneltools.multirow .framecontrols,
+.contentpanel .panel.frames .paneltools.multirow .framecontrols {
   display: flex;
 }
-.sidepanel .panel.frames .panelcontent {
+.sidepanel .panel.frames .panelcontent,
+.contentpanel .panel.frames .panelcontent {
   position: absolute;
   left: 0;
   right: 0;
@@ -1187,20 +1239,26 @@ body.presentation .statusbar {
   overflow: auto;
   overflow-y: hidden;
 }
-.sidepanel .panel.frames .panelcontent.multirow {
+.sidepanel .panel.frames .panelcontent.multirow,
+.contentpanel .panel.frames .panelcontent.multirow {
   top: 48px;
 }
-.sidepanel .panel.frames .panelcontent.inactive {
+.sidepanel .panel.frames .panelcontent.inactive,
+.contentpanel .panel.frames .panelcontent.inactive {
   pointer-events: none;
 }
-.sidepanel .panel.collapsed .caption i {
+.sidepanel .panel.collapsed .caption i,
+.contentpanel .panel.collapsed .caption i {
   transform: rotate(0deg);
 }
 .sidepanel .panel.collapsed .inner,
-.sidepanel .panel.collapsed .sizer {
+.sidepanel .panel.collapsed .sizer,
+.contentpanel .panel.collapsed .inner,
+.contentpanel .panel.collapsed .sizer {
   display: none;
 }
-.sidepanel .panel .paneltools {
+.sidepanel .panel .paneltools,
+.contentpanel .panel .paneltools {
   border-bottom: 1px solid rgba(0, 0, 0, 0.7);
   background-color: #2D2E30;
   display: flex;
@@ -1209,10 +1267,12 @@ body.presentation .statusbar {
   color: #BBBBBB;
   position: relative;
 }
-.sidepanel .panel .paneltools.multirow {
+.sidepanel .panel .paneltools.multirow,
+.contentpanel .panel .paneltools.multirow {
   height: 47px;
 }
-.sidepanel .panel .paneltools .button {
+.sidepanel .panel .paneltools .button,
+.contentpanel .panel .paneltools .button {
   height: 20px;
   width: 20px;
   margin-left: 2px;
@@ -1227,20 +1287,25 @@ body.presentation .statusbar {
   opacity: 0.5;
   flex-shrink: 0;
 }
-.sidepanel .panel .paneltools .button.delete {
+.sidepanel .panel .paneltools .button.delete,
+.contentpanel .panel .paneltools .button.delete {
   background-image: url("../_img/trashcan.svg");
 }
-.sidepanel .panel .paneltools .button.play {
+.sidepanel .panel .paneltools .button.play,
+.contentpanel .panel .paneltools .button.play {
   background-image: url("../_img/play.svg");
 }
-.sidepanel .panel .paneltools .button.play.paused {
+.sidepanel .panel .paneltools .button.play.paused,
+.contentpanel .panel .paneltools .button.play.paused {
   background-image: url("../_img/pause.svg");
 }
-.sidepanel .panel .paneltools .button:hover {
+.sidepanel .panel .paneltools .button:hover,
+.contentpanel .panel .paneltools .button:hover {
   cursor: pointer;
   opacity: 1;
 }
-.sidepanel .panel .paneltools .rangeselect {
+.sidepanel .panel .paneltools .rangeselect,
+.contentpanel .panel .paneltools .rangeselect {
   position: absolute;
   left: 4px;
   top: 4px;
@@ -1248,7 +1313,8 @@ body.presentation .statusbar {
   font-size: 11px;
   color: #9d9c9c;
 }
-.sidepanel .panel .paneltools .rangeselect input {
+.sidepanel .panel .paneltools .rangeselect input,
+.contentpanel .panel .paneltools .rangeselect input {
   position: absolute;
   margin: 0 0 0 4px;
   height: 17px;
@@ -1257,28 +1323,34 @@ body.presentation .statusbar {
   right: 0;
   width: auto;
 }
-.sidepanel .panel .paneltools .rangeselect input::-webkit-slider-thumb, .sidepanel .panel .paneltools .rangeselect input::-moz-range-thumb {
+.sidepanel .panel .paneltools .rangeselect input::-webkit-slider-thumb, .sidepanel .panel .paneltools .rangeselect input::-moz-range-thumb,
+.contentpanel .panel .paneltools .rangeselect input::-webkit-slider-thumb,
+.contentpanel .panel .paneltools .rangeselect input::-moz-range-thumb {
   margin-top: -6px;
   width: 8px;
   height: 12px;
   background: #9d9d9d;
   border: 1px solid rgba(50, 50, 50, 0.7);
 }
-.sidepanel .panel .paneltools .rangeselect input::-moz-range-thumb {
+.sidepanel .panel .paneltools .rangeselect input::-moz-range-thumb,
+.contentpanel .panel .paneltools .rangeselect input::-moz-range-thumb {
   width: 6px;
   height: 10px;
 }
-.sidepanel .panel .paneltools .blendselect {
+.sidepanel .panel .paneltools .blendselect,
+.contentpanel .panel .paneltools .blendselect {
   position: absolute;
   left: 4px;
   top: 25px;
   right: 0;
   color: #9d9c9c;
 }
-.sidepanel .panel .paneltools .blendselect .label {
+.sidepanel .panel .paneltools .blendselect .label,
+.contentpanel .panel .paneltools .blendselect .label {
   line-height: 19px;
 }
-.sidepanel .panel .paneltools .blendselect select {
+.sidepanel .panel .paneltools .blendselect select,
+.contentpanel .panel .paneltools .blendselect select {
   position: absolute;
   right: 4px;
   top: 0;
@@ -1288,24 +1360,33 @@ body.presentation .statusbar {
   color: #888888;
   border: 1px solid #7b7b7b;
 }
-.sidepanel .panel .paneltools .blendselect select:focus {
+.sidepanel .panel .paneltools .blendselect select:focus,
+.contentpanel .panel .paneltools .blendselect select:focus {
   outline: none;
 }
-.sidepanel .panel.brush, .sidepanel .panel.grid {
+.sidepanel .panel.brush, .sidepanel .panel.grid,
+.contentpanel .panel.brush,
+.contentpanel .panel.grid {
   color: #BBBBBB;
   font-size: 12px;
 }
-.sidepanel .panel.brush label, .sidepanel .panel.grid label {
+.sidepanel .panel.brush label, .sidepanel .panel.grid label,
+.contentpanel .panel.brush label,
+.contentpanel .panel.grid label {
   opacity: 0.7;
   line-height: 19px;
   padding: 0 4px;
   width: 110px;
 }
-.sidepanel .panel.brush .rangeselect, .sidepanel .panel.grid .rangeselect {
+.sidepanel .panel.brush .rangeselect, .sidepanel .panel.grid .rangeselect,
+.contentpanel .panel.brush .rangeselect,
+.contentpanel .panel.grid .rangeselect {
   display: flex;
   margin-bottom: 3px;
 }
-.sidepanel .panel.brush .rangeselect input[type=text], .sidepanel .panel.grid .rangeselect input[type=text] {
+.sidepanel .panel.brush .rangeselect input[type=text], .sidepanel .panel.grid .rangeselect input[type=text],
+.contentpanel .panel.brush .rangeselect input[type=text],
+.contentpanel .panel.grid .rangeselect input[type=text] {
   padding: 0 4px;
   width: 30px;
   height: 19px;
@@ -1313,14 +1394,20 @@ body.presentation .statusbar {
   margin-right: 2px;
   font-size: 11px;
 }
-.sidepanel .panel.brush .dither, .sidepanel .panel.grid .dither {
+.sidepanel .panel.brush .dither, .sidepanel .panel.grid .dither,
+.contentpanel .panel.brush .dither,
+.contentpanel .panel.grid .dither {
   display: flex;
 }
-.sidepanel .panel.brush .patterns, .sidepanel .panel.grid .patterns {
+.sidepanel .panel.brush .patterns, .sidepanel .panel.grid .patterns,
+.contentpanel .panel.brush .patterns,
+.contentpanel .panel.grid .patterns {
   display: flex;
   width: 140%;
 }
-.sidepanel .panel.brush .patterns .pattern, .sidepanel .panel.grid .patterns .pattern {
+.sidepanel .panel.brush .patterns .pattern, .sidepanel .panel.grid .patterns .pattern,
+.contentpanel .panel.brush .patterns .pattern,
+.contentpanel .panel.grid .patterns .pattern {
   width: 100%;
   height: 20px;
   margin-right: 2px;
@@ -1328,27 +1415,39 @@ body.presentation .statusbar {
   background-color: #808080;
   background-size: contain;
 }
-.sidepanel .panel.brush .patterns .pattern.invert.hasPattern, .sidepanel .panel.grid .patterns .pattern.invert.hasPattern {
+.sidepanel .panel.brush .patterns .pattern.invert.hasPattern, .sidepanel .panel.grid .patterns .pattern.invert.hasPattern,
+.contentpanel .panel.brush .patterns .pattern.invert.hasPattern,
+.contentpanel .panel.grid .patterns .pattern.invert.hasPattern {
   filter: invert(1);
   border: 1px solid white;
   background-color: #A0A0A0;
   opacity: 0.5;
 }
-.sidepanel .panel.brush .patterns .pattern.invert.hasPattern.active, .sidepanel .panel.grid .patterns .pattern.invert.hasPattern.active {
+.sidepanel .panel.brush .patterns .pattern.invert.hasPattern.active, .sidepanel .panel.grid .patterns .pattern.invert.hasPattern.active,
+.contentpanel .panel.brush .patterns .pattern.invert.hasPattern.active,
+.contentpanel .panel.grid .patterns .pattern.invert.hasPattern.active {
   border-color: #600fe0;
   box-shadow: 0 0 2px blue;
   opacity: 0.9;
 }
-.sidepanel .panel.brush .patterns .pattern.p1, .sidepanel .panel.grid .patterns .pattern.p1 {
+.sidepanel .panel.brush .patterns .pattern.p1, .sidepanel .panel.grid .patterns .pattern.p1,
+.contentpanel .panel.brush .patterns .pattern.p1,
+.contentpanel .panel.grid .patterns .pattern.p1 {
   background-image: url("../_img/patterns/dots.png");
 }
-.sidepanel .panel.brush .patterns .pattern.p2, .sidepanel .panel.grid .patterns .pattern.p2 {
+.sidepanel .panel.brush .patterns .pattern.p2, .sidepanel .panel.grid .patterns .pattern.p2,
+.contentpanel .panel.brush .patterns .pattern.p2,
+.contentpanel .panel.grid .patterns .pattern.p2 {
   background-image: url("../_img/patterns/cross.png");
 }
-.sidepanel .panel.brush .patterns .pattern.p3, .sidepanel .panel.grid .patterns .pattern.p3 {
+.sidepanel .panel.brush .patterns .pattern.p3, .sidepanel .panel.grid .patterns .pattern.p3,
+.contentpanel .panel.brush .patterns .pattern.p3,
+.contentpanel .panel.grid .patterns .pattern.p3 {
   background-image: url("../_img/patterns/grid.png");
 }
-.sidepanel .panel.brush .patterns .pattern:last-of-type, .sidepanel .panel.grid .patterns .pattern:last-of-type {
+.sidepanel .panel.brush .patterns .pattern:last-of-type, .sidepanel .panel.grid .patterns .pattern:last-of-type,
+.contentpanel .panel.brush .patterns .pattern:last-of-type,
+.contentpanel .panel.grid .patterns .pattern:last-of-type {
   margin-right: 0;
   background-color: transparent;
   background-image: url("../_img/caret.svg");
@@ -1356,38 +1455,75 @@ body.presentation .statusbar {
   background-position: center center;
   opacity: 0.5;
 }
-.sidepanel .panel.brush .patterns .pattern:last-of-type:hover, .sidepanel .panel.grid .patterns .pattern:last-of-type:hover {
+.sidepanel .panel.brush .patterns .pattern:last-of-type:hover, .sidepanel .panel.grid .patterns .pattern:last-of-type:hover,
+.contentpanel .panel.brush .patterns .pattern:last-of-type:hover,
+.contentpanel .panel.grid .patterns .pattern:last-of-type:hover {
   background-color: transparent;
   opacity: 1;
 }
-.sidepanel .panel.brush .patterns .pattern:hover, .sidepanel .panel.grid .patterns .pattern:hover {
+.sidepanel .panel.brush .patterns .pattern:hover, .sidepanel .panel.grid .patterns .pattern:hover,
+.contentpanel .panel.brush .patterns .pattern:hover,
+.contentpanel .panel.grid .patterns .pattern:hover {
   cursor: pointer;
   background-color: white;
 }
-.sidepanel .panel.brush .patterns .pattern:hover.invert.hasPattern, .sidepanel .panel.grid .patterns .pattern:hover.invert.hasPattern {
+.sidepanel .panel.brush .patterns .pattern:hover.invert.hasPattern, .sidepanel .panel.grid .patterns .pattern:hover.invert.hasPattern,
+.contentpanel .panel.brush .patterns .pattern:hover.invert.hasPattern,
+.contentpanel .panel.grid .patterns .pattern:hover.invert.hasPattern {
   background-color: white;
   opacity: 1;
 }
-.sidepanel .panel.brush .patterns .pattern.active, .sidepanel .panel.grid .patterns .pattern.active {
+.sidepanel .panel.brush .patterns .pattern.active, .sidepanel .panel.grid .patterns .pattern.active,
+.contentpanel .panel.brush .patterns .pattern.active,
+.contentpanel .panel.grid .patterns .pattern.active {
   border-color: #b1e00f;
   box-shadow: 0 0 2px yellow;
 }
-.sidepanel .panel.color .inner {
+.sidepanel .panel.brush .presets .subcaption, .sidepanel .panel.grid .presets .subcaption,
+.contentpanel .panel.brush .presets .subcaption,
+.contentpanel .panel.grid .presets .subcaption {
+  background-color: #282A2C;
+  color: #BBBBBB;
+  padding: 3px 5px 3px 5px;
+  font-size: 12px;
+  margin-top: 2px;
+}
+.sidepanel .panel.brush .presets .preset, .sidepanel .panel.grid .presets .preset,
+.contentpanel .panel.brush .presets .preset,
+.contentpanel .panel.grid .presets .preset {
+  height: 25px;
+  background-image: url("../_img/brushes/preview/1.png");
+  background-size: 100% 100%;
+  border-bottom: 1px solid black;
+  filter: brightness(0.8);
+}
+.sidepanel .panel.brush .presets .preset:hover, .sidepanel .panel.grid .presets .preset:hover,
+.contentpanel .panel.brush .presets .preset:hover,
+.contentpanel .panel.grid .presets .preset:hover {
+  cursor: pointer;
+  filter: none;
+}
+.sidepanel .panel.color .inner,
+.contentpanel .panel.color .inner {
   overflow: hidden;
 }
-.sidepanel .panel.color .colorpicker {
+.sidepanel .panel.color .colorpicker,
+.contentpanel .panel.color .colorpicker {
   height: 120px;
   width: 100%;
   overflow: hidden;
 }
-.sidepanel .panel.color .colorpicker canvas {
+.sidepanel .panel.color .colorpicker canvas,
+.contentpanel .panel.color .colorpicker canvas {
   border-right: 1px solid black;
 }
-.sidepanel .panel.color .colorpicker canvas:last-of-type {
+.sidepanel .panel.color .colorpicker canvas:last-of-type,
+.contentpanel .panel.color .colorpicker canvas:last-of-type {
   border-left: 1px solid black;
   margin-left: 4px;
 }
-.sidepanel .panel.color .colorpicker .dot {
+.sidepanel .panel.color .colorpicker .dot,
+.contentpanel .panel.color .colorpicker .dot {
   position: absolute;
   pointer-events: none;
   width: 10px;
@@ -1399,7 +1535,8 @@ body.presentation .statusbar {
   top: 0;
   box-shadow: 0 0 1px 1px rgba(0, 0, 0, 0.7), inset 0 0 0 1px rgba(0, 0, 0, 0.5);
 }
-.sidepanel .panel.color .colorpicker .line {
+.sidepanel .panel.color .colorpicker .line,
+.contentpanel .panel.color .colorpicker .line {
   position: absolute;
   pointer-events: none;
   width: 0;
@@ -1412,7 +1549,8 @@ body.presentation .statusbar {
   top: 0;
   margin-top: -5px;
 }
-.sidepanel .panel.color .colorpicker .line:before {
+.sidepanel .panel.color .colorpicker .line:before,
+.contentpanel .panel.color .colorpicker .line:before {
   content: "";
   position: absolute;
   left: -20px;
@@ -1423,7 +1561,8 @@ body.presentation .statusbar {
   border-top: 5px solid transparent;
   border-left: 5px solid white;
 }
-.sidepanel .panel.layers .panelcontent {
+.sidepanel .panel.layers .panelcontent,
+.contentpanel .panel.layers .panelcontent {
   position: absolute;
   left: 0;
   right: 0;
@@ -1431,7 +1570,8 @@ body.presentation .statusbar {
   bottom: 0;
   overflow: auto;
 }
-.sidepanel .panel .sizer {
+.sidepanel .panel .sizer,
+.contentpanel .panel .sizer {
   position: absolute;
   right: 0;
   bottom: 0;
@@ -1441,7 +1581,8 @@ body.presentation .statusbar {
   cursor: row-resize;
   z-index: 100;
 }
-.sidepanel .panel .sizer:hover:before {
+.sidepanel .panel .sizer:hover:before,
+.contentpanel .panel .sizer:hover:before {
   content: "";
   position: absolute;
   left: 0;
@@ -1450,7 +1591,8 @@ body.presentation .statusbar {
   height: 2px;
   background-color: rgba(0, 0, 0, 0.5);
 }
-.sidepanel .caption {
+.sidepanel .caption,
+.contentpanel .caption {
   background-color: #282A2C;
   color: #BBBBBB;
   padding: 3px 5px 3px 16px;
@@ -1466,7 +1608,8 @@ body.presentation .statusbar {
   justify-content: flex-start;
   user-select: none;
 }
-.sidepanel .caption i {
+.sidepanel .caption i,
+.contentpanel .caption i {
   position: absolute;
   left: 0;
   top: 2px;
@@ -1479,7 +1622,8 @@ body.presentation .statusbar {
   transition: transform 0.2s ease-in-out;
   opacity: 0.7;
 }
-.sidepanel .caption .close {
+.sidepanel .caption .close,
+.contentpanel .caption .close {
   position: absolute;
   height: 20px;
   width: 20px;
@@ -1489,24 +1633,28 @@ body.presentation .statusbar {
   text-align: center;
   cursor: pointer;
 }
-.sidepanel .subpanel {
+.sidepanel .subpanel,
+.contentpanel .subpanel {
   color: #BBBBBB;
   padding: 4px;
   border-top: 1px solid rgba(255, 255, 255, 0.1);
   border-bottom: 1px solid rgba(0, 0, 0, 0.5);
   position: relative;
 }
-.sidepanel .subpanel .label {
+.sidepanel .subpanel .label,
+.contentpanel .subpanel .label {
   opacity: 0.7;
   font-size: 12px;
   margin-bottom: 4px;
 }
-.sidepanel .subpanel .value {
+.sidepanel .subpanel .value,
+.contentpanel .subpanel .value {
   position: absolute;
   right: 4px;
   top: 4px;
 }
-.sidepanel .subpanel .button.square {
+.sidepanel .subpanel .button.square,
+.contentpanel .subpanel .button.square {
   position: absolute;
   right: 4px;
   top: 4px;
@@ -1517,26 +1665,32 @@ body.presentation .statusbar {
   line-height: 16px;
   font-size: 12px;
 }
-.sidepanel .subpanel .button.square:hover {
+.sidepanel .subpanel .button.square:hover,
+.contentpanel .subpanel .button.square:hover {
   cursor: pointer;
 }
-.sidepanel .subpanel .button.square.prev {
+.sidepanel .subpanel .button.square.prev,
+.contentpanel .subpanel .button.square.prev {
   right: 21px;
 }
-.sidepanel .subpanel select {
+.sidepanel .subpanel select,
+.contentpanel .subpanel select {
   color: #BBBBBB;
   width: 100%;
   border: 1px solid black;
   background-color: transparent;
   margin: 4px 0;
 }
-.sidepanel .subpanel select:focus {
+.sidepanel .subpanel select:focus,
+.contentpanel .subpanel select:focus {
   outline: none;
 }
-.sidepanel input[type=range] {
+.sidepanel input[type=range],
+.contentpanel input[type=range] {
   width: 100%;
 }
-.sidepanel .button.full {
+.sidepanel .button.full,
+.contentpanel .button.full {
   color: #8f8f8f;
   text-align: center;
   border: 1px solid black;
@@ -1545,7 +1699,8 @@ body.presentation .statusbar {
   margin: 4px;
   background-color: #2D2E30;
 }
-.sidepanel .button.full:hover {
+.sidepanel .button.full:hover,
+.contentpanel .button.full:hover {
   cursor: pointer;
   color: #BBBBBB;
   background-color: #282A2C;
@@ -1568,6 +1723,18 @@ body.override .splitpanel .panel .toolbar .toolpanel .options .checkbox.mask {
 body.override .splitpanel .panel .toolbar .toolpanel .options .checkbox.pressure span:before {
   background-color: #c0c0c0;
   box-shadow: inset 0 0 0px 2px black;
+}
+
+/* override the default sidebar panel style */
+.contentpanel {
+  position: absolute;
+  left: 250px;
+  width: 300px;
+  z-index: 300;
+}
+
+body.withcontentpanel .contentpanel {
+  display: block;
 }
 
 .palettelist {
@@ -1830,6 +1997,10 @@ body.override .splitpanel .panel .toolbar .toolpanel .options .checkbox.pressure
 .splitpanel .panel .tileContainer.hidden {
   display: none;
 }
+.splitpanel .panel .viewport {
+  overflow: hidden;
+  display: block;
+}
 .splitpanel .panel .windowContainer .window {
   width: 300px;
   height: 170px;
@@ -1898,13 +2069,14 @@ body.override .splitpanel .panel .toolbar .toolpanel .options .checkbox.pressure
   -ms-interpolation-mode: nearest-neighbor;
   -webkit-touch-callout: none;
   display: block;
-  position: relative;
-  z-index: 1;
-}
-.splitpanel canvas.overlaycanvas {
   position: absolute;
+  z-index: 1;
   left: 0;
   top: 0;
+  width: 100%;
+  height: 100%;
+}
+.splitpanel canvas.overlaycanvas {
   z-index: 2;
   pointer-events: none;
 }

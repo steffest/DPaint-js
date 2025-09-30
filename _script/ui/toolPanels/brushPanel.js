@@ -1,4 +1,4 @@
-import {$div, $input, $elm} from "../../util/dom.js";
+import $,{$div, $input, $elm} from "../../util/dom.js";
 import Brush from "../brush.js";
 import EventBus from "../../util/eventbus.js";
 import {EVENT} from "../../enum.js";
@@ -10,17 +10,20 @@ let BrushPanel = function(){
     let sizeRange;
     let sizeInput;
     let softRange;
+    let softInput;
     let opacityRange;
     let opacityInput;
+    let flowRange;
+    let flowInput;
+    let jitterRange;
+    let jitterInput;
     let ditherPatterns = [];
 
     me.generate = (parent)=> {
-
         let sizeSelect = $div("rangeselect", "", parent);
         $elm("label","Size",sizeSelect);
         sizeRange = $input("range",0,sizeSelect,()=>{
-            update();
-            sizeInput.value = sizeRange.value;
+            Brush.setSize(sizeRange.value);
         });
         sizeInput = $input("text",1,sizeSelect);
         sizeRange.min = 1;
@@ -29,22 +32,38 @@ let BrushPanel = function(){
         let softSelect = $div("rangeselect", "", parent);
         $elm("label","Softness",softSelect);
         softRange = $input("range",0,softSelect,()=>{
-            update();
-            softInput.value = softRange.value;
+            Brush.setSoftness(softRange.value);
         });
-        let softInput = $input("text",0,softSelect);
+        softInput = $input("text",0,softSelect);
         softRange.max = 10;
         sanitize(softInput,softRange);
 
         let opacitySelect = $div("rangeselect", "", parent);
         $elm("label","Opacity",opacitySelect);
         opacityRange = $input("range",100,opacitySelect,()=>{
-            update();
-            opacityInput.value = opacityRange.value;
+            Brush.setOpacity(opacityRange.value);
         });
         opacityInput = $input("text",100,opacitySelect);
         opacityRange.min = 1;
         sanitize(opacityInput,opacityRange);
+
+        let flowSelect = $div("rangeselect", "", parent);
+        $elm("label","Flow",flowSelect);
+        flowRange = $input("range",100,flowSelect,()=>{
+            Brush.setFlow(flowRange.value);
+        });
+        flowInput = $input("text",100,flowSelect);
+        flowRange.min = 1;
+        sanitize(flowInput,flowRange);
+
+        let jitterSelect = $div("rangeselect", "", parent);
+        $elm("label","Jitter",jitterSelect);
+        jitterRange = $input("range",0,jitterSelect,()=>{
+            Brush.setJitter(jitterRange.value);
+        });
+        jitterInput = $input("text",0,jitterSelect);
+        jitterRange.min = 0;
+        sanitize(jitterInput,jitterRange);
 
         let ditherPanel = $div("dither",'',parent);
         $elm("label","Dither",ditherPanel);
@@ -63,32 +82,25 @@ let BrushPanel = function(){
         }
         ditherPatterns[0].classList.add("active");
 
-
-
-
+        let presets = $div("presets","",parent);
+        $(".subcaption",{parent:presets},"Presets")
+        $(".preset",{parent:presets,style:{backgroundImage:'url("../_img/brushes/preview/0.png")'},onClick:()=>{
+            Brush.set("preset",0);
+        }})
+        $(".preset",{parent:presets,onClick:()=>{
+                Brush.set("preset",10);
+            }})
+        $(".preset",{parent:presets,style:{backgroundImage:'url("../_img/brushes/preview/2.png")'},onClick:()=>{
+                Brush.set("preset",11);
+            }})
+        $(".preset",{parent:presets,style:{backgroundImage:'url("../_img/brushes/preview/3.png")'},onClick:()=>{
+                Brush.set("preset",12);
+            }})
+        $(".preset",{parent:presets,style:{backgroundImage:'url("../_img/brushes/preview/4.png")'},onClick:()=>{
+                Brush.set("preset",13);
+            }})
     };
 
-    function update(){
-        let size = parseInt(sizeRange.value);
-        let soft = parseInt(softRange.value);
-        let opacity = parseInt(opacityRange.value);
-        // TODO: this is not always "dynamic" - it should be set to the current brush type
-        // FIXME
-        Brush.set("dynamic",{width: size, height: size, softness: soft, opacity: opacity});
-    }
-
-    me.set = function(settings){
-        let doUpdate = false;
-        if (settings.size){
-            sizeRange.value = settings.size;
-            doUpdate=true;
-        }
-        if (settings.opacity){
-            opacityRange.value = settings.opacity;
-            doUpdate=true;
-        }
-        if (doUpdate) update();
-    }
 
     function sanitize(input,range){
         range.min = range.min || 0;
@@ -104,16 +116,17 @@ let BrushPanel = function(){
             if (val<range.min) val = range.min;
             if (val>range.max) val = range.max;
             range.value = val;
-            update();
         }
     }
 
     EventBus.on(EVENT.brushOptionsChanged,()=>{
-        let settings = Brush.getSettings();
-        sizeRange.value = settings.width;
-        sizeInput.value = settings.width;
-        opacityRange.value = settings.opacity;
-        opacityInput.value = settings.opacity;
+        let settings = Brush.get()
+        sizeRange.value = sizeInput.value = settings.width;
+        opacityRange.value = opacityInput.value = settings.opacity;
+        jitterInput.value = jitterRange.value = settings.jitter || 0;
+        flowInput.value = flowRange.value = settings.flow || 100;
+        softRange.value = softInput.value = settings.softness || 0;
+
 
         let invert = DitherPanel.getDitherInvertState();
         ditherPatterns.forEach(elm=>{
