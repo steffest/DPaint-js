@@ -19,7 +19,7 @@ const PLTE = [80,76,84,69];
 const IHDR = [73,72,68,82];
 const IDAT = [73,68,65,84];
 const IEND = [73,69,78,68];
-const tRNS = [116,82,78,83];
+const TRNS = [116,82,78,83];
 
 let IndexedPng = function(){
     let me = {};
@@ -27,6 +27,8 @@ let IndexedPng = function(){
     let pngHeader = new Uint8Array([137,80,78,71,13,10,26,10]);
 
     me.write=function(canvas){
+        let performance = window.performance || Date;
+        let startTime = performance.now();
         let bitDepth = 8;
         let colorType = 3; // indexed color
         let compressionMethod = 0;
@@ -44,11 +46,16 @@ let IndexedPng = function(){
         file.writeByteArray(pngHeader);
         writeChunk(file, IHDR, header);
         writeChunk(file, PLTE, palette);
-        if (transparency) writeChunk(file, tRNS, transparency);
+        if (transparency) writeChunk(file, TRNS, transparency);
         writeChunk(file, IDAT, data);
         writeChunk(file, IEND, []);
 
+
+        console.log("PNG write time: " + (performance.now() - startTime) + "ms");
+
         return file.buffer;
+
+
 
     }
 
@@ -173,6 +180,7 @@ let IndexedPng = function(){
         let zData = new Zlib.Deflate(data).compress();
         return zData;
     }
+
 
     function isArrayEqual(a,b){
         if (a.length !== b.length) return false;

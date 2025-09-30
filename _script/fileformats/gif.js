@@ -227,13 +227,13 @@ const GIF = (()=>{
 
         // TODO: scan for transparent pixels and add transparent to palette
         let hasTransparency = frames.some(frame => hasTransparentPixels(frame));
-        //hasTransparency = false;
+        hasTransparency = false;
         // TODO: set loop count in UI
         // TODO: set frame delay in UI
 
 
         let delayTime = 0;
-        if (frames.length > 1) delayTime = 15;
+        if (frames.length > 1) delayTime = 10;6666644
 
         let encodedFrames = [];
         let palette = Palette.get();
@@ -320,7 +320,7 @@ const GIF = (()=>{
             var disp;
             let transparent = 0;
             transparent = null;
-            transparent = hasTransparency;
+            //transparent = hasTransparency;
             let dispose = 0;
 
             if (transparent === null) {

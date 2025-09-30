@@ -58,7 +58,7 @@ let Generate = function(){
             case "PNG":
                 return {
                     result: "ok",
-                    file: await new Promise(resolve => ImageFile.getCanvas().toBlob(resolve))
+                    file: await new Promise(resolve => ImageFile.getCanvasWithFilters().toBlob(resolve))
                 };
             case "JPG":
                 let q = (options && options.quality) ? (options.quality/100) : 0.8;
