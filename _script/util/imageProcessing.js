@@ -122,7 +122,7 @@ var ImageProcessing = function(){
 
 		alphaThreshold = _alphaThreshold || 0;
 		ditherPattern = dithering[ditherIndex || 0].pattern;
-		var bitsPerColor = 8;
+		var bitsPerColor = 3;
 		
 		var mode = "Palette";
 		if (!isNaN(colors)){
@@ -152,35 +152,35 @@ var ImageProcessing = function(){
 		return RedDelta * RedDelta + GreenDelta * GreenDelta + BlueDelta * BlueDelta + LuminanceDelta * LuminanceDelta * 6;
 	}
 	
-	function remapImage(canvas, Colors, ditherPattern) {
-		var Context = canvas.getContext("2d");
-		var Data = Context.getImageData(0, 0, canvas.width, canvas.height);
+	function remapImage(canvas, palette, ditherPattern) {
+		let ctx = canvas.getContext("2d");
+		let data = ctx.getImageData(0, 0, canvas.width, canvas.height);
 
-		var MixedColors = [];
+		let mixedColors = [];
 
-		for(var Index = 0; Index < Colors.length; Index++)
-			MixedColors.push({ Red: Colors[Index].Red, Green: Colors[Index].Green, Blue: Colors[Index].Blue, TrueRed: SrgbToRgb(Colors[Index].Red), TrueGreen: SrgbToRgb(Colors[Index].Green), TrueBlue: SrgbToRgb(Colors[Index].Blue) });
+		for(let i = 0; i < palette.length; i++)
+			mixedColors.push({ Red: palette[i][0], Green: palette[i][1], Blue: palette[i][2], TrueRed: SrgbToRgb(palette[i][0]), TrueGreen: SrgbToRgb(palette[i][1]), TrueBlue: SrgbToRgb(palette[i][2]) });
 
-		if(ditherPattern && ditherPattern[0] > 0 && Colors.length <= 64) {
-			for(var Index1 = 0; Index1 < Colors.length; Index1++){
-				for(var Index2 = Index1 + 1; Index2 < Colors.length; Index2++) {
-					var Luminance1 = SrgbToRgb(Colors[Index1].Red) * 0.21 + SrgbToRgb(Colors[Index1].Green) * 0.72 + SrgbToRgb(Colors[Index1].Blue) * 0.07;
-					var Luminance2 = SrgbToRgb(Colors[Index2].Red) * 0.21 + SrgbToRgb(Colors[Index2].Green) * 0.72 + SrgbToRgb(Colors[Index2].Blue) * 0.07;
-					var LuminanceDeltaSquare = (Luminance1 - Luminance2) * (Luminance1 - Luminance2);
+		if(ditherPattern && ditherPattern[0] > 0 && palette.length <= 64) {
+			for(var i2 = 0; i2 < palette.length; i2++){
+				for(var i3 = i2 + 1; i3 < palette.length; i3++) {
+					var luminance1 = SrgbToRgb(palette[i2].Red) * 0.21 + SrgbToRgb(palette[i2].Green) * 0.72 + SrgbToRgb(palette[i2].Blue) * 0.07;
+					var luminance2 = SrgbToRgb(palette[i3].Red) * 0.21 + SrgbToRgb(palette[i3].Green) * 0.72 + SrgbToRgb(palette[i3].Blue) * 0.07;
+					var luminanceDeltaSquare = (luminance1 - luminance2) * (luminance1 - luminance2);
 
-					if(LuminanceDeltaSquare < ditherPattern[0] * ditherPattern[0])
+					if(luminanceDeltaSquare < ditherPattern[0] * ditherPattern[0])
 					{
-						var Red = RgbToSrgb((SrgbToRgb(Colors[Index1].Red) + SrgbToRgb(Colors[Index2].Red)) / 2.0);
-						var Green = RgbToSrgb((SrgbToRgb(Colors[Index1].Green) + SrgbToRgb(Colors[Index2].Green)) / 2.0);
-						var Blue = RgbToSrgb((SrgbToRgb(Colors[Index1].Blue) + SrgbToRgb(Colors[Index2].Blue)) / 2.0);
+						let r = RgbToSrgb((SrgbToRgb(palette[i2].Red) + SrgbToRgb(palette[i3].Red)) / 2.0);
+						let g = RgbToSrgb((SrgbToRgb(palette[i2].Green) + SrgbToRgb(palette[i3].Green)) / 2.0);
+						let b = RgbToSrgb((SrgbToRgb(palette[i2].Blue) + SrgbToRgb(palette[i3].Blue)) / 2.0);
 
-						MixedColors.push({ Index1: Index1, Index2: Index2, Red: Red, Green: Green, Blue: Blue, TrueRed: SrgbToRgb(Red), TrueGreen: SrgbToRgb(Green), TrueBlue: SrgbToRgb(Blue) });
+						mixedColors.push({ Index1: i2, Index2: i3, Red: r, Green: g, Blue: b, TrueRed: SrgbToRgb(r), TrueGreen: SrgbToRgb(g), TrueBlue: SrgbToRgb(b) });
 					}
 				}
 			}
 		}
 
-		Colors = MixedColors;
+		palette = mixedColors;
 
 		for(var Y = 0; Y < canvas.height; Y++) {
 			for(var X = 0; X < canvas.width; X++)
@@ -188,10 +188,10 @@ var ImageProcessing = function(){
 				var pixelIndex = (X + Y * canvas.width) * 4;
 				var SrgbIndex = X + Y * canvas.width;
 
-				var Red = Data.data[pixelIndex];
-				var Green = Data.data[pixelIndex + 1];
-				var Blue = Data.data[pixelIndex + 2];
-				var alpha = Data.data[pixelIndex + 3];
+				var Red = data.data[pixelIndex];
+				var Green = data.data[pixelIndex + 1];
+				var Blue = data.data[pixelIndex + 2];
+				var alpha = data.data[pixelIndex + 3];
 
 				var TrueRed = SrgbToRgb(Red);
 				var TrueGreen = SrgbToRgb(Green);
@@ -205,27 +205,27 @@ var ImageProcessing = function(){
 					var LastDistance = Number.MAX_VALUE;
 					var RemappedColorIndex = 0;
 
-					for(var ColorIndex = 0; ColorIndex < Colors.length; ColorIndex++){
-						var RedDelta = Colors[ColorIndex].TrueRed - TrueRed;
-						var GreenDelta = Colors[ColorIndex].TrueGreen - TrueGreen;
-						var BlueDelta = Colors[ColorIndex].TrueBlue - TrueBlue;
-						var LuminanceDelta = Colors[ColorIndex].TrueRed * 0.21 + Colors[ColorIndex].TrueGreen * 0.72 + Colors[ColorIndex].TrueBlue * 0.07 - Luminance;
+					for(var ColorIndex = 0; ColorIndex < palette.length; ColorIndex++){
+						var RedDelta = palette[ColorIndex].TrueRed - TrueRed;
+						var GreenDelta = palette[ColorIndex].TrueGreen - TrueGreen;
+						var BlueDelta = palette[ColorIndex].TrueBlue - TrueBlue;
+						var LuminanceDelta = palette[ColorIndex].TrueRed * 0.21 + palette[ColorIndex].TrueGreen * 0.72 + palette[ColorIndex].TrueBlue * 0.07 - Luminance;
 
 						var Distance = 0;
 
-						if(Colors[ColorIndex].Index1 !== undefined)
+						if(palette[ColorIndex].Index1 !== undefined)
 						{
-							var RedDelta1 = Colors[Colors[ColorIndex].Index1].TrueRed - TrueRed;
-							var GreenDelta1 = Colors[Colors[ColorIndex].Index1].TrueGreen - TrueGreen;
-							var BlueDelta1 = Colors[Colors[ColorIndex].Index1].TrueBlue - TrueBlue;
+							var RedDelta1 = palette[palette[ColorIndex].Index1].TrueRed - TrueRed;
+							var GreenDelta1 = palette[palette[ColorIndex].Index1].TrueGreen - TrueGreen;
+							var BlueDelta1 = palette[palette[ColorIndex].Index1].TrueBlue - TrueBlue;
 
-							var LuminanceDelta1 = Colors[Colors[ColorIndex].Index1].TrueRed * 0.21 + Colors[Colors[ColorIndex].Index1].TrueGreen * 0.72 + Colors[Colors[ColorIndex].Index1].TrueBlue * 0.07 - Luminance;
+							var LuminanceDelta1 = palette[palette[ColorIndex].Index1].TrueRed * 0.21 + palette[palette[ColorIndex].Index1].TrueGreen * 0.72 + palette[palette[ColorIndex].Index1].TrueBlue * 0.07 - Luminance;
 
-							var RedDelta2 = Colors[Colors[ColorIndex].Index2].TrueRed - TrueRed;
-							var GreenDelta2 = Colors[Colors[ColorIndex].Index2].TrueGreen - TrueGreen;
-							var BlueDelta2 = Colors[Colors[ColorIndex].Index2].TrueBlue - TrueBlue;
+							var RedDelta2 = palette[palette[ColorIndex].Index2].TrueRed - TrueRed;
+							var GreenDelta2 = palette[palette[ColorIndex].Index2].TrueGreen - TrueGreen;
+							var BlueDelta2 = palette[palette[ColorIndex].Index2].TrueBlue - TrueBlue;
 
-							var LuminanceDelta2 = Colors[Colors[ColorIndex].Index2].TrueRed * 0.21 + Colors[Colors[ColorIndex].Index2].TrueGreen * 0.72 + Colors[Colors[ColorIndex].Index2].TrueBlue * 0.07 - Luminance;
+							var LuminanceDelta2 = palette[palette[ColorIndex].Index2].TrueRed * 0.21 + palette[palette[ColorIndex].Index2].TrueGreen * 0.72 + palette[palette[ColorIndex].Index2].TrueBlue * 0.07 - Luminance;
 
 							Distance = colorDistance(RedDelta, GreenDelta, BlueDelta, LuminanceDelta) * 4;
 							Distance += colorDistance(RedDelta1, GreenDelta1, BlueDelta1, LuminanceDelta1);
@@ -250,45 +250,45 @@ var ImageProcessing = function(){
 
 					if(ditherPattern) {
 						if(ditherPattern[0] > 0) { // Checker pattern.
- 							if(Colors[RemappedColorIndex].Index1 !== undefined)
+ 							if(palette[RemappedColorIndex].Index1 !== undefined)
 							{
 								if((X ^ Y) & 1)
-									RemappedColorIndex = Colors[RemappedColorIndex].Index1;
+									RemappedColorIndex = palette[RemappedColorIndex].Index1;
 								else
-									RemappedColorIndex = Colors[RemappedColorIndex].Index2;
+									RemappedColorIndex = palette[RemappedColorIndex].Index2;
 							}
 
-							Data.data[pixelIndex] = Colors[RemappedColorIndex].Red;
-							Data.data[pixelIndex + 1] = Colors[RemappedColorIndex].Green;
-							Data.data[pixelIndex + 2] = Colors[RemappedColorIndex].Blue;
-							Data.data[pixelIndex + 3] = alpha;
+							data.data[pixelIndex] = palette[RemappedColorIndex].Red;
+							data.data[pixelIndex + 1] = palette[RemappedColorIndex].Green;
+							data.data[pixelIndex + 2] = palette[RemappedColorIndex].Blue;
+							data.data[pixelIndex + 3] = alpha;
 						}
 						else { // Error diffusion.
-							var RedDelta = Colors[RemappedColorIndex].Red - Red;
-							var GreenDelta = Colors[RemappedColorIndex].Green - Green;
-							var BlueDelta = Colors[RemappedColorIndex].Blue - Blue;
+							var RedDelta = palette[RemappedColorIndex].Red - Red;
+							var GreenDelta = palette[RemappedColorIndex].Green - Green;
+							var BlueDelta = palette[RemappedColorIndex].Blue - Blue;
 
 							if(X < canvas.width - 2)
 							{
 								if(ditherPattern[4])
 								{
-									Data.data[pixelIndex + 8] = Math.round(Math.min(255, Math.max(0, Data.data[pixelIndex + 8] - RedDelta * ditherPattern[4])));
-									Data.data[pixelIndex + 8 + 1] = Math.round(Math.min(255, Math.max(0, Data.data[pixelIndex + 8 + 1] - GreenDelta * ditherPattern[4])));
-									Data.data[pixelIndex + 8 + 2] = Math.round(Math.min(255, Math.max(0, Data.data[pixelIndex + 8 + 2] - BlueDelta * ditherPattern[4])));
+									data.data[pixelIndex + 8] = Math.round(Math.min(255, Math.max(0, data.data[pixelIndex + 8] - RedDelta * ditherPattern[4])));
+									data.data[pixelIndex + 8 + 1] = Math.round(Math.min(255, Math.max(0, data.data[pixelIndex + 8 + 1] - GreenDelta * ditherPattern[4])));
+									data.data[pixelIndex + 8 + 2] = Math.round(Math.min(255, Math.max(0, data.data[pixelIndex + 8 + 2] - BlueDelta * ditherPattern[4])));
 								}
 
 								if(Y < canvas.height - 1 && ditherPattern[9])
 								{
-									Data.data[pixelIndex + canvas.width * 4 + 8] = Math.round(Math.min(255, Math.max(0, Data.data[pixelIndex + canvas.width * 4 + 8] - RedDelta * ditherPattern[9])));
-									Data.data[pixelIndex + canvas.width * 4 + 8 + 1] = Math.round(Math.min(255, Math.max(0, Data.data[pixelIndex + canvas.width * 4 + 8 + 1] - GreenDelta * ditherPattern[9])));
-									Data.data[pixelIndex + canvas.width * 4 + 8 + 2] = Math.round(Math.min(255, Math.max(0, Data.data[pixelIndex + canvas.width * 4 + 8 + 2] - BlueDelta * ditherPattern[9])));
+									data.data[pixelIndex + canvas.width * 4 + 8] = Math.round(Math.min(255, Math.max(0, data.data[pixelIndex + canvas.width * 4 + 8] - RedDelta * ditherPattern[9])));
+									data.data[pixelIndex + canvas.width * 4 + 8 + 1] = Math.round(Math.min(255, Math.max(0, data.data[pixelIndex + canvas.width * 4 + 8 + 1] - GreenDelta * ditherPattern[9])));
+									data.data[pixelIndex + canvas.width * 4 + 8 + 2] = Math.round(Math.min(255, Math.max(0, data.data[pixelIndex + canvas.width * 4 + 8 + 2] - BlueDelta * ditherPattern[9])));
 								}
 
 								if(Y < canvas.height - 2 && ditherPattern[14])
 								{
-									Data.data[pixelIndex + canvas.width * 2 * 4 + 8] = Math.round(Math.min(255, Math.max(0, Data.data[pixelIndex + canvas.width * 2 * 4 + 8] - RedDelta * ditherPattern[14])));
-									Data.data[pixelIndex + canvas.width * 2 * 4 + 8 + 1] = Math.round(Math.min(255, Math.max(0, Data.data[pixelIndex + canvas.width * 2 * 4 + 8 + 1] - GreenDelta * ditherPattern[14])));
-									Data.data[pixelIndex + canvas.width * 2 * 4 + 8 + 2] = Math.round(Math.min(255, Math.max(0, Data.data[pixelIndex + canvas.width * 2 * 4 + 8 + 2] - BlueDelta * ditherPattern[14])));
+									data.data[pixelIndex + canvas.width * 2 * 4 + 8] = Math.round(Math.min(255, Math.max(0, data.data[pixelIndex + canvas.width * 2 * 4 + 8] - RedDelta * ditherPattern[14])));
+									data.data[pixelIndex + canvas.width * 2 * 4 + 8 + 1] = Math.round(Math.min(255, Math.max(0, data.data[pixelIndex + canvas.width * 2 * 4 + 8 + 1] - GreenDelta * ditherPattern[14])));
+									data.data[pixelIndex + canvas.width * 2 * 4 + 8 + 2] = Math.round(Math.min(255, Math.max(0, data.data[pixelIndex + canvas.width * 2 * 4 + 8 + 2] - BlueDelta * ditherPattern[14])));
 								}
 							}
 
@@ -296,54 +296,54 @@ var ImageProcessing = function(){
 							{
 								if(ditherPattern[3])
 								{
-									Data.data[pixelIndex + 4] = Math.round(Math.min(255, Math.max(0, Data.data[pixelIndex + 4] - RedDelta * ditherPattern[3])));
-									Data.data[pixelIndex + 4 + 1] = Math.round(Math.min(255, Math.max(0, Data.data[pixelIndex + 4 + 1] - GreenDelta * ditherPattern[3])));
-									Data.data[pixelIndex + 4 + 2] = Math.round(Math.min(255, Math.max(0, Data.data[pixelIndex + 4 + 2] - BlueDelta * ditherPattern[3])));
+									data.data[pixelIndex + 4] = Math.round(Math.min(255, Math.max(0, data.data[pixelIndex + 4] - RedDelta * ditherPattern[3])));
+									data.data[pixelIndex + 4 + 1] = Math.round(Math.min(255, Math.max(0, data.data[pixelIndex + 4 + 1] - GreenDelta * ditherPattern[3])));
+									data.data[pixelIndex + 4 + 2] = Math.round(Math.min(255, Math.max(0, data.data[pixelIndex + 4 + 2] - BlueDelta * ditherPattern[3])));
 								}
 
 								if(Y < canvas.height - 1 && ditherPattern[8])
 								{
-									Data.data[pixelIndex + canvas.width * 4 + 4] = Math.round(Math.min(255, Math.max(0, Data.data[pixelIndex + canvas.width * 4 + 4] - RedDelta * ditherPattern[8])));
-									Data.data[pixelIndex + canvas.width * 4 + 4 + 1] = Math.round(Math.min(255, Math.max(0, Data.data[pixelIndex + canvas.width * 4 + 4 + 1] - GreenDelta * ditherPattern[8])));
-									Data.data[pixelIndex + canvas.width * 4 + 4 + 2] = Math.round(Math.min(255, Math.max(0, Data.data[pixelIndex + canvas.width * 4 + 4 + 2] - BlueDelta * ditherPattern[8])));
+									data.data[pixelIndex + canvas.width * 4 + 4] = Math.round(Math.min(255, Math.max(0, data.data[pixelIndex + canvas.width * 4 + 4] - RedDelta * ditherPattern[8])));
+									data.data[pixelIndex + canvas.width * 4 + 4 + 1] = Math.round(Math.min(255, Math.max(0, data.data[pixelIndex + canvas.width * 4 + 4 + 1] - GreenDelta * ditherPattern[8])));
+									data.data[pixelIndex + canvas.width * 4 + 4 + 2] = Math.round(Math.min(255, Math.max(0, data.data[pixelIndex + canvas.width * 4 + 4 + 2] - BlueDelta * ditherPattern[8])));
 								}
 
 								if(Y < canvas.height - 2 && ditherPattern[13])
 								{
-									Data.data[pixelIndex + canvas.width * 2 * 4 + 4] = Math.round(Math.min(255, Math.max(0, Data.data[pixelIndex + canvas.width * 2 * 4 + 4] - RedDelta * ditherPattern[13])));
-									Data.data[pixelIndex + canvas.width * 2 * 4 + 4 + 1] = Math.round(Math.min(255, Math.max(0, Data.data[pixelIndex + canvas.width * 2 * 4 + 4 + 1] - GreenDelta * ditherPattern[13])));
-									Data.data[pixelIndex + canvas.width * 2 * 4 + 4 + 2] = Math.round(Math.min(255, Math.max(0, Data.data[pixelIndex + canvas.width * 2 * 4 + 4 + 2] - BlueDelta * ditherPattern[13])));
+									data.data[pixelIndex + canvas.width * 2 * 4 + 4] = Math.round(Math.min(255, Math.max(0, data.data[pixelIndex + canvas.width * 2 * 4 + 4] - RedDelta * ditherPattern[13])));
+									data.data[pixelIndex + canvas.width * 2 * 4 + 4 + 1] = Math.round(Math.min(255, Math.max(0, data.data[pixelIndex + canvas.width * 2 * 4 + 4 + 1] - GreenDelta * ditherPattern[13])));
+									data.data[pixelIndex + canvas.width * 2 * 4 + 4 + 2] = Math.round(Math.min(255, Math.max(0, data.data[pixelIndex + canvas.width * 2 * 4 + 4 + 2] - BlueDelta * ditherPattern[13])));
 								}
 							}
 
 							if(Y < canvas.height - 1 && ditherPattern[7])
 							{
-								Data.data[pixelIndex + canvas.width * 4] = Math.round(Math.min(255, Math.max(0, Data.data[pixelIndex + canvas.width * 4] - RedDelta * ditherPattern[7])));
-								Data.data[pixelIndex + canvas.width * 4 + 1] = Math.round(Math.min(255, Math.max(0, Data.data[pixelIndex + canvas.width * 4 + 1] - GreenDelta * ditherPattern[7])));
-								Data.data[pixelIndex + canvas.width * 4 + 2] = Math.round(Math.min(255, Math.max(0, Data.data[pixelIndex + canvas.width * 4 + 2] - BlueDelta * ditherPattern[7])));
+								data.data[pixelIndex + canvas.width * 4] = Math.round(Math.min(255, Math.max(0, data.data[pixelIndex + canvas.width * 4] - RedDelta * ditherPattern[7])));
+								data.data[pixelIndex + canvas.width * 4 + 1] = Math.round(Math.min(255, Math.max(0, data.data[pixelIndex + canvas.width * 4 + 1] - GreenDelta * ditherPattern[7])));
+								data.data[pixelIndex + canvas.width * 4 + 2] = Math.round(Math.min(255, Math.max(0, data.data[pixelIndex + canvas.width * 4 + 2] - BlueDelta * ditherPattern[7])));
 							}
 
 							if(Y < canvas.height - 2 && ditherPattern[12])
 							{
-								Data.data[pixelIndex + canvas.width * 2 * 4] = Math.round(Math.min(255, Math.max(0, Data.data[pixelIndex + canvas.width * 2 * 4] - RedDelta * ditherPattern[12])));
-								Data.data[pixelIndex + canvas.width * 2 * 4 + 1] = Math.round(Math.min(255, Math.max(0, Data.data[pixelIndex + canvas.width * 2 * 4 + 1] - GreenDelta * ditherPattern[12])));
-								Data.data[pixelIndex + canvas.width * 2 * 4 + 2] = Math.round(Math.min(255, Math.max(0, Data.data[pixelIndex + canvas.width * 2 * 4 + 2] - BlueDelta * ditherPattern[12])));
+								data.data[pixelIndex + canvas.width * 2 * 4] = Math.round(Math.min(255, Math.max(0, data.data[pixelIndex + canvas.width * 2 * 4] - RedDelta * ditherPattern[12])));
+								data.data[pixelIndex + canvas.width * 2 * 4 + 1] = Math.round(Math.min(255, Math.max(0, data.data[pixelIndex + canvas.width * 2 * 4 + 1] - GreenDelta * ditherPattern[12])));
+								data.data[pixelIndex + canvas.width * 2 * 4 + 2] = Math.round(Math.min(255, Math.max(0, data.data[pixelIndex + canvas.width * 2 * 4 + 2] - BlueDelta * ditherPattern[12])));
 							}
 
 							if(X > 0)
 							{
 								if(Y < canvas.height - 1 && ditherPattern[6])
 								{
-									Data.data[pixelIndex + canvas.width * 4 - 4] = Math.round(Math.min(255, Math.max(0, Data.data[pixelIndex + canvas.width * 4 - 4] - RedDelta * ditherPattern[6])));
-									Data.data[pixelIndex + canvas.width * 4 - 4 + 1] = Math.round(Math.min(255, Math.max(0, Data.data[pixelIndex + canvas.width * 4 - 4 + 1] - GreenDelta * ditherPattern[6])));
-									Data.data[pixelIndex + canvas.width * 4 - 4 + 2] = Math.round(Math.min(255, Math.max(0, Data.data[pixelIndex + canvas.width * 4 - 4 + 2] - BlueDelta * ditherPattern[6])));
+									data.data[pixelIndex + canvas.width * 4 - 4] = Math.round(Math.min(255, Math.max(0, data.data[pixelIndex + canvas.width * 4 - 4] - RedDelta * ditherPattern[6])));
+									data.data[pixelIndex + canvas.width * 4 - 4 + 1] = Math.round(Math.min(255, Math.max(0, data.data[pixelIndex + canvas.width * 4 - 4 + 1] - GreenDelta * ditherPattern[6])));
+									data.data[pixelIndex + canvas.width * 4 - 4 + 2] = Math.round(Math.min(255, Math.max(0, data.data[pixelIndex + canvas.width * 4 - 4 + 2] - BlueDelta * ditherPattern[6])));
 								}
 
 								if(Y < canvas.height - 2 && ditherPattern[11])
 								{
-									Data.data[pixelIndex + canvas.width * 2 * 4 - 4] = Math.round(Math.min(255, Math.max(0, Data.data[pixelIndex + canvas.width * 2 * 4 - 4] - RedDelta * ditherPattern[11])));
-									Data.data[pixelIndex + canvas.width * 2 * 4 - 4 + 1] = Math.round(Math.min(255, Math.max(0, Data.data[pixelIndex + canvas.width * 2 * 4 - 4 + 1] - GreenDelta * ditherPattern[11])));
-									Data.data[pixelIndex + canvas.width * 2 * 4 - 4 + 2] = Math.round(Math.min(255, Math.max(0, Data.data[pixelIndex + canvas.width * 2 * 4 - 4 + 2] - BlueDelta * ditherPattern[11])));
+									data.data[pixelIndex + canvas.width * 2 * 4 - 4] = Math.round(Math.min(255, Math.max(0, data.data[pixelIndex + canvas.width * 2 * 4 - 4] - RedDelta * ditherPattern[11])));
+									data.data[pixelIndex + canvas.width * 2 * 4 - 4 + 1] = Math.round(Math.min(255, Math.max(0, data.data[pixelIndex + canvas.width * 2 * 4 - 4 + 1] - GreenDelta * ditherPattern[11])));
+									data.data[pixelIndex + canvas.width * 2 * 4 - 4 + 2] = Math.round(Math.min(255, Math.max(0, data.data[pixelIndex + canvas.width * 2 * 4 - 4 + 2] - BlueDelta * ditherPattern[11])));
 								}
 							}
 
@@ -351,37 +351,37 @@ var ImageProcessing = function(){
 							{
 								if(Y < canvas.height - 1 && ditherPattern[5])
 								{
-									Data.data[pixelIndex + canvas.width * 4 - 8] = Math.round(Math.min(255, Math.max(0, Data.data[pixelIndex + canvas.width * 4 - 8] - RedDelta * ditherPattern[5])));
-									Data.data[pixelIndex + canvas.width * 4 - 8 + 1] = Math.round(Math.min(255, Math.max(0, Data.data[pixelIndex + canvas.width * 4 - 8 + 1] - GreenDelta * ditherPattern[5])));
-									Data.data[pixelIndex + canvas.width * 4 - 8 + 2] = Math.round(Math.min(255, Math.max(0, Data.data[pixelIndex + canvas.width * 4 - 8 + 2] - BlueDelta * ditherPattern[5])));
+									data.data[pixelIndex + canvas.width * 4 - 8] = Math.round(Math.min(255, Math.max(0, data.data[pixelIndex + canvas.width * 4 - 8] - RedDelta * ditherPattern[5])));
+									data.data[pixelIndex + canvas.width * 4 - 8 + 1] = Math.round(Math.min(255, Math.max(0, data.data[pixelIndex + canvas.width * 4 - 8 + 1] - GreenDelta * ditherPattern[5])));
+									data.data[pixelIndex + canvas.width * 4 - 8 + 2] = Math.round(Math.min(255, Math.max(0, data.data[pixelIndex + canvas.width * 4 - 8 + 2] - BlueDelta * ditherPattern[5])));
 								}
 
 								if(Y < canvas.height - 2 && ditherPattern[10])
 								{
-									Data.data[pixelIndex + canvas.width * 2 * 4 - 8] = Math.round(Math.min(255, Math.max(0, Data.data[pixelIndex + canvas.width * 2 * 4 - 8] - RedDelta * ditherPattern[10])));
-									Data.data[pixelIndex + canvas.width * 2 * 4 - 8 + 1] = Math.round(Math.min(255, Math.max(0, Data.data[pixelIndex + canvas.width * 2 * 4 - 8 + 1] - GreenDelta * ditherPattern[10])));
-									Data.data[pixelIndex + canvas.width * 2 * 4 - 8 + 2] = Math.round(Math.min(255, Math.max(0, Data.data[pixelIndex + canvas.width * 2 * 4 - 8 + 2] - BlueDelta * ditherPattern[10])));
+									data.data[pixelIndex + canvas.width * 2 * 4 - 8] = Math.round(Math.min(255, Math.max(0, data.data[pixelIndex + canvas.width * 2 * 4 - 8] - RedDelta * ditherPattern[10])));
+									data.data[pixelIndex + canvas.width * 2 * 4 - 8 + 1] = Math.round(Math.min(255, Math.max(0, data.data[pixelIndex + canvas.width * 2 * 4 - 8 + 1] - GreenDelta * ditherPattern[10])));
+									data.data[pixelIndex + canvas.width * 2 * 4 - 8 + 2] = Math.round(Math.min(255, Math.max(0, data.data[pixelIndex + canvas.width * 2 * 4 - 8 + 2] - BlueDelta * ditherPattern[10])));
 								}
 							}
 
-							Data.data[pixelIndex] = Colors[RemappedColorIndex].Red;
-							Data.data[pixelIndex + 1] = Colors[RemappedColorIndex].Green;
-							Data.data[pixelIndex + 2] = Colors[RemappedColorIndex].Blue;
-							Data.data[pixelIndex + 3] = alpha;
+							data.data[pixelIndex] = palette[RemappedColorIndex].Red;
+							data.data[pixelIndex + 1] = palette[RemappedColorIndex].Green;
+							data.data[pixelIndex + 2] = palette[RemappedColorIndex].Blue;
+							data.data[pixelIndex + 3] = alpha;
 						}
 					}
 					else {
-						var c = Colors[RemappedColorIndex];
-						Data.data[pixelIndex] = c.Red;
-						Data.data[pixelIndex + 1] = c.Green;
-						Data.data[pixelIndex + 2] =c.Blue;
-						Data.data[pixelIndex + 3] = alpha;
+						var c = palette[RemappedColorIndex];
+						data.data[pixelIndex] = c.Red;
+						data.data[pixelIndex + 1] = c.Green;
+						data.data[pixelIndex + 2] =c.Blue;
+						data.data[pixelIndex + 3] = alpha;
 					}
 				}
 			}
 		}
 
-		Context.putImageData(Data, 0, 0);
+		ctx.putImageData(data, 0, 0);
 	}
 
 	function remapFullPaletteImage(Canvas, BitsPerColor, DitherPattern) {
@@ -536,16 +536,25 @@ var ImageProcessing = function(){
 
 	function processImage(colorCount, bitsPerColor, ditherPattern, Id) {
 		var colors = [];
-		var useTransparentColor = true;
+		var useTransparentColor = false;
+
+		// scan image for transparent colors
+		let imageData = imageInfos.canvas.getContext("2d").getImageData(0, 0, imageInfos.canvas.width, imageInfos.canvas.height);
+		for(var i = 0; i < imageData.data.length; i+=4){
+			if(imageData.data[i+3] < alphaThreshold){
+				useTransparentColor = true;
+				break;
+			}
+		}
 
 		var transparentColor = useTransparentColor?Palette.getBackgroundColor():undefined;
 
 		if(colorCount === "Palette") {
 			for(var i = 0; i < imageInfos.palette.length; i++){
 				var color = Color.fromString(imageInfos.palette[i]);
-				colors.push({ Red: color[0], Green: color[1], Blue: color[2], Alpha: 255 });
+				colors.push([color[0],color[1],color[2]]);
 			}
-			imageInfos.QuantizedColors = colors;
+			imageInfos.paletteReduced = colors;
 			remapImage(imageInfos.canvas, colors, ditherPattern);
 		}else{
 			if(!imageInfos.Colors || imageInfos.Colors.length > colorCount) {
@@ -557,7 +566,7 @@ var ImageProcessing = function(){
 					}
 					colors.push({ Red: 0, Green: 0, Blue: 0 });
 
-					imageInfos.QuantizedColors = colors;
+					imageInfos.paletteReduced = colors;
 
 					remapImage(imageInfos.canvas, colors, ditherPattern);
 
@@ -571,31 +580,36 @@ var ImageProcessing = function(){
 					while(Math.pow(2, MaxRecursionDepth) < colorCount) MaxRecursionDepth++;
 
 
-					var QuantizeWorker = new Worker(
-						new URL('../workers/quantize.js', import.meta.url),
+					let worker = new Worker(
+						new URL('../workers/quantize2.js', import.meta.url),
 						{type: 'module'}
 					);
 
-					var QuantizeData = { LineIndex: 0, CanvasData: imageInfos.canvas.getContext("2d").getImageData(0, 0, imageInfos.canvas.width, imageInfos.canvas.height), MaxRecursionDepth: MaxRecursionDepth, BitsPerColor: bitsPerColor, ColorCount: colorCount, transparentColor: transparentColor};
+					let data = {
+						imageData: imageInfos.canvas.getContext("2d").getImageData(0, 0, imageInfos.canvas.width, imageInfos.canvas.height),
+						colorDepth: bitsPerColor*3,
+						count: colorCount,
+						transparentColor
+					};
 
-					QuantizeWorker.addEventListener(
+					worker.addEventListener(
 						"message",
 						function(e)
 						{
-							imageInfos.QuantizedColors = e.data.Colors;
+							console.error(e);
+							imageInfos.paletteReduced = e.data.palette;
 
-
-							remapImage(imageInfos.canvas, imageInfos.QuantizedColors, ditherPattern);
+							remapImage(imageInfos.canvas, imageInfos.paletteReduced, ditherPattern);
 
 							if (useTransparentColor && colorCount>4){
-								imageInfos.QuantizedColors.unshift({Red: transparentColor[0], Green: transparentColor[1], Blue: transparentColor[2]})
+								imageInfos.paletteReduced.unshift([transparentColor[0], transparentColor[1], transparentColor[2]])
 							}
 
 							updateImageWindow(Id);
 						},
 						false);
 
-					QuantizeWorker.postMessage(QuantizeData);
+					worker.postMessage(data);
 					
 				}
 
@@ -624,7 +638,7 @@ var ImageProcessing = function(){
 			remapFullPaletteImage(imageInfos.canvas, bitsPerColor, ditherPattern);
 		}
 
-		imageInfos.QuantizedColors = colors;
+		imageInfos.paletteReduced = colors;
 		
 		updateImageWindow(Id);
 	}
@@ -633,19 +647,14 @@ var ImageProcessing = function(){
 	function updateImageWindow(){
 		//console.error(imageInfos);
 		
-		if (imageInfos.QuantizedColors){
-			var palette = [];
-			imageInfos.QuantizedColors.forEach(function(c){
-				palette.push([c.Red,c.Green,c.Blue]);
-			});
-			//console.error(palette);
+		if (imageInfos.paletteReduced){
 			let f = ImageFile.getCurrentFile();
 			let ctx = ImageFile.getActiveContext();
 			ctx.clearRect(0,0,f.width,f.height);
 			ctx.drawImage(imageInfos.canvas,0,0);
 			EventBus.trigger(EVENT.paletteProcessingEnd);
 			EventBus.trigger(EVENT.layerContentChanged,{keepImageCache:true});
-			Palette.set(palette);
+			Palette.set(imageInfos.paletteReduced);
 			EventBus.trigger(COMMAND.INFO);
 			//IconEditor.setPalette(palette);
 			//IconEditor.updateIcon();

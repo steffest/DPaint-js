@@ -14,6 +14,7 @@ import Brush from "./ui/brush.js";
 import storage from "./util/storage.js";
 import {DuplicateName} from "./util/textUtils.js";
 import Recorder from "./services/recorder.js";
+import {runWebGLQuantizer} from "./util/webgl-quantizer.js";
 
 let ImageFile = function(){
     let me = {};
@@ -67,6 +68,14 @@ let ImageFile = function(){
             EventBus.trigger(EVENT.imageContentChanged);
         }
     };
+
+    me.getCanvasWithFilters = function(){
+        let canvas = me.getCanvas();
+        if (Palette.isLockedGlobal()){
+            runWebGLQuantizer(canvas, Palette.get(), false, undefined, 0, 0);
+        }
+        return canvas;
+    }
 
     me.getCanvas = function(frameIndex){
         let frame =
