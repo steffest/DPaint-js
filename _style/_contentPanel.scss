@@ -1,0 +1,13 @@
+/* override the default sidebar panel style */
+.contentpanel{
+    position: absolute;
+    left: 250px;
+    width: 300px;
+    z-index: 300;
+}
+
+body.withcontentpanel{
+  .contentpanel{
+    display: block;
+  }
+}

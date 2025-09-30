@@ -1,14 +1,22 @@
+import {SETTING} from "./enum.js";
+
 let UserSettings = (()=>{
     let me = {};
 
-    let settings = {};
+    const getDefaultSettings = ()=>{
+        let result = {};
+        result[SETTING.touchRotate] = true;
+        return result;
+    }
+
+    let settings = getDefaultSettings();
     let stored = localStorage.getItem("dp_settings");
     if (stored){
         try {
             settings = JSON.parse(stored);
         }catch (e) {
             console.error("Could not parse settings", e);
-            settings = {};
+            settings = getDefaultSettings();
         }
     }
 

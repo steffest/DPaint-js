@@ -23,6 +23,7 @@ let Menu = function(){
                 {label: "Paste", command: COMMAND.PASTE,shortKey: "meta+V"},
                 {label: "Undo", command: COMMAND.UNDO,shortKey: "meta+Z"},
                 {label: "Redo", command: COMMAND.REDO,shortKey: "meta+Y"},
+                {label: "Preferences", command: COMMAND.PREFERENCES},
             ]},
         {label: "Image", items:[
                 {label: "Rotate", command: COMMAND.ROTATE},

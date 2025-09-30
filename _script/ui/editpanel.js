@@ -1,6 +1,6 @@
 import {$div} from "../util/dom.js";
 import EventBus from "../util/eventbus.js";
-import {COMMAND, EVENT} from "../enum.js";
+import {COMMAND, EVENT, SETTING} from "../enum.js";
 import Canvas from "./canvas.js";
 import Editor from "./editor.js";
 import ImageFile from "../image.js";
@@ -8,6 +8,7 @@ import ToolOptions from "./components/toolOptions.js";
 import Input from "./input.js";
 import Brush from "./brush.js";
 import BrushPanel from "./toolPanels/brushPanel.js";
+import UserSettings from "../userSettings.js";
 
 var EditPanel = function(parent,type){
     var me = {};
@@ -54,14 +55,14 @@ var EditPanel = function(parent,type){
         e.preventDefault();
         if (Input.isShiftDown()){
             let point = canvas.getCursorPosition(e);
-            let settings = Brush.getSettings();
+            let settings = Brush.get();
             let offset = e.deltaY>0?-1:1;
             BrushPanel.set({size:settings.width+offset});
             EventBus.trigger(EVENT.drawCanvasOverlay,point);
             //console.error(settings);
         }else if (Input.isControlDown()){
             let point = canvas.getCursorPosition(e);
-            let settings = Brush.getSettings();
+            let settings = Brush.get();
             let offset = e.deltaY>0?-5:5;
             BrushPanel.set({opacity:settings.opacity+offset});
             EventBus.trigger(EVENT.drawCanvasOverlay,point);
@@ -75,57 +76,60 @@ var EditPanel = function(parent,type){
     });
 
     viewport.addEventListener("touchstart", function (e) {
-        if (e.touches.length>1){
+        if (e.touches.length > 1) {
             e.preventDefault();
             e.stopPropagation();
             Input.holdPointerEvents();
-            touchData.startScrollX = viewport.scrollLeft;
-            touchData.startScrollY = viewport.scrollTop;
-            touchData.startDragX = e.touches[0].clientX;
-            touchData.startDragY = e.touches[0].clientY;
+            touchData.startPan = canvas.getPanning();
             touchData.startZoom = canvas.getZoom();
-            touchData.startScale = 1;
-
 
             let dx = e.touches[0].clientX - e.touches[1].clientX;
             let dy = e.touches[0].clientY - e.touches[1].clientY;
-            touchData.startDistance = Math.sqrt(dx*dx+dy*dy);
+            touchData.startDistance = Math.sqrt(dx * dx + dy * dy);
+            touchData.startMidpoint = {
+                x: (e.touches[0].clientX + e.touches[1].clientX) / 2,
+                y: (e.touches[0].clientY + e.touches[1].clientY) / 2
+            };
             touchData.startAngle = Math.atan2(dy, dx);
             touchData.startCanvasRotation = canvas.getRotation();
         }
     });
 
     viewport.addEventListener("touchmove", function (e) {
-        if (e.touches.length>1){
+        if (e.touches.length > 1) {
             e.preventDefault();
             e.stopPropagation();
 
             let dx = e.touches[0].clientX - e.touches[1].clientX;
             let dy = e.touches[0].clientY - e.touches[1].clientY;
-            let distance = Math.sqrt(dx*dx+dy*dy);
+            let distance = Math.sqrt(dx * dx + dy * dy);
+            if (touchData.startDistance === 0) return;
             let scale = distance / touchData.startDistance;
 
-            let angle = Math.atan2(dy, dx);
-            let angleDiff = angle - touchData.startAngle;
-            canvas.setRotation(touchData.startCanvasRotation + angleDiff * 180 / Math.PI);
-
-            if (scale>1.1 || scale<0.9 || isZooming) { // avoid zoom jittering when 2-finger pan is used
-                let zoom = touchData.startZoom * scale;
-                syncZoomLevel();
-                isZooming = true;
-                let center = {
-                    clientX: (e.touches[0].clientX + e.touches[1].clientX) / 2,
-                    clientY: (e.touches[0].clientY + e.touches[1].clientY) / 2
-                };
-                canvas.setZoom(zoom,center);
-            }else{
-                // pan
-                dx = (touchData.startDragX-e.touches[0].clientX);
-                dy = (touchData.startDragY-e.touches[0].clientY);
-                let tx = touchData.startScrollX+dx;
-                let ty = touchData.startScrollY+dy;
-                canvas.setPanning(tx,ty);
+            if (UserSettings.get(SETTING.touchRotate)) {
+                let angle = Math.atan2(dy, dx);
+                let angleDiff = angle - touchData.startAngle;
+                canvas.setRotation(touchData.startCanvasRotation + angleDiff * 180 / Math.PI);
             }
+
+            let newZoom = touchData.startZoom * scale;
+
+            let currentMidpoint = {
+                x: (e.touches[0].clientX + e.touches[1].clientX) / 2,
+                y: (e.touches[0].clientY + e.touches[1].clientY) / 2
+            };
+
+            const canvasPointX = touchData.startMidpoint.x - touchData.startPan.x;
+            const canvasPointY = touchData.startMidpoint.y - touchData.startPan.y;
+            const finalPanX = currentMidpoint.x - scale * canvasPointX;
+            const finalPanY = currentMidpoint.y - scale * canvasPointY;
+
+            // Apply zoom, which also applies a pan adjustment to keep the zoom centered.
+            canvas.setZoom(newZoom, currentMidpoint);
+            // Then, immediately override the pan with our correctly calculated final value.
+            canvas.setPanning(finalPanX, finalPanY);
+
+            syncZoomLevel();
         }
     });
 
@@ -173,7 +177,7 @@ var EditPanel = function(parent,type){
 
     me.setZoom = function(factor){
         canvas.setZoom(factor);
-        syncZoomLevel();
+        syncZoommLevel();
     }
 
     me.getWidth = function(){
