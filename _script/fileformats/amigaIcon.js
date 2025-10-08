@@ -909,6 +909,14 @@ var Icon = function(){
                         }
                     }
 
+                    // there seem to be some icons with invalid palette sizes floating around
+                    // some sanity checks
+                    if (state.palette.length>256 && state.NumColors < 4){
+                        if (img.states.length>0){
+                            state.palette = img.states[img.states.length-1].palette;
+                        }
+                    }
+
                     img.states.push(state);
 
 
