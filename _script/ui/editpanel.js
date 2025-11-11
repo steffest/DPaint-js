@@ -177,7 +177,7 @@ var EditPanel = function(parent,type){
 
     me.setZoom = function(factor){
         canvas.setZoom(factor);
-        syncZoommLevel();
+        syncZoomLevel();
     }
 
     me.getWidth = function(){
