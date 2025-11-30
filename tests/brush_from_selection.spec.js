@@ -1,0 +1,56 @@
+const { test, expect } = require('@playwright/test');
+
+test('Create Brush from Selection', async ({ page }) => {
+  page.on('console', msg => {
+    if (msg.type() === 'error') console.log(msg.text());
+  });
+  // 1. Navigate to the app
+  await page.goto('/index.html');
+  await expect(page.locator('.panel.left .maincanvas')).toBeVisible();
+
+  // check if the about panel is visible and close it
+  await page.locator('.caption > .button').click();
+  const aboutPanel = page.locator('.modalwindow');
+  if (await aboutPanel.isVisible()) {
+    await aboutPanel.click();
+  }
+
+
+  // 2. Select the "Select" tool
+  const selectTool = page.locator('.button.icon.select');
+  await selectTool.click();
+  await expect(selectTool).toHaveClass(/active/);
+
+  // 3. Make a selection on the canvas
+  const canvas = page.locator('.panel.left .maincanvas');
+  const box = await canvas.boundingBox();
+  if (!box) throw new Error('Canvas bounding box not found');
+
+  await page.mouse.move(box.x + 50, box.y + 50);
+  await page.mouse.down();
+  await page.mouse.move(box.x + 100, box.y + 100);
+  await page.mouse.up();
+
+  // Debug: Log all menu items
+  await page.evaluate(() => {
+    const items = document.querySelectorAll('.menuitem.main');
+    items.forEach(item => console.log('Menu Item:', item.textContent, item.outerHTML));
+  });
+
+  // 4. Trigger "Brush -> From Selection"
+  const brushMenu = page.locator('.menuitem.main').filter({ hasText: 'BrushLoad BrushSave' });
+  await brushMenu.click();
+  await expect(brushMenu).toHaveClass(/active/);
+
+  // Note: The menu item text includes the shortcut key (e.g. "From SelectionCmd+B")
+  const fromSelectionItem = page.getByText('From SelectionCmd+B');
+  await expect(fromSelectionItem).toBeVisible();
+  await fromSelectionItem.click();
+
+  // 5. Verify that the "Draw" tool (Pencil) is now active
+  const pencilTool = page.locator('.button.icon.pencil');
+  await expect(pencilTool).toHaveClass(/active/);
+  
+  // Verify "Select" tool is NOT active
+  await expect(selectTool).not.toHaveClass(/active/);
+});
