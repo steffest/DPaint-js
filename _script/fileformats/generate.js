@@ -7,6 +7,47 @@ import Palette from "../ui/palette.js";
 import IndexedPng from "./png.js";
 import GIF from "./gif.js";
 
+function rleCompress(bytes) {
+    var packed = [];
+    var i = 0;
+    while (i < bytes.length) {
+        var j = i;
+        // Find non-repeating sequence
+        while (j < bytes.length - 2 && (bytes[j] !== bytes[j + 1] || bytes[j + 1] !== bytes[j + 2]) && j - i < 128) {
+            j++;
+        }
+        // Last two bytes can't start a repeating sequence
+        if (j < bytes.length - 2) {
+            // j is at the start of a repeating sequence of 3 or more
+        } else {
+            j = bytes.length;
+        }
+
+        var nonRepeatingLength = j - i;
+        if (nonRepeatingLength > 0) {
+            packed.push(nonRepeatingLength - 1);
+            for (let k = i; k < j; k++) {
+                packed.push(bytes[k]);
+            }
+        }
+
+        i = j;
+
+        if (i < bytes.length) {
+            // Find repeating sequence
+            j = i;
+            while (j < bytes.length && bytes[j] === bytes[i] && j - i < 128) {
+                j++;
+            }
+            var repeatingLength = j - i;
+            packed.push(257 - repeatingLength);
+            packed.push(bytes[i]);
+            i = j;
+        }
+    }
+    return packed;
+}
+
 let Generate = function(){
     let me = {};
 
@@ -53,7 +94,7 @@ let Generate = function(){
                 return me.planes();
             case "BitMask":
                 return me.mask();
-            case "Sprite":
+            case "SPRITE":
                 return me.sprite();
             case "PNG":
                 return {
@@ -132,15 +173,50 @@ let Generate = function(){
         })
 
         if (!check.valid){
-            Modal.show(DIALOG.OPTION,{
+            return {
+                result: "error",
                 title: "Save as Sprite data",
-                text: ["Sorry, this image can't be saved as Sprite data."].concat(check.errors),
+                messages: ["Sorry, this image can't be saved as Sprite data."].concat(check.errors),
                 buttons: [{label:"OK"}]
-            });
-            return;
+            }
         }
 
-        return IFF.toBitPlanes(ImageFile.getCanvas(),true);
+        let iff = IFF.toBitPlanes(ImageFile.getCanvas(),true);
+
+        let output = [];
+        if (iff && iff.planes){
+            let planeCount = iff.planes.byteLength / iff.bitPlaneSize;
+            console.error(planeCount);
+            output.push("static UWORD __chip sprite[] = {");
+            output.push("  0x0000, 0x0000, ");
+            var byteView = new Uint8Array(iff.planes);
+            for (let i = 0; i < iff.height; i++){
+                let b1 = byteView[i * 2];
+                let b2 = byteView[i * 2 + 1];
+                let w = (b1 << 8) | b2;
+                let hex = "0x" + w.toString(16).padStart(4,"0") + ", ";
+                if (planeCount > 1){
+                    b1 = byteView[i * 2 + iff.height * 2];
+                    b2 = byteView[i * 2 + 1 + iff.height * 2];
+                    w = (b1 << 8) | b2;
+                    hex += "0x" + w.toString(16).padStart(4,"0") + ", ";
+                }
+                output.push("  " + hex);
+            }
+
+            output.push("  0x0000, 0x0000");
+            output.push("};");
+
+            //renderTextOutput(output.join("\n"));
+        }
+
+        debugger;
+
+        return {
+            result: "ok",
+            text: output.join("\n"),
+            //file: new Blob([buffer], {type: "application/octet-stream"})
+        };
 
     }
 
@@ -483,23 +559,27 @@ let Generate = function(){
         state.NumColors = palette.length;
         state.paletteSize = state.NumColors * 3;
         state.palette = palette.slice();
-        state.pixels = pixels.slice();
+        state.imageCompression = 1;
+        state.pixels = rleCompress(pixels);
+        state.imageSize = state.pixels.length;
+
 
         icon.colorIcon.states.push(
             {
                 transparentIndex: 0,
                 flags:3,// ? Bit 1: transparent color exists - Bit 2: Palette Exists
-                imageCompression:0,
+                imageCompression:1,
                 paletteCompression:0,
                 depth:8, // number of bits to store each pixel
-                imageSize: pixels2.length
+                imageSize: 0
             }
         );
         let state2 = icon.colorIcon.states[1];
         state2.NumColors = palette2.length;
         state2.paletteSize = state2.NumColors * 3;
         state2.palette = palette2.slice();
-        state2.pixels = pixels2.slice();
+        state2.pixels = rleCompress(pixels2);
+        state2.imageSize = state2.pixels.length;
 
 
         let buffer = Icon.write(icon);
@@ -527,6 +607,39 @@ let Generate = function(){
 
     function rgbToHex(r, g, b) {
         return "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
+    }
+
+    async function writeSPRITE(){
+        let result = await Generate.file("SPRITE");
+        console.error(result);
+        if (result && result.planes){
+            let output = [];
+            let planeCount = result.planes.byteLength / result.bitPlaneSize;
+            output.push("static UWORD __chip sprite[] = {");
+            output.push("  0x0000, 0x0000, ");
+            var byteView = new Uint8Array(result.planes);
+            for (let i = 0; i < result.height; i++){
+                let b1 = byteView[i * 2];
+                let b2 = byteView[i * 2 + 1];
+                let w = (b1 << 8) | b2;
+                let hex = "0x" + w.toString(16).padStart(4,"0") + ", ";
+                if (planeCount > 1){
+                    b1 = byteView[i * 2 + result.height * 2];
+                    b2 = byteView[i * 2 + 1 + result.height * 2];
+                    w = (b1 << 8) | b2;
+                    hex += "0x" + w.toString(16).padStart(4,"0") + ", ";
+                }
+                output.push("  " + hex);
+            }
+
+            console.error(planeCount);
+
+            output.push("  0x0000, 0x0000");
+            output.push("};");
+
+            //renderTextOutput(output.join("\n"));
+        }
+        return result;
     }
 
     return me
