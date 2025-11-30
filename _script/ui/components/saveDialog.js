@@ -56,6 +56,8 @@ var SaveDialog = function(){
         },
         SPRITE:{
             description: 'Sprite C Source',
+            extension: "c",
+            generator: "SPRITE",
             accept: {
                 'application/octet-stream': ['.c'],
             }
@@ -179,6 +181,7 @@ var SaveDialog = function(){
                                     renderButton("iff","Amiga IFF","Maximum 256 colors, only the current frame gets saved.","IFF"),
                                     renderButton("anim","Amiga ANIM","Maximum 256 colors, animation supported.","ANIM"),
                                     renderButton("amiga","Amiga Icon","Amiga OS Icon, Maximum 2 frames.","ICO"),
+                                    renderButton("amiga","Amiga Sprite","C Source.","SPRITE"),
 
                                     //renderButton("psd","PSD","Coming soon ...","Working on it!"),
 
@@ -465,7 +468,9 @@ var SaveDialog = function(){
                         buttons: [{label:"OK"}]
                     });
                 }else{
-                    Modal.hide();
+                    if (!result.text){
+                        Modal.hide();
+                    }
                 }
             });
         },50);
@@ -488,8 +493,13 @@ var SaveDialog = function(){
             if (generator === "DPAINT") generator = "INDEXED";
         }
         let result = await Generate.file(generator,currentSaveOptions);
-        if (result && result.file){
-            await saveFile(result.file,getFileName() + "." + fileType.extension,fileType);
+        if (result){
+            if (result.file){
+                await saveFile(result.file,getFileName() + "." + fileType.extension,fileType);
+            }
+            if (result.text){
+                renderTextOutput(result.text);
+            }
         }
         return result;
     }
@@ -612,38 +622,7 @@ var SaveDialog = function(){
 
     }
 
-    async function writeSPRITE(){
-        let result = await Generate.file("Sprite");
-        console.error(result);
-        if (result && result.planes){
-            let output = [];
-            let planeCount = result.planes.byteLength / result.bitPlaneSize;
-            output.push("static UWORD __chip sprite[] = {");
-            output.push("  0x0000, 0x0000, ");
-            var byteView = new Uint8Array(result.planes);
-            for (let i = 0; i < result.height; i++){
-                let b1 = byteView[i * 2];
-                let b2 = byteView[i * 2 + 1];
-                let w = (b1 << 8) | b2;
-                let hex = "0x" + w.toString(16).padStart(4,"0") + ", ";
-                if (planeCount > 1){
-                    b1 = byteView[i * 2 + result.height * 2];
-                    b2 = byteView[i * 2 + 1 + result.height * 2];
-                    w = (b1 << 8) | b2;
-                    hex += "0x" + w.toString(16).padStart(4,"0") + ", ";
-                }
-                output.push("  " + hex);
-            }
 
-            console.error(planeCount);
-
-            output.push("  0x0000, 0x0000");
-            output.push("};");
-
-            renderTextOutput(output.join("\n"));
-        }
-        return result;
-    }
 
     async function writeINDEXED(){
         let result = await Generate.file("DPAINTINDEXED");
