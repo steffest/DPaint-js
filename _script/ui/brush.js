@@ -204,6 +204,12 @@ var Brush = function(){
 
     me.set = function(type,data){
         if (type === "preset" && typeof(data) === "number") {
+
+            let currentTool = Editor.getCurrentTool();
+            if (!(currentTool === COMMAND.DRAW || currentTool === COMMAND.ERASE)){
+                EventBus.trigger(COMMAND.DRAW);
+            }
+
             if (data<10){
                 // these are the fixed presets from the toolbar
                 for (let i = 0; i<10;i++){
@@ -226,6 +232,23 @@ var Brush = function(){
                 img.src = "./_img/brushes/" + data.url;
                 return;
             }
+        }
+
+        if (type === "canvas"){
+            currentBrush = {
+                type: "brush",
+                img: data,
+                width: data.width,
+                height: data.height,
+                softness: 0,
+                opacity: 100,
+                flow: 100,
+                jitter: 0
+            };
+            brushAlphaLayer = undefined;
+            generateBrush();
+            EventBus.trigger(EVENT.brushOptionsChanged);
+            return;
         }
 
 
@@ -411,10 +434,10 @@ var Brush = function(){
     }
 
     me.rotate = (left)=>{
-        if (currentBrush.type === "canvas"){
+        if (currentBrush.type === "canvas" || currentBrush.type === "brush"){
             ImageProcessing.rotate(brushCanvas,left);
-            width = brushCanvas.width;
-            height = brushCanvas.height;
+            currentBrush.width = brushCanvas.width;
+            currentBrush.height = brushCanvas.height;
             brushAlphaLayer = undefined;
             EventBus.trigger(EVENT.drawCanvasOverlay);
         }
@@ -582,7 +605,7 @@ var Brush = function(){
                     brushCtx.drawImage(currentBrush.img,0,0,currentBrush.width,currentBrush.height);
                 }
                 // apply current color
-                generateStencil();
+                //generateStencil();
                 break;
             default:
                 console.error("Invalid brush type");
