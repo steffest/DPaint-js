@@ -340,7 +340,11 @@ var Input = function(){
 				break;
 			case "tab":
 				//EventBus.trigger(COMMAND.SPLITSCREEN);
-				EventBus.trigger(COMMAND.CYCLEPALETTE);
+				if (me.isShiftDown()){
+					EventBus.trigger(COMMAND.CYCLEPALETTESTEP);
+				}else{
+					EventBus.trigger(COMMAND.CYCLEPALETTE);
+				}
 				break;
 			case "enter":
 				Editor.commit();

@@ -911,6 +911,8 @@ const IFF = (function () {
 
         let colors = Palette.isLocked()?Palette.get():ImageProcessing.getColors(canvas, 256);
 
+        // TODO: this is for sprite stuff?
+        // then it should also be done for colors.length === 2?
         if (colors.length === 3 && includeTransparent){
             colors.unshift([-1,-1,-1]);
         }

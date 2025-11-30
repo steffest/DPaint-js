@@ -40,7 +40,8 @@ var ImageProcessing = function(){
 	var ditherPattern = null;
 	var alphaThreshold = 44;
 	var mattingColor = "rgb(149,149,149)";
-	mattingColor = "rgb(192,192,192)";
+	//mattingColor = "rgb(192,192,192)";
+	//mattingColor = "rgb(39,44,46)";
 	
 	me.getDithering = function(){
 		return dithering;

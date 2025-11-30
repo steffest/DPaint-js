@@ -900,7 +900,7 @@ let Palette = function(){
         EventBus.trigger(EVENT.imageContentChanged);
     }
 
-    me.cycle = function(){
+    me.cycle = function(step){
 
         let image = ImageFile.getCurrentFile();
         if (image && image.colorRange && image.colorRange.length){
@@ -940,6 +940,10 @@ let Palette = function(){
                 });
                 drawPalette();
             }else{
+                let cycleLayer = ImageFile.getActiveFrame().layers.findIndex(l=>l.name === "Colour Cycling" && l.locked);
+                if (cycleLayer>=0){
+                    ImageFile.removeLayer(cycleLayer);
+                }
 
                 if (hasLayers){
                     // add temporary layer to combine all layers and use for color cycling
@@ -947,27 +951,39 @@ let Palette = function(){
                 }
                 let renderContext = ImageFile.getLayer(ImageFile.getActiveFrame().layers.length-1).getContext();
 
-                generateColorLayers();
-                image.colorRange.forEach((range,index)=>{
-                    let fps = Math.abs(range.fps || 10);
-                    if (range.active) Animator.start(ANIMATION.CYCLE,()=>{
-                        if (range.reverse){
-                            range.index--;
-                            if (range.index<0) range.index=range.max-1;
-                        }else{
+                generateColorLayers(!step);
+
+                if (step){
+                    image.colorRange.forEach((range,index)=>{
+                        if (range.active){
                             range.index++;
                             if (range.index>=range.max) range.index=0;
+                            updateRangeColors(range,data);
+                            EventBus.trigger(EVENT.colorCycleChanged,index);
+                            renderContext.putImageData(imageData,0,0);
+                            EventBus.trigger (EVENT.imageContentChanged);
                         }
+                    });
+                }else{
+                    image.colorRange.forEach((range,index)=>{
+                        let fps = Math.abs(range.fps || 10);
+                        if (range.active) Animator.start(ANIMATION.CYCLE,()=>{
+                            if (range.reverse){
+                                range.index--;
+                                if (range.index<0) range.index=range.max-1;
+                            }else{
+                                range.index++;
+                                if (range.index>=range.max) range.index=0;
+                            }
 
-                        updateRangeColors(range,data);
-                        EventBus.trigger(EVENT.colorCycleChanged,index);
-                        renderContext.putImageData(imageData,0,0);
-                        EventBus.trigger (EVENT.imageContentChanged);
+                            updateRangeColors(range,data);
+                            EventBus.trigger(EVENT.colorCycleChanged,index);
+                            renderContext.putImageData(imageData,0,0);
+                            EventBus.trigger (EVENT.imageContentChanged);
 
-                    },fps);
-                });
-
-
+                        },fps);
+                    });
+                }
             }
             EventBus.trigger (EVENT.colorCycleToggled);
         }else{
@@ -979,11 +995,15 @@ let Palette = function(){
         return Animator.isRunning(ANIMATION.CYCLE);
     }
 
+    me.cycleStep = function(){
+        me.cycle(1);
+    }
+
     me.getColorDepth = function(){
         return colorDepth;
     }
 
-    function generateColorLayers(){
+    function generateColorLayers(resetIndex){
         colorLayers = {};
         let image = ImageFile.getCurrentFile();
 
@@ -992,8 +1012,8 @@ let Palette = function(){
         let pixels = image.indexedPixels || [];
 
         image.colorRange.forEach(range=>{
-            range.index = 0;
-            range.max = range.high-range.low+1;
+            range.index = resetIndex ? 0 : range.index || 0;
+        range.max = range.high-range.low+1;
         })
 
         function isInRange(pixel){
@@ -1142,6 +1162,7 @@ let Palette = function(){
     });
 
     EventBus.on(COMMAND.CYCLEPALETTE,me.cycle);
+    EventBus.on(COMMAND.CYCLEPALETTESTEP,me.cycleStep);
 
     EventBus.on(EVENT.layerContentChanged,(options)=>{
         options = options || {};
