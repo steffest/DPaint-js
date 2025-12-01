@@ -1,0 +1,103 @@
+<h2>DPaint.js File Format</h2>
+<p>
+    
+    DPaint.js reads and writes to a bunch of common graphical file formats.
+    <br>Next to that it, uses its own JSON-based file format to store images, layers, frames, and palette information.
+    <br>
+    The file extension is <code>.json</code>.
+</p>
+
+<h3>Structure</h3>
+<p>
+    The root object contains metadata about the file type, version, and the main image data.
+</p>
+
+<div class="box">
+<pre class="code">{
+  <span class="key">"type"</span>: <span class="string">"dpaint"</span>,
+  <span class="key">"version"</span>: <span class="string">"1"</span>,
+  <span class="key">"image"</span>: {
+    <span class="key">"name"</span>: <span class="string">"Untitled"</span>,
+    <span class="key">"width"</span>: <span class="number">320</span>,
+    <span class="key">"height"</span>: <span class="number">256</span>,
+    <span class="key">"activeLayerIndex"</span>: <span class="number">0</span>,
+    <span class="key">"activeFrameIndex"</span>: <span class="number">0</span>,
+    <span class="key">"frames"</span>: [ ... ],
+    <span class="key">"colorRange"</span>: [ ... ]
+  },
+  <span class="key">"palette"</span>: [ ... ],
+  <span class="key">"paletteList"</span>: [ ... ],
+  <span class="key">"paletteIndex"</span>: <span class="number">0</span>
+}</pre>
+</div>
+
+<h3>Image Object</h3>
+<p>The <code>image</code> object contains the core image data.</p>
+<ul>
+    <li><code>name</code>: (String) The name of the image.</li>
+    <li><code>width</code>: (Number) Width of the canvas in pixels.</li>
+    <li><code>height</code>: (Number) Height of the canvas in pixels.</li>
+    <li><code>frames</code>: (Array) An array of Frame objects.</li>
+    <li><code>activeLayerIndex</code>: (Number) The index of the currently selected layer.</li>
+    <li><code>activeFrameIndex</code>: (Number) The index of the currently selected frame.</li>
+    <li><code>colorRange</code>: (Array) Optional. Defines color cycling ranges.</li>
+</ul>
+
+<h3>Frame Object</h3>
+<p>Each frame represents a single animation frame and contains one or more layers.</p>
+<div class="box">
+<pre>{
+  <span class="key">"activeLayerIndex"</span>: <span class="number">0</span>,
+  <span class="key">"layers"</span>: [ ... ]
+}</pre>
+</div>
+
+<h3>Layer Object</h3>
+<p>Layers contain the actual pixel data.</p>
+<div class="box">
+<pre>{
+  <span class="key">"name"</span>: <span class="string">"Layer 1"</span>,
+  <span class="key">"blendMode"</span>: <span class="string">"normal"</span>,
+  <span class="key">"opacity"</span>: <span class="number">100</span>,
+  <span class="key">"visible"</span>: <span class="boolean">true</span>,
+  <span class="key">"hasMask"</span>: <span class="boolean">false</span>,
+  "canvas": "data:image/png;base64,..."
+}</code></pre>
+</div>
+
+<ul>
+    <li><code>name</code>: (String) Name of the layer.</li>
+    <li><code>blendMode</code>: (String) Composite operation (e.g., "normal", "multiply").</li>
+    <li><code>opacity</code>: (Number) Layer opacity from 0 to 100.</li>
+    <li><code>visible</code>: (Boolean) Visibility state.</li>
+    <li><code>hasMask</code>: (Boolean) Whether the layer has an associated mask.</li>
+    <li><code>canvas</code>: (String) Base64 encoded PNG data of the layer content.</li>
+    <li><code>mask</code>: (String) Optional. Base64 encoded PNG data of the mask content.</li>
+    <li><code>indexedPixels</code>: (Array) Optional. If the image is saved in indexed mode, this contains a 2D array of palette indices instead of the <code>canvas</code> data.</li>
+</ul>
+
+<h3>Color Range Object</h3>
+<p>The <code>colorRange</code> array contains objects defining color cycling ranges.</p>
+<div class="box">
+<pre>{
+  <span class="key">"active"</span>: <span class="boolean">true</span>,
+  <span class="key">"fps"</span>: <span class="number">10</span>,
+  <span class="key">"low"</span>: <span class="number">0</span>,
+  <span class="key">"high"</span>: <span class="number">31</span>,
+  <span class="key">"reverse"</span>: <span class="boolean">false</span>
+}</pre>
+</div>
+<ul>
+    <li><code>active</code>: (Boolean) Whether the color cycle is currently active.</li>
+    <li><code>fps</code>: (Number) Frames per second for the color cycle.</li>
+    <li><code>low</code>: (Number) The starting palette index of the range.</li>
+    <li><code>high</code>: (Number) The ending palette index of the range.</li>
+    <li><code>reverse</code>: (Boolean) Optional. If true, the colors cycle in reverse order.</li>
+</ul>
+
+<h3>Palette Data</h3>
+<ul>
+    <li><code>palette</code>: (Array) An array of RGB arrays (e.g., <code>[[0,0,0], [255,255,255]]</code>).</li>
+    <li><code>paletteList</code>: (Array) Optional. An array of palette arrays, allowing multiple palettes to be stored.</li>
+    <li><code>paletteIndex</code>: (Number) Optional. The index of the active palette in <code>paletteList</code>.</li>
+</ul>
