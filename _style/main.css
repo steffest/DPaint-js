@@ -2107,6 +2107,12 @@ body.presentation .splitpanel .toolbar .button.closepresentation {
 body.presentation .splitpanel .toolbar .toolpanel {
   display: none;
 }
+body.presentation .sidepanel {
+  display: none;
+}
+body.presentation.withsidepanel .sidepanel {
+  display: none;
+}
 
 .visualaids {
   position: absolute;

@@ -14,6 +14,7 @@ import Input from "./input.js";
 import HistoryService from "../services/historyservice.js";
 import Cursor from "./cursor.js";
 import ToolOptions from "./components/toolOptions.js";
+import UI from "./ui.js";
 
 var Editor = function(){
     var me = {};
@@ -73,7 +74,6 @@ var Editor = function(){
             // TODO: this should probably move to a common UI service
             setTimeout(()=>{
                 if (document.body.classList.contains("withsidepanel")){
-                    console.error(state.left);
                     if (state.left){
                         container.style.left = state.left + "px";
                     }
@@ -342,6 +342,20 @@ var Editor = function(){
         EventBus.on(EVENT.sidePanelChanged,(tool)=>{
 
         });
+        EventBus.on(COMMAND.PRESENTATION,()=>{
+            if (UI.inPresentation()){
+                state.prevLeft = state.left;
+                container.style.left = 0;
+                if (state.splitPanel){
+                    EventBus.trigger(COMMAND.SPLITSCREEN);
+                }
+            }else{
+                container.style.left = state.prevLeft + "px";
+            }
+            EventBus.trigger(COMMAND.ZOOMFIT);
+
+
+        })
 
     }
 
