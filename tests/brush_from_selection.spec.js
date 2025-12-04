@@ -1,4 +1,4 @@
-const { test, expect } = require('@playwright/test');
+import { test, expect } from '@playwright/test';
 
 test('Create Brush from Selection', async ({ page }) => {
   page.on('console', msg => {
@@ -38,19 +38,18 @@ test('Create Brush from Selection', async ({ page }) => {
   });
 
   // 4. Trigger "Brush -> From Selection"
-  const brushMenu = page.locator('.menuitem.main').filter({ hasText: 'BrushLoad BrushSave' });
+  const brushMenu = page.locator('.menuitem.main:text-matches("^Brush", "i")');
   await brushMenu.click();
   await expect(brushMenu).toHaveClass(/active/);
 
-  // Note: The menu item text includes the shortcut key (e.g. "From SelectionCmd+B")
-  const fromSelectionItem = page.getByText('From SelectionCmd+B');
+  let fromSelectionItem = page.locator(".menuitem.sub a:text-matches('^From Selection', 'i')");
   await expect(fromSelectionItem).toBeVisible();
   await fromSelectionItem.click();
 
   // 5. Verify that the "Draw" tool (Pencil) is now active
   const pencilTool = page.locator('.button.icon.pencil');
   await expect(pencilTool).toHaveClass(/active/);
-  
+
   // Verify "Select" tool is NOT active
   await expect(selectTool).not.toHaveClass(/active/);
 });

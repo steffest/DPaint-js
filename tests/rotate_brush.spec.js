@@ -1,5 +1,4 @@
-// @ts-check
-const { test, expect } = require('@playwright/test');
+import { test, expect } from '@playwright/test';
 
 test('Rotate Brush Functionality', async ({ page }) => {
   // 1. Navigate to the app
@@ -34,13 +33,16 @@ test('Rotate Brush Functionality', async ({ page }) => {
   await page.mouse.up();
 
   // 4. Trigger "Brush -> From Selection"
-  const brushMenu = page.locator('.menuitem.main').filter({ hasText: 'BrushLoad BrushSave' });
+  const brushMenu = page.locator('.menuitem.main:text-matches("^Brush", "i")');
   await brushMenu.click();
   await expect(brushMenu).toHaveClass(/active/);
 
-  const fromSelectionItem = page.getByText('From SelectionCmd+B');
+  const fromSelectionItem = page.locator(".menuitem.sub a:text-matches('^From Selection', 'i')");
   await expect(fromSelectionItem).toBeVisible();
   await fromSelectionItem.click();
+
+  // Wait for Brush module to be available
+  await page.waitForFunction(() => typeof window.Brush !== 'undefined');
 
   // 5. Verify initial brush dimensions (should be 20x10)
   let brushDimensions = await page.evaluate(() => {
@@ -54,19 +56,11 @@ test('Rotate Brush Functionality', async ({ page }) => {
   expect(brushDimensions.width).toBeGreaterThan(brushDimensions.height);
   console.log('Initial Brush:', brushDimensions);
 
-  // 6. Trigger "Brush -> Transform -> Rotate Right"
-  await brushMenu.click();
-  await expect(brushMenu).toHaveClass(/active/);
-
-  const transformItem = page.getByText('TransformRotate Right');
-  await transformItem.hover(); // Hover to open submenu
-  
-  const rotateRightItem = page.getByText('Rotate RightCmd+Shift+→');
-  await expect(rotateRightItem).toBeVisible();
-  await rotateRightItem.click();
+  // 6. Trigger "Brush -> Transform -> Rotate Right" using keyboard shortcut
+  await page.keyboard.press('Control+Shift+ArrowRight');
 
   // 7. Verify rotated brush dimensions (should be 10x20, so height > width)
-  brushDimensions = await page.evaluate(() => {
+ brushDimensions = await page.evaluate(() => {
     // @ts-ignore
     const brush = window.Brush.get();
     return { width: brush.width, height: brush.height };

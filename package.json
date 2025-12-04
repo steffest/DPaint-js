@@ -25,7 +25,7 @@
         "cleanwin": "del /q .\\.parcel-cache\\* && del /q .\\dist\\*",
         "build": "parcel build --public-url ./",
         "start": "npx http-server",
-        "test": "playwright test"
+        "test": "playwright test --config ./tests/playwright.config.js"
     },
     "source": "index.html"
 }

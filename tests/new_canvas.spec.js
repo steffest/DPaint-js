@@ -1,15 +1,15 @@
 // @ts-check
-const { test, expect } = require('@playwright/test');
+import { test, expect } from '@playwright/test';
 
 test('Create New Canvas', async ({ page }) => {
   await page.goto('/index.html');
   await expect(page.locator('.panel.left .maincanvas')).toBeVisible();
 
-  const fileMenu = page.locator('.menuitem.main', { hasText: 'File' });
+  const fileMenu = page.locator('.menuitem.main:text-matches("^File", "i")');
   await fileMenu.click();
 
   await expect(fileMenu).toHaveClass(/active/);
-  const newItem = page.getByText('NewCtrl+N', { exact: true });
+  const newItem = fileMenu.locator('.menuitem.sub a:text-matches("^New", "i")');
   await expect(newItem).toBeVisible();
   await newItem.click();
 
@@ -18,7 +18,7 @@ test('Create New Canvas', async ({ page }) => {
   await expect(canvas).toHaveAttribute('width', '320');
   await expect(canvas).toHaveAttribute('height', '256');
 
-  
+
   // verify the canvas is blank (transparent).
   const isBlank = await page.evaluate(() => {
     const canvas = /** @type {HTMLCanvasElement} */ (document.querySelector('.panel.left .maincanvas'));
@@ -33,5 +33,5 @@ test('Create New Canvas', async ({ page }) => {
   });
   expect(isBlank).toBe(true);
 
-  
+
 });
