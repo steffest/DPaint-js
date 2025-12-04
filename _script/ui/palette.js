@@ -243,7 +243,7 @@ let Palette = function(){
                 const x = Math.floor(e.clientX - rect.left);
                 const y = Math.floor(e.clientY - rect.top);
                 let p = paletteCtx.getImageData(x,y,1,1).data;
-                let index = Math.floor(x/size) + Math.floor(y/size) * 4 + palettePageIndex * 4 * Math.floor(currentHeight/size);
+                let index = Math.floor(x/size) + Math.floor(y/size) * 4 + palettePageIndex * 4 * Math.floor(paletteCanvas.height/size);
                 return me.getColorInfo(p,index);
             },
             onClick: function(e){
@@ -251,7 +251,7 @@ let Palette = function(){
                 const x = Math.floor(e.clientX - rect.left);
                 const y = Math.floor(e.clientY - rect.top);
                 let p = paletteCtx.getImageData(x,y,1,1).data;
-                let index = Math.floor(x/size) + Math.floor(y/size) * 4 + palettePageIndex * 4 * Math.floor(currentHeight/size);
+                let index = Math.floor(x/size) + Math.floor(y/size) * 4 + palettePageIndex * 4 * Math.floor(paletteCanvas.height/size);
                 if (e.button){
                     backColorIndex = index;
                 }else {
