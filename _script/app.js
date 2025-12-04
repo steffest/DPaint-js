@@ -258,6 +258,15 @@ let App = function(){
 	}
 	*/
 
+	// Expose modules for testing
+		if (typeof window !== 'undefined' && navigator.webdriver) {
+			window.Brush = Brush;
+			window.Palette = Palette;
+			window.ImageFile = ImageFile;
+			window.EventBus = EventBus;
+			window.UI = UI;
+		}
+
 	return me;
 }();
 
