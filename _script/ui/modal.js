@@ -39,7 +39,7 @@ var Modal = function(){
         2: {title: "Canvas Size", fuzzy: true, handler: ResizeDialog, position: [0,0],width:406,height:220},
         3: {title: "Image Size", fuzzy: true, handler: ResampleDialog, position: [0,0],width:326,height:220},
         4: {title: "Palette Editor", handler: PaletteDialog, width:450,height:304, position: [0,0]},
-        5: {title: "Effects", handler: EffectDialog, position: [0,0],width:500,height:530},
+        5: {title: "Effects", handler: EffectDialog, position: [0,0],width:500,height:590},
         6: {title: "About", action: showAbout, position: [0,0],width:750,height:470},
         7: {title: "DitherPattern",  handler: DitherDialog, position: [0,0],width:662,height:326},
         8: {title: "Request", fuzzy: true, handler: OptionDialog, position: [0,0],width:300,height:"auto"},

@@ -28,6 +28,12 @@ let Effects = function(){
             if (value){
                 overlayColor(value>0?"#0A0AF5":"#F5F50A",Math.abs(value/3));
             }
+        },
+        texture : function(value){
+            unsharpMask(_target, _target.canvas.width, _target.canvas.height, value, 2);
+        },
+        dehaze : function(value){
+            unsharpMask(_target, _target.canvas.width, _target.canvas.height, value, 50);
         }
     }
 
@@ -97,6 +103,18 @@ let Effects = function(){
         createMask();
         value = parseInt(value);
         filters[channel] = value/100;
+        applyFilters();
+    }
+
+    me.setTexture = (value,src,target)=>{
+        me.setSrcTarget(src,target);
+        filters.texture = (value/100);
+        applyFilters();
+    }
+
+    me.setDehaze = (value,src,target)=>{
+        me.setSrcTarget(src,target);
+        filters.dehaze = (value/100);
         applyFilters();
     }
 
@@ -282,6 +300,48 @@ let Effects = function(){
         }
 
         ctx.putImageData(dstData, 0, 0);
+    }
+
+    function unsharpMask(ctx, w, h, amount, radius){
+        
+        // Unsharp Mask implementation: Original + (Original - Blurred) * Amount
+        
+        // 1. Create blurred copy
+        let blurredCanvas = document.createElement("canvas");
+        blurredCanvas.width = w;
+        blurredCanvas.height = h;
+        let blurredCtx = blurredCanvas.getContext("2d");
+        blurredCtx.drawImage(ctx.canvas, 0, 0);
+        
+        StackBlur.canvasRGBA(blurredCanvas, 0, 0, w, h, radius);
+        
+        // 2. Get pixel data
+        let srcData = ctx.getImageData(0, 0, w, h);
+        let blurData = blurredCtx.getImageData(0, 0, w, h);
+        
+        let src = srcData.data;
+        let blur = blurData.data;
+        
+        // 3. Apply Difference
+        for (let i = 0; i < src.length; i += 4) {
+            // Apply only if alpha is present
+            if (src[i+3] > 0) {
+                let r = src[i];
+                let g = src[i+1];
+                let b = src[i+2];
+                
+                let br = blur[i];
+                let bg = blur[i+1];
+                let bb = blur[i+2];
+                
+                // Formula: val = val + (val - blur) * amount
+                src[i]   = Math.max(0, Math.min(255, r + (r - br) * amount));
+                src[i+1] = Math.max(0, Math.min(255, g + (g - bg) * amount));
+                src[i+2] = Math.max(0, Math.min(255, b + (b - bb) * amount));
+            }
+        }
+        
+        ctx.putImageData(srcData, 0, 0);
     }
 
     function overlayColor(color,amount){

@@ -77,6 +77,12 @@ var EffectDialog = function() {
         createSlider(sliders,"Sharpen",0,0,100,(value)=>{
             Effects.setSharpen(value); update();
         });
+        createSlider(sliders,"Texture",0,0,100,(value)=>{
+            Effects.setTexture(value); update();
+        });
+        createSlider(sliders,"Dehaze",0,0,100,(value)=>{
+            Effects.setDehaze(value); update();
+        });
         createSlider(sliders,"Sepia",0,0,100,(value)=>{
             Effects.setSepia(value); update();
         });
