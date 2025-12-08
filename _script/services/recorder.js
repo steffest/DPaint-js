@@ -13,9 +13,9 @@ let Recorder = (()=>{
     
     // Simple configuration for timelapse
     const config = {
-        framerate: 60,
-        maxWidth: 1280,   // HD width
-        maxHeight: 720,   // HD height
+        framerate: 20,
+        maxWidth: 1280,
+        maxHeight: 720,
         bitrate: 2000000  // 2 Mbps
     };
     
@@ -131,6 +131,8 @@ let Recorder = (()=>{
             };
             
             mediaRecorder.start();
+            // immediately pause to wait for the first action
+            mediaRecorder.pause();
             isRecording = true;
             
             console.log(`Recording started: ${width}x${height}`);
@@ -150,6 +152,10 @@ let Recorder = (()=>{
         }
         
         isRecording = false;
+        
+        if (mediaRecorder.state === "paused") {
+            mediaRecorder.resume();
+        }
         mediaRecorder.stop();
     };
     
@@ -182,8 +188,18 @@ let Recorder = (()=>{
     me.captureFrame = function() {
         if (!isRecording || !recordingCanvas || !recordingCtx) return;
         
+        if (mediaRecorder.state === "paused") {
+            mediaRecorder.resume();
+        }
+
         const sourceCanvas = ImageFile.getCanvas();
         recordingCtx.drawImage(sourceCanvas, 0, 0, recordingCanvas.width, recordingCanvas.height);
+        
+        setTimeout(()=>{
+            if (isRecording && mediaRecorder && mediaRecorder.state === "recording") {
+                mediaRecorder.pause();
+            }
+        },100);
     };
 
     // Event handlers
