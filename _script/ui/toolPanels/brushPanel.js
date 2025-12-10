@@ -17,6 +17,8 @@ let BrushPanel = function(){
     let flowInput;
     let jitterRange;
     let jitterInput;
+    let rotationRange;
+    let rotationInput;
     let ditherPatterns = [];
 
     me.generate = (parent)=> {
@@ -64,6 +66,15 @@ let BrushPanel = function(){
         jitterInput = $input("text",0,jitterSelect);
         jitterRange.min = 0;
         sanitize(jitterInput,jitterRange);
+        
+        let rotationSelect = $div("rangeselect", "", parent);
+        $elm("label","Rotation",rotationSelect);
+        rotationRange = $input("range",0,rotationSelect,()=>{
+            Brush.setRotation(rotationRange.value);
+        });
+        rotationInput = $input("text",0,rotationSelect);
+        rotationRange.min = 0;
+        sanitize(rotationInput,rotationRange);
 
         let ditherPanel = $div("dither",'',parent);
         $elm("label","Dither",ditherPanel);
@@ -124,6 +135,7 @@ let BrushPanel = function(){
         sizeRange.value = sizeInput.value = settings.width;
         opacityRange.value = opacityInput.value = settings.opacity;
         jitterInput.value = jitterRange.value = settings.jitter || 0;
+        rotationInput.value = rotationRange.value = settings.rotation || 0;
         flowInput.value = flowRange.value = settings.flow || 100;
         softRange.value = softInput.value = settings.softness || 0;
 

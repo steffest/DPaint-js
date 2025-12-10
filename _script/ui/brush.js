@@ -24,6 +24,7 @@ var Brush = function(){
     var me = {};
     var container;
     let pressure = 1;
+    let rotationCache = {};
 
     let presets = [
         {
@@ -33,7 +34,8 @@ var Brush = function(){
             softness: 0,
             opacity: 100,
             flow: 100,
-            jitter: 0
+            jitter: 0,
+            rotation: 0
         },
         {
             type: "circle",
@@ -42,7 +44,8 @@ var Brush = function(){
             softness: 0,
             opacity: 100,
             flow: 100,
-            jitter: 0
+            jitter: 0,
+            rotation: 0
         },
         {
             type: "cross",
@@ -51,7 +54,8 @@ var Brush = function(){
             softness: 0,
             opacity: 100,
             flow: 100,
-            jitter: 0
+            jitter: 0,
+            rotation: 0
         },
         {
             type: "circle",
@@ -60,7 +64,8 @@ var Brush = function(){
             softness: 0,
             opacity: 100,
             flow: 100,
-            jitter: 0
+            jitter: 0,
+            rotation: 0
         },
         {
             type: "circle",
@@ -69,7 +74,8 @@ var Brush = function(){
             softness: 0,
             opacity: 100,
             flow: 100,
-            jitter: 0
+            jitter: 0,
+            rotation: 0
         },
         {
             type: "square",
@@ -78,7 +84,8 @@ var Brush = function(){
             softness: 0,
             opacity: 100,
             flow: 100,
-            jitter: 0
+            jitter: 0,
+            rotation: 0
         },
         {
             type: "square",
@@ -87,7 +94,8 @@ var Brush = function(){
             softness: 0,
             opacity: 100,
             flow: 100,
-            jitter: 0
+            jitter: 0,
+            rotation: 0
         },
         {
             type: "square",
@@ -96,7 +104,8 @@ var Brush = function(){
             softness: 0,
             opacity: 100,
             flow: 100,
-            jitter: 0
+            jitter: 0,
+            rotation: 0
         },
         {
             type: "square",
@@ -105,7 +114,8 @@ var Brush = function(){
             softness: 0,
             opacity: 100,
             flow: 100,
-            jitter: 0
+            jitter: 0,
+            rotation: 0
         },
         {
             type: "canvas",
@@ -114,7 +124,8 @@ var Brush = function(){
             softness: 0,
             opacity: 100,
             flow: 100,
-            jitter: 0
+            jitter: 0,
+            rotation: 0
         },
         {
             type: "brush",
@@ -124,6 +135,7 @@ var Brush = function(){
             opacity:90,
             flow: 90,
             jitter:10,
+            rotation: 0,
             url: "brush1.png"
         },
         {
@@ -134,6 +146,7 @@ var Brush = function(){
             opacity:80,
             flow: 80,
             jitter:10,
+            rotation: 0,
             url: "brush2.png"
         },
         {
@@ -144,6 +157,7 @@ var Brush = function(){
             opacity:80,
             flow: 80,
             jitter:10,
+            rotation: 0,
             url: "brush3.png"
         },
         {
@@ -154,6 +168,7 @@ var Brush = function(){
             opacity:70,
             flow: 70,
             jitter:20,
+            rotation: 50,
             url: "brush3.png"
         }
 
@@ -190,8 +205,8 @@ var Brush = function(){
         }
         
         EventBus.on(EVENT.drawColorChanged,()=>{
+            if (currentBrush.type === "brush" && !currentBrush.url) currentBrush.isStencil = true;
             generateBrush();
-            //  generateStencil();
         })
         EventBus.on(EVENT.backgroundColorChanged,()=>{
             generateBrush();
@@ -224,6 +239,7 @@ var Brush = function(){
                 img.onload = ()=>{
                     console.log("Loaded brush " + data.url);
                     data.img = img;
+                    rotationCache = {};
                     me.set("brush",data);
                 }
                 img.onerror = ()=>{
@@ -246,12 +262,14 @@ var Brush = function(){
                 jitter: 0
             };
             brushAlphaLayer = undefined;
+            rotationCache = {};
             generateBrush();
             EventBus.trigger(EVENT.brushOptionsChanged);
             return;
         }
 
 
+        rotationCache = {};
         currentBrush = Object.assign({},data);
         brushAlphaLayer = undefined;
         generateBrush();
@@ -326,8 +344,12 @@ var Brush = function(){
         EventBus.trigger(EVENT.brushOptionsChanged);
     }
 
+    me.setRotation = (r)=>{
+        currentBrush.rotation = parseInt(r);
+        EventBus.trigger(EVENT.brushOptionsChanged);
+    }
 
-    me.draw = function(ctx,x,y,color,onBackground,blendColor,isDrawing){
+    me.draw = function(ctx,x,y,color,onBackground,blendColor,isDrawing,isFirst){
         let p;
         let useCustomBlend = blendColor && Palette.isLocked();
         let useOpacity = ToolOptions.usePressure() && !useCustomBlend;
@@ -336,10 +358,61 @@ var Brush = function(){
         let w = currentBrush.width;
         let h = currentBrush.height;
 
+        let drawCanvas = brushCanvas;
+        let drawBackCanvas = brushBackCanvas;
+
+        if (isDrawing && currentBrush.rotation && (currentBrush.type === "brush" || currentBrush.type === "canvas") && currentBrush.img){
+             let maxAngle = (currentBrush.rotation / 100) * 360;
+             let angle = Math.floor(Math.random() * maxAngle);
+
+             if (rotationCache[angle]){
+                 drawCanvas = rotationCache[angle];
+             }else{
+                 // Create rotated version
+                 // 1. rotate original image
+                 let tempCanvas = document.createElement("canvas");
+                 let size = Math.max(currentBrush.img.width, currentBrush.img.height) * 1.5; // enough space
+                 tempCanvas.width = size;
+                 tempCanvas.height = size;
+                 let tCtx = tempCanvas.getContext("2d");
+                 tCtx.translate(size/2, size/2);
+                 tCtx.rotate(angle * Math.PI / 180);
+                 tCtx.drawImage(currentBrush.img, -currentBrush.img.width/2, -currentBrush.img.height/2);
+                 tCtx.setTransform(1, 0, 0, 1, 0, 0);
+
+                 // Trim empty space? Maybe too expensive.
+                 // But we need to update w and h for this draw call?
+                 // If we change w and h, it might affect spacing.
+                 // For now, let's keep it simple and just colorize.
+
+                 rotationCache[angle] = tempCanvas;
+                 drawCanvas = tempCanvas;
+             }
+
+             // Cache = Raw Rotated.
+             // Render = Clone Cache -> Colorize.
+             // Since "generateStencil" logic is simple (fillRect + composite), it might be fast enough.
+
+             if (currentBrush.url || currentBrush.isStencil){
+                 let coloredCanvas = duplicateCanvas(drawCanvas, true);
+                 let cCtx = coloredCanvas.getContext("2d");
+                 cCtx.globalCompositeOperation = "source-in";
+                 cCtx.fillStyle = Palette.getDrawColor();
+                 cCtx.fillRect(0,0,coloredCanvas.width,coloredCanvas.height);
+                 // If we have an alpha mask (brushAlphaLayer logic)... but here we just use source-in on the image itself.
+                 drawCanvas = coloredCanvas;
+             }
+             
+             let scaleX = currentBrush.width / currentBrush.img.width;
+             let scaleY = currentBrush.height / currentBrush.img.height;
+             w = drawCanvas.width * scaleX;
+             h = drawCanvas.height * scaleY;
+        }
+
         if (w>1) x -= Math.floor((w-1)/2);
         if (h>1) y -= Math.floor((h-1)/2);
 
-        if (isDrawing && currentBrush.jitter){
+        if (isDrawing && currentBrush.jitter && !isFirst){
             let jx = (Math.random() - 0.5) * currentBrush.jitter * w * 0.05;
             let jy = (Math.random() - 0.5) * currentBrush.jitter * h  * 0.05;
 
@@ -372,15 +445,15 @@ var Brush = function(){
 
         if (currentBrush.type === "canvas" || currentBrush.type === "circle"){
             if (onBackground){
-                ctx.drawImage(brushBackCanvas,x,y);
+                ctx.drawImage(drawBackCanvas,x,y);
             }else{
-                ctx.drawImage(brushCanvas,x,y);
+                ctx.drawImage(drawCanvas,x,y);
             }
         }else if (currentBrush.type === "brush"){
             if (onBackground){
-                ctx.drawImage(brushBackCanvas,x,y,w,h);
+                ctx.drawImage(drawBackCanvas,x,y,w,h);
             }else{
-                ctx.drawImage(brushCanvas,x,y,w,h);
+                ctx.drawImage(drawCanvas,x,y,w,h);
             }
         }else{
             if (blendColor && Palette.isLocked()){
@@ -605,7 +678,7 @@ var Brush = function(){
                     brushCtx.drawImage(currentBrush.img,0,0,currentBrush.width,currentBrush.height);
                 }
                 // apply current color
-                //generateStencil();
+                if (currentBrush.url || currentBrush.isStencil) generateStencil();
                 break;
             default:
                 console.error("Invalid brush type");
