@@ -28,7 +28,7 @@ var Input = function(){
 		document.addEventListener("pointermove",onPointerMove)
 
 		document.addEventListener("touchstart",onTouchStart)
-		document.addEventListener("touchmove",onTouchMove)
+		document.addEventListener("touchmove",onTouchMove, { passive: false })
 		document.addEventListener("touchend",onTouchEnd)
 
 		document.addEventListener("keydown",onKeyDown)
@@ -152,6 +152,9 @@ var Input = function(){
 
 	function onTouchMove(e){
 		touchData.touches = e.touches;
+		if (touchData.isDragging && touchData.onDrag){
+			e.preventDefault();
+		}
 	}
 
 	function onTouchEnd(e){
