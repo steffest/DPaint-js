@@ -1,6 +1,8 @@
 import EventBus from "../util/eventbus.js";
-import {COMMAND, EVENT} from "../enum.js";
+import {COMMAND, EVENT, SETTING} from "../enum.js";
 import ImageFile from "../image.js";
+import Palette from "../ui/palette.js";
+import {runWebGLQuantizer} from "../util/webgl-quantizer.js";
 
 let Recorder = (()=>{
     let me = {};
@@ -102,6 +104,10 @@ let Recorder = (()=>{
             // Draw initial frame
             recordingCtx.drawImage(sourceCanvas, 0, 0, width, height);
             
+            if (Palette.isLockedGlobal()){
+                runWebGLQuantizer(recordingCanvas, Palette.get(), false, undefined, 0, 0);
+            }
+
             // Create stream
             stream = recordingCanvas.captureStream();
             
@@ -195,11 +201,18 @@ let Recorder = (()=>{
         const sourceCanvas = ImageFile.getCanvas();
         recordingCtx.drawImage(sourceCanvas, 0, 0, recordingCanvas.width, recordingCanvas.height);
         
+        if (Palette.isLockedGlobal()){
+            runWebGLQuantizer(recordingCanvas, Palette.get(), false, undefined, 0, 0);
+        }
+
         setTimeout(()=>{
             if (isRecording && mediaRecorder && mediaRecorder.state === "recording") {
                 mediaRecorder.pause();
+                console.log("recorder paused");
             }
         },100);
+
+        console.log("Frame captured");
     };
 
     // Event handlers
