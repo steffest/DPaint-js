@@ -93,6 +93,10 @@ body.hovercanvas.pointerdown.cursor-colorpicker{
       border: 8px solid green;
       border-radius: 50%;
       box-shadow: 0 0 3px 1px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.5), inset 0 0 3px 1px rgba(0, 0, 0, 0.5), inset 0 0 0 1px rgba(255, 255, 255, 0.5);
+
+      &.large{
+        transform: scale(2);
+      }
     }
   }
 }

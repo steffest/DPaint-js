@@ -50,19 +50,30 @@ var Cursor = function(){
         return overrideCursor === name;
     }
 
-    me.resetOverride = function(name){
+    me.resetOverride = function(){
         overrideCursor = undefined;
         setCursor();
     }
 
-    me.attach = function(name){
-        cursor.style.display = "block";
-        cursorMark.style.display = "block";
+    me.resetSize = function(){
+        cursorMark.classList.remove("large");
     }
 
+    me.attach = function(enlarge){
+        cursor.style.display = "block";
+        cursorMark.style.display = "block";
+        cursorMark.classList.toggle("large",enlarge);
+    }
 
     me.getPosition = ()=>{
         return position;
+    }
+
+    me.setPosition = function(x,y){
+        position.x = x;
+        position.y = y;
+        cursor.style.left =  x  + "px";
+        cursor.style.top =  y  + "px";
     }
 
     function setCursor(){

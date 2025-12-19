@@ -92,10 +92,27 @@ var EditPanel = function(parent,type){
             };
             touchData.startAngle = Math.atan2(dy, dx);
             touchData.startCanvasRotation = canvas.getRotation();
+            touchData.multiTap = e.touches.length;
+
+
+            if (ToolOptions && ToolOptions.usePenOnly()){
+                touchData.multiTapGesture = {
+                    start: performance.now()
+                }
+            }else{
+                if (touchData.undoGesture) touchData.undoGesture = undefined;
+            }
         }
     });
 
     viewport.addEventListener("touchmove", function (e) {
+        if (touchData.multiTapGesture){
+            let x = (e.touches[0].clientX + e.touches[1].clientX)/2;
+            let y = (e.touches[0].clientY + e.touches[1].clientY)/2;
+            let d = Math.max(Math.abs(x - touchData.startMidpoint.x), Math.abs(y - touchData.startMidpoint.y));
+            if (d > 20) touchData.multiTapGesture = undefined;
+        }
+
         if (e.touches.length > 1) {
             e.preventDefault();
             e.stopPropagation();
@@ -134,6 +151,21 @@ var EditPanel = function(parent,type){
     });
 
     viewport.addEventListener("touchend", function (e) {
+        if (touchData.multiTapGesture){
+            if (e.touches.length < touchData.multiTap) { // one or more fingers lifted
+                let duration = performance.now() - touchData.multiTapGesture.start;
+                if (duration < 400){
+                    if (touchData.multiTap === 2){
+                        EventBus.trigger(COMMAND.UNDO);
+                    }
+                    if (touchData.multiTap === 3){
+                        EventBus.trigger(COMMAND.SWAPCOLORS);
+                    }
+
+                }
+                touchData.multiTapGesture = undefined;
+            }
+        }
         e.preventDefault();
         e.stopPropagation();
         Input.releasePointerEvents();

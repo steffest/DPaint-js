@@ -394,7 +394,16 @@ let Canvas = function(parent){
                 if (Input.isMultiTouch()) return;
                 // let the editPanel parent handle this for pan/zoom
 
-                if (ToolOptions.usePenOnly() && e.pointerType !== "pen") return;
+                if (ToolOptions.usePenOnly() && e.pointerType !== "pen"){
+                    if (e.pointerType === "touch" || e.pointerType === "mouse"){
+                        touchData.isPenOverride = true;
+                        touchData.currentTool = Editor.getCurrentTool();
+                        EventBus.trigger(COMMAND.COLORPICKER);
+                        Cursor.setPosition(e.clientX,e.clientY);
+                    }else{
+                        return;
+                    }
+                }
 
                 if (touchData.touchUpTime){
                     let delta = (performance.now() - touchData.touchUpTime);
@@ -719,6 +728,11 @@ let Canvas = function(parent){
                 }
                 break;
             case "up":
+                if (touchData.isPenOverride){
+                    EventBus.trigger(touchData.currentTool);
+                    Cursor.resetSize();
+                    touchData.isPenOverride = false;
+                }
                 if (touchData.isDrawing){
                     let layer = touchData.drawLayer || ImageFile.getActiveLayer();
                     layer.commitDraw();
@@ -816,7 +830,12 @@ let Canvas = function(parent){
 
                     if ((Input.isShiftDown() || Input.isAltDown()) && Editor.canPickColor(true) || Editor.getCurrentTool() === COMMAND.COLORPICKER){
                         var pixel = ctx.getImageData(point.x, point.y, 1, 1).data;
-                        Palette.setColor(pixel,false,true);
+                        if (PaletteDialog.getPaletteClickAction() === "pick"){
+                             PaletteDialog.updateColor(pixel);
+                        }else{
+                            Palette.setColor(pixel,false,true);
+                        }
+                        drawOverlay(point);
                         return;
                     }
 
