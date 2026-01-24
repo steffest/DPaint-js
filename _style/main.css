@@ -587,6 +587,10 @@ body.presentation .menu {
 .toolbar .button.gradient {
   background-image: url("../_img/gradient.svg");
 }
+.toolbar .button.curve {
+  background-image: url("../_img/arc.svg");
+  background-size: 80% 80%;
+}
 .toolbar .button.polygonselect {
   background-image: url("../_img/poly.svg");
   background-size: 80% 80%;

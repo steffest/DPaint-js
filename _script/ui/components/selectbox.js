@@ -8,6 +8,7 @@ import Input from "../input.js";
 import {duplicateCanvas, releaseCanvas, outLineCanvas} from "../../util/canvasUtils.js";
 import Color from "../../util/color.js";
 import ToolOptions from "./toolOptions.js";
+import Palette from "../palette.js";
 
 /*
     SelectBox follows changes in the selection.
@@ -74,6 +75,7 @@ let SelectBox = ((editor,resizer)=>{
                     resizer.remove();
                     break;
                 case COMMAND.COLORSELECT:
+                case COMMAND.COLORSELECT_NOT_PALETTE:
                     resizer.remove();
                     break;
                 case COMMAND.TOSELECTION:
@@ -264,6 +266,47 @@ let SelectBox = ((editor,resizer)=>{
                     target.data[index+1] = 255;
                     target.data[index+2] = 255;
                     target.data[index+3] = 255;
+                }
+            }
+        }
+        c.putImageData(target,0,0);
+        me.applyCanvas(c.canvas);
+    }
+
+    me.colorSelectNotInPalette = function(){
+        let canvas = ImageFile.getActiveLayer().getCanvas();
+        let palette = Palette.get();
+
+        let w = canvas.width;
+        let h = canvas.height;
+        let imageData = canvas.getContext("2d").getImageData(0,0,w,h);
+
+        let c = duplicateCanvas(canvas).getContext("2d");
+        let target = c.getImageData(0,0,w,h);
+
+        let paletteStrings = new Set();
+        palette.forEach(col => {
+            let c = col;
+            if (typeof c === "string") c = Color.fromString(c);
+            if (c) paletteStrings.add(c[0] + "," + c[1] + "," + c[2]);
+        });
+
+        for (let x = 0;x<w;x++){
+            for (let y = 0;y<h;y++){
+                let index = (y*w + x)*4;
+                let r = imageData.data[index];
+                let g = imageData.data[index+1];
+                let b = imageData.data[index+2];
+                let a = imageData.data[index+3];
+
+                if (a) {
+                    let colorKey = r + "," + g + "," + b;
+                    if (!paletteStrings.has(colorKey)){
+                        target.data[index] = 255;
+                        target.data[index+1] = 255;
+                        target.data[index+2] = 255;
+                        target.data[index+3] = 255;
+                    }
                 }
             }
         }

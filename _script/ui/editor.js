@@ -137,6 +137,9 @@ var Editor = function(){
         EventBus.on(COMMAND.SPLITSCREEN,function(){
             me.splitPanel();
         });
+        EventBus.on(COMMAND.ARC,function(){
+            currentTool = COMMAND.ARC;
+        });
         EventBus.on(COMMAND.ROTATE,function(){
             EventBus.trigger(COMMAND.CLEARSELECTION);
             let currentFrame = ImageFile.getActiveFrame();
@@ -357,6 +360,110 @@ var Editor = function(){
 
         })
 
+        EventBus.on(COMMAND.FRAMES2LAYERS,()=>{
+            HistoryService.start(EVENT.imageHistory);
+            let frames = ImageFile.getCurrentFile().frames;
+            let canvases = [];
+            
+            // first pass: collect all frames as flattened canvases
+            frames.forEach((frame,index)=>{
+                canvases.push(ImageFile.getCanvas(index));
+            })
+
+            // second pass: add them as layers to the first frame
+            ImageFile.activateFrame(0);
+            let frame = ImageFile.getActiveFrame(); 
+            frame.layers = [];
+            
+            canvases.forEach((canvas,index)=>{
+                let name = "Frame " + (index+1);
+                let layerIndex = ImageFile.addLayer(index, name);
+                let layer = ImageFile.getLayer(layerIndex);
+                layer.drawImage(canvas);
+            });
+
+            // third pass: remove other frames
+            ImageFile.getCurrentFile().frames = [frame];
+            
+            HistoryService.end();
+            EventBus.trigger(EVENT.imageSizeChanged); 
+            EventBus.trigger(EVENT.layersChanged);
+            EventBus.trigger(EVENT.framesChanged);
+        })
+
+        EventBus.on(COMMAND.LAYERS2FRAMES,()=>{
+            HistoryService.start(EVENT.imageHistory);
+            let frames = ImageFile.getCurrentFile().frames;
+            let newFrames = [];
+            
+            frames.forEach(frame=>{
+                if (frame.layers.length > 1){
+                    frame.layers.forEach(layer=>{
+                        let newFrame = {
+                            layers: [],
+                            activeLayerIndex: 0
+                        };
+                        newFrame.layers.push(layer);
+                        newFrames.push(newFrame);
+                    });
+                }else{
+                    newFrames.push(frame);
+                }
+            });
+            
+            ImageFile.getCurrentFile().frames = newFrames;
+            ImageFile.activateFrame(0);
+
+            HistoryService.end();
+            EventBus.trigger(EVENT.imageSizeChanged);
+            EventBus.trigger(EVENT.layersChanged);
+            EventBus.trigger(EVENT.framesChanged);
+        })
+
+        EventBus.on(COMMAND.LAYERS2SHEET,()=>{
+            HistoryService.start(EVENT.imageHistory);
+            
+            // This operation is ONLY on the current frame
+            let frame = ImageFile.getActiveFrame();
+            let layers = frame.layers;
+            if (layers.length < 2) return;
+            
+            let w = ImageFile.getCurrentFile().width;
+            let h = ImageFile.getCurrentFile().height;
+            let newH = h * layers.length;
+            
+            let canvases = [];
+            layers.forEach(layer=>{
+                canvases.push(layer.getCanvas()); 
+            });
+            
+            // Resize image to hold all layers
+             canvases = [];
+             layers.forEach(layer=>{
+                 canvases.push(duplicateCanvas(layer.getCanvas(), true));
+             });
+             
+             ImageFile.getCurrentFile().height = newH;
+             ImageFile.resize({width: w, height: newH, anchor: "topleft"});
+             
+             let firstLayer = layers[0];
+             firstLayer.clear();
+             let ctx = firstLayer.getContext();
+             
+             canvases.forEach((c,i)=>{
+                 ctx.drawImage(c, 0, i * h);
+                 releaseCanvas(c);
+             });
+             
+             frame.layers = [firstLayer];
+             frame.activeLayerIndex = 0;
+             ImageFile.activateLayer(0);
+
+            HistoryService.end();
+            EventBus.trigger(EVENT.imageSizeChanged);
+            EventBus.trigger(EVENT.layersChanged);
+        })
+
     }
 
     me.setActivePanel = function(panel){
@@ -481,7 +588,7 @@ var Editor = function(){
     }
 
     me.canDrawColor = ()=>{
-        return (currentTool === COMMAND.DRAW || currentTool === COMMAND.SQUARE || currentTool === COMMAND.GRADIENT || currentTool === COMMAND.LINE || currentTool === COMMAND.CIRCLE  ||  currentTool === COMMAND.SPRAY ||  currentTool === COMMAND.ERASE ||  currentTool === COMMAND.FLOOD);
+        return (currentTool === COMMAND.DRAW || currentTool === COMMAND.SQUARE || currentTool === COMMAND.GRADIENT || currentTool === COMMAND.LINE || currentTool === COMMAND.ARC || currentTool === COMMAND.CIRCLE  ||  currentTool === COMMAND.SPRAY ||  currentTool === COMMAND.ERASE ||  currentTool === COMMAND.FLOOD);
     }
 
     me.usesBrush = (tool)=>{

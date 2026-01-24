@@ -108,6 +108,11 @@ export const COMMAND = {
     RECORDINGEXPORT: 1107,
     PREFERENCES: 1108,
     CYCLEPALETTESTEP: 1109,
+    FRAMES2LAYERS: 1110,
+    LAYERS2FRAMES: 1111,
+    LAYERS2SHEET: 1112,
+    COLORSELECT_NOT_PALETTE: 1113,
+    ARC: 1114,
 
 };
 
@@ -162,5 +167,6 @@ export const ANIMATION = {
 }
 
 export const SETTING = {
-    touchRotate: "touchRotate"
+    touchRotate: true,
+    recordingMode: "stroke"
 }

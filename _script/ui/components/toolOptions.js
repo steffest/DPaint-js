@@ -21,8 +21,10 @@ let ToolOptions = function(){
     let selectionMask = false;
     let pressure = false;
     let penOnly = false;
+    let circle = false;
 
     let smoothCheckbox;
+    let circleCheckbox;
     let pixelPerfectCheckbox;
     let maskCheckbox;
     let selectSection;
@@ -56,6 +58,10 @@ let ToolOptions = function(){
 
     me.isFill = ()=>{
         return fill;
+    }
+
+    me.isCircle = ()=>{
+        return circle;
     }
 
     me.showMask = ()=>{
@@ -147,6 +153,12 @@ let ToolOptions = function(){
                 options.appendChild(smoothSetting());
                 options.appendChild(lineSetting());
                 break;
+            case COMMAND.ARC:
+                options.appendChild(label("Arc:"));
+                options.appendChild(smoothSetting());
+                options.appendChild(circleSetting());
+                options.appendChild(lineSetting());
+                break;
             case COMMAND.SQUARE:
                 options.appendChild(label("Rectangle:"));
                 options.appendChild(fillSetting());
@@ -195,6 +207,13 @@ let ToolOptions = function(){
             smooth = checked;
         });
         return smoothCheckbox;
+    }
+
+    function circleSetting(){
+        if (!circleCheckbox) circleCheckbox=$checkbox("Circle","","",(checked)=>{
+            circle = checked;
+        });
+        return circleCheckbox;
     }
 
     function pixelPerfectSetting(){

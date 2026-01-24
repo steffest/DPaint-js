@@ -33,13 +33,19 @@ let Menu = function(){
                 {label: "Flatten",command: COMMAND.FLATTEN,shortKey: "meta+Shift+F"},
                 {label: "Image size", command: COMMAND.RESAMPLE,shortKey: "meta+R"},
                 {label: "Canvas Size", command: COMMAND.RESIZE,shortKey: "meta+P"},
+                {label: "Batch",items:[
+                        {label: "Frames to Layers",command: COMMAND.FRAMES2LAYERS},
+                        {label: "Layers to Frames",command: COMMAND.LAYERS2FRAMES},
+                        {label: "Layers to sheet",command: COMMAND.LAYERS2SHEET}
+                    ]},
             ]},
         {label: "Tools", items:[
                 {label: "Draw",command: COMMAND.DRAW,shortKey: "B"},
                 {label: "Select",command: COMMAND.SELECT,shortKey: "S"},
-                {label: "Line",command: COMMAND.LINE,shortKey: "L"},
-                {label: "Rectangle",command: COMMAND.SQUARE,shortKey: "R"},
                 {label: "Circle",command: COMMAND.CIRCLE,shortKey: "C"},
+                {label: "Rectangle",command: COMMAND.SQUARE,shortKey: "R"},
+                {label: "Line",command: COMMAND.LINE,shortKey: "L"},
+                {label: "Arc",command: COMMAND.ARC,shortKey: "A"},
                 {label: "Gradient",command: COMMAND.GRADIENT,shortKey: "G"},
                 {label: "Erase",command: COMMAND.ERASE,shortKey: "E"},
                 {label: "Smudge",command: COMMAND.SMUDGE,shortKey: "M"},
@@ -70,6 +76,7 @@ let Menu = function(){
                         {label: "All",command: COMMAND.SELECTALL,shortKey: "meta+A"},
                         {label: "Pixels in Current Layer",command: COMMAND.TOSELECTION, shortKey: "meta+Shift+L"},
                         {label: "Pixels in Current Color",command: COMMAND.COLORSELECT, shortKey: "meta+Shift+P"},
+                        {label: "Pixels not in Palette",command: COMMAND.COLORSELECT_NOT_PALETTE},
                         {label: "Transparent pixels",command: COMMAND.ALPHASELECT},
                     ]},
                 {label: "Deselect",command: COMMAND.CLEARSELECTION,shortKey: "Esc"},
@@ -109,6 +116,7 @@ let Menu = function(){
                 {label: "Gallery",command: COMMAND.TOGGLEGALLERY, checked: false},
                 {label: "Presentation mode",command: COMMAND.PRESENTATION, checked: false},
                 {label: "Full Screen",command: COMMAND.FULLSCREEN,needsRealClick: true, checked: false},
+                {label: "Debug Overlay",command: COMMAND.TOGGLEOVERRIDE, checked: false},
             ]},
         {label: "Recorder", items:[
                 {label: "Start",command: COMMAND.RECORDINGSTART},

@@ -420,7 +420,8 @@ var Input = function(){
 			}
 		}else{
 			switch (key){
-				case "a": EventBus.trigger(COMMAND.TOGGLEMASK); break;
+				//case "a": EventBus.trigger(COMMAND.TOGGLEMASK); break;
+				case "a": EventBus.trigger(COMMAND.ARC); break;
 				case "b": EventBus.trigger(COMMAND.DRAW); break;
 				case "c": EventBus.trigger(COMMAND.CIRCLE); break;
 				case "d": EventBus.trigger(COMMAND.TOGGLEDITHER); break;

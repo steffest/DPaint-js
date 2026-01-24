@@ -22,6 +22,7 @@ let Toolbar = function(){
         {name: "circle",label: "", isTool: true, canFill: true, command: COMMAND.CIRCLE, info: "<b>C</b> Draw ellipsis. Shift to lock to circle, select again to toggle fill."},
         {name: "square",label: "", isTool: true, canFill: true, command: COMMAND.SQUARE, info: "<b>R</b> Draw rectangle. Shift to lock to square, select again to toggle fill."},
         {name: "line",label: "", isTool: true, command: COMMAND.LINE, info: "<b>L</b> Draw straight line."},
+        {name: "curve",label: "", isTool: true, command: COMMAND.ARC, info: "<b>A</b> Draw arc."},
         {name: "gradient", isTool: true, command: COMMAND.GRADIENT, info: "<b>G</b> Gradient fill, draw line to set start- and endpoint."},
         {name: "flood", isTool: true, command: COMMAND.FLOOD, info: "<b>F</b> Fill an area."},
         {name: "spray", isTool: true, command: COMMAND.SPRAY, info: "<b>P</b>  Spray brush."},

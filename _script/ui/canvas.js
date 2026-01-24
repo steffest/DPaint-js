@@ -197,6 +197,12 @@ let Canvas = function(parent){
         selectBox.colorSelect(Palette.getDrawColor());
     });
 
+    EventBus.on(COMMAND.COLORSELECT_NOT_PALETTE,()=>{
+        if (!parent.isVisible()) return;
+        selectBox.activate(COMMAND.COLORSELECT_NOT_PALETTE);
+        selectBox.colorSelectNotInPalette();
+    });
+
     EventBus.on(COMMAND.ALPHASELECT,()=>{
         if (!parent.isVisible()) return;
         selectBox.activate(COMMAND.ALPHASELECT);
@@ -226,6 +232,19 @@ let Canvas = function(parent){
             setTimeout(()=>{
                 EventBus.trigger(COMMAND.LOCKPALETTE);
             },50);
+        }
+    });
+
+    EventBus.on(COMMAND.CLEARSELECTION,()=>{
+        if (touchData.arcState){
+             touchData.arcState = 0;
+             touchData.hotDrawFunction = undefined;
+             touchData.hotDrawDone = undefined;
+             if (touchData.layerIndex !== undefined){
+                 ImageFile.removeLayer(touchData.layerIndex);
+                 touchData.layerIndex = undefined;
+                 EventBus.trigger(EVENT.layerContentChanged);
+             }
         }
     });
 
@@ -340,7 +359,7 @@ let Canvas = function(parent){
     function draw() {
         // button=0 -> left, button=2: right
         let color = touchData.button?Palette.getBackgroundColor():Palette.getDrawColor();
-        if (window.override) color = "white";
+        //if (window.override) color = "white";
         if (Editor.getCurrentTool() === COMMAND.ERASE) color = "transparent";
         let {x,y} = touchData;
 
@@ -725,9 +744,54 @@ let Canvas = function(parent){
                             HistoryService.end(EVENT.layerContentHistory);
                         }
                         break;
+
+                    case COMMAND.ARC:
+                        if (!isOnCanvas) return;
+                        if (!touchData.arcState){
+                             touchData.arcState = 1;
+                             touchData.points = [point];
+                             HistoryService.start(EVENT.layerContentHistory);
+                             let layerIndex = ImageFile.addLayer(ImageFile.getActiveLayerIndex()+1);
+                             touchData.layerIndex = layerIndex;
+                             let drawLayer = ImageFile.getLayer(layerIndex);
+                             
+                             touchData.hotDrawFunction = function(x,y){
+                                 drawLayer.clear();
+                                 let ctx = drawLayer.getContext();
+                                 let p1 = touchData.points[0];
+                                 
+                                 if (touchData.arcState === 1){
+                                      drawArc(ctx,p1,undefined,{x:x,y:y},Palette.getDrawColor());
+                                 }else{
+                                     let p2 = touchData.points[1];
+                                     drawArc(ctx,p1,{x:x,y:y},p2,Palette.getDrawColor());
+                                 }
+                                 EventBus.trigger(EVENT.layerContentChanged);
+                             }
+                             
+                             touchData.hotDrawDone = function(){
+                                  ImageFile.mergeDown(layerIndex,true);
+                                  HistoryService.end(EVENT.layerContentHistory);
+                                  touchData.layerIndex = undefined;
+                             }
+                        }else{
+                             if (touchData.hotDrawDone) touchData.hotDrawDone();
+                             touchData.hotDrawFunction = undefined;
+                             touchData.hotDrawDone = undefined;
+                             touchData.arcState = 0;
+                             touchData.isdown = false; // ensure we release touch
+                        }
+                        break;
                 }
                 break;
             case "up":
+                if (Editor.getCurrentTool() === COMMAND.ARC && touchData.arcState === 1){
+                     touchData.arcState = 2;
+                     let point = getCursorPosition(canvas,e,true);
+                     touchData.points[1] = point;
+                     touchData.isdown = false;
+                     return;
+                }
                 if (touchData.isPenOverride){
                     EventBus.trigger(touchData.currentTool);
                     Cursor.resetSize();
@@ -792,6 +856,11 @@ let Canvas = function(parent){
                 if (!touchData.isdown){
                     if (e.pointerType === "touch") return;
                     point = getCursorPosition(canvas,e,false);
+
+                    if (touchData.hotDrawFunction){
+                        touchData.hotDrawFunction(point.x,point.y);
+                    }
+
                     var pixel = ctx.getImageData(point.x, point.y, 1, 1).data;
                     let tooltip = "x:" + point.x + " y:" + point.y + " ";
 
@@ -1044,6 +1113,157 @@ let Canvas = function(parent){
             data[n+1]=color[1];
             data[n+2]=color[2];
             data[n+3]=255;
+        }
+    }
+
+    function drawArc(ctx, p1, p2, p3, color) {
+        let x1 = p1.x; let y1 = p1.y;
+        let x3 = p3.x; let y3 = p3.y;
+
+        ctx.strokeStyle = color;
+        ctx.lineWidth = ToolOptions.getLineSize();
+        ctx.lineCap = "round"; // or square
+        // ctx.imageSmoothingEnabled = ToolOptions.isSmooth(); // Handled elsewhere?
+
+        if (!p2){
+            // Line mode
+            if (ToolOptions.isSmooth()){
+                ctx.beginPath();
+                ctx.moveTo(x1, y1);
+                ctx.lineTo(x3, y3);
+                ctx.stroke();
+            }else{
+                bLine_(x1,y1,x3,y3,ctx,Color.fromString(color),ctx.lineWidth);
+            }
+            return;
+        }
+
+
+        let x2 = p2.x; let y2 = p2.y;
+        
+        // Check collinear
+        let d = 2 * (x1 * (y2 - y3) + x2 * (y3 - y1) + x3 * (y1 - y2));
+        if (Math.abs(d) < 0.1) {
+            // Collinear - draw line from p1 to p3
+            if (ToolOptions.isSmooth()){
+                ctx.beginPath();
+                ctx.moveTo(x1, y1);
+                ctx.lineTo(x3, y3);
+                ctx.stroke();
+            }else{
+                bLine_(x1,y1,x3,y3,ctx,Color.fromString(color),ctx.lineWidth);
+            }
+            return;
+        }
+
+        if (!ToolOptions.isCircle()){
+             // Bezier curve
+             // Formula for Quadratic Bezier: B(t) = (1-t)^2 P1 + 2(1-t)t CP + t^2 P3
+             // Curve to pass through P2 at t=0.5
+             // P2 = 0.25 P1 + 0.5 CP + 0.25 P3
+             // CP = 2 P2 - 0.5 P1 - 0.5 P3
+             let cpX = 2 * x2 - 0.5 * x1 - 0.5 * x3;
+             let cpY = 2 * y2 - 0.5 * y1 - 0.5 * y3;
+
+             if(ToolOptions.isSmooth()){
+                ctx.beginPath();
+                ctx.moveTo(x1,y1);
+                ctx.quadraticCurveTo(cpX,cpY,x3,y3);
+                ctx.stroke();
+             }else{
+                bQuad_(x1,y1,cpX,cpY,x3,y3,ctx,color,ctx.lineWidth);
+             }
+             return;
+        }
+
+        let ux = ((x1 * x1 + y1 * y1) * (y2 - y3) + (x2 * x2 + y2 * y2) * (y3 - y1) + (x3 * x3 + y3 * y3) * (y1 - y2)) / d;
+        let uy = ((x1 * x1 + y1 * y1) * (x3 - x2) + (x2 * x2 + y2 * y2) * (x1 - x3) + (x3 * x3 + y3 * y3) * (x2 - x1)) / d;
+        let r = Math.sqrt(Math.pow(x1 - ux, 2) + Math.pow(y1 - uy, 2));
+
+        let sa = Math.atan2(y1 - uy, x1 - ux);
+        let ea = Math.atan2(y3 - uy, x3 - ux);
+        let ma = Math.atan2(y2 - uy, x2 - ux);
+
+        let a1 = sa;
+        let a2 = ma;
+        let a3 = ea;
+        if (a1<0) a1+=Math.PI*2;
+        if (a2<0) a2+=Math.PI*2;
+        if (a3<0) a3+=Math.PI*2;
+        
+        // Check collinearity isn't perfect, but well ...
+        let ccw = false;
+        // Check if a2 is in the CCW interval [a1, a3]
+        if (a1 < a3) {
+            if (a2 > a1 && a2 < a3) ccw = false; else ccw = true;
+        } else {
+            if (a2 > a1 || a2 < a3) ccw = false; else ccw = true;
+        }
+        
+        if (ToolOptions.isSmooth()){
+            ctx.beginPath();
+            ctx.arc(ux, uy, r, sa, ea, ccw);
+            ctx.stroke();
+        }else{
+            bArc_(ux,uy,r,sa,ea,ccw,ctx,color,ctx.lineWidth);
+        }
+    }
+
+    function bQuad_(x1,y1,cx,cy,x2,y2,ctx,color,size){
+        let steps = Math.abs(x1-cx) + Math.abs(y1-cy) + Math.abs(x2-cx) + Math.abs(y2-cy);
+        ctx.fillStyle = color;
+        let half = Math.floor(size/2);
+
+        for(let t=0; t<=1; t+=1/steps){
+           let x = (1-t)*(1-t)*x1 + 2*(1-t)*t*cx + t*t*x2;
+           let y = (1-t)*(1-t)*y1 + 2*(1-t)*t*cy + t*t*y2;
+           x = Math.round(x);
+           y = Math.round(y);
+           ctx.fillRect(x-half,y-half,size,size);
+        }
+    }
+
+    function bArc_(cx,cy,r,sa,ea,ccw,ctx,color,size){
+        ctx.fillStyle = color;
+        let half = Math.floor(size/2);
+        let circumference = 2 * Math.PI * r;
+        let steps = circumference; // pixel steps
+
+        // ensure sa and ea are positive 0-2PI
+        if (sa<0) sa+=Math.PI*2;
+        if (ea<0) ea+=Math.PI*2;
+
+        let totalAngle;
+        if (ccw){
+            if (ea>sa) totalAngle = (sa + Math.PI*2) - ea;
+            else totalAngle = sa - ea;
+        }else{
+            if (ea<sa) totalAngle = (ea + Math.PI*2) - sa;
+            else totalAngle = ea - sa;
+        }
+
+        // clamp steps based on angle
+        // steps = r * angle
+        steps = Math.ceil(r * totalAngle); 
+
+        // prevent infinite loop for tiny radius
+        if (steps < 1) steps = 1;
+
+        let angleStep = totalAngle / steps;
+        if (ccw) angleStep = -angleStep;
+
+        for(let i=0; i<=steps; i++){
+            let a = sa + i * angleStep;
+            // correction for ccw logic if needed? 
+            // recalculating 'a' simply from start to end direction:
+            if (ccw) a = sa - i * Math.abs(angleStep);
+             else a = sa + i * Math.abs(angleStep);
+            
+            let x = cx + r * Math.cos(a);
+            let y = cy + r * Math.sin(a);
+            x = Math.round(x);
+            y = Math.round(y);
+            ctx.fillRect(x-half,y-half,size,size);
         }
     }
 
