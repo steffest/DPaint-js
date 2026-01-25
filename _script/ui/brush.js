@@ -766,6 +766,7 @@ var Brush = function(){
     }
 
     function generateBackBrush(){
+        if (currentBrush.width < 1 || currentBrush.height < 1) return;
         brushBackCtx.fillStyle = Palette.getBackgroundColor();
         brushBackCtx.fillRect(0,0,currentBrush.width,currentBrush.height);
         brushBackCtx.globalCompositeOperation = "destination-in";

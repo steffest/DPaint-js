@@ -270,7 +270,7 @@ let ToolOptions = function(){
             brushSettings.sizeRange.max=100;
             brushSettings.sizeInput = $elm("span", settings.width+"px",brushSizeRange);
             brushSettings.sizeRange.oninput = function(){
-                BrushPanel.set({size:brushSettings.sizeRange.value});
+                Brush.setSize(brushSettings.sizeRange.value);
             }
 
 
@@ -281,7 +281,7 @@ let ToolOptions = function(){
             brushSettings.opacityRange.max=100;
             brushSettings.opacityInput = $elm("span",settings.opacity + "%",brushOpacityRange);
             brushSettings.opacityRange.oninput = function(){
-                BrushPanel.set({opacity:brushSettings.opacityRange.value});
+                Brush.setOpacity(brushSettings.opacityRange.value);
             }
 
             EventBus.on(EVENT.brushOptionsChanged,()=>{

@@ -97,19 +97,13 @@ let Smudge = function(){
                 }
                 if (doSharpen) filters.sharpen(ToolOptions.getStrength());
                 feather(brushCtx);
-                composeCtx.clearRect(0,0,w,h);
-                composeCtx.globalAlpha = ToolOptions.getStrength();
-                composeCtx.drawImage(brushCtx.canvas, 0, 0);
-                composeCtx.globalAlpha = 1;
+                blendPixelLinear(brushCtx, composeCtx, 0, ToolOptions.getStrength());
             }else{
-                composeCtx.globalAlpha = ToolOptions.getStrength();
-                composeCtx.globalCompositeOperation='copy';
-                composeCtx.drawImage(composeCtx.canvas, 0,0);
-                composeCtx.globalCompositeOperation = "source-over";
-
-                composeCtx.globalAlpha = alpha * lerp(lastForce, force, line.u);
-                composeCtx.drawImage(brushCtx.canvas, 0, 0);
-                composeCtx.globalAlpha = 1;
+                 // Linear blend for smudge
+                 let smudginess = alpha * lerp(lastForce, force, line.u);
+                 let decay = ToolOptions.getStrength();
+                 decay = decay * decay;
+                 blendPixelLinear(brushCtx, composeCtx, decay, smudginess);
             }
 
 
@@ -118,18 +112,18 @@ let Smudge = function(){
                 composeCtx.globalCompositeOperation = "destination-in";
                 composeCtx.drawImage(pattern,x,y,w,h,0,0,w,h);
                 composeCtx.globalCompositeOperation = "source-over";
-                ctx.drawImage(composeCtx.canvas, x, y);
+                blendToCanvasLinear(composeCtx, ctx, x, y);
             }
 
 
             if (Palette.isLocked()){
                 tempCtx.clearRect(0,0,w,h);
                 tempCtx.drawImage(ctx.canvas,x,y,w,h,0,0,w,h);
-                tempCtx.drawImage(composeCtx.canvas,0,0);
+                blendToCanvasLinear(composeCtx, tempCtx, 0, 0);
                 Palette.applyToCanvas(tempCtx.canvas,true);
                 ctx.drawImage(tempCtx.canvas,x,y);
             }else{
-                ctx.drawImage(composeCtx.canvas, x, y);
+                if (!dither) blendToCanvasLinear(composeCtx, ctx, x, y);
             }
 
             updateBrush(line.position[0], line.position[1]);
@@ -155,8 +149,10 @@ let Smudge = function(){
         featherGradient = createFeatherGradient(radius/2, hardness);
         brushCtx.canvas.width = radius;
         brushCtx.canvas.height = radius;
+        brushCtx.imageSmoothingEnabled = false;
         composeCtx.canvas.width = radius;
         composeCtx.canvas.height = radius;
+        composeCtx.imageSmoothingEnabled = false;
     }
 
     function feather(ctx) {
@@ -174,8 +170,8 @@ let Smudge = function(){
     function updateBrush(x, y) {
         let width = brushCtx.canvas.width;
         let height = brushCtx.canvas.height;
-        let srcX = x - width / 2;
-        let srcY = y - height / 2;
+        let srcX = Math.floor(x - width / 2);
+        let srcY = Math.floor(y - height / 2);
         // draw it in the middle of the brush
         let dstX = (brushCtx.canvas.width - width) / 2;
         let dstY = (brushCtx.canvas.height - height) / 2;
@@ -258,6 +254,81 @@ let Smudge = function(){
         }
         line.position[axis] += line.inc[axis];
         return true;
+    }
+
+    function blendPixelLinear(srcCtx, dstCtx, decay, srcAlpha) {
+         let w = srcCtx.canvas.width;
+         let h = srcCtx.canvas.height;
+         let sData = srcCtx.getImageData(0,0,w,h);
+         let dData = dstCtx.getImageData(0,0,w,h);
+         let s = sData.data;
+         let d = dData.data;
+
+         for(let i=0; i<s.length; i+=4){
+             let sa = (s[i+3]/255) * srcAlpha;
+             let da = (d[i+3]/255) * decay;
+
+             let outA = sa + da * (1 - sa);
+
+             if (outA > 0){
+                 // Linearize Src
+                 let sr = Math.pow(s[i]/255, 2.2);
+                 let sg = Math.pow(s[i+1]/255, 2.2);
+                 let sb = Math.pow(s[i+2]/255, 2.2);
+
+                 // Linearize Dest
+                 let dr = Math.pow(d[i]/255, 2.2);
+                 let dg = Math.pow(d[i+1]/255, 2.2);
+                 let db = Math.pow(d[i+2]/255, 2.2);
+
+                 let or = (sr * sa + dr * da * (1 - sa)) / outA;
+                 let og = (sg * sa + dg * da * (1 - sa)) / outA;
+                 let ob = (sb * sa + db * da * (1 - sa)) / outA;
+
+                 d[i] = Math.pow(or, 1/2.2) * 255;
+                 d[i+1] = Math.pow(og, 1/2.2) * 255;
+                 d[i+2] = Math.pow(ob, 1/2.2) * 255;
+             }
+             d[i+3] = outA * 255;
+         }
+         dstCtx.putImageData(dData, 0, 0);
+    }
+
+    function blendToCanvasLinear(srcCtx, dstCtx, dx, dy) {
+         let w = srcCtx.canvas.width;
+         let h = srcCtx.canvas.height;
+         let sData = srcCtx.getImageData(0,0,w,h);
+         let dData = dstCtx.getImageData(dx,dy,w,h);
+         let s = sData.data;
+         let d = dData.data;
+
+         for(let i=0; i<s.length; i+=4){
+             let sa = s[i+3]/255;
+             if (sa <= 0) continue;
+
+             let da = d[i+3]/255;
+             let outA = sa + da * (1 - sa);
+
+              if (outA > 0){
+                 let sr = Math.pow(s[i]/255, 2.2);
+                 let sg = Math.pow(s[i+1]/255, 2.2);
+                 let sb = Math.pow(s[i+2]/255, 2.2);
+
+                 let dr = Math.pow(d[i]/255, 2.2);
+                 let dg = Math.pow(d[i+1]/255, 2.2);
+                 let db = Math.pow(d[i+2]/255, 2.2);
+
+                 let or = (sr * sa + dr * da * (1 - sa)) / outA;
+                 let og = (sg * sa + dg * da * (1 - sa)) / outA;
+                 let ob = (sb * sa + db * da * (1 - sa)) / outA;
+
+                 d[i] = Math.pow(or, 1/2.2) * 255;
+                 d[i+1] = Math.pow(og, 1/2.2) * 255;
+                 d[i+2] = Math.pow(ob, 1/2.2) * 255;
+                 d[i+3] = outA * 255;
+             }
+         }
+         dstCtx.putImageData(dData, dx, dy);
     }
 
     return me;
