@@ -18,6 +18,7 @@ Online version available at https://www.stef.be/dpaint/
    - Multiple undo/redo
    - Copy/Paste from any other image program or image source
    - Customizable dither tools
+   - Color Cycling
  - Heavy focus on colour reduction with fine-grained dithering options
  - Amiga focus
    - Read/write/convert Amiga icon files (all formats)
@@ -74,7 +75,7 @@ Bug reports and pull requests are welcome.
 ### Missing Features
 Planned for the next release, already in the works:
    - <strike>Color Cycling</strike> (done)
-   - Animation support (GIf and Amiga ANIM files)
+   - <strike>Animation support (GIf and Amiga ANIM files)</strike> (done)
    - <strike>Shading/transparency tools that stay within the palette.</strike> (done)
 
 Planned for a future release if there's a need for it.
@@ -82,12 +83,25 @@ Planned for a future release if there's a need for it.
   - PSD import and export
   - SpriteSheet support
   - Write HAM,SHAM and Dynamic HiRes images
-  - 
+  - Commodore 64 graphics modes
+      
 ## Browser Quirks
 Please note that the **Brave** browser is using "[farbling](https://brave.com/privacy-updates/4-fingerprinting-defenses-2.0/#2-fingerprinting-protections-20-farbling-for-great-good)" that introduces random image noise in certain conditions.
 They claim this is to protect your privacy.
 Although I totally understand the sentiment, In my opinion a browser should not actively alter the content of a webpage or intentionally break functionality.  
 But hey, who am I to speak, it's a free world.
 Just be aware that if you are using Brave, you will run into issues, so please "lower your shields" for this app in Brave or use another browser.
+
+## Color Cycling
+Dpaint.js supports Color-Cycling - a long lost art of "animating" a static image by only rotating some colors in the palette.
+See an example here:  
+
+
+https://github.com/user-attachments/assets/427bbecc-d38f-4120-ba0d-83c7f1249722
+
+
+
+[Open the layered source file of the above image directly in Dpaint.js](https://www.dpaint.app/?file=gallery/2026/the-vision-layered.json&play=true)
+
 
 
