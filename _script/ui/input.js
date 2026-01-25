@@ -9,6 +9,7 @@ import Selection from "./selection.js";
 import Cursor from "./cursor.js";
 import UI from "./ui.js";
 import Palette from "./palette.js";
+import ToolOptions from "./components/toolOptions.js";
 
 var Input = function(){
 	let me = {}
@@ -437,7 +438,13 @@ var Input = function(){
 				case "p": EventBus.trigger(COMMAND.SPRAY); break;
 				case "q": EventBus.trigger(COMMAND.TOGGLEOVERRIDE); break;
 				case "r": EventBus.trigger(COMMAND.SQUARE); break;
-				case "s": EventBus.trigger(COMMAND.SELECT); break;
+				case "s":
+					if ((Editor.getCurrentTool() === COMMAND.LINE || Editor.getCurrentTool() === COMMAND.ARC || Editor.getCurrentTool() === COMMAND.CIRCLE) && Editor.isDrawing()){
+						ToolOptions.toggleSmooth();
+					}else{
+						EventBus.trigger(COMMAND.SELECT);
+					}
+					break;
 				case "t": EventBus.trigger(COMMAND.TEXT); break;
 				case "v": EventBus.trigger(COMMAND.TRANSFORMLAYER); break;
 				case "w": EventBus.trigger(COMMAND.FLOODSELECT); break;

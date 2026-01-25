@@ -205,8 +205,15 @@ let ToolOptions = function(){
     function smoothSetting(){
         if (!smoothCheckbox) smoothCheckbox=$checkbox("Smooth","","",(checked)=>{
             smooth = checked;
+            EventBus.trigger(EVENT.toolOptionsChanged);
         });
         return smoothCheckbox;
+    }
+
+    me.toggleSmooth = function(){
+        smooth = !smooth;
+        if (smoothCheckbox) smoothCheckbox.setState(smooth);
+        EventBus.trigger(EVENT.toolOptionsChanged);
     }
 
     function circleSetting(){

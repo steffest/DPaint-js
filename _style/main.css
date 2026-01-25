@@ -568,6 +568,10 @@ body.presentation .menu {
   background-image: url("../_img/line.svg");
   background-size: 80% 80%;
 }
+.toolbar .button.curve {
+  background-image: url("../_img/arc.svg");
+  background-size: 80% 80%;
+}
 .toolbar .button.erase {
   background-image: url("../_img/eraser.svg");
   background-size: 80% 80%;
@@ -586,10 +590,6 @@ body.presentation .menu {
 }
 .toolbar .button.gradient {
   background-image: url("../_img/gradient.svg");
-}
-.toolbar .button.curve {
-  background-image: url("../_img/arc.svg");
-  background-size: 80% 80%;
 }
 .toolbar .button.polygonselect {
   background-image: url("../_img/poly.svg");
@@ -3723,19 +3723,27 @@ body.hovercanvas.pointerdown.cursor-colorpicker .cursor .mark.large {
   left: 0;
   max-width: 49%;
 }
+.modalwindow .inner .saveform .flex {
+  display: flex;
+}
 .modalwindow .inner .saveform .panel {
   padding: 10px;
 }
-.modalwindow .inner .saveform .panel.flex {
-  display: flex;
+.modalwindow .inner .saveform .panel.aside {
+  background-color: #2c2c2c;
+  width: 200px;
+}
+.modalwindow .inner .saveform .panel.main {
+  width: 400px;
 }
 .modalwindow .inner .saveform .panel .col {
-  width: 220px;
+  width: 200px;
 }
 .modalwindow .inner .saveform .panel .col input {
   width: 100%;
 }
 .modalwindow .inner .saveform .panel .col .select {
+  height: 26px;
   width: 100%;
   display: flex;
   background-color: #313335;
@@ -3784,6 +3792,11 @@ body.hovercanvas.pointerdown.cursor-colorpicker .cursor .mark.large {
 }
 .modalwindow .inner .saveform .panel .col .select:hover:after {
   opacity: 1;
+}
+.modalwindow .inner .saveform .panel .imageinfo {
+  min-height: 30px;
+  padding: 10px 0;
+  color: #9b9b9b;
 }
 .modalwindow .inner .saveform .menu {
   position: absolute;
@@ -4104,67 +4117,56 @@ body.hovercanvas.pointerdown.cursor-colorpicker .cursor .mark.large {
 .modalwindow .inner .saveform .optionspanel {
   display: none;
 }
-.modalwindow .inner .saveform .optionspanel .title {
-  padding: 0 0 4px 0;
-  margin-bottom: 8px;
-  border-bottom: 1px solid #525252;
-  position: relative;
-  cursor: pointer;
-}
-.modalwindow .inner .saveform .optionspanel .title:after {
-  content: "";
-  position: absolute;
-  right: 0;
-  width: 20px;
-  height: 20px;
-  background-image: url("../_img/caret.svg");
-  background-size: contain;
-  background-repeat: no-repeat;
-  background-position: center;
-  transform: rotate(0deg);
-  opacity: 0.5;
-  transition: transform 0.3s ease-in-out;
-}
-.modalwindow .inner .saveform .optionspanel .title:hover:after {
-  opacity: 1;
-}
 .modalwindow .inner .saveform .optionspanel .content {
-  opacity: 0;
-  overflow: hidden;
-  max-height: 0;
   height: auto;
-  transition: all 0.3s ease-in-out;
-}
-.modalwindow .inner .saveform .optionspanel.active .title:after {
-  transform: rotate(90deg);
-}
-.modalwindow .inner .saveform .optionspanel.active .content {
-  opacity: 1;
-  overflow: hidden;
-  max-height: 200px;
-}
-.modalwindow .inner .saveform .optionspanel .group {
-  display: flex;
 }
 .modalwindow .inner .saveform .optionspanel .group label {
   width: 92px;
   color: #8b8989;
-}
-.modalwindow .inner .saveform .optionspanel .group .options {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  width: 100%;
+  display: block;
+  margin: 8px 0;
 }
 .modalwindow .inner .saveform .optionspanel .group .options .option {
   border: 1px solid silver;
   width: 100%;
   padding: 4px;
-  opacity: 0.4;
   cursor: pointer;
+  margin-bottom: 4px;
+  border: 1px solid #555555;
+  color: #7e7e7e;
+  position: relative;
+}
+.modalwindow .inner .saveform .optionspanel .group .options .option span {
+  text-align: right;
+  display: block;
+  font-size: 12px;
+}
+.modalwindow .inner .saveform .optionspanel .group .options .option .tooltip {
+  position: absolute;
+  pointer-events: none;
+  opacity: 0;
+  display: block;
+  background-color: #4d5052;
+  border: 1px solid black;
+  padding: 6px 12px;
+  margin-top: -30px;
+  left: 10px;
+  transform: translateX(-50%);
+  color: silver;
+  transition: all 0.2s ease-in-out;
+  width: max-content;
+}
+.modalwindow .inner .saveform .optionspanel .group .options .option.centered {
+  text-align: center;
+  margin-bottom: 0;
 }
 .modalwindow .inner .saveform .optionspanel .group .options .option:hover {
-  opacity: 0.7;
+  border: 1px solid #939393;
+  color: #bdbdbd;
+}
+.modalwindow .inner .saveform .optionspanel .group .options .option:hover .tooltip {
+  opacity: 1;
+  margin-top: -52px;
 }
 .modalwindow .inner .saveform .optionspanel .group .options .option.selected {
   border: 1px solid #4e8337;
@@ -4178,21 +4180,33 @@ body.hovercanvas.pointerdown.cursor-colorpicker .cursor .mark.large {
 .modalwindow .inner .saveform .optionspanel .group .options .option.selected span {
   color: #6ca554;
 }
-.modalwindow .inner .saveform .optionspanel .group .options .option span {
-  display: block;
-  font-size: 12px;
-  opacity: 0.8;
-}
 .modalwindow .inner .saveform .optionspanel .group .options .range {
   width: 100%;
+}
+.modalwindow .inner .saveform .optionspanel .group .options .rangeinput {
+  position: absolute;
+  right: 10px;
+  font-size: 12px;
+  margin-top: -30px;
 }
 .modalwindow .inner .saveform .optionspanel .group .options .rangeinput {
   width: 50px;
 }
 .modalwindow .inner .saveform .optionspanel .group.disabled {
-  pointer-events: none;
-  opacity: 0.5;
-  filter: grayscale(1);
+  display: none;
+}
+.modalwindow .inner .saveform .optionspanel .group.inline {
+  display: flex;
+  align-items: center;
+}
+.modalwindow .inner .saveform .optionspanel .group.inline .options {
+  display: flex;
+  gap: 8px;
+}
+.modalwindow .inner .saveform .optionspanel .group.inline .options .option {
+  margin-bottom: 0;
+  width: auto;
+  white-space: nowrap;
 }
 .modalwindow .inner .saveform .optionspanel.visible {
   display: block;
@@ -4206,7 +4220,6 @@ body.hovercanvas.pointerdown.cursor-colorpicker .cursor .mark.large {
   padding: 4px 4px 4px 16px;
   border-bottom: 1px solid black;
   border-top: 1px solid #4b4a4a;
-  opacity: 0.6;
 }
 .modalwindow .inner .saveform .options.list .option:first-of-type {
   margin-top: 8px;
@@ -4214,7 +4227,6 @@ body.hovercanvas.pointerdown.cursor-colorpicker .cursor .mark.large {
   border-top: none;
 }
 .modalwindow .inner .saveform .options.list .option.selected {
-  opacity: 1;
   background-image: url("../_img/check.svg");
   background-repeat: no-repeat;
   background-size: 12px 12px;

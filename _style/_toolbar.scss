@@ -142,6 +142,11 @@
       background-size: 80% 80%;
     }
 
+    &.curve{
+      background-image: url("../_img/arc.svg");
+      background-size: 80% 80%;
+    }
+
     &.erase{
       background-image: url("../_img/eraser.svg");
       background-size: 80% 80%;

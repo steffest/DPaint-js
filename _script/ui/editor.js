@@ -500,6 +500,10 @@ var Editor = function(){
         return !!state[name];
     }
 
+    me.isDrawing = function(){
+        return activePanel ? activePanel.isDrawing() : false;
+    }
+
     me.commit = async function(){
         if (currentTool === COMMAND.TRANSFORMLAYER){
             console.log("commit layer");

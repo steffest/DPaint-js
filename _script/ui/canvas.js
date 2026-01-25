@@ -248,6 +248,12 @@ let Canvas = function(parent){
         }
     });
 
+    EventBus.on(EVENT.toolOptionsChanged,()=>{
+        if (touchData.hotDrawFunction && currentCursorPoint){
+            touchData.hotDrawFunction(currentCursorPoint.x,currentCursorPoint.y);
+        }
+    });
+
     me.clear = function(){
         ctx.clearRect(0,0,canvas.width,canvas.height);
     }
@@ -356,6 +362,10 @@ let Canvas = function(parent){
         touchData.isSelecting = true;
     }
 
+    me.isDrawing = function(){
+        return !!(touchData.hotDrawFunction || touchData.arcState);
+    }
+
     function draw() {
         // button=0 -> left, button=2: right
         let color = touchData.button?Palette.getBackgroundColor():Palette.getDrawColor();
@@ -440,6 +450,7 @@ let Canvas = function(parent){
 
 
                 point = getCursorPosition(canvas,e,true);
+                currentCursorPoint = point;
                 let isOnCanvas = e.target && e.target.classList.contains("maincanvas");
                 touchData.isdown = true;
                 touchData.button = e.button;
@@ -786,9 +797,20 @@ let Canvas = function(parent){
                 break;
             case "up":
                 if (Editor.getCurrentTool() === COMMAND.ARC && touchData.arcState === 1){
-                     touchData.arcState = 2;
                      let point = getCursorPosition(canvas,e,true);
-                     touchData.points[1] = point;
+                     let p1 = touchData.points[0];
+
+                     if (point.x === p1.x && point.y === p1.y){
+                         // the arc is only one pixel - exit and skip the "drag" part.
+                         if (touchData.hotDrawFunction) touchData.hotDrawFunction(point.x,point.y);
+                         if (touchData.hotDrawDone) touchData.hotDrawDone();
+                         touchData.hotDrawFunction = undefined;
+                         touchData.hotDrawDone = undefined;
+                         touchData.arcState = 0;
+                     }else{
+                         touchData.arcState = 2;
+                         touchData.points[1] = point;
+                     }
                      touchData.isdown = false;
                      return;
                 }
@@ -856,6 +878,7 @@ let Canvas = function(parent){
                 if (!touchData.isdown){
                     if (e.pointerType === "touch") return;
                     point = getCursorPosition(canvas,e,false);
+                    currentCursorPoint = point;
 
                     if (touchData.hotDrawFunction){
                         touchData.hotDrawFunction(point.x,point.y);
@@ -884,6 +907,7 @@ let Canvas = function(parent){
                 // let the editPanel parent handle this for pan/zoom
 
                 point = getCursorPosition(canvas,e,false);
+                currentCursorPoint = point;
                 if (touchData.isdown){
                     if (Input.isSpaceDown() || touchData.button===1 || Editor.getCurrentTool() === COMMAND.PAN){
                         var panDeltaX = e.clientX - touchData.startDragX;
