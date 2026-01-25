@@ -35,7 +35,7 @@ var Modal = function(){
     let notification;
 
     let dialogs={
-        1: {title: "Save File As", fuzzy: true,width:400,height:"auto", handler: SaveDialog, position: [0,0]},
+        1: {title: "Save File As", fuzzy: true,width:600,height:"auto", handler: SaveDialog, position: [0,0]},
         2: {title: "Canvas Size", fuzzy: true, handler: ResizeDialog, position: [0,0],width:406,height:220},
         3: {title: "Image Size", fuzzy: true, handler: ResampleDialog, position: [0,0],width:326,height:220},
         4: {title: "Palette Editor", handler: PaletteDialog, width:450,height:304, position: [0,0]},

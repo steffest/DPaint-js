@@ -260,6 +260,10 @@ var EditPanel = function(parent,type){
         return me.isVisible() && Editor.getActivePanel().getIndex() === thisPanel;
     }
 
+    me.isDrawing = function(){
+         return canvas.isDrawing();
+    }
+
     // setup toolbar
     let zoomoutButton = $div("button info","-",toolbar,()=>{
         var z =  canvas.getZoom();

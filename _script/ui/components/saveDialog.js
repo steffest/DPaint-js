@@ -9,6 +9,7 @@ import Generate from "../../fileformats/generate.js";
 import Brush from "../brush.js";
 import Color from "../../util/color.js";
 import BinaryStream from "../../util/binarystream.js";
+import ImageProcessing from "../../util/imageProcessing.js";
 
 var SaveDialog = function(){
     let me ={};
@@ -16,6 +17,7 @@ var SaveDialog = function(){
     let currentFile;
     let container;
     let mainPanel;
+    let imageinfo;
     let currentSaveOptions = {
         type:"PNG",
         quality: 90,
@@ -159,121 +161,136 @@ var SaveDialog = function(){
         container.innerHTML = "";
         container.appendChild(
             mainPanel = $(".saveform",
-                $(".panel.flex",
-                    $(".col.name",$("h4","Name"),nameInput = $("input",{type:"text",value:ImageFile.getName(true)})),
-                    $(".col",$("h4","Type"),
-                        $(".filetype.inputbox.select",
-                            {onClick:(e)=>{
-                                let button = e.target.closest(".button");
-                                if (button && button.value){
-                                    setSaveType(button.value);
-                                    menu.classList.remove("active");
-                                    return;
-                                }
-                                menu.classList.toggle("active")
-                            }},
-                            menu = $(".menu",
-                                $(".list",
-                                    renderButton("json","DPaint.JSON","The internal format of Dpaint. All features supported","DPAINTJS"),
-                                    renderButton("png","PNG Image","Full color and transparency, no layers, only the current frame gets saved.","PNG"),
-                                    renderButton("gif","GIF Img/anim","Max 256 colors, no layers, animation supported.","GIF"),
-                                    renderButton("jpg","JPG Image","Full color, no transparency, no layers, only the current frame gets saved. LOSSY!","JPG"),
-                                    renderButton("iff","Amiga IFF","Maximum 256 colors, only the current frame gets saved.","IFF"),
-                                    renderButton("anim","Amiga ANIM","Maximum 256 colors, animation supported.","ANIM"),
-                                    renderButton("amiga","Amiga Icon","Amiga OS Icon, Maximum 2 frames.","ICO"),
-                                    renderButton("amiga","Amiga Sprite","C Source.","SPRITE"),
-
-                                    //renderButton("psd","PSD","Coming soon ...","Working on it!"),
-
-                                    //renderButton("planes","BIN","Bitplanes","Binary bitplane data",writePLANES)
-                                )
-                            ),
-                            UIelm.ext = $(".ext"),
-                            UIelm.info = $(".info")
-                        )
-                    ),
-                ),
-                $(".panel",
-                    $(".optionspanel.PNG",
-                        $(".title",{onClick:toggleOptionPanel},"Png options"),
-                        $(".content",
-                            $('.group',
-                                $("label","Colors"),
-                                $(".options",
-                                    {key:"depth"},
-                                    $(".option.selected",{value:24,onClick:selectOption},"24 Bit",$("span","Full color, Full alpha")),
-                                    $(".option",{value:8,onClick:selectOption},"8 Bit",$("span","Max 256 colors")),
-                                )
-                            ),
-                            $('.group.pal.disabled',
-                                $("label","Palette"),
-                                $(".options",
-                                    {key:"palette"},
-                                    $(".option.selected",{value:"optimized",onClick:selectOption},"Optimize"),
-                                    $(".option",{value:"locked",onClick:selectOption},"Use Current Palette"),
-                                )
-                            )
-                        )
-                    ),
-                    $(".optionspanel.DPAINTJS",
-                        $(".title",{onClick:toggleOptionPanel},"Dpaint.json options"),
-                        $(".content",
-                            $('.group',
-                                $("label","Colors"),
-                                $(".options",
-                                    {key:"depth"},
-                                    $(".option.selected",{value:24,onClick:selectOption},"24 Bit",$("span","Full color, Full alpha")),
-                                    $(".option",{value:8,onClick:selectOption},"8 Bit",$("span","Max 256 colors")),
-                                )
-                            ),
-                            $('.group.pal.disabled',
-                                $("label","Palette"),
-                                $(".options",
-                                    {key:"palette"},
-                                    $(".option.selected",{value:"optimized",onClick:selectOption},"Optimize"),
-                                    $(".option",{value:"locked",onClick:selectOption},"Use Current Palette"),
-                                )
-                            )
-                        )
-                    ),
-                    $(".optionspanel.JPG",
-                        $(".title",{onClick:toggleOptionPanel},"Jpeg options"),
-                        $(".content",
-                            $('.group',
-                                $("label","Quality"),
-                                $(".options",
-                                    $("input.range",{type:"range",min:1,max:100,value:currentSaveOptions.quality,oninput:(e)=>{
-                                        e.target.nextElementSibling.value = e.target.value;
-                                        currentSaveOptions.quality = parseInt(e.target.value);
-                                        }}),
-                                    $("input.rangeinput",{type:"text",value:currentSaveOptions.quality,
-                                        onkeydown: (e)=>{
-                                            e.stopPropagation();
-                                        },
-                                        oninput:(e)=>{
-                                            e.stopPropagation();
-                                            e.preventDefault();
-                                            let range = e.target.previousElementSibling;
-                                            let v = parseInt(e.target.value);
-                                            if (isNaN(v) || v < 1 || v > 100) v = 100;
-                                            range.value =v;
-                                            currentSaveOptions.quality = v;
+                $(".flex",
+                    $(".panel.main",
+                        $(".flex",
+                            $(".col.name",$("h4","Name"),nameInput = $("input",{type:"text",value:ImageFile.getName(true)})),
+                            $(".col",$("h4","Type"),
+                                $(".filetype.inputbox.select",
+                                    {onClick:(e)=>{
+                                        let button = e.target.closest(".button");
+                                        if (button && button.value){
+                                            setSaveType(button.value);
+                                            menu.classList.remove("active");
+                                            return;
                                         }
-                                    }),
+                                        menu.classList.toggle("active")
+                                    }},
+                                    menu = $(".menu",
+                                        $(".list",
+                                            renderButton("json","DPaint.JSON","The internal format of Dpaint. All features supported","DPAINTJS"),
+                                            renderButton("png","PNG Image","Full color and transparency, no layers, only the current frame gets saved.","PNG"),
+                                            renderButton("gif","GIF Img/anim","Max 256 colors, no layers, animation supported.","GIF"),
+                                            renderButton("jpg","JPG Image","Full color, no transparency, no layers, only the current frame gets saved. LOSSY!","JPG"),
+                                            renderButton("iff","Amiga IFF","Maximum 256 colors, only the current frame gets saved.","IFF"),
+                                            renderButton("anim","Amiga ANIM","Maximum 256 colors, animation supported.","ANIM"),
+                                            renderButton("amiga","Amiga Icon","Amiga OS Icon, Maximum 2 frames.","ICO"),
+                                            renderButton("amiga","Amiga Sprite","C Source.","SPRITE"),
+
+                                            //renderButton("psd","PSD","Coming soon ...","Working on it!"),
+
+                                            //renderButton("planes","BIN","Bitplanes","Binary bitplane data",writePLANES)
+                                        )
+                                    ),
+                                    UIelm.ext = $(".ext"),
+                                    UIelm.info = $(".info")
+                                )
+                            ),
+                        ),
+                        imageinfo = $(".imageinfo",''),
+                        $(".buttons.relative.right",
+                            $(".button.cancel.ghost",{onClick:Modal.hide},$("span","Cancel")),
+                            $(".button.save.positive",{onClick:saveWithOptions},$("span","Save"))
+                        )
+                    ),
+                    $(".panel.aside",
+                        $(".title",{onClick:toggleOptionPanel},"Options"),
+                        $(".optionspanel.PNG",
+                            $(".content",
+                                $('.group.inline',
+                                    $("label","Colors"),
+                                    $(".options.inline",
+                                        {key:"depth"},
+                                        $(".option.selected",{value:24,onClick:selectOption},"24 Bit",$(".tooltip","Full color, Full alpha")),
+                                        $(".option",
+                                            {value:8,onClick:selectOption},
+                                            "8 Bit",
+                                            $(".tooltip","Max 256 colors")
+                                        ),
+                                    )
+                                ),
+                                $('.group.pal.hidden',
+                                    $("label","Palette"),
+                                    $(".options.flex",
+                                        {key:"palette"},
+                                        $(".option.centered.selected",{value:"optimized",onClick:selectOption},"Optimize",$(".tooltip","Rebuild the palette with used colors")),
+                                        $(".option.centered",{value:"locked",onClick:selectOption},"Current",$(".tooltip","Keep existing palette")),
+                                    )
                                 )
                             )
-                        )
+                        ),
+                        $(".optionspanel.GIF",
+                            $(".content",
+                                ""
+                            )
+                        ),
+                        $(".optionspanel.DPAINTJS",
+                            $(".content",
+                                $('.group.inline',
+                                    $("label","Colors"),
+                                    $(".options",
+                                        {key:"depth"},
+                                        $(".option.selected",{value:24,onClick:selectOption},"24 Bit",$(".tooltip","Full color, Full alpha")),
+                                        $(".option",
+                                            {value:8,onClick:selectOption},
+                                            "8 Bit",
+                                            $(".tooltip","Max 256 colors")
+                                        ),
+                                    )
+                                ),
+                                $('.group.pal',
+                                    $("label","Palette"),
+                                    $(".options.flex",
+                                        {key:"palette"},
+                                        $(".option.suboption.centered.selected",{value:"optimized",onClick:selectOption},"Optimize",$(".tooltip","Rebuild the palette with used colors")),
+                                        $(".option.suboption.centered",{value:"locked",onClick:selectOption},"Current",$(".tooltip","Keep existing palette")),
+                                    )
+                                )
+                            )
+                        ),
+                        $(".optionspanel.JPG",
+                            $(".content",
+                                $('.group',
+                                    $("label","Quality"),
+                                    $(".options",
+                                        $("input.range",{type:"range",min:1,max:100,value:currentSaveOptions.quality,oninput:(e)=>{
+                                            e.target.nextElementSibling.value = e.target.value;
+                                            currentSaveOptions.quality = parseInt(e.target.value);
+                                            }}),
+                                        $("input.rangeinput",{type:"text",value:currentSaveOptions.quality,
+                                            onkeydown: (e)=>{
+                                                e.stopPropagation();
+                                            },
+                                            oninput:(e)=>{
+                                                e.stopPropagation();
+                                                e.preventDefault();
+                                                let range = e.target.previousElementSibling;
+                                                let v = parseInt(e.target.value);
+                                                if (isNaN(v) || v < 1 || v > 100) v = 100;
+                                                range.value =v;
+                                                currentSaveOptions.quality = v;
+                                            }
+                                        }),
+                                    )
+                                )
+                            )
+                        ),
+                        $(".optionspanel.ICO",
+                            $(".content",
+                                $("p","Currently under construction")
+                            )
+                        ),
                     ),
-                    $(".optionspanel.ICO",
-                        $(".title",{onClick:toggleOptionPanel},"Amiga Icon options"),
-                        $(".content",
-                            "Currently under construction"
-                        )
-                    ),
-                ),
-                $(".buttons.relative.right",
-                    $(".button.cancel.ghost",{onClick:Modal.hide},$("span","Cancel")),
-                    $(".button.save.positive",{onClick:saveWithOptions},$("span","Save"))
                 )
         ));
 
@@ -285,6 +302,17 @@ var SaveDialog = function(){
         }
 
         setSaveType(currentSaveOptions.type || "PNG");
+
+
+        let  file = ImageFile.getCurrentFile();
+        let infoText = [];
+        console.error(file);
+        if (file.width && file.height){
+            infoText.push(file.width + " x " + file.height + " px");
+        }
+        let colorCount = ImageProcessing.getColors(ImageFile.getCanvasWithFilters()).length;
+        infoText.push(colorCount + " colors");
+        imageinfo.innerHTML = infoText.join(" - ");
 
         // check if we have a server to post back to
         let postBack;
@@ -327,9 +355,11 @@ var SaveDialog = function(){
         let parent = e.target.closest(".options");
         let option = e.target.closest(".option");
         if (!option || !parent) return;
+        let isSub = option.classList.contains("suboption");
 
         let options = parent.querySelectorAll(".option");
         options.forEach(elm=>{
+            if (!isSub && elm.classList.contains("suboption")) return;
             elm.classList.remove("selected");
         })
         option.classList.add("selected");

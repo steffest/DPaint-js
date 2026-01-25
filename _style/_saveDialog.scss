@@ -1,19 +1,29 @@
 .saveform{
+
+  .flex{
+    display: flex;
+  }
+
   .panel{
     padding: 10px;
 
-    &.flex{
-      display: flex;
+    &.aside{
+      background-color: #2c2c2c;
+      width: 200px;
+    }
+
+    &.main{
+      width: 400px;
     }
 
     .col{
-      width: 220px;
-
+      width: 200px;
       input{
         width: 100%;
       }
 
       .select{
+        height: 26px;
         width: 100%;
         display: flex;
         background-color: $panel-background-color;
@@ -68,6 +78,13 @@
             }
         }
       }
+    }
+
+
+    .imageinfo{
+      min-height: 30px;
+      padding: 10px 0;
+      color: #9b9b9b;
     }
   }
 
@@ -416,80 +433,69 @@
 
   .optionspanel{
     display: none;
-    .title{
-      padding: 0 0 4px 0;
-      margin-bottom: 8px;
-      border-bottom: 1px solid #525252;
-      position: relative;
-      cursor: pointer;
-
-      &:after{
-        content: "";
-        position: absolute;
-        right: 0;
-        width: 20px;
-        height: 20px;
-        background-image: url("../_img/caret.svg");
-        background-size: contain;
-        background-repeat: no-repeat;
-        background-position: center;
-        transform: rotate(0deg);
-        opacity: 0.5;
-        transition: transform 0.3s ease-in-out;
-      }
-
-      &:hover{
-        &:after{
-            opacity: 1;
-        }
-      }
-    }
 
     .content{
-      opacity: 0;
-      overflow: hidden;
-      max-height: 0;
       height: auto;
-      transition: all 0.3s ease-in-out;
-    }
-
-    &.active{
-      .title{
-        &:after{
-          transform: rotate(90deg);
-        }
-      }
-      .content{
-        opacity: 1;
-        overflow: hidden;
-        max-height: 200px;
-      }
     }
 
     .group{
-      display: flex;
 
       label{
         width:92px;
         color:#8b8989;
+        display: block;
+        margin: 8px 0;
       }
 
       .options{
-        display:  flex;
-        align-items: center;
-        gap: 4px;
-        width: 100%;
-
         .option{
           border: 1px solid silver;
           width: 100%;
           padding: 4px;
-          opacity: 0.4;
           cursor:  pointer;
+          margin-bottom: 4px;
+          border: 1px solid #555555;
+          color: #7e7e7e;
+          position: relative;
+
+          span{
+            text-align: right;
+            display: block;
+            font-size: 12px;
+          }
+
+          .tooltip{
+            position: absolute;
+            pointer-events: none;
+            opacity: 0;
+            display: block;
+            background-color: #4d5052;
+            border: 1px solid black;
+            padding: 6px 12px;
+            margin-top: -30px;
+            left: 10px;
+            transform: translateX(-50%);
+            color: silver;
+            transition: all .2s ease-in-out;
+            width: max-content;
+          }
+
+          &.centered{
+            text-align: center;
+            margin-bottom: 0;
+          }
 
           &:hover{
-            opacity: 0.7;
+            border: 1px solid #939393;
+            color: #bdbdbd;
+
+            .tooltip{
+              opacity: 1;
+              margin-top: -52px;
+            }
+
           }
+
 
           &.selected{
             border: 1px solid #4e8337;
@@ -504,12 +510,6 @@
               color: #6ca554;
             }
           }
-
-          span{
-            display: block;
-            font-size: 12px;
-            opacity: 0.8;
-          }
         }
 
         .range{
@@ -517,14 +517,36 @@
         }
 
         .rangeinput{
+          position: absolute;
+          right: 10px;
+          font-size: 12px;
+          margin-top: -30px;
+        }
+
+        .rangeinput{
           width: 50px;
         }
+
       }
 
       &.disabled{
-        pointer-events: none;
-        opacity: 0.5;
-        filter: grayscale(1);
+        display: none;
+      }
+
+      &.inline{
+        display: flex;
+        align-items: center;
+
+        .options{
+          display: flex;
+          gap: 8px;
+
+          .option{
+            margin-bottom: 0;
+            width: auto;
+            white-space: nowrap;
+          }
+        }
       }
     }
 
@@ -542,7 +564,6 @@
       padding: 4px 4px 4px 16px;
       border-bottom: 1px solid black;
       border-top: 1px solid #4b4a4a;
-      opacity: 0.6;
 
       &:first-of-type{
         margin-top:8px;
@@ -551,7 +572,6 @@
       }
 
       &.selected{
-        opacity: 1;
         background-image: url("../_img/check.svg");
         background-repeat: no-repeat;
         background-size: 12px 12px;
