@@ -271,23 +271,17 @@ let Smudge = function(){
              let outA = sa + da * (1 - sa);
 
              if (outA > 0){
-                 // Linearize Src
-                 let sr = Math.pow(s[i]/255, 2.2);
-                 let sg = Math.pow(s[i+1]/255, 2.2);
-                 let sb = Math.pow(s[i+2]/255, 2.2);
+                 let sr = s[i];
+                 let sg = s[i+1];
+                 let sb = s[i+2];
 
-                 // Linearize Dest
-                 let dr = Math.pow(d[i]/255, 2.2);
-                 let dg = Math.pow(d[i+1]/255, 2.2);
-                 let db = Math.pow(d[i+2]/255, 2.2);
+                 let dr = d[i];
+                 let dg = d[i+1];
+                 let db = d[i+2];
 
-                 let or = (sr * sa + dr * da * (1 - sa)) / outA;
-                 let og = (sg * sa + dg * da * (1 - sa)) / outA;
-                 let ob = (sb * sa + db * da * (1 - sa)) / outA;
-
-                 d[i] = Math.pow(or, 1/2.2) * 255;
-                 d[i+1] = Math.pow(og, 1/2.2) * 255;
-                 d[i+2] = Math.pow(ob, 1/2.2) * 255;
+                 d[i] = (sr * sa + dr * da * (1 - sa)) / outA;
+                 d[i+1] = (sg * sa + dg * da * (1 - sa)) / outA;
+                 d[i+2] = (sb * sa + db * da * (1 - sa)) / outA;
              }
              d[i+3] = outA * 255;
          }
@@ -310,21 +304,17 @@ let Smudge = function(){
              let outA = sa + da * (1 - sa);
 
               if (outA > 0){
-                 let sr = Math.pow(s[i]/255, 2.2);
-                 let sg = Math.pow(s[i+1]/255, 2.2);
-                 let sb = Math.pow(s[i+2]/255, 2.2);
+                 let sr = s[i];
+                 let sg = s[i+1];
+                 let sb = s[i+2];
 
-                 let dr = Math.pow(d[i]/255, 2.2);
-                 let dg = Math.pow(d[i+1]/255, 2.2);
-                 let db = Math.pow(d[i+2]/255, 2.2);
+                 let dr = d[i];
+                 let dg = d[i+1];
+                 let db = d[i+2];
 
-                 let or = (sr * sa + dr * da * (1 - sa)) / outA;
-                 let og = (sg * sa + dg * da * (1 - sa)) / outA;
-                 let ob = (sb * sa + db * da * (1 - sa)) / outA;
-
-                 d[i] = Math.pow(or, 1/2.2) * 255;
-                 d[i+1] = Math.pow(og, 1/2.2) * 255;
-                 d[i+2] = Math.pow(ob, 1/2.2) * 255;
+                 d[i] = (sr * sa + dr * da * (1 - sa)) / outA;
+                 d[i+1] = (sg * sa + dg * da * (1 - sa)) / outA;
+                 d[i+2] = (sb * sa + db * da * (1 - sa)) / outA;
                  d[i+3] = outA * 255;
              }
          }
