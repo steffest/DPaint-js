@@ -61,7 +61,13 @@ var Modal = function(){
                 me.hide();
             });
             inner =  $div("inner","",modalWindow);
+            caption.onDragStart = function(e){
+                caption.shouldClose = (e.target.tagName.toLowerCase() === "img");
+                currentTranslate = [currentDialog.position[0],currentDialog.position[1]];
+                caption.hasMoved = false;
+            }
             caption.onDrag = function(x,y){
+               caption.hasMoved = true;
                x += currentDialog.position[0];
                y += currentDialog.position[1];
                currentTranslate = [x,y];
@@ -69,6 +75,9 @@ var Modal = function(){
             }
             caption.onDragEnd = function(){
                 currentDialog.position = [currentTranslate[0],currentTranslate[1]];
+                if (!caption.hasMoved && currentDialog.action === showAbout && caption.shouldClose){
+                    me.hide();
+                }
             }
         }
         modalWindow.classList.add("active");
@@ -208,7 +217,7 @@ var Modal = function(){
         let gallery;
 
         inner.appendChild($(".about",
-            $("img",{src:"./_img/dpaint-about.png",onclick:()=>me.hide()}),
+            $("img",{src:"./_img/dpaint-about.png",onDrag:caption.onDrag,onDragEnd:caption.onDragEnd,onDragStart:caption.onDragStart}),
             $(".text.version","version " + version),
             $(".text.info","Webbased image editor modeled after the legendary",$("br"),"Deluxe Paint with a focus on retro Amiga file formats."),
             $(".text.copyright.link",{onClick:()=>window.open("https://www.stef.be/")},"© 2023-2025 - Steffest"),
