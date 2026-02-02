@@ -3,13 +3,14 @@ import ImageFile from "../../image.js";
 
 let OptionDialog = function() {
     let me = {};
+    let currentData;
 
     me.render = function (container,modal,data) {
         container.innerHTML = "";
         let panel = $(".optiondialog",{parent: container});
 
         $setTarget(panel)
-        //if (data.title) $("h3",data.title);
+        currentData = data;
         if (data.text){
             if (typeof data.text === "string") data.text=[data.text];
             data.text.forEach(text=>{$("p",text);});
@@ -24,10 +25,15 @@ let OptionDialog = function() {
             })
         }else{
             $(".buttons.relative",
-                $(".button.ghost",{onclick: modal.hide},"Cancel"),
-                $(".button.primary",{onclick: ()=>{modal.hide(); if (data.onOk) data.onOk()}},"OK")
+                $(".button.ghost",{onclick: ()=>{modal.hide(true); if (data.onCancel) data.onCancel()}},"Cancel"),
+                $(".button.primary",{onclick: ()=>{modal.hide(true); if (data.onOk) data.onOk()}},"OK")
             );
         }
+    }
+
+    me.onClose = function(fromButton) {
+        if (!fromButton && currentData && currentData.onCancel) currentData.onCancel();
+        currentData = null;
     }
     return me;
 }();

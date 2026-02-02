@@ -472,12 +472,19 @@
             background-color: #4d5052;
             border: 1px solid black;
             padding: 6px 12px;
-            margin-top: -30px;
+            bottom: 0;
             left: 10px;
             transform: translateX(-50%);
             color: silver;
             transition: all .2s ease-in-out;
             width: max-content;
+            max-width: 300px;
+
+            &.left{
+              transform: translateX(-100%) translateY(-50%);
+              bottom: unset;
+              top: 0;
+            }
           }
 
           &.centered{
@@ -491,7 +498,12 @@
 
             .tooltip{
               opacity: 1;
-              margin-top: -52px;
+              bottom: 26px;
+
+              &.left{
+                bottom: unset;
+                left: -4px;
+              }
             }
 
           }
@@ -509,6 +521,24 @@
             span{
               color: #6ca554;
             }
+          }
+
+          &.os3,
+          &.os4,
+          &.mui{
+            background-image: url("../_img/mui.png");
+            background-size: 24px 24px;
+            background-repeat: no-repeat;
+            background-position: 4px center;
+            padding-left: 32px;
+          }
+
+          &.os3{
+            background-image: url("../_img/os3.png");
+          }
+
+          &.os4{
+            background-image: url("../_img/os4.png");
           }
         }
 

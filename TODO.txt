@@ -18,6 +18,8 @@
 - painting on layer should show color in grayscale
 - clone stamp tool ?
 - use OffscreenCanvas
+- light theme
+- right click tool should display options (like in Deluxe Paint)
 
 
 - filters: e.g. https://medium.com/skylar-salernos-tech-blog/mimicking-googles-pop-filter-using-canvas-blend-modes-d7da83590d1a
@@ -47,6 +49,8 @@ Transparency settings are not applied on canvas brush
 Palette Edit - pick color from image: apply button is not shown
 INVERT SELECTION!
 Save as Gif - when used in 24-bit alpha image, a black outcome
+duplicate colors in palette causes color cycle bugs.
+
 
 
 TODO before release:
@@ -54,14 +58,20 @@ TODO before release:
 eydropper should not be active while drawing a line)
 );
 
+preference panel
+icon exports
+
 feature previews
 
 - Animated GIF
-- color cycling
 - pressure sensitivity
+- Animation controls
 - Palette lock
 - 12 and 9 bit color depths
 - resizable panels
+- Arc tool
+- Texture brushes
+- Gallery
 
 Amiga Specific
  - 12 bit color depth

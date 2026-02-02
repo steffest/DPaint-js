@@ -22,7 +22,8 @@ var SaveDialog = function(){
         type:"PNG",
         quality: 90,
         depth: 24,
-        palette: "optimized"
+        palette: "optimized",
+        iconType: "colorIcon"
     };
     let UIelm = {};
 
@@ -93,7 +94,8 @@ var SaveDialog = function(){
             extension: 'info',
             accept: {
                 'application/octet-stream': ['.info'],
-            }
+            },
+            generator: 'ICO',
         },
         PALETTE:{
             description: 'DPaint.js Palette',
@@ -183,8 +185,8 @@ var SaveDialog = function(){
                                             renderButton("gif","GIF Img/anim","Max 256 colors, no layers, animation supported.","GIF"),
                                             renderButton("jpg","JPG Image","Full color, no transparency, no layers, only the current frame gets saved. LOSSY!","JPG"),
                                             renderButton("iff","Amiga IFF","Maximum 256 colors, only the current frame gets saved.","IFF"),
-                                            renderButton("anim","Amiga ANIM","Maximum 256 colors, animation supported.","ANIM"),
-                                            renderButton("amiga","Amiga Icon","Amiga OS Icon, Maximum 2 frames.","ICO"),
+                                            //renderButton("anim","Amiga ANIM","Maximum 256 colors, animation supported.","ANIM"),
+                                            renderButton("os3","Amiga Icon","Amiga OS Icon, Maximum 2 frames.","ICO"),
                                             renderButton("amiga","Amiga Sprite","C Source.","SPRITE"),
 
                                             //renderButton("psd","PSD","Coming soon ...","Working on it!"),
@@ -287,7 +289,15 @@ var SaveDialog = function(){
                         ),
                         $(".optionspanel.ICO",
                             $(".content",
-                                $("p","Currently under construction")
+                                $(".group",
+                                    $("label","Icon Format"),
+                                    $(".options",   
+                                        {key:"iconType"},
+                                        $(".option.mui",{value:"classicIcon",onClick:selectOption},"Classic Icon",$(".tooltip.left",$("div","OS1.3 style."),$("div","For all Amiga's."),$("div","Use MUI palette for best compatibility"))),
+                                        $(".option.os3.selected",{value:"colorIcon",onClick:selectOption},"Color Icon",$(".tooltip.left",$("div","OS3.2 style."),$("div","Also called 'Glowicons'."),$("div","For modern Amiga systems and/or with PeterK's Icon Library. Max 256 colors."))),
+                                        $(".option.os4",{value:"PNGIcon",onClick:selectOption},"PNG Icon",$(".tooltip.left",$("div","OS4 style."),$("div","For modern Amiga systems and/or with PeterK's Icon Library. Full colors.")))
+                                    )
+                                )
                             )
                         ),
                     ),
@@ -486,6 +496,7 @@ var SaveDialog = function(){
             if (typeof action === "function") action = action();
             action.then((result)=>{
                 spinner.remove();
+                spinner.remove();
                 elm.classList.remove("loading");
                 if (result && result.messages && result.messages.length){
                     if (result.result === "warning" && result.file){
@@ -498,7 +509,7 @@ var SaveDialog = function(){
                         buttons: [{label:"OK"}]
                     });
                 }else{
-                    if (!result.text){
+                    if (result && !result.text){
                         Modal.hide();
                     }
                 }
@@ -522,8 +533,11 @@ var SaveDialog = function(){
             if (generator === "PNG") generator = "PNG8";
             if (generator === "DPAINT") generator = "INDEXED";
         }
+        if (generator === "ICO") generator = currentSaveOptions.iconType;
+
         let result = await Generate.file(generator,currentSaveOptions);
         if (result){
+            console.error(result);
             if (result.file){
                 await saveFile(result.file,getFileName() + "." + fileType.extension,fileType);
             }
@@ -534,14 +548,6 @@ var SaveDialog = function(){
         return result;
     }
 
-    async function writeIFF(){
-        let blob = await Generate.file("IFF");
-        if (blob){
-            let fileName = getFileName() + '.iff';
-            await saveFile(blob,fileName,filetypes.IFF);
-            Modal.hide();
-        }
-    }
 
     async function writePLANES(){
         let result = await Generate.file("BitPlanes");
@@ -667,46 +673,6 @@ var SaveDialog = function(){
     }
 
 
-    async function writeGIF(){
-        let result = await Generate.file("GIF");
-        if (result.file){
-            await saveFile(result.file,getFileName() + ".gif",filetypes.GIF);
-        }
-        return result;
-    }
-
-    async function writeJSON(){
-        let result = await Generate.file("DPAINT");
-        if (result.file){
-            await saveFile(result.file,getFileName() + '.json',filetypes.DPAINTJS);
-            Modal.hide();
-        }
-    }
-
-    async function writeAmigaClassicIcon(config){
-        let blob = await Generate.file("classicIcon");
-        if (blob){
-            await saveFile(blob,getFileName() + '.info',filetypes.ICO);
-            Modal.hide();
-        }
-    }
-
-    async function writeAmigaPNGIcon(){
-        let blob = await Generate.file("PNGIcon");
-        if (blob){
-            saveFile(blob, getFileName() + '.info',filetypes.ICO).then(()=>{
-                Modal.hide();
-            });
-        }
-    }
-
-    async function writeAmigaColorIcon(){
-        let blob = await Generate.file("colorIcon");
-        if (blob){
-            await saveFile(blob,getFileName() + '.info',filetypes.ICO);
-            Modal.hide();
-        }
-    }
 
     EventBus.on(COMMAND.SAVEPALETTE,()=>{
         let struct = {
