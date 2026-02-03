@@ -88,16 +88,48 @@ var ImageProcessing = function(){
 	};
 	
 	me.getColors = function(canvas,stopAtMax) {
-		imageInfos.canvas = canvas;
+        
+        let ctx;
+        if (canvas.getContext){
+            ctx = canvas.getContext("2d");
+            imageInfos.canvas = canvas;
+        }else{
+            if (canvas.canvas){
+                ctx = canvas.canvas.getContext("2d");
+                imageInfos.canvas = canvas.canvas;
+            }else{
+                // assuming context?
+                 ctx = canvas;
+                 // if canvas is a context, it might have a canvas property
+                 imageInfos.canvas = canvas.canvas || canvas;
+            }
+        }
+        
+        let width = imageInfos.canvas.width;
+        let height = imageInfos.canvas.height;
 
-		let ctx = canvas.getContext("2d");
-		let data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+        if (!width || !height){
+             // fallback for contexts that don't satisfy the above
+             width = ctx.canvas ? ctx.canvas.width : (canvas.width || 0);
+             height = ctx.canvas ? ctx.canvas.height : (canvas.height || 0);
+        }
+
+        if (typeof ctx.getImageData !== "function"){
+             if (imageInfos.canvas && imageInfos.canvas.getContext){
+                 ctx = imageInfos.canvas.getContext("2d");
+             }else{
+                 console.error("Context has no getImageData function", ctx);
+                 return [];
+             }
+        }
+
+		let data = ctx.getImageData(0, 0, width, height).data;
 		let colorCube = new Uint32Array(256 * 256 * 256);
 		let colors = [];
-
-		for(var Y = 0; Y < canvas.height; Y++) {
-			for(var X = 0; X < canvas.width; X++) {
-				var pixelIndex = (X + Y * canvas.width) * 4;
+	
+		for(var Y = 0; Y < height; Y++) {
+			for(var X = 0; X < width; X++) {
+				var pixelIndex = (X + Y * width) * 4;
 
 				var red = data[pixelIndex];
 				var green = data[pixelIndex + 1];

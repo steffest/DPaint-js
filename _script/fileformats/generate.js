@@ -96,6 +96,8 @@ let Generate = function(){
                 return me.mask();
             case "SPRITE":
                 return me.sprite();
+            case "ANIM":
+                return me.anim(options);
             case "PNG":
                 return {
                     result: "ok",
@@ -138,6 +140,31 @@ let Generate = function(){
         }
 
         let buffer = IFF.write(ImageFile.getCanvas());
+        return {
+            result: "ok",
+            file: new Blob([buffer], {type: "application/octet-stream"})
+        }
+    }
+
+    me.anim=(options)=>{
+        options = options || {};
+        let maxColors = 256;
+        let check = me.validate({
+            maxColors: maxColors
+        })
+
+        if (!check.valid){
+             return {
+                result: "error",
+                title: "Save as ANIM",
+                messages: ["Sorry, this image can't be saved as ANIM."].concat(check.errors)
+            }
+        }
+        
+        let frames = ImageFile.getCurrentFile().frames;
+        // console.log("Generating ANIM from " + frames.length + " frames");
+
+        let buffer = IFF.writeAnim(frames, options); 
         return {
             result: "ok",
             file: new Blob([buffer], {type: "application/octet-stream"})

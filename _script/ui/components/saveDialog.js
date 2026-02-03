@@ -23,7 +23,8 @@ var SaveDialog = function(){
         quality: 90,
         depth: 24,
         palette: "optimized",
-        iconType: "colorIcon"
+        iconType: "colorIcon",
+        compression: true  // Default to compressed for ANIM files
     };
     let UIelm = {};
 
@@ -185,7 +186,7 @@ var SaveDialog = function(){
                                             renderButton("gif","GIF Img/anim","Max 256 colors, no layers, animation supported.","GIF"),
                                             renderButton("jpg","JPG Image","Full color, no transparency, no layers, only the current frame gets saved. LOSSY!","JPG"),
                                             renderButton("iff","Amiga IFF","Maximum 256 colors, only the current frame gets saved.","IFF"),
-                                            //renderButton("anim","Amiga ANIM","Maximum 256 colors, animation supported.","ANIM"),
+                                            renderButton("anim","Amiga ANIM","Maximum 256 colors, animation supported.","ANIM"),
                                             renderButton("os3","Amiga Icon","Amiga OS Icon, Maximum 2 frames.","ICO"),
                                             renderButton("amiga","Amiga Sprite","C Source.","SPRITE"),
 
@@ -300,6 +301,18 @@ var SaveDialog = function(){
                                 )
                             )
                         ),
+                        $(".optionspanel.ANIM",
+                            $(".content",
+                                $(".group",
+                                    $("label","Compression"),
+                                    $(".options",   
+                                        {key:"compression"},
+                                        $(".option",{value:false,onClick:selectOption},"Uncompressed",$(".tooltip.left",$("div","results in larger files, but is faster to read."))),
+                                        $(".option.selected",{value:true,onClick:selectOption},"Compressed",$(".tooltip.left",$("div","Uses ByteRun1 compression for the bitplane data.")))
+                                    )
+                                )
+                            )
+                        ),
                     ),
                 )
         ));
@@ -374,7 +387,7 @@ var SaveDialog = function(){
         })
         option.classList.add("selected");
 
-        if (parent.key && option.value){
+        if (parent.key && (option.value || option.value === false)){
             currentSaveOptions[parent.key] = option.value;
         }
 

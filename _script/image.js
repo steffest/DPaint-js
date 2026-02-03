@@ -69,8 +69,8 @@ let ImageFile = function(){
         }
     };
 
-    me.getCanvasWithFilters = function(){
-        let canvas = me.getCanvas();
+    me.getCanvasWithFilters = function(frameIndex){
+        let canvas = me.getCanvas(frameIndex);
         if (Palette.isLockedGlobal()){
             runWebGLQuantizer(canvas, Palette.get(), false, undefined, 0, 0);
         }

@@ -28,6 +28,7 @@ import BinaryStream from "../util/binarystream.js";
 import ImageProcessing from "../util/imageProcessing.js";
 import Palette from "../ui/palette.js";
 import Color from "../util/color.js";
+import ImageFile from "../image.js";
 
 const FILETYPE = {
     IFF: { name: "IFF file" },
@@ -52,10 +53,17 @@ const IFF = (function () {
         ANIM: { name: "IFF ILBM Animation" },
     };
 
-    me.parse = function (file, decodeBody, fileType,parent) {
+    me.parse = function (file, decodeBody, fileType,parent,context) {
         let img = {
             palette: [],
         };
+        if (context){
+            if (context.ham) img.ham = true;
+            if (context.ehb) img.ehb = true;
+            if (context.numPlanes) img.numPlanes = context.numPlanes;
+            if (context.colorPlanes) img.colorPlanes = context.colorPlanes;
+        }
+
         let index = 12;
 
         function readChunk() {
@@ -65,10 +73,10 @@ const IFF = (function () {
             return chunk;
         }
 
-        while (index < file.length - 4) {
+        while (index <= file.length - 8) {
             file.goto(index);
             const chunk = readChunk();
-
+            
             switch (chunk.name) {
                 case "BMHD":
                     img.width = file.readWord();
@@ -200,8 +208,6 @@ const IFF = (function () {
                     }
 
                     if (decodeBody) {
-                        console.error(img.compression)
-                        console.error(img)
                         if (fileType === FILETYPE.PBM) {
                             let pixelData = [];
 
@@ -396,10 +402,19 @@ const IFF = (function () {
                         break;
                     }
                     let buffer = new ArrayBuffer(chunk.size+8);
-                    const view = new DataView(buffer);
+                    const view = new Uint8Array(buffer);
                     file.readUBytes(chunk.size+8,file.index-8,view);
                     let subFile = new BinaryStream(buffer,true);
-                    let subImg = me.parse(subFile, true,fileType,img);
+                    
+                    // pass context from parent
+                    let context = {
+                        ham: img.ham,
+                        ehb: img.ehb,
+                        numPlanes: img.numPlanes,
+                        colorPlanes: img.colorPlanes
+                    }
+                    
+                    let subImg = me.parse(subFile, true,fileType,img, context);
                     if (subImg){
                         img.frames.push(subImg);
                         if (img.frames.length === 1) {
@@ -1034,6 +1049,542 @@ const IFF = (function () {
             planes: file.buffer
         }
 
+    }
+
+    // ByteRun1 (PackBits) compression
+    // Used for ILBM BODY compression
+    function byterun1Encode(data) {
+        const output = [];
+        let i = 0;
+        
+        while (i < data.length) {
+            // Look for runs of identical bytes
+            let runLength = 1;
+            while (i + runLength < data.length && 
+                   data[i] === data[i + runLength] && 
+                   runLength < 128) {
+                runLength++;
+            }
+            
+            // If we have a run of 3 or more, encode it as a run
+            if (runLength >= 3) {
+                output.push(257 - runLength); // Run marker (negative count)
+                output.push(data[i]);
+                i += runLength;
+            } else {
+                // Find literal sequence (no runs)
+                let literalStart = i;
+                let literalLength = 0;
+                
+                while (i < data.length && literalLength < 128) {
+                    // Check if we're starting a run of 3+ identical bytes
+                    let nextRunLength = 1;
+                    while (i + nextRunLength < data.length && 
+                           data[i] === data[i + nextRunLength] && 
+                           nextRunLength < 3) {
+                        nextRunLength++;
+                    }
+                    
+                    if (nextRunLength >= 3) {
+                        // Found a run, stop the literal sequence
+                        break;
+                    }
+                    
+                    i++;
+                    literalLength++;
+                }
+                
+                // Write literal sequence
+                if (literalLength > 0) {
+                    output.push(literalLength - 1); // Literal count
+                    for (let j = 0; j < literalLength; j++) {
+                        output.push(data[literalStart + j]);
+                    }
+                }
+            }
+        }
+        
+        return new Uint8Array(output);
+    }
+
+    me.writeAnim = function (frames, options) {
+        options = options || {};
+        const useCompression = options.compression !== false; // Default to compressed
+
+        // Helper: Get bitplanes from canvas
+        function getPlanes(contextImageData, w, h, colors, bitplaneCount) {
+            const bytesPerLine = Math.ceil(w / 16) * 2;
+            const bitPlaneSize = bytesPerLine * h;
+            let planes = [];
+            for (let i = 0; i < bitplaneCount; i++) planes[i] = new Uint8Array(bitPlaneSize);
+
+            const pixels = contextImageData.data;
+            const width = contextImageData.width;
+
+            function getIndex(c, palette) {
+                let index = palette.findIndex((p) => p[0] === c[0] && p[1] === c[1] && p[2] === c[2]);
+                return index < 0 ? 0 : index;
+            }
+
+            for (let y = 0; y < h; y++) {
+                for (let x = 0; x < w; x++) {
+                    const pixelIndex = (x + y * width) * 4;
+                    const c = [pixels[pixelIndex], pixels[pixelIndex + 1], pixels[pixelIndex + 2]];
+
+                    let colorIndex = getIndex(c, colors);
+
+                    for (let i = 0; i < bitplaneCount; i++) {
+                        if (colorIndex & (1 << i)) {
+                            let byteIndex = y * bytesPerLine + (x >> 3);
+                            planes[i][byteIndex] |= 0x80 >> (x & 7);
+                        }
+                    }
+                }
+            }
+            return planes;
+        }
+
+        function anim5_col_diff(diffmap, col_data) {
+            const MSKIP = 0;
+            const MUNIQ = 1;
+            const MSAME = 2;
+            const MAXRUN = 127;
+
+            let opcount = 0;
+            let ops = []; // We will store bytes here
+            let row = 0;
+            let start_row = row;
+            let mode = MSKIP;
+            let same_val = 0;
+
+            function vsame(data, start) {
+                let count = 1;
+                let cdata = data[start];
+                let col = start + 1;
+                while (col < data.length && data[col] === cdata) {
+                    count++;
+                    col++;
+                }
+                return count;
+            }
+
+            // Note: col_data is the NEW data (plane1)
+            // diffmap is boolean array where True means colDataOld != colDataNew
+            
+            while (row < col_data.length) {
+                if (mode === MSKIP) {
+                    if (diffmap[row]) {
+                        if (row !== start_row) {
+                            // write out skip op
+                            ops.push(row - start_row);
+                            opcount++;
+                        }
+                        // what op is next?
+                        start_row = row;
+                        if (vsame(col_data, row) > 3) {
+                            mode = MSAME;
+                            same_val = col_data[row];
+                        } else {
+                            mode = MUNIQ;
+                        }
+                    } else {
+                        if (row - start_row >= MAXRUN) {
+                            // write out skip op and continue
+                            ops.push(MAXRUN);
+                            opcount++;
+                            start_row += MAXRUN;
+                        }
+                    }
+                }
+
+                if (mode === MUNIQ) {
+                    if (diffmap[row]) {
+                        if (vsame(col_data, row) > 3) {
+                            // end uniq and write out uniq op
+                            ops.push(128 + (row - start_row));
+                            for (let k = start_row; k < row; k++) ops.push(col_data[k]);
+                            opcount++;
+                            // switch to same op
+                            start_row = row;
+                            mode = MSAME;
+                            same_val = col_data[row];
+                        } else {
+                            if (row - start_row >= MAXRUN) {
+                                // write out uniq op and continue
+                                ops.push(128 + MAXRUN);
+                                for (let k = 0; k < MAXRUN; k++) ops.push(col_data[start_row + k]);
+                                opcount++;
+                                start_row += MAXRUN;
+                            }
+                        }
+                    } else {
+                        // write out uniq op
+                        ops.push(128 + (row - start_row));
+                        for (let k = start_row; k < row; k++) ops.push(col_data[k]);
+                        opcount++;
+                        start_row = row;
+                        mode = MSKIP;
+                    }
+                }
+
+                if (mode === MSAME) {
+                    if (same_val !== col_data[row]) {
+                        // write out same op
+                        ops.push(0);
+                        ops.push(row - start_row);
+                        ops.push(same_val);
+                        opcount++;
+                        
+                        // what op is next?
+                        start_row = row;
+                        if (diffmap[row]) {
+                            mode = MUNIQ;
+                        } else {
+                            mode = MSKIP;
+                        }
+                    } else {
+                        if (row - start_row >= MAXRUN) {
+                            // write out same op and continue
+                            ops.push(0);
+                            ops.push(MAXRUN);
+                            ops.push(same_val);
+                            opcount++;
+                            start_row += MAXRUN;
+                        }
+                    }
+                }
+                row++;
+            }
+
+            // write out final op
+            if (mode === MUNIQ) {
+                // write out uniq op
+                ops.push(128 + (row - start_row));
+                for (let k = start_row; k < row; k++) ops.push(col_data[k]);
+                opcount++;
+            } else if (mode === MSAME) {
+                // write out same op
+                ops.push(0);
+                ops.push(row - start_row);
+                ops.push(same_val);
+                opcount++;
+            }
+
+            return { opcount: opcount, ops: ops };
+        }
+
+
+        function anim5_plane_diff(plane0, plane1, bytesPerLine, height) {
+            let pl_diff = [];
+            
+            // Note:
+            // plane0 is OLD frame
+            // plane1 is NEW frame
+            // diffmap = (plane0 != plane1)
+            
+            let ncol = bytesPerLine;
+            let opcount_sum = 0;
+            let col = 0;
+
+            // diff a column at a time
+            while (col < ncol) {
+                let opcount = 0;
+                let ops = [];
+                
+                // Extract column data
+                let colDataOld = new Uint8Array(height);
+                let colDataNew = new Uint8Array(height);
+                let diffmap = new Uint8Array(height); // Using Uint8 as bool (0/1)
+                
+                let hasDiff = false;
+                for(let y=0; y<height; y++){
+                    let idx = y * bytesPerLine + col;
+                    colDataOld[y] = plane0[idx];
+                    colDataNew[y] = plane1[idx];
+                    if (colDataOld[y] !== colDataNew[y]) {
+                        diffmap[y] = 1;
+                        hasDiff = true;
+                    }
+                }
+
+                if (!hasDiff) {
+                    // no diffs in column
+                    // Python code: PASS (does nothing, ops is empty, opcount is 0)
+                } else {
+                    // diff one column
+                    let res = anim5_col_diff(diffmap, colDataNew);
+                    opcount = res.opcount;
+                    ops = res.ops;
+                }
+
+                pl_diff.push(opcount);
+                if (ops.length > 0) {
+                     for (let b of ops) pl_diff.push(b);
+                }
+                
+                opcount_sum += opcount;
+                col++;
+            }
+
+            if (opcount_sum === 0) {
+                return null; // b'' in Python
+            } else {
+                return new Uint8Array(pl_diff);
+            }
+        }
+
+        let canvas = ImageFile.getCanvasWithFilters(0);
+        const w = canvas.width;
+        const h = canvas.height;
+
+        let colorCycle = Palette.getColorRanges() || [];
+        let colors = Palette.get();
+        if (!colors || !colors.length) colors = ImageProcessing.getColors(canvas, 256);
+
+        let bitplaneCount = 1;
+        while (1 << bitplaneCount < colors.length) bitplaneCount++;
+        if (bitplaneCount > 8) bitplaneCount = 8;        
+        while (colors.length < 1 << bitplaneCount) colors.push([0, 0, 0]);
+
+        const bytesPerLine = Math.ceil(w / 16) * 2;
+        const bodySize = bytesPerLine * bitplaneCount * h;
+
+        const maxFileSize = 5000 + (frames.length + 5) * (bodySize + 2000 + colors.length * 3);
+        const file = BinaryStream(new ArrayBuffer(maxFileSize), true);
+
+        // --- WRITE HEADER ---
+        file.goto(0);
+        file.writeString("FORM");
+        file.writeDWord(0); // Patch later
+        file.writeString("ANIM");
+
+        // --- FIRST FRAME (Base) ---
+        file.writeString("FORM");
+        let firstFrameFormSizePtr = file.index; 
+        file.writeDWord(0); // Patch later
+        file.writeString("ILBM");
+
+        file.writeString("BMHD");
+        file.writeDWord(20);
+        file.writeWord(w);
+        file.writeWord(h);
+        file.writeWord(0);
+        file.writeWord(0);
+        file.writeUbyte(bitplaneCount);
+        file.writeUbyte(0); // masking
+        file.writeUbyte(useCompression ? 1 : 0); // compression: 1=byterun1, 0=none
+        file.writeUbyte(0);
+        file.writeWord(0);
+        file.writeUbyte(10);
+        file.writeUbyte(11);
+        file.writeWord(w);
+        file.writeWord(h);
+
+        file.writeString("CMAP");
+        file.writeDWord(colors.length * 3);
+        colors.forEach((color) => {
+            file.writeUbyte(color[0]);
+            file.writeUbyte(color[1]);
+            file.writeUbyte(color[2]);
+        });
+        if (file.index % 2 !== 0) file.writeUbyte(0);
+
+        if (colorCycle.length) {
+             for (let i = 0; i < colorCycle.length; i++){
+                let range = colorCycle[i];
+                file.writeString("CRNG");
+                file.writeDWord(8);
+                file.writeWord(0);
+                let rate = Math.floor(range.fps * 16384 / 60);
+                let flags = range.active?1:0;
+                flags += range.reverse?2:0;
+                file.writeWord(rate);
+                file.writeWord(flags);
+                file.writeUbyte(range.low);
+                file.writeUbyte(range.high);
+            }
+        }
+        
+        file.writeString("DPAN");
+        file.writeDWord(8);
+        file.writeWord(3);
+        file.writeWord(frames.length);
+        file.writeUbyte(60); 
+        file.writeUbyte(0);
+        file.writeUbyte(0);
+        file.writeUbyte(0);
+
+        file.writeString("ANHD");
+        file.writeDWord(40); // Size = 40 bytes
+        file.writeUbyte(0); // compression 0 for first frame
+        file.writeUbyte(0); // mask
+        file.writeWord(w);
+        file.writeWord(h);
+        file.writeWord(0); // x
+        file.writeWord(0); // y
+        file.writeDWord(1); // abstime = 1 jiffy
+        file.writeDWord(1); // reltime = 1 jiffy
+        file.writeUbyte(0); // interleave
+        file.writeUbyte(128); // pad0 (0x80 seen in real files)
+        file.writeDWord(0); // bits
+        file.writeDWord(0); // pad8a high
+        file.writeDWord(0); // pad8a low
+        file.writeDWord(0); // pad8b high
+        file.writeDWord(0); // pad8b low
+
+        file.writeString("CAMG");
+        file.writeDWord(4);
+        file.writeDWord(0x00021000); // LORES | HIRES (standard mode)
+
+        file.writeString("BODY");
+        let bodySizePtr = file.index;
+        file.writeDWord(0); // Placeholder, will patch later
+        
+        // --- Pre-calculate all frame planes to avoid double work ---
+        let allPlanes = [];
+        for (let i=0; i<frames.length; i++) {
+             let curCanvas = ImageFile.getCanvasWithFilters(i);
+             allPlanes.push(getPlanes(curCanvas.getContext("2d").getImageData(0,0,w,h), w, h, colors, bitplaneCount));
+        }
+
+        // Write Frame 0 Body (interleaved by line)
+        let basePlanes = allPlanes[0];
+        let bodyStartPos = file.index;
+        
+        // Write bitplanes interleaved one line at a time
+        for(let y=0; y<h; y++){
+            for(let p=0; p<bitplaneCount; p++){
+                // Extract one scanline
+                let scanline = new Uint8Array(bytesPerLine);
+                for(let x=0; x<bytesPerLine; x++){
+                    let idx = y * bytesPerLine + x;
+                    scanline[x] = basePlanes[p][idx];
+                }
+                
+                if (useCompression) {
+                    // Compress this scanline
+                    let compressed = byterun1Encode(scanline);
+                    for(let i=0; i<compressed.length; i++) {
+                        file.writeUbyte(compressed[i]);
+                    }
+                } else {
+                    // Write uncompressed
+                    for(let x=0; x<bytesPerLine; x++){
+                        file.writeUbyte(scanline[x]);
+                    }
+                }
+            }
+        }
+        
+        // Patch BODY size
+        let bodyEndPos = file.index;
+        let actualBodySize = bodyEndPos - bodyStartPos;
+        file.goto(bodySizePtr);
+        file.writeDWord(actualBodySize);
+        file.goto(bodyEndPos);
+        
+        if (file.index % 2 !== 0) file.writeUbyte(0);
+        
+        let currentPos = file.index;
+        file.goto(firstFrameFormSizePtr);
+        file.writeDWord(currentPos - firstFrameFormSizePtr - 4);
+        file.goto(currentPos);
+
+        // --- DELTA FRAMES ---
+        let anim_abstime = 1; // Start at 1 (first frame delay)
+        let previ = 0; // Index of previous frame (starts at F0)
+
+        // This writes deltas for frames 1, 2, ..., N-1, 0, 1 (wrapping for loop)
+        
+        for (let i = 1; i < frames.length + 2; i++) {
+            let curri = i;
+            if (i >= frames.length) curri = i - frames.length;
+            
+            // Get Current Frame
+            let currPlanes = allPlanes[curri];
+            // Get Previous Frame
+            let prevPlanes = allPlanes[previ];
+            
+            // Delay for current frame (1 jiffy per frame for now)
+            let delay = 1; 
+            anim_abstime += delay;
+            
+            file.writeString("FORM");
+            let frameFormSizePtr = file.index;
+            file.writeDWord(0);
+            file.writeString("ILBM");
+            
+            file.writeString("ANHD");
+            file.writeDWord(40); // Size = 40 bytes (BBHHhhLLBBLQQ)
+            file.writeUbyte(5); // Byte Vertical Delta
+            file.writeUbyte(0); // mask
+            file.writeWord(w);
+            file.writeWord(h);
+            file.writeWord(0); // x
+            file.writeWord(0); // y
+            file.writeDWord(anim_abstime);
+            file.writeDWord(delay); 
+            file.writeUbyte(0); // Interleave 0
+            file.writeUbyte(128); // pad0 (0x80)
+            file.writeDWord(0); // bits (4 bytes)
+            file.writeDWord(0); // pad8a (8 bytes - first half)
+            file.writeDWord(0); // pad8a (8 bytes - second half)
+            file.writeDWord(0); // pad8b (8 bytes - first half)
+            file.writeDWord(0); // pad8b (8 bytes - second half)
+            
+            let pl_diffs = [];
+            let dataSize = 0;
+            
+            for(let p=0; p<bitplaneCount; p++){
+                let diff = anim5_plane_diff(prevPlanes[p], currPlanes[p], bytesPerLine, h);
+                pl_diffs[p] = diff;
+                if (diff) dataSize += diff.length;
+            }
+            
+            file.writeString("DLTA");
+            file.writeDWord(64 + dataSize);
+            
+            // Pointers
+            let currentDataOffset = 64; 
+            for(let p=0; p<bitplaneCount; p++){
+                if (pl_diffs[p]) {
+                    file.writeDWord(currentDataOffset);
+                    currentDataOffset += pl_diffs[p].length;
+                } else {
+                    file.writeDWord(0);
+                }
+            }
+            // Fill remaining pointers (up to 16)
+            for(let p=bitplaneCount; p<16; p++) file.writeDWord(0);
+            
+            // Data
+            for(let p=0; p<bitplaneCount; p++){
+                if (pl_diffs[p]) {
+                    for(let k=0; k<pl_diffs[p].length; k++) file.writeUbyte(pl_diffs[p][k]);
+                }
+            }
+            
+            if (file.index % 2 !== 0) file.writeUbyte(0);
+
+            // Patch Frame Size
+            currentPos = file.index;
+            // frameFormSizePtr points to the size field (after "FORM")
+            // FORM size = everything after the size field
+            let formSize = currentPos - frameFormSizePtr - 4;
+            file.goto(frameFormSizePtr);
+            file.writeDWord(formSize);
+            file.goto(currentPos);
+            
+            // Update Previous Frame Index
+            previ = curri;
+        }
+
+        // Patch Main FORM Size
+        let totalSize = file.index;
+        file.goto(4);
+        file.writeDWord(totalSize - 8);
+        
+        return file.buffer.slice(0, totalSize);
     }
 
     return me;
