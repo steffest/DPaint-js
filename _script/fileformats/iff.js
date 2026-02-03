@@ -467,6 +467,12 @@ const IFF = (function () {
                     img.height = frame.height;
                     img.palette = frame.palette;
                     img.planes = [];
+                    
+                    // Copy HAM/EHB mode flags
+                    if (frame.ham) img.ham = frame.ham;
+                    if (frame.ehb) img.ehb = frame.ehb;
+                    if (frame.camg !== undefined) img.camg = frame.camg;
+                    if (frame.colorPlanes !== undefined) img.colorPlanes = frame.colorPlanes;
 
                     // TODO: this is slow...
                     frame.planes.forEach(plane=>{
@@ -474,6 +480,14 @@ const IFF = (function () {
                         plane.forEach(line=>newPlane.push(line.slice()));
                         img.planes.push(newPlane);
                     });
+                    
+                    // Copy HAM pixel data if present
+                    if (frame.hamPixels) {
+                        img.hamPixels = [];
+                        frame.hamPixels.forEach(line => {
+                            img.hamPixels.push(line.slice());
+                        });
+                    }
 
                     if (sourceFrameIndex>0){
                         //parent.frames[sourceFrameIndex-1].planes = undefined;
@@ -575,17 +589,43 @@ const IFF = (function () {
                     let now = performance.now();
                     // planes to pixels
                     img.pixels = [];
+                    
+                    // Determine how many bitplanes to use for pixel values
+                    // For HAM mode, only use color bitplanes
+                    let pixelBitplanes = parent.numPlanes;
+                    if (img.ham && img.colorPlanes !== undefined) {
+                        pixelBitplanes = img.colorPlanes;
+                    }
+                    
                     for (let y = 0; y < img.height; y++) {
                         let line = [];
                         for (let x = 0; x < img.width; x++) {
                             let pixel = 0;
-                            for (let bitPlaneIndex = 0; bitPlaneIndex < parent.numPlanes; bitPlaneIndex++) {
+                            for (let bitPlaneIndex = 0; bitPlaneIndex < pixelBitplanes; bitPlaneIndex++) {
                                 let bit = img.planes[bitPlaneIndex][y][x];
                                 pixel += bit << bitPlaneIndex;
                             }
                             line.push(pixel);
                         }
                         img.pixels.push(line);
+                    }
+                    
+                    // Rebuild HAM pixels from modifier bitplanes if in HAM mode
+                    if (img.ham && img.colorPlanes !== undefined) {
+                        img.hamPixels = [];
+                        for (let y = 0; y < img.height; y++) {
+                            let line = [];
+                            for (let x = 0; x < img.width; x++) {
+                                let hamPixel = 0;
+                                // Build HAM pixel from modifier bitplanes (colorPlanes and above)
+                                for (let bitPlaneIndex = img.colorPlanes; bitPlaneIndex < parent.numPlanes; bitPlaneIndex++) {
+                                    let bit = img.planes[bitPlaneIndex][y][x];
+                                    hamPixel += bit << (bitPlaneIndex - img.colorPlanes);
+                                }
+                                line.push(hamPixel);
+                            }
+                            img.hamPixels.push(line);
+                        }
                     }
                     //console.log("to pixels", performance.now() - now);
 
