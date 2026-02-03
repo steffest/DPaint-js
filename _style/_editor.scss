@@ -276,13 +276,6 @@ body.shift.mousedown{
   }
 }
 
-
-body.withsidepanel{
-  .splitpanel{
-    left: 250px;
-  }
-}
-
 body.withfilebrowser{
     .splitpanel{
         right: 154px;
@@ -312,10 +305,5 @@ body.presentation{
 
   .sidepanel{
     display: none;
-  }
-  &.withsidepanel{
-    .sidepanel{
-      display: none;
-    }
   }
 }

@@ -845,11 +845,6 @@ body.presentation .menu {
   margin: 8px 0 0 4px;
 }
 
-body.withsidepanel .toolbar .togglepanel.sidebar:after {
-  transform: rotate(180deg);
-  background-image: url("../_img/caret.svg");
-}
-
 body.presentation .toolbar {
   display: none;
 }
@@ -907,6 +902,10 @@ body.presentation .statusbar {
   top: 27px;
   bottom: 20px;
   display: none;
+}
+.sidepanel.active,
+.contentpanel.active {
+  display: block;
 }
 .sidepanel .panelcontainer,
 .contentpanel .panelcontainer {
@@ -1637,6 +1636,10 @@ body.presentation .statusbar {
   text-align: center;
   cursor: pointer;
 }
+.sidepanel .caption.noicon,
+.contentpanel .caption.noicon {
+  padding-left: 5px;
+}
 .sidepanel .subpanel,
 .contentpanel .subpanel {
   color: #BBBBBB;
@@ -1710,10 +1713,6 @@ body.presentation .statusbar {
   background-color: #282A2C;
 }
 
-body.withsidepanel .sidepanel {
-  display: block;
-}
-
 body.override .sidepanel .panel .layer.system {
   display: none;
 }
@@ -1736,9 +1735,22 @@ body.override .splitpanel .panel .toolbar .toolpanel .options .checkbox.pressure
   width: 300px;
   z-index: 300;
 }
-
-body.withcontentpanel .contentpanel {
-  display: block;
+.contentpanel section {
+  padding: 10px;
+  margin-top: 20px;
+  font-size: 12px;
+}
+.contentpanel section h4 {
+  font-size: 12px;
+  padding: 0 2px;
+  font-weight: normal;
+  color: #adadad;
+  margin: 0 0 5px 0;
+  position: relative;
+  border-bottom: 1px solid #656565;
+}
+.contentpanel section .checkbox label span:before {
+  top: 0;
 }
 
 .palettelist {
@@ -2089,10 +2101,6 @@ body.shift.mousedown .splitpanel .overlaycanvas {
   display: none;
 }
 
-body.withsidepanel .splitpanel {
-  left: 250px;
-}
-
 body.withfilebrowser .splitpanel {
   right: 154px;
 }
@@ -2112,9 +2120,6 @@ body.presentation .splitpanel .toolbar .toolpanel {
   display: none;
 }
 body.presentation .sidepanel {
-  display: none;
-}
-body.presentation.withsidepanel .sidepanel {
   display: none;
 }
 

@@ -6,6 +6,10 @@
   bottom: 20px;
   display: none;
 
+  &.active{
+    display: block;
+  }
+
   .panelcontainer{
     position: absolute;
     left: 0;
@@ -738,6 +742,10 @@
       text-align: center;
       cursor: pointer;
     }
+
+    &.noicon{
+      padding-left: 5px;
+    }
   }
 
 
@@ -812,13 +820,6 @@
       background-color: $button-background-dark;
 
     }
-  }
-}
-
-
-body.withsidepanel{
-  .sidepanel{
-    display: block;
   }
 }
 

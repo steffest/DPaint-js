@@ -150,14 +150,14 @@ export let EVENT = {
     layerPropertyHistory: 31,
     layerHistory: 32,
     sizerStartChange: 33,
-    panelResized: 34,
-    fontStyleChanged: 35,
-    colorDepthChanged: 36,
-    previewModeChanged: 37,
-    paletteProcessingStart: 38,
-    paletteProcessingEnd: 39,
-    penOnlyChanged: 40,
-    paletteLockChanged: 41,
+    fontStyleChanged: 34,
+    colorDepthChanged: 35,
+    previewModeChanged: 36,
+    paletteProcessingStart: 37,
+    paletteProcessingEnd: 38,
+    penOnlyChanged: 39,
+    paletteLockChanged: 40,
+    panelUIChanged: 41,
 };
 
 export const ANIMATION = {

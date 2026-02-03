@@ -4,10 +4,24 @@
     left: 250px;
     width: 300px;
     z-index: 300;
-}
 
-body.withcontentpanel{
-  .contentpanel{
-    display: block;
-  }
+    section{
+        padding: 10px;
+        margin-top: 20px;
+        font-size: 12px;
+
+        h4{
+            font-size: 12px;
+            padding: 0 2px;
+            font-weight: normal;
+            color: $dimmed-text-color;
+            margin: 0 0 5px 0;
+            position: relative;
+            border-bottom: 1px solid #656565;
+        }
+
+        .checkbox label span:before{
+            top: 0;
+        }
+    }
 }

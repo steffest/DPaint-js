@@ -500,16 +500,6 @@
   }
 }
 
-body.withsidepanel{
-  .toolbar {
-    .togglepanel.sidebar {
-      &:after {
-        transform: rotate(180deg);
-        background-image: url("../_img/caret.svg");
-      }
-    }
-  }
-}
 
 body.presentation{
   .toolbar {

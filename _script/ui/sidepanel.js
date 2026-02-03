@@ -14,6 +14,7 @@ import UserSettings from "../userSettings.js";
 var SidePanel = function(){
     let me = {}
     let container;
+    let innerContainer;
     let collapsedHeight = 21;
 
     let panels = {
@@ -69,29 +70,32 @@ var SidePanel = function(){
 
     me.init = parent=>{
         let w=175;
-        let panel = $(".sidepanel",{
+        container = $(".sidepanel",{
             parent: parent,
             style: {width: w + "px"}
         },
-            container=$(".panelcontainer"),
+            innerContainer=$(".panelcontainer"),
             $(".panelsizer",{
                 onDrag: (x)=>{
                     let _w = Math.max(w + x,120);
-                    panel.style.width = _w + "px";
-                    EventBus.trigger(EVENT.panelResized,_w);
+                    container.style.width = _w + "px";
+                    EventBus.trigger(EVENT.panelUIChanged);
                 },
                 onDragStart: e=>{
-                    w=panel.offsetWidth;
+                    w=container.offsetWidth;
                 }
             })
         );
         generate();
 
-        if (UserSettings.get("sidepanel") === true) me.show();
+        if (UserSettings.get("sidepanel")){
+            setTimeout(()=>{
+                me.show();
+            },50);
+        }
     }
 
     me.show = (section)=>{
-        document.body.classList.add("withsidepanel");
         if (section){
             Object.keys(panels).forEach(key=>{
                 if (key === section){
@@ -101,21 +105,32 @@ var SidePanel = function(){
             setPanelsState();
         }
         UserSettings.set("sidepanel",true);
+        container.classList.add("active");
+        EventBus.trigger(EVENT.panelUIChanged);
     }
 
     me.hide = ()=>{
-        document.body.classList.remove("withsidepanel");
         UserSettings.set("sidepanel",false);
+        container.classList.remove("active");
+        EventBus.trigger(EVENT.panelUIChanged);
     }
 
     me.toggle = ()=>{
-        document.body.classList.toggle("withsidepanel");
-        UserSettings.set("sidepanel",me.isVisible());
-        EventBus.trigger(EVENT.UIresize);
+        UserSettings.set("sidepanel",!me.isVisible());
+        container.classList.toggle("active",me.isVisible());
+        EventBus.trigger(EVENT.panelUIChanged);
     }
 
     me.isVisible = ()=>{
-        return document.body.classList.contains("withsidepanel");
+        return !!UserSettings.get("sidepanel");
+    }
+
+    me.getWidth = ()=>{
+        if (me.isVisible()){
+            return container.offsetWidth + 5;
+        }else{
+            return 0;
+        }
     }
 
     me.showInfo = (file)=>{
@@ -141,7 +156,7 @@ var SidePanel = function(){
         Object.keys(panels).forEach(key=>{
             let panel = panels[key];
             let height = panel.collapsed?collapsedHeight:(panel.height || 100);
-            panel.container = generatePanel(panel,container);
+            panel.container = generatePanel(panel,innerContainer);
             panel.container.style.height = height + "px";
             panel.container.style.top = y + "px";
             y+= height;
@@ -199,6 +214,10 @@ var SidePanel = function(){
     }
 
     EventBus.on(COMMAND.TOGGLESIDEPANEL,me.toggle);
+
+    EventBus.on(EVENT.panelUIChanged,()=>{
+        //me.isVisible()
+    });
     
     return me;
 }()

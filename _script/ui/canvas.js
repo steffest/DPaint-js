@@ -171,7 +171,7 @@ let Canvas = function(parent){
         me.zoom(1);
     });
 
-    EventBus.on(EVENT.panelResized,()=>{
+    EventBus.on(EVENT.panelUIChanged,()=>{
         if (!parent.isVisible()) return;
         me.zoom(1);
     });

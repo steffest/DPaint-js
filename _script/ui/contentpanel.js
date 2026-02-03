@@ -2,54 +2,66 @@ import {COMMAND, EVENT, SETTING} from "../enum.js";
 import $, {$checkbox, $div} from "../util/dom.js";
 import EventBus from "../util/eventbus.js";
 import UserSettings from "../userSettings.js";
+import SidePanel from "./sidepanel.js";
 
 var ContentPanel = function(){
     let me = {}
     let container;
+    let innerContainer;
 
     me.init = parent=>{
         let w=175;
-        let panel = $(".contentpanel",{
+        container = $(".contentpanel",{
                 parent: parent,
                 style: {width: w + "px"}
             },
-            container=$(".panelcontainer",
-                $(".caption","Preferences",$(".close",{onClick:me.hide},"x"))
+            innerContainer=$(".panelcontainer",
+                $(".caption.noicon","Preferences",$(".close",{onClick:me.hide},"x"))
             ),
             $(".panelsizer",{
                 onDrag: (x)=>{
                     let _w = Math.max(w + x,120);
-                    panel.style.width = _w + "px";
-                    //EventBus.trigger(EVENT.panelResized,_w);
+                    container.style.width = _w + "px";
+                    EventBus.trigger(EVENT.panelUIChanged);
                 },
                 onDragStart: e=>{
-                    w=panel.offsetWidth;
+                    w=container.offsetWidth;
                 }
             })
         );
         generate();
 
 
-        EventBus.on(EVENT.panelResized,(width=>{
-            panel.style.left = width + 75 + "px";
+        EventBus.on(EVENT.panelUIChanged,(()=>{
+            container.style.left = SidePanel.getWidth() + 70 + "px";
         }));
     }
 
     me.show = (section)=>{
-        document.body.classList.add("withcontentpanel");
+        container.classList.add("active");
+        EventBus.trigger(EVENT.panelUIChanged);
     }
 
     me.hide = ()=>{
-        document.body.classList.remove("withcontentpanel");
+        container.classList.remove("active");
+        EventBus.trigger(EVENT.panelUIChanged);
     }
 
     me.toggle = ()=>{
-        document.body.classList.toggle("withcontentpanel");
-        EventBus.trigger(EVENT.UIresize);
+        container.classList.toggle("active");
+        EventBus.trigger(EVENT.panelUIChanged);
     }
 
     me.isVisible = ()=>{
-        return document.body.classList.contains("withcontentpanel");
+        return container.classList.contains("active");
+    }
+
+    me.getWidth = ()=>{
+        if (me.isVisible()){
+            return container.offsetWidth + 5;
+        }else{
+            return 0;
+        }
     }
 
 

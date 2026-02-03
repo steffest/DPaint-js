@@ -15,6 +15,9 @@ import HistoryService from "../services/historyservice.js";
 import Cursor from "./cursor.js";
 import ToolOptions from "./components/toolOptions.js";
 import UI from "./ui.js";
+import UserSettings from "../userSettings.js";
+import Sidepanel from "./sidepanel.js";
+import Contentpanel from "./contentpanel.js";
 
 var Editor = function(){
     var me = {};
@@ -59,28 +62,12 @@ var Editor = function(){
             panels[0].setWidth(w,true);
             w = (touchData.startWith2-x)*100/touchData.totalWidth;
             panels[1].setWidth(w,true);
-
-            EventBus.trigger(EVENT.panelResized,0);
         }
 
-        EventBus.on(EVENT.panelResized,width=>{
-            if (!width) return;
-            state.left = width + 75;
-            container.style.left = state.left + "px";
-        });
 
-        EventBus.on(COMMAND.TOGGLESIDEPANEL,function(){
-            console.error("toggle side panel");
-            // TODO: this should probably move to a common UI service
-            setTimeout(()=>{
-                if (document.body.classList.contains("withsidepanel")){
-                    if (state.left){
-                        container.style.left = state.left + "px";
-                    }
-                }else{
-                    container.style.left = "70px";
-                }
-            },10);
+
+        EventBus.on(EVENT.panelUIChanged,function(){
+            container.style.left = (Sidepanel.getWidth() + Contentpanel.getWidth() + 70) + "px";
         });
         
         EventBus.on(COMMAND.ZOOMIN,function(center){
@@ -342,9 +329,6 @@ var Editor = function(){
                 EventBus.trigger(COMMAND.INITSELECTION,tool);
             }
         });
-        EventBus.on(EVENT.sidePanelChanged,(tool)=>{
-
-        });
         EventBus.on(COMMAND.PRESENTATION,()=>{
             if (UI.inPresentation()){
                 state.prevLeft = state.left;
@@ -353,7 +337,7 @@ var Editor = function(){
                     EventBus.trigger(COMMAND.SPLITSCREEN);
                 }
             }else{
-                container.style.left = state.prevLeft + "px";
+                EventBus.trigger(EVENT.panelUIChanged);
             }
             EventBus.trigger(COMMAND.ZOOMFIT);
 

@@ -1,6 +1,7 @@
 import {$div,$link} from "../util/dom.js";
-import {COMMAND} from "../enum.js";
+import {COMMAND, EVENT} from "../enum.js";
 import EventBus from "../util/eventbus.js";
+import UserSettings from "../userSettings.js";
 
 let Menu = function(){
     let me = {}
@@ -116,7 +117,7 @@ let Menu = function(){
                 {label: "Gallery",command: COMMAND.TOGGLEGALLERY, checked: false},
                 {label: "Presentation mode",command: COMMAND.PRESENTATION, checked: false},
                 {label: "Full Screen",command: COMMAND.FULLSCREEN,needsRealClick: true, checked: false},
-                {label: "Debug Overlay",command: COMMAND.TOGGLEOVERRIDE, checked: false},
+                //{label: "Debug Overlay",command: COMMAND.TOGGLEOVERRIDE, checked: false},
             ]},
         {label: "Recorder", items:[
                 {label: "Start",command: COMMAND.RECORDINGSTART},
@@ -258,6 +259,12 @@ let Menu = function(){
     EventBus.on(COMMAND.COLORDEPTH9,()=>{
         refs[COMMAND.COLORDEPTH12].classList.remove("checked");
         refs[COMMAND.COLORDEPTH24].classList.remove("checked");
+    });
+
+    EventBus.on(EVENT.panelUIChanged,()=>{
+        setTimeout(()=>{
+            refs[COMMAND.TOGGLESIDEPANEL].classList.toggle("checked",UserSettings.get("sidepanel"));
+        },50)
     });
 
     return me;
