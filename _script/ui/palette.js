@@ -24,6 +24,7 @@ let Palette = function(){
     var alphaThreshold = 44;
     let useAlphaThreshold = true;
     var ditherIndex = 0;
+    var ditherAmount = 100;
     var targetColorCount = 32;
     let palettePageIndex = 0;
     let palettePageCount = 1;
@@ -66,6 +67,41 @@ let Palette = function(){
         [175,175,175],
         [170,144,124],
         [255,169,151]
+    ];
+
+     var dpaintPalette = [
+        [0,0,0],
+        [245, 202, 165],
+        [255, 0, 0],
+        [186, 0, 1],
+        [235, 131, 1],
+        [255, 237, 0],
+        [76, 255, 1],
+        [0, 139, 0],
+        [0, 190, 92],
+        [0, 225, 224],
+        [1, 173, 255],
+        [2, 121, 212],
+        [0, 0, 255],
+        [131, 0, 255],
+        [223, 0, 247],
+        [223, 0, 139],
+        [111, 27, 0],
+        [255, 69, 0],
+        [183, 79, 8],
+        [255, 201, 165],
+        [51, 51, 51],
+        [68, 68, 68],
+        [85, 85, 85],
+        [102, 102, 102],
+        [119, 119, 119],
+        [136, 136, 136],
+        [153, 153, 153],
+        [170, 170, 170],
+        [204, 204, 204],
+        [221, 221, 221],
+        [238, 238, 238],
+        [255, 255, 255],
     ];
 
     var grayPalette = [
@@ -144,6 +180,7 @@ let Palette = function(){
         optimized: {label: "Optimized", palette: null},
         current: {label: "Current", palette: null},
         mui: {label: "MUI", palette:muiPalette},
+        dpaint: {label: "Deluxe Paint 32", palette:dpaintPalette},
         grays: {label: "Grays 8", palette:grayPalette},
         db8: {label: "DawnBringer 8", palette:[[20, 12, 28],[85, 65, 95],[100, 105, 100],[215, 115, 85],[80, 140, 215],[100, 185, 100],[230, 200, 110],[220, 245, 255]]},
         db16: {label: "DawnBringer 16", palette:db16Palette},
@@ -508,16 +545,8 @@ let Palette = function(){
             let base = ImageFile.getOriginal();
             //let base = ImageFile.getActiveLayer().getCanvas();
             let c = duplicateCanvas(base,true);
-            if (targetColorCount === 2 && ditherIndex){
-                ImageProcessing.bayer(c.getContext("2d"),Math.floor(alphaThreshold*2.56),false);
-                let layer = ImageFile.getActiveLayer();
-                layer.clear();
-                layer.drawImage(c,0,0);
-                EventBus.trigger(EVENT.layerContentChanged,{keepImageCache:true});
-                EventBus.trigger(EVENT.paletteProcessingEnd);
-            }else{
-                ImageProcessing.reduce(c,targetPalette || targetColorCount,alphaThreshold,ditherIndex,useAlphaThreshold);
-            }
+                ImageProcessing.reduce(c,targetPalette || targetColorCount,alphaThreshold,ditherIndex,useAlphaThreshold,ditherAmount);
+
 
             SidePanel.show("reduce");
         }
@@ -727,7 +756,7 @@ let Palette = function(){
         $div("label","Dithering",dithering);
 
         let select = document.createElement("select");
-        select.value=0;
+        select.value = ditherIndex;
         let options = ImageProcessing.getDithering();
         options.forEach((o,index)=>{
             let option = document.createElement("option");
@@ -737,6 +766,7 @@ let Palette = function(){
         });
         select.onchange = function(){
             ditherIndex = select.value;
+            if (ditherAmountPanel) ditherAmountPanel.style.display = ditherIndex == 0 ? "none" : "block";
             applyReduce();
         }
         $div("button square prev","<",dithering,()=>{
@@ -753,6 +783,24 @@ let Palette = function(){
         });
 
         dithering.appendChild(select);
+
+        let ditherAmountPanel = $div("subpanel","",parent);
+        ditherAmountPanel.style.display = ditherIndex == 0 ? "none" : "block";
+        $div("label","Dither Amount",ditherAmountPanel);
+        let daValue = $div("value",ditherAmount + "%",ditherAmountPanel);
+        let daRange = document.createElement("input");
+        daRange.type = "range";
+        daRange.value = ditherAmount;
+        daRange.min = 0;
+        daRange.max = 100;
+        daRange.oninput = function(){
+            daValue.innerHTML = daRange.value + "%";
+        }
+        daRange.onchange = function(){
+            ditherAmount = daRange.value;
+            applyReduce();
+        }
+        ditherAmountPanel.appendChild(daRange);
 
         let alpha = $div("subpanel","",parent);
         $checkbox("Alpha Threshold",alpha,"label small",(value)=>{

@@ -39,6 +39,12 @@
       }
     }
 
+    &.active{
+      &:after{
+        transform: rotate(180deg);
+      }
+    }
+
     &.showpalettetools{
       border-top: 1px solid black;
       border-bottom: none;
@@ -56,7 +62,6 @@
         &:after{
           transform: rotate(90deg);
         }
-
       }
     }
   }

@@ -18,16 +18,8 @@ var ImageProcessing = function(){
 
 	var dithering = [
 			{ Name: "none", label: "None", pattern: null},
-			{ Name: "checks1", label: "Checks (very low)", pattern : [ 1 * 8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 ] },
-			{ Name: "checks2", label: "Checks (low)", pattern :  [ 2 * 8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 ] },
-			{ Name: "checks3", label: "Checks (medium)", pattern: [ 4 * 8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 ] },
-			{ Name: "checks4", label: "Checks (high)", pattern : [ 8 * 8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 ] },
-			{ Name: "checks5", label: "Checks (very high)", pattern: [ 16 * 8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 ] },
-			{ Name: "checks6", label: "Checks (very high 2)", pattern: [ 32 * 8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 ] },
+			{ Name: "checks", label: "Checks", pattern : [ 8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 ] },
 			{ Name: "fs", label: "Floyd-Steinberg", pattern: [ 0, 0, 0, 7.0 / 16.0, 0, 0, 3.0 / 16.0, 5.0 / 16.0, 1.0 / 16.0, 0, 0, 0, 0, 0, 0 ] },
-			{ Name: "fs85", label: "Floyd-Steinberg (85%)", pattern: [ 0, 0, 0, 7.0 * 0.85 / 16.0, 0, 0, 3.0 * 0.85 / 16.0, 5.0 * 0.85 / 16.0, 1.0 * 0.85 / 16.0, 0, 0, 0, 0, 0, 0 ] },
-			{ Name: "fs75", label: "Floyd-Steinberg (75%)", pattern: [ 0, 0, 0, 7.0 * 0.75 / 16.0, 0, 0, 3.0 * 0.75 / 16.0, 5.0 * 0.75 / 16.0, 1.0 * 0.75 / 16.0, 0, 0, 0, 0, 0, 0 ] },
-			{ Name: "fs50", label: "Floyd-Steinberg (50%)", pattern: [ 0, 0, 0, 7.0 * 0.5 / 16.0, 0, 0, 3.0 * 0.5 / 16.0, 5.0 * 0.5 / 16.0, 1.0 * 0.5 / 16.0, 0, 0, 0, 0, 0, 0 ] },
 			{ Name: "jjn", label: "Jarvis, Judice, and Ninke", pattern: [ 0, 0, 0, 7.0 / 48.0, 5.0 / 48.0, 3.0 / 48.0, 5.0 / 48.0, 7.0 / 48.0, 5.0 / 48.0, 3.0 / 48.0, 1.0 / 48.0, 3.0 / 48.0, 5.0 / 48.0, 3.0 / 48.0, 1.0 / 48.0 ] },
 			{ Name: "s", label: "Stucki", pattern: [ 0, 0, 0, 8.0 / 42.0, 4.0 / 42.0, 2.0 / 42.0, 4.0 / 42.0, 8.0 / 42.0, 4.0 / 42.0, 2.0 / 42.0, 1.0 / 42.0, 2.0 / 42.0, 4.0 / 42.0, 2.0 / 42.0, 1.0 / 42.0 ] },
 			{ Name: "a", label: "Atkinson", pattern: [ 0, 0, 0, 1.0 / 8.0, 1.0 / 8.0, 0, 1.0 / 8.0, 1.0 / 8.0, 1.0 / 8.0, 0, 0, 0, 1.0 / 8.0, 0, 0 ] },
@@ -35,7 +27,7 @@ var ImageProcessing = function(){
 			{ Name: "s", label: "Sierra", pattern: [ 0, 0, 0, 5.0 / 32.0, 3.0 / 32.0, 2.0 / 32.0, 4.0 / 32.0, 5.0 / 32.0, 4.0 / 32.0, 2.0 / 32.0, 0, 2.0 / 32.0, 3.0 / 32.0, 2.0 / 32.0, 0 ] },
 			{ Name: "trs", label: "Two-Row Sierra", pattern: [ 0, 0, 0, 4.0 / 16.0, 3.0 / 16.0, 1.0 / 16.0, 2.0 / 16.0, 3.0 / 16.0, 2.0 / 16.0, 1.0 / 16.0, 0, 0, 0, 0, 0 ] },
 			{ Name: "sl", label: "Sierra Lite", pattern: [ 0, 0, 0, 2.0 / 4.0, 0, 0, 1.0 / 4.0, 1.0 / 4.0, 0, 0, 0, 0, 0, 0, 0 ] } ,
-			//{ Name: "bayer", label: "Bayer", pattern: [0,15/255, 135/255, 45/255, 165/255, 195/255, 75/255, 225/255, 105/255, 60/255, 180/255, 30/255, 150/255 , 240/255, 120/255, 210/255, 90/255] }
+			{ Name: "bayer", label: "Bayer", pattern: [0,15/255, 135/255, 45/255, 165/255, 195/255, 75/255, 225/255, 105/255, 60/255, 180/255, 30/255, 150/255 , 240/255, 120/255, 210/255, 90/255] }
 		];
 	var ditherPattern = null;
 	var alphaThreshold = 44;
@@ -48,24 +40,24 @@ var ImageProcessing = function(){
 	};
 
 
-	me.matting = function(){
-		if (imageInfos.canvas){
+	me.matting = function(canvas){
+		if (canvas){
 			var opaqueCanvas = document.createElement("canvas");
-			opaqueCanvas.width = imageInfos.canvas.width;
-			opaqueCanvas.height = imageInfos.canvas.height;
+			opaqueCanvas.width = canvas.width;
+			opaqueCanvas.height = canvas.height;
 			var opaqueCtx = opaqueCanvas.getContext("2d");
 			opaqueCtx.fillStyle = mattingColor;
 			opaqueCtx.fillRect(0,0,opaqueCanvas.width,opaqueCanvas.height);
-			opaqueCtx.drawImage(imageInfos.canvas,0,0);
+			opaqueCtx.drawImage(canvas,0,0);
 			
-			var ctx = imageInfos.canvas.getContext("2d");
+			var ctx = canvas.getContext("2d");
 			
-			var data = ctx.getImageData(0, 0, imageInfos.canvas.width, imageInfos.canvas.height);
-			var opaqueData = opaqueCtx.getImageData(0, 0, imageInfos.canvas.width, imageInfos.canvas.height);
+			var data = ctx.getImageData(0, 0, canvas.width, canvas.height);
+			var opaqueData = opaqueCtx.getImageData(0, 0, canvas.width, canvas.height);
 
-			for(var y = 0; y < imageInfos.canvas.height; y++){
-				for(var x = 0; x < imageInfos.canvas.width; x++){
-					var index = (x + y * imageInfos.canvas.width) * 4;
+			for(var y = 0; y < canvas.height; y++){
+				for(var x = 0; x < canvas.width; x++){
+					var index = (x + y * canvas.width) * 4;
 					var alpha = data.data[index + 3];
 
 					if(alpha < 255){
@@ -151,10 +143,37 @@ var ImageProcessing = function(){
 
 	};
 	
-	me.reduce = function(canvas,colors,_alphaThreshold,ditherIndex,useAlphaThreshold){
+	me.reduce = function(canvas,colors,_alphaThreshold,ditherIndex,useAlphaThreshold,ditherAmount){
 
 		alphaThreshold = _alphaThreshold || 0;
 		ditherPattern = dithering[ditherIndex || 0].pattern;
+		if (ditherPattern){
+			// clone ditherPattern
+			ditherPattern = ditherPattern.slice();
+			// apply ditherAmount
+			if (typeof ditherAmount === "undefined") ditherAmount = 100;
+			var amount = ditherAmount/100;
+
+			// check for checker pattern
+			if (ditherPattern[0] > 0 && ditherPattern[3] === 0){
+				// checks
+				var maxCheck = 16 * 8; // Max checks level
+				ditherPattern[0] = Math.max(1, maxCheck * amount);
+			}else if(ditherPattern.length>16){
+				// bayer / ordered
+				// store amount in index 0 for usage in shader/remap
+				ditherPattern[0] = amount;
+				for (var i=1;i<ditherPattern.length;i++){
+					ditherPattern[i] = ditherPattern[i] * amount;
+				}
+			}else{
+				// error diffusion
+				for (var i=0;i<ditherPattern.length;i++){
+					ditherPattern[i] = ditherPattern[i] * amount;
+				}
+			}
+		}
+
 		var bitsPerColor = 3;
 		
 		var mode = "Palette";
@@ -168,9 +187,9 @@ var ImageProcessing = function(){
 		imageInfos.canvas = canvas;
 		imageInfos.colorCount = colors;
 
-		if (useAlphaThreshold) me.matting();
+		if (useAlphaThreshold) me.matting(canvas);
 		
-		processImage(mode, bitsPerColor, ditherPattern, "id");
+		processImage(canvas, mode, bitsPerColor, ditherPattern, "id");
 	};
 
 	function RgbToSrgb(ColorChannel) {
@@ -191,21 +210,30 @@ var ImageProcessing = function(){
 
 		let mixedColors = [];
 
-		for(let i = 0; i < palette.length; i++)
-			mixedColors.push({ Red: palette[i][0], Green: palette[i][1], Blue: palette[i][2], TrueRed: SrgbToRgb(palette[i][0]), TrueGreen: SrgbToRgb(palette[i][1]), TrueBlue: SrgbToRgb(palette[i][2]) });
 
-		if(ditherPattern && ditherPattern[0] > 0 && palette.length <= 64) {
+		for(let i = 0; i < palette.length; i++){
+			let r = typeof palette[i][0] === "number" ? palette[i][0] : palette[i].Red;
+			let g = typeof palette[i][1] === "number" ? palette[i][1] : palette[i].Green;
+			let b = typeof palette[i][2] === "number" ? palette[i][2] : palette[i].Blue;
+			mixedColors.push({ Red: r, Green: g, Blue: b, TrueRed: SrgbToRgb(r), TrueGreen: SrgbToRgb(g), TrueBlue: SrgbToRgb(b) });
+		}
+
+
+		if(ditherPattern && ditherPattern[0] > 0 && palette.length <= 256) {
+			console.log("Applying checks dithering. Pattern:", ditherPattern[0], "Palette size:", palette.length);
+			let mixedCount = 0;
 			for(var i2 = 0; i2 < palette.length; i2++){
 				for(var i3 = i2 + 1; i3 < palette.length; i3++) {
-					var luminance1 = SrgbToRgb(palette[i2].Red) * 0.21 + SrgbToRgb(palette[i2].Green) * 0.72 + SrgbToRgb(palette[i2].Blue) * 0.07;
-					var luminance2 = SrgbToRgb(palette[i3].Red) * 0.21 + SrgbToRgb(palette[i3].Green) * 0.72 + SrgbToRgb(palette[i3].Blue) * 0.07;
+					var luminance1 = mixedColors[i2].TrueRed * 0.21 + mixedColors[i2].TrueGreen * 0.72 + mixedColors[i2].TrueBlue * 0.07;
+					var luminance2 = mixedColors[i3].TrueRed * 0.21 + mixedColors[i3].TrueGreen * 0.72 + mixedColors[i3].TrueBlue * 0.07;
 					var luminanceDeltaSquare = (luminance1 - luminance2) * (luminance1 - luminance2);
 
 					if(luminanceDeltaSquare < ditherPattern[0] * ditherPattern[0])
 					{
-						let r = RgbToSrgb((SrgbToRgb(palette[i2].Red) + SrgbToRgb(palette[i3].Red)) / 2.0);
-						let g = RgbToSrgb((SrgbToRgb(palette[i2].Green) + SrgbToRgb(palette[i3].Green)) / 2.0);
-						let b = RgbToSrgb((SrgbToRgb(palette[i2].Blue) + SrgbToRgb(palette[i3].Blue)) / 2.0);
+						mixedCount++;
+						let r = RgbToSrgb((mixedColors[i2].TrueRed + mixedColors[i3].TrueRed) / 2.0);
+						let g = RgbToSrgb((mixedColors[i2].TrueGreen + mixedColors[i3].TrueGreen) / 2.0);
+						let b = RgbToSrgb((mixedColors[i2].TrueBlue + mixedColors[i3].TrueBlue) / 2.0);
 
 						mixedColors.push({ Index1: i2, Index2: i3, Red: r, Green: g, Blue: b, TrueRed: SrgbToRgb(r), TrueGreen: SrgbToRgb(g), TrueBlue: SrgbToRgb(b) });
 					}
@@ -229,6 +257,91 @@ var ImageProcessing = function(){
 				var TrueRed = SrgbToRgb(Red);
 				var TrueGreen = SrgbToRgb(Green);
 				var TrueBlue = SrgbToRgb(Blue);
+
+				if (ditherPattern && ditherPattern.length>16){
+					// Bayer / Ordered Dither
+					// Pattern values are 0..1
+					// Center them around 0 (-0.5 .. 0.5)
+					// And scale by amount (implied in the pattern values if we pre-scaled them, 
+					// but wait, reduce() scales them 0..amount.
+					
+					// If pattern is [0, val, val...]
+					// Index 0 is ignored for logic type usually, but for Bayer it is 0.
+					
+					// Let's use 4x4 tiling
+					var bayerMap = (X%4) + (Y%4)*4;
+					// The pattern array has 17 elements, index 0 is 0.
+					// So indices 1..16 are the matrix.
+					var bayerValue = ditherPattern[bayerMap+1]; 
+					
+					// bayerValue is 0..amount. 
+					// We want to shift the color.
+					// If amount is 1, bayerValue is 0..1. Center is 0.5.
+					// shift = (bayerValue - amount/2) * 255 ?
+					
+					// Wait, standard ordered dither adds (MatrixValue - 0.5) * Range.
+					
+					// If we only have the scaled pattern, we don't know "amount" easily here, 
+					// unless we infer it or assume the max value in array is 'amount'.
+					
+					// Let's reconstruct 'spread'.
+					// But wait, reduce() scales the pattern.
+					// ditherPattern[i] = orig[i] * amount.
+					
+					// So bayerValue is in range [0, amount].
+					// We want to center it: bayerValue - (amount * 0.5).
+					// Then scale to byte range: * 255?
+					
+					// Actually, let's look at the original values.
+					// [15/255, 135/255...] -> roughly 0..1.
+					// If amount=1, this is 0..1.
+					// We want to add/subtract up to roughly 128 (half range) for full dither?
+					// Or maybe the pattern values ARE the byte offsets effectively if normalized?
+					
+					// Let's try:
+					// offset = (bayerValue - 0.5 * ditherAmount) * 255.
+					// But we don't have ditherAmount variable here.
+					
+					// HACK: We can assume ditherPattern[0] holds 'amount' for Bayer if we set it so?
+					// But currently ditherPattern[0] is 0.
+					
+					// Alternative: Just use the value as is and subtract a bias?
+					// If we just add 0..amount, the image gets brighter.
+					// We must subtract amount/2.
+					
+					// Let's estimate amount from the pattern? 
+					// Or better: In reduce(), put 'amount' in ditherPattern[0] for Bayer?
+					// Bayer doesn't use index 0 (it's 0 in definition). 
+					// If I set ditherPattern[0] = amount, then:
+					// 1. It won't trigger Checks (ditherPattern[0]>0 is true, but ditherPattern[3] is NOT 0 for Bayer, it's 45/255).
+					// Checks check is: `if (ditherPattern[0] > 0 && ditherPattern[3] === 0)`
+					// Bayer[3] is non-zero. So Checks won't trigger.
+					// But Error Diffusion logic might trigger?
+					// `else { // Error diffusion. }`
+					// Correct.
+					
+					// So I need a distinct block for Bayer.
+					// `if (ditherPattern.length > 16)` covers it.
+					
+					// So, let's set ditherPattern[0] = amount in reduce().
+					// Then here:
+					
+					var amount = ditherPattern[0];
+					var offset = (bayerValue - amount * 0.5) * 255;
+					
+					var R = Red + offset;
+					var G = Green + offset;
+					var B = Blue + offset;
+					
+					// Clamp?
+					R = Math.max(0, Math.min(255, R));
+					G = Math.max(0, Math.min(255, G));
+					B = Math.max(0, Math.min(255, B));
+					
+					TrueRed = SrgbToRgb(R);
+					TrueGreen = SrgbToRgb(G);
+					TrueBlue = SrgbToRgb(B);
+				}
 
 				var Luminance = TrueRed * 0.21 + TrueGreen * 0.72 + TrueBlue * 0.07;
 				
@@ -295,6 +408,16 @@ var ImageProcessing = function(){
 							data.data[pixelIndex + 1] = palette[RemappedColorIndex].Green;
 							data.data[pixelIndex + 2] = palette[RemappedColorIndex].Blue;
 							data.data[pixelIndex + 3] = alpha;
+						}
+						else if (ditherPattern.length > 16){
+							// Bayer - already applied to color before matching
+							// Just write the result
+							var c = palette[RemappedColorIndex];
+							data.data[pixelIndex] = c.Red;
+							data.data[pixelIndex + 1] = c.Green;
+							data.data[pixelIndex + 2] =c.Blue;
+							data.data[pixelIndex + 3] = alpha;
+
 						}
 						else { // Error diffusion.
 							var RedDelta = palette[RemappedColorIndex].Red - Red;
@@ -417,162 +540,13 @@ var ImageProcessing = function(){
 		ctx.putImageData(data, 0, 0);
 	}
 
-	function remapFullPaletteImage(Canvas, BitsPerColor, DitherPattern) {
-		var Context = Canvas.getContext("2d");
-		var Data = Context.getImageData(0, 0, Canvas.width, Canvas.height);
-		var ShadesPerColor = 1 << BitsPerColor;
 
-		for(var Y = 0; Y < Canvas.height; Y++) {
-			for(var X = 0; X < Canvas.width; X++) {
-				var PixelIndex = (X + Y * Canvas.width) * 4;
-
-				var Red = Data.data[PixelIndex];
-				var Green = Data.data[PixelIndex + 1];
-				var Blue = Data.data[PixelIndex + 2];
-				var Alpha = Data.data[PixelIndex + 3];
-				var Luminance = Red * 0.21 + Green * 0.72 + Blue * 0.07;
-
-				var MatchingRed = Red;
-				var MatchingGreen = Green;
-				var MatchingBlue = Blue;
-
-				if(Alpha >= alphaThreshold) {
-					if(DitherPattern) {
-						if(DitherPattern[0] == 1) {
-							// Checker pattern.
-						}
-						else {
-							// Error diffusion.
-							var ShadesScale = (ShadesPerColor - 1) / 255;
-							var InverseShadesScale = 1 / ShadesScale;
-
-							MatchingRed = Math.round(Math.round(Red * ShadesScale) * InverseShadesScale);
-							MatchingGreen = Math.round(Math.round(Green * ShadesScale) * InverseShadesScale);
-							MatchingBlue = Math.round(Math.round(Blue * ShadesScale) * InverseShadesScale);
-
-							var RedDelta = MatchingRed - Red;
-							var GreenDelta = MatchingGreen - Green;
-							var BlueDelta = MatchingBlue - Blue;
-
-							if(X < Canvas.width - 2) {
-								if(DitherPattern[4])
-								{
-									Data.data[PixelIndex + 8] = Math.round(Math.min(255, Math.max(0, Data.data[PixelIndex + 8] - RedDelta * DitherPattern[4])));
-									Data.data[PixelIndex + 8 + 1] = Math.round(Math.min(255, Math.max(0, Data.data[PixelIndex + 8 + 1] - GreenDelta * DitherPattern[4])));
-									Data.data[PixelIndex + 8 + 2] = Math.round(Math.min(255, Math.max(0, Data.data[PixelIndex + 8 + 2] - BlueDelta * DitherPattern[4])));
-								}
-
-								if(Y < Canvas.height - 1 && DitherPattern[9])
-								{
-									Data.data[PixelIndex + Canvas.width * 4 + 8] = Math.round(Math.min(255, Math.max(0, Data.data[PixelIndex + Canvas.width * 4 + 8] - RedDelta * DitherPattern[9])));
-									Data.data[PixelIndex + Canvas.width * 4 + 8 + 1] = Math.round(Math.min(255, Math.max(0, Data.data[PixelIndex + Canvas.width * 4 + 8 + 1] - GreenDelta * DitherPattern[9])));
-									Data.data[PixelIndex + Canvas.width * 4 + 8 + 2] = Math.round(Math.min(255, Math.max(0, Data.data[PixelIndex + Canvas.width * 4 + 8 + 2] - BlueDelta * DitherPattern[9])));
-								}
-
-								if(Y < Canvas.height - 2 && DitherPattern[14])
-								{
-									Data.data[PixelIndex + Canvas.width * 2 * 4 + 8] = Math.round(Math.min(255, Math.max(0, Data.data[PixelIndex + Canvas.width * 2 * 4 + 8] - RedDelta * DitherPattern[14])));
-									Data.data[PixelIndex + Canvas.width * 2 * 4 + 8 + 1] = Math.round(Math.min(255, Math.max(0, Data.data[PixelIndex + Canvas.width * 2 * 4 + 8 + 1] - GreenDelta * DitherPattern[14])));
-									Data.data[PixelIndex + Canvas.width * 2 * 4 + 8 + 2] = Math.round(Math.min(255, Math.max(0, Data.data[PixelIndex + Canvas.width * 2 * 4 + 8 + 2] - BlueDelta * DitherPattern[14])));
-								}
-							}
-
-							if(X < Canvas.width - 1)
-							{
-								if(DitherPattern[3])
-								{
-									Data.data[PixelIndex + 4] = Math.round(Math.min(255, Math.max(0, Data.data[PixelIndex + 4] - RedDelta * DitherPattern[3])));
-									Data.data[PixelIndex + 4 + 1] = Math.round(Math.min(255, Math.max(0, Data.data[PixelIndex + 4 + 1] - GreenDelta * DitherPattern[3])));
-									Data.data[PixelIndex + 4 + 2] = Math.round(Math.min(255, Math.max(0, Data.data[PixelIndex + 4 + 2] - BlueDelta * DitherPattern[3])));
-								}
-
-								if(Y < Canvas.height - 1 && DitherPattern[8])
-								{
-									Data.data[PixelIndex + Canvas.width * 4 + 4] = Math.round(Math.min(255, Math.max(0, Data.data[PixelIndex + Canvas.width * 4 + 4] - RedDelta * DitherPattern[8])));
-									Data.data[PixelIndex + Canvas.width * 4 + 4 + 1] = Math.round(Math.min(255, Math.max(0, Data.data[PixelIndex + Canvas.width * 4 + 4 + 1] - GreenDelta * DitherPattern[8])));
-									Data.data[PixelIndex + Canvas.width * 4 + 4 + 2] = Math.round(Math.min(255, Math.max(0, Data.data[PixelIndex + Canvas.width * 4 + 4 + 2] - BlueDelta * DitherPattern[8])));
-								}
-
-								if(Y < Canvas.height - 2 && DitherPattern[13])
-								{
-									Data.data[PixelIndex + Canvas.width * 2 * 4 + 4] = Math.round(Math.min(255, Math.max(0, Data.data[PixelIndex + Canvas.width * 2 * 4 + 4] - RedDelta * DitherPattern[13])));
-									Data.data[PixelIndex + Canvas.width * 2 * 4 + 4 + 1] = Math.round(Math.min(255, Math.max(0, Data.data[PixelIndex + Canvas.width * 2 * 4 + 4 + 1] - GreenDelta * DitherPattern[13])));
-									Data.data[PixelIndex + Canvas.width * 2 * 4 + 4 + 2] = Math.round(Math.min(255, Math.max(0, Data.data[PixelIndex + Canvas.width * 2 * 4 + 4 + 2] - BlueDelta * DitherPattern[13])));
-								}
-							}
-
-							if(Y < Canvas.height - 1 && DitherPattern[7])
-							{
-								Data.data[PixelIndex + Canvas.width * 4] = Math.round(Math.min(255, Math.max(0, Data.data[PixelIndex + Canvas.width * 4] - RedDelta * DitherPattern[7])));
-								Data.data[PixelIndex + Canvas.width * 4 + 1] = Math.round(Math.min(255, Math.max(0, Data.data[PixelIndex + Canvas.width * 4 + 1] - GreenDelta * DitherPattern[7])));
-								Data.data[PixelIndex + Canvas.width * 4 + 2] = Math.round(Math.min(255, Math.max(0, Data.data[PixelIndex + Canvas.width * 4 + 2] - BlueDelta * DitherPattern[7])));
-							}
-
-							if(Y < Canvas.height - 2 && DitherPattern[12])
-							{
-								Data.data[PixelIndex + Canvas.width * 2 * 4] = Math.round(Math.min(255, Math.max(0, Data.data[PixelIndex + Canvas.width * 2 * 4] - RedDelta * DitherPattern[12])));
-								Data.data[PixelIndex + Canvas.width * 2 * 4 + 1] = Math.round(Math.min(255, Math.max(0, Data.data[PixelIndex + Canvas.width * 2 * 4 + 1] - GreenDelta * DitherPattern[12])));
-								Data.data[PixelIndex + Canvas.width * 2 * 4 + 2] = Math.round(Math.min(255, Math.max(0, Data.data[PixelIndex + Canvas.width * 2 * 4 + 2] - BlueDelta * DitherPattern[12])));
-							}
-
-							if(X > 0)
-							{
-								if(Y < Canvas.height - 1 && DitherPattern[6])
-								{
-									Data.data[PixelIndex + Canvas.width * 4 - 4] = Math.round(Math.min(255, Math.max(0, Data.data[PixelIndex + Canvas.width * 4 - 4] - RedDelta * DitherPattern[6])));
-									Data.data[PixelIndex + Canvas.width * 4 - 4 + 1] = Math.round(Math.min(255, Math.max(0, Data.data[PixelIndex + Canvas.width * 4 - 4 + 1] - GreenDelta * DitherPattern[6])));
-									Data.data[PixelIndex + Canvas.width * 4 - 4 + 2] = Math.round(Math.min(255, Math.max(0, Data.data[PixelIndex + Canvas.width * 4 - 4 + 2] - BlueDelta * DitherPattern[6])));
-								}
-
-								if(Y < Canvas.height - 2 && DitherPattern[11])
-								{
-									Data.data[PixelIndex + Canvas.width * 2 * 4 - 4] = Math.round(Math.min(255, Math.max(0, Data.data[PixelIndex + Canvas.width * 2 * 4 - 4] - RedDelta * DitherPattern[11])));
-									Data.data[PixelIndex + Canvas.width * 2 * 4 - 4 + 1] = Math.round(Math.min(255, Math.max(0, Data.data[PixelIndex + Canvas.width * 2 * 4 - 4 + 1] - GreenDelta * DitherPattern[11])));
-									Data.data[PixelIndex + Canvas.width * 2 * 4 - 4 + 2] = Math.round(Math.min(255, Math.max(0, Data.data[PixelIndex + Canvas.width * 2 * 4 - 4 + 2] - BlueDelta * DitherPattern[11])));
-								}
-							}
-
-							if(X > 1)
-							{
-								if(Y < Canvas.height - 1 && DitherPattern[5])
-								{
-									Data.data[PixelIndex + Canvas.width * 4 - 8] = Math.round(Math.min(255, Math.max(0, Data.data[PixelIndex + Canvas.width * 4 - 8] - RedDelta * DitherPattern[5])));
-									Data.data[PixelIndex + Canvas.width * 4 - 8 + 1] = Math.round(Math.min(255, Math.max(0, Data.data[PixelIndex + Canvas.width * 4 - 8 + 1] - GreenDelta * DitherPattern[5])));
-									Data.data[PixelIndex + Canvas.width * 4 - 8 + 2] = Math.round(Math.min(255, Math.max(0, Data.data[PixelIndex + Canvas.width * 4 - 8 + 2] - BlueDelta * DitherPattern[5])));
-								}
-
-								if(Y < Canvas.height - 2 && DitherPattern[10])
-								{
-									Data.data[PixelIndex + Canvas.width * 2 * 4 - 8] = Math.round(Math.min(255, Math.max(0, Data.data[PixelIndex + Canvas.width * 2 * 4 - 8] - RedDelta * DitherPattern[10])));
-									Data.data[PixelIndex + Canvas.width * 2 * 4 - 8 + 1] = Math.round(Math.min(255, Math.max(0, Data.data[PixelIndex + Canvas.width * 2 * 4 - 8 + 1] - GreenDelta * DitherPattern[10])));
-									Data.data[PixelIndex + Canvas.width * 2 * 4 - 8 + 2] = Math.round(Math.min(255, Math.max(0, Data.data[PixelIndex + Canvas.width * 2 * 4 - 8 + 2] - BlueDelta * DitherPattern[10])));
-								}
-							}
-						}
-					}
-
-					//console.error(MatchingRed);
-					Data.data[PixelIndex] = MatchingRed;
-					Data.data[PixelIndex + 1] = MatchingGreen;
-					Data.data[PixelIndex + 2] = MatchingBlue;
-					Data.data[PixelIndex + 3] = Alpha;
-				}else{
-					// transparency?
-				}
-			}
-		}
-
-		Context.putImageData(Data, 0, 0);
-	}
-
-
-
-	function processImage(colorCount, bitsPerColor, ditherPattern, Id) {
+	function processImage(canvas, colorCount, bitsPerColor, ditherPattern, Id) {
 		var colors = [];
 		var useTransparentColor = false;
 
 		// scan image for transparent colors
-		let imageData = imageInfos.canvas.getContext("2d").getImageData(0, 0, imageInfos.canvas.width, imageInfos.canvas.height);
+		let imageData = canvas.getContext("2d").getImageData(0, 0, canvas.width, canvas.height);
 		for(var i = 0; i < imageData.data.length; i+=4){
 			if(imageData.data[i+3] < alphaThreshold){
 				useTransparentColor = true;
@@ -588,63 +562,65 @@ var ImageProcessing = function(){
 				colors.push([color[0],color[1],color[2]]);
 			}
 			imageInfos.paletteReduced = colors;
-			remapImage(imageInfos.canvas, colors, ditherPattern);
+			remapImage(canvas, colors, ditherPattern);
 		}else{
+
+			// check if we can reuse the previous palette
+			// we can reuse it if the color count is the same and we have a palette
+			// AND if we are not reducing to specific bit depth (which is currently hardcoded to 3 anyway but let's be safe)
+
+			if (imageInfos.paletteReduced && imageInfos.paletteReduced.length === colorCount && !isNaN(colorCount)){
+				// reuse palette
+				// console.log("reusing palette for dithering");
+				remapImage(canvas, imageInfos.paletteReduced, ditherPattern);
+				updateImageWindow(Id, canvas, imageInfos.paletteReduced);
+				return;
+			}
+
+
 			if(!imageInfos.Colors || imageInfos.Colors.length > colorCount) {
-				if(colorCount === 2){
-					if (useTransparentColor){
-						colors.push({ Red: transparentColor[0], Green: transparentColor[1], Blue: transparentColor[2] });
-					}else{
-						colors.push({ Red: 255, Green: 255, Blue: 255 });
-					}
-					colors.push({ Red: 0, Green: 0, Blue: 0 });
+				if (useTransparentColor) colorCount--;
+				var MaxRecursionDepth = 1;
 
-					imageInfos.paletteReduced = colors;
-
-					remapImage(imageInfos.canvas, colors, ditherPattern);
-
-					updateImageWindow(Id);
-				}
-				else
-				{
-					if (useTransparentColor) colorCount--;
-					var MaxRecursionDepth = 1;
-
-					while(Math.pow(2, MaxRecursionDepth) < colorCount) MaxRecursionDepth++;
+				while(Math.pow(2, MaxRecursionDepth) < colorCount) MaxRecursionDepth++;
 
 
-					let worker = new Worker(
-						new URL('../workers/quantize2.js', import.meta.url),
-						{type: 'module'}
-					);
+				let worker = new Worker(
+					new URL('../workers/quantize2.js', import.meta.url),
+					{type: 'module'}
+				);
 
-					let data = {
-						imageData: imageInfos.canvas.getContext("2d").getImageData(0, 0, imageInfos.canvas.width, imageInfos.canvas.height),
-						colorDepth: bitsPerColor*3,
-						count: colorCount,
-						transparentColor
-					};
+				// when calculating the palette, we should NOT use dithering info
+				// pure quantization based on the image colors
+				let data = {
+					imageData: canvas.getContext("2d").getImageData(0, 0, canvas.width, canvas.height),
+					colorDepth: bitsPerColor*3,
+					count: colorCount,
+					transparentColor
+				};
 
-					worker.addEventListener(
-						"message",
-						function(e)
-						{
-							console.error(e);
-							imageInfos.paletteReduced = e.data.palette;
+				worker.addEventListener(
+					"message",
+					function(e)
+					{
+						//console.error(e);
+						var paletteReduced = e.data.palette;
+						imageInfos.paletteReduced = paletteReduced; // cache the palette!
 
-							remapImage(imageInfos.canvas, imageInfos.paletteReduced, ditherPattern);
+						// NOW apply dithering with the calculated palette
+						remapImage(canvas, paletteReduced, ditherPattern);
 
-							if (useTransparentColor && colorCount>4){
-								imageInfos.paletteReduced.unshift([transparentColor[0], transparentColor[1], transparentColor[2]])
-							}
+						if (useTransparentColor && colorCount>4){
+							paletteReduced.unshift([transparentColor[0], transparentColor[1], transparentColor[2]])
+						}
 
-							updateImageWindow(Id);
-						},
-						false);
+						updateImageWindow(Id, canvas, paletteReduced);
+					},
+					false);
 
-					worker.postMessage(data);
+				worker.postMessage(data);
 					
-				}
+				
 
 				return;
 			}else{
@@ -665,29 +641,47 @@ var ImageProcessing = function(){
 			}
 		}
 
-		// Remap image.
-
-		if(colorCount === "Palette") {
-			remapFullPaletteImage(imageInfos.canvas, bitsPerColor, ditherPattern);
-		}
-
 		imageInfos.paletteReduced = colors;
-		
-		updateImageWindow(Id);
+		updateImageWindow(Id, canvas, colors);
 	}
 	
 	
-	function updateImageWindow(){
+	function updateImageWindow(Id, canvas, palette){
 		//console.error(imageInfos);
 		
-		if (imageInfos.paletteReduced){
+		if (palette){
+
+			// check if we need to reduce the bit depth of the palette
+			let colorDepth = Palette.getColorDepth();
+			if (colorDepth !== 24){
+				let bits = Math.floor(colorDepth/3);
+				palette.forEach((color,index)=>{
+					palette[index] = Color.setBitDepth(color,bits);
+				});
+			}
+
+			// remove duplicates
+			let uniquePalette = [];
+			let map = {};
+			palette.forEach(color=>{
+				let key = color.join(",");
+				if (!map[key]){
+					map[key] = true;
+					uniquePalette.push(color);
+				}
+			});
+			palette = uniquePalette;
+
+			// sort from dark to light
+			palette.sort(function (c1, c2) { return (SrgbToRgb(c1[0]) * 0.21 + SrgbToRgb(c1[1]) * 0.72 + SrgbToRgb(c1[2]) * 0.07) - (SrgbToRgb(c2[0]) * 0.21 + SrgbToRgb(c2[1]) * 0.72 + SrgbToRgb(c2[2]) * 0.07) });
+
 			let f = ImageFile.getCurrentFile();
 			let ctx = ImageFile.getActiveContext();
 			ctx.clearRect(0,0,f.width,f.height);
-			ctx.drawImage(imageInfos.canvas,0,0);
+			ctx.drawImage(canvas,0,0);
 			EventBus.trigger(EVENT.paletteProcessingEnd);
 			EventBus.trigger(EVENT.layerContentChanged,{keepImageCache:true});
-			Palette.set(imageInfos.paletteReduced);
+			Palette.set(palette);
 			EventBus.trigger(COMMAND.INFO);
 			//IconEditor.setPalette(palette);
 			//IconEditor.updateIcon();

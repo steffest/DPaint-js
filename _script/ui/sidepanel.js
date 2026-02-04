@@ -20,7 +20,8 @@ var SidePanel = function(){
     let panels = {
         info:{
             label: "Info",
-            height: 84
+            height: 84,
+            collapsed: true,
         },
         frames:{
             label: "Frames",
@@ -61,7 +62,7 @@ var SidePanel = function(){
         reduce:{
             label: "Reduce Colors",
             collapsed: true,
-            height: 270,
+            height: 310,
             content: parent=>{
                 Palette.generateControlPanel(parent);
             }
@@ -149,6 +150,10 @@ var SidePanel = function(){
         }
         FramesPanel.list();
         me.show();
+        if (panels.info.collapsed){
+            panels.info.collapsed = false;
+            setPanelsState();
+        }
     }
 
     function generate(){
@@ -168,6 +173,9 @@ var SidePanel = function(){
         let caption = $div("caption","<i></i> " + panelInfo.label,panel,()=>{
             panelInfo.collapsed = !panelInfo.collapsed;
             setPanelsState();
+            if (!panelInfo.collapsed  && panelInfo.label === "Info"){
+                me.showInfo();
+            }
         });
         let close = $div("close info","x",caption,()=>EventBus.trigger(COMMAND.TOGGLESIDEPANEL));
         close.info = "Close side panels";
@@ -215,10 +223,6 @@ var SidePanel = function(){
 
     EventBus.on(COMMAND.TOGGLESIDEPANEL,me.toggle);
 
-    EventBus.on(EVENT.panelUIChanged,()=>{
-        //me.isVisible()
-    });
-    
     return me;
 }()
 

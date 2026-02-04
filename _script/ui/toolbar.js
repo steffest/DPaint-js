@@ -13,6 +13,7 @@ let Toolbar = function(){
     let undo,redo;
     let isMac = navigator.platform.toUpperCase().indexOf('MAC')>=0;
     let meta = isMac?"Cmd":"Ctrl";
+    let toggleButton;
 
     let items=[
         {name: "pencil",command: COMMAND.DRAW, isTool: true, info: "<b>B</b> Left click: draw with foreground color, Right click: draw with background color."},
@@ -46,6 +47,13 @@ let Toolbar = function(){
             if (container) container.classList.toggle("fill",ToolOptions.isFill());
         })
 
+        EventBus.on(EVENT.panelUIChanged,()=>{
+            if (toggleButton){
+                let sidePanelsVisible = SidePanel.isVisible();
+                toggleButton.classList.toggle("active",sidePanelsVisible);
+            }
+        });
+
     }
 
     me.activateButton = function(index){
@@ -62,7 +70,7 @@ let Toolbar = function(){
 
     function generate(){
         let tools = $(".tools",{parent: container},
-            $(".togglepanel.sidebar",{
+            toggleButton = $(".togglepanel.sidebar",{
                 onClick: ()=>EventBus.trigger(COMMAND.TOGGLESIDEPANEL),
                 info:"Toggle side panels"
             })
