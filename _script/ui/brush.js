@@ -293,8 +293,15 @@ var Brush = function(){
     }
 
     me.setSize = function(width, height){
-        currentBrush.width = parseInt(width);
-        currentBrush.height = parseInt(height) || parseInt(width);
+        let w = parseInt(width);
+        if (w<1) w = 1;
+        let h = 0;
+        if (height){
+            h = parseInt(height);
+            if (h<1) h = 1;
+        }
+        currentBrush.width = w;
+        currentBrush.height = h || w;
         brushAlphaLayer = undefined;
         generateBrush();
         EventBus.trigger(EVENT.brushOptionsChanged);
