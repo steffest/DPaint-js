@@ -1,6 +1,6 @@
 {
     "name": "DPaintJS",
-    "version": "0.1.4",
+    "version": "0.1.5",
     "description": "Webbased image editor with a focus on retro Amiga file formats in plain JavaScript",
     "repository": "https://github.com/steffest/dpaint-js",
     "author": "Steffest",
