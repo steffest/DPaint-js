@@ -67,10 +67,13 @@ var ContentPanel = function(){
 
     function generate(){
         //container.innerHTML = "";
-        container.appendChild(
+        innerContainer.appendChild(
             $("section",
                 $("h4","Touch"),
-                $checkbox("Rotate on Pinch/zoom",null,"",(checked)=>{UserSettings.set(SETTING.touchRotate,checked)},UserSettings.get(SETTING.touchRotate)),
+                $checkbox("Rotate on Pinch/zoom",null,"",(checked)=>{UserSettings.set("touchRotate",checked)},UserSettings.get("touchRotate")),
+                $("h4","Advanced"),
+                $checkbox("Use Multi Palettes",null,"",(checked)=>{UserSettings.set("useMultiPalettes",checked,true)},UserSettings.get("useMultiPalettes")),
+                $(".warning","Warning: Highly experimental, may cause data loss")
             )
         )
     }

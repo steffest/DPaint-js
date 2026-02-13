@@ -381,6 +381,12 @@
         }
       }
 
+      &.minus{
+        .icon{
+          background-image: url("../_img/minus.svg");
+        }
+      }
+
       &.hamburger{
         .icon{
           background-image: url("../_img/hamburger.svg");

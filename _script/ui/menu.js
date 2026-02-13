@@ -98,22 +98,26 @@ let Menu = function(){
             ]},
         {label: "Palette", items:[
                 {label: "Edit",command: COMMAND.EDITPALETTE},
-                {label: "From Image",command: COMMAND.PALETTEFROMIMAGE},
+                {label: "From Image",items:[
+                        {label: "Replace palette",command: COMMAND.PALETTEFROMIMAGE},
+                        {label: "Expand palette",command: COMMAND.PALETTEEXPANDFROMIMAGE}
+                ]},
                 {label: "Reduce",command: COMMAND.PALETTEREDUCE},
                 {label: "Show Presets",command: COMMAND.TOGGLEPALETTES},
                 {label: "Save Palette",command: COMMAND.SAVEPALETTE},
                 {label: "Load Palette",command: COMMAND.LOADPALETTE},
+                {label: "Export",command: COMMAND.PALETTEEXPORT},
                 {label: "Toggle Color Cycle",command: COMMAND.CYCLEPALETTE,shortKey: "tab"},
                 {label: "Color Depth",items:[
                         {label: "24bit",info:"16 Million",command: COMMAND.COLORDEPTH24,checked:true,ref:true},
                         {label: "12bit",info:"4096 - Amiga OCS",command: COMMAND.COLORDEPTH12,checked:false,ref:true},
                         {label: "9bit",info:"512 - Atari ST",command: COMMAND.COLORDEPTH9,checked:false,ref:true},
-                    ]},
+                    ]},,
             ]},
         {label: "View", items:[
                 {label: "Grid",command: COMMAND.TOGGLEGRID,shortKey: "G",checked:false},
                 {label: "Split Screen",command: COMMAND.SPLITSCREEN,shortKey: "N", checked: false},
-                {label: "Tool Options",command: COMMAND.TOGGLESIDEPANEL, checked: false},
+                {label: "Tool Options",command: COMMAND.TOGGLESIDEPANEL, checked: false,ref:true},
                 {label: "Gallery",command: COMMAND.TOGGLEGALLERY, checked: false},
                 {label: "Presentation mode",command: COMMAND.PRESENTATION, checked: false},
                 {label: "Full Screen",command: COMMAND.FULLSCREEN,needsRealClick: true, checked: false},
@@ -263,7 +267,7 @@ let Menu = function(){
 
     EventBus.on(EVENT.panelUIChanged,()=>{
         setTimeout(()=>{
-            refs[COMMAND.TOGGLESIDEPANEL].classList.toggle("checked",UserSettings.get("sidepanel"));
+            if (refs[COMMAND.TOGGLESIDEPANEL]) refs[COMMAND.TOGGLESIDEPANEL].classList.toggle("checked",UserSettings.get("sidepanel"));
         },50)
     });
 

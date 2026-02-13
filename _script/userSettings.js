@@ -5,7 +5,8 @@ let UserSettings = (()=>{
 
     const getDefaultSettings = ()=>{
         let result = {};
-        result[SETTING.touchRotate] = true;
+        result["touchRotate"] = true;
+        result["useMultiPalettes"] = false;
         return result;
     }
 
@@ -19,15 +20,23 @@ let UserSettings = (()=>{
             settings = getDefaultSettings();
         }
     }
+    
+    // update SETTING from settings
+    for (let key in SETTING){
+        if (settings[key] !== undefined){
+            SETTING[key] = settings[key];
+        }
+    }
 
 
     me.get = (key)=>{
         return settings[key];
     }
 
-    me.set = (key,value)=>{
+    me.set = (key,value,updateSETTING)=>{
         settings[key] = value;
         localStorage.setItem("dp_settings",JSON.stringify(settings));
+        if (updateSETTING) SETTING[key] = value;
     }
 
     return me;

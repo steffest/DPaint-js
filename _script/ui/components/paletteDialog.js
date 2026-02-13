@@ -3,7 +3,7 @@ import ImageFile from "../../image.js";
 import Palette from "../palette.js";
 import Color from "../../util/color.js";
 import canvas from "../canvas.js";
-import {COMMAND, EVENT} from "../../enum.js";
+import {COMMAND, EVENT, SETTING} from "../../enum.js";
 import EventBus from "../../util/eventbus.js";
 import Input from "../input.js";
 import ColorRange from "./colorRange.js";
@@ -38,6 +38,15 @@ var PaletteDialog = function() {
     let panelContainer;
     let hsv = false;
     let isActive = false;
+    let currentSelection = []; // Array of indices
+    let batchOriginalColors = {}; // index -> [r,g,b]
+    let batchAdjustments = {
+        brightness: 0, contrast: 0, gamma: 1.0, hue: 0,
+        saturation: 0, temperature: 0, red: 0, green: 0, blue: 0, smooth: 0
+    };
+    let previewLayerIndex = -1;
+    let cachedCanvasPrev, cachedCanvasCurr;
+    let lastBlendMode, lastBlendPercent;
 
     me.render = function (container,modal) {
         container.innerHTML = "";
@@ -45,6 +54,8 @@ var PaletteDialog = function() {
         paletteClickAction = "";
 
         let currentColor = Palette.getDrawColor();
+        currentIndex = Palette.getDrawColorIndex();
+        if (currentSelection.length===0 && typeof currentIndex === "number") currentSelection = [currentIndex];
 
         let palettePanel;
         let subPanel;
@@ -52,7 +63,7 @@ var PaletteDialog = function() {
         let contextMenu;
 
         $setTarget(container);
-        panelContainer = $(".palette.panel.form" + (withActions? ".withactions" : ""),
+        panelContainer = $(".palette.panel.form" + (withActions? ".withactions" : "") + (SETTING.useMultiPalettes? ".multipalette" : ""),
             palettePanel=$(".palettepanel"),
             $(".actions",
                 $(".caption.sub",{onClick:()=>{
@@ -150,6 +161,8 @@ var PaletteDialog = function() {
             $(".mainpanel",
                 $('.tabs',panels.colortab = $(".caption.sub",{onClick:toggleRangePanel},"Color"),panels.rangestab = $(".caption.sub.inactive",{onClick:toggleRangePanel},"Ranges")),
                 panels.color = $(".colorpanel",
+                    $(".batchedit.subpanel"),
+                    $(".coloredit.subpanel.active",
                     $(".sliders",
                     colorCanvas = $("canvas",{
                         width:60,
@@ -180,12 +193,188 @@ var PaletteDialog = function() {
                     ),
                     depthInfo = $(".depthinfo"),
                     buttons = $(".buttons"),
-                    optionsPanel=$(".options")
+                    optionsPanel=$(".options"))
                 ),
                 panels.ranges = $(".rangepanel")
             ),
+             SETTING.useMultiPalettes ? $(".palette-nav-bottom",
+                 $(".nav-btn.prev", {onClick: () => {
+                     Palette.setPaletteListIndex(Palette.getPaletteIndex(), -1);
+                     updateNavDisplay();
+                 }}),
+                 $div("page-display", (Palette.getPaletteIndex() + 1) + "/" + Palette.getPaletteList().length),
+                 $(".nav-btn.next", {onClick: () => {
+                     Palette.setPaletteListIndex(Palette.getPaletteIndex(), 1);
+                     updateNavDisplay();
+                 }})
+             ) : null,
+             SETTING.useMultiPalettes ? $(".blend-controls",
+                 $div("label", "Blend:"),
+                 $("input", {type: "range", min: 0, max: 100, step: 1, value: 100, oninput: (e) => {
+                     let val = parseInt(e.target.value);
+                     let mode = e.target.nextSibling.value;
+                     applyPaletteBlend(val, mode);
+                 }}),
+                 $("select", {onchange: (e) => {
+                     let val = parseInt(e.target.previousSibling.value);
+                     applyPaletteBlend(val, e.target.value);
+                 }}, ["Linear", "Top to Bottom"].map(m => {
+                     let o = document.createElement("option");
+                     o.value = m.toLowerCase();
+                     o.text = m;
+                     if (m === "Linear") o.selected = true;
+                     return o;
+                 }))
+             ) : null
         );
 
+
+
+        function updateNavDisplay() {
+            let display = container.querySelector(".page-display");
+            if (display) display.innerHTML = (Palette.getPaletteIndex() + 1) + "/" + Palette.getPaletteList().length;
+            renderPalette(palettePanel);
+            cachedCanvasPrev = null;
+            cachedCanvasCurr = null;
+            
+            let slider = container.querySelector(".blend-controls input[type=range]");
+            if (slider) slider.value = 100;
+            
+            if (previewLayerIndex >= 0) {
+                let layer = ImageFile.getLayer(previewLayerIndex);
+                if (layer && layer.name === "Palette Blend Preview") {
+                    ImageFile.removeLayer(previewLayerIndex);
+                    EventBus.trigger(EVENT.imageContentChanged);
+                }
+                previewLayerIndex = -1;
+            }
+        }
+
+        function applyPaletteBlend(percent, mode) {
+
+            console.error("applyPaletteBlend", percent, mode);
+            let list = Palette.getPaletteList();
+            let index = Palette.getPaletteIndex();
+            
+            // "Current" is active palette. "Previous" is index - 1.
+            let prevIndex = index - 1;
+            if (prevIndex < 0) prevIndex = list.length - 1;
+            
+            let prevPal = list[prevIndex];
+            let currPal = list[index];
+
+            // 1. Ensure Cached Canvases Exist and are Valid
+            // (We assume image content doesn't change while dialog is open and blending)
+            if (!cachedCanvasPrev || !cachedCanvasCurr) {
+                let w = ImageFile.getCurrentFile().width;
+                let h = ImageFile.getCurrentFile().height;
+                cachedCanvasPrev = document.createElement("canvas");
+                cachedCanvasPrev.width = w;
+                cachedCanvasPrev.height = h;
+                cachedCanvasCurr = document.createElement("canvas");
+                cachedCanvasCurr.width = w;
+                cachedCanvasCurr.height = h;
+                
+                // Retrieve indexed pixels
+                ImageFile.generateIndexedPixels();
+                let image = ImageFile.getCurrentFile();
+                let pixels = image.indexedPixels || [];
+                
+                // Render function
+                function renderTo(ctx, palette) {
+                    let imgData = ctx.createImageData(w, h);
+                    let data = imgData.data;
+                    for (let y = 0; y < h; y++) {
+                        let row = pixels[y];
+                        if (!row) continue;
+                        for (let x = 0; x < w; x++) {
+                            let colorIndex = row[x];
+                            let color = palette[colorIndex] || [0,0,0]; // Default black if index out of bounds
+                             // Handle transparent color index 0 if needed? 
+                             // Usually DPaint treats index 0 as transparent for layers, but meant for background?
+                             // Here we are rendering the FULL merged image typically?
+                             // But ImageFile.generateIndexedPixels() is usually for the flattening.
+                             // Let's assume full opacity for now unless indexedPixels supports alpha (it doesn't usually).
+                             
+                            let idx = (y * w + x) * 4;
+                            data[idx] = color[0];
+                            data[idx + 1] = color[1];
+                            data[idx + 2] = color[2];
+                            data[idx + 3] = 255;
+                        }
+                    }
+                    ctx.putImageData(imgData, 0, 0);
+                }
+
+                renderTo(cachedCanvasPrev.getContext("2d"), prevPal);
+                renderTo(cachedCanvasCurr.getContext("2d"), currPal);
+            }
+
+            // 2. Manage Preview Layer
+            
+            let layerName = "Palette Blend Preview";
+            let layer = ImageFile.getLayer(previewLayerIndex);
+            
+            if (!layer || layer.name !== layerName) {
+                 // Try to find it by name just in case
+                let layers = ImageFile.getActiveFrame().layers || [];
+                let foundIndex = layers.findIndex(l => l.name === layerName);
+                
+                if (foundIndex >= 0) {
+                    previewLayerIndex = foundIndex;
+                    layer = layers[foundIndex];
+                } else {
+                    // Create it
+                    let newLayer = ImageFile.addLayer(undefined, layerName, {locked: true, internal: true});
+                    
+                    previewLayerIndex = ImageFile.getCurrentFile().layers.length - 1;
+                    layer = ImageFile.getLayer(previewLayerIndex);
+                }
+
+                console.error("layer", layer);
+            }
+            
+            let ctx = layer.getContext();
+            let w = ctx.canvas.width;
+            let h = ctx.canvas.height;
+
+            ctx.clearRect(0, 0, w, h);
+            
+            // 3. Render Blend
+            // Base: Previous Palette
+            ctx.globalAlpha = 1.0;
+            ctx.drawImage(cachedCanvasPrev, 0, 0);
+            
+            if (mode === "linear") {
+                // Overlay: Current Palette with Opacity
+                ctx.globalAlpha = percent / 100;
+                ctx.drawImage(cachedCanvasCurr, 0, 0);
+            } else if (mode === "top to bottom") {
+                // Overlay: Current Palette Clipped
+                // "0 is old palette visible" (percent 0)
+                // "100 is new palette fully visible"
+                // "50 is new palette visible on top half"
+                
+                // So at 50%, top half is NEW (Current), bottom is OLD (Previous).
+                // We drew OLD everywhere. Now draw NEW on top, but clipped.
+                
+                let splitY = Math.floor(h * (percent / 100));
+                console.error("top to bottom",splitY, percent);
+                
+                ctx.globalAlpha = 1.0;
+                // Draw partial image
+                // source x,y,w,h -> dest x,y,w,h
+                if (splitY > 0) {
+                    ctx.drawImage(cachedCanvasCurr, 0, 0, w, splitY, 0, 0, w, splitY);
+                }
+                
+                // Draw a separator line maybe?
+            }
+            
+            ctx.globalAlpha = 1.0;
+            EventBus.trigger(EVENT.imageContentChanged);
+        }
+        
         renderPalette(palettePanel);
         colorCanvasCtx = colorCanvas.getContext("2d");
         colorCanvasCtx.fillStyle = currentColor;
@@ -274,6 +463,12 @@ var PaletteDialog = function() {
             //currentIndex = 0;
         })
 
+        if (currentSelection.length > 0 && currentSelection.length <= 1){
+            toggleBatchPanel(false);
+        } else if (currentSelection.length > 1){
+             toggleBatchPanel(true);
+        }
+
         $div("button small revert","Revert",buttons,()=>{
             setColor(Palette.get()[currentIndex],currentIndex);
         });
@@ -321,6 +516,14 @@ var PaletteDialog = function() {
         paletteCanvas = null;
         ColorRange.cleanUp();
         isActive = false;
+        if (previewLayerIndex >= 0) {
+            let layer = ImageFile.getLayer(previewLayerIndex);
+            if (layer && layer.name === "Palette Blend Preview") {
+                ImageFile.removeLayer(previewLayerIndex);
+                EventBus.trigger(EVENT.imageContentChanged);
+            }
+            previewLayerIndex = -1;
+        }
     }
 
     me.setPaletteClickAction = (action)=>{
@@ -449,7 +652,7 @@ var PaletteDialog = function() {
                 paletteClickAction = "rangeto";
             }
 
-            setColor(colors[index],index);
+            handleSelection(index,e.shiftKey,e.ctrlKey || e.metaKey);
         }
 
         parent.appendChild($(".caption.sub",{
@@ -475,6 +678,301 @@ var PaletteDialog = function() {
         setColorSelection();
     }
 
+    function handleSelection(index,isShift,isCtrl){
+        if (isShift && currentSelection.length > 0){
+             let start = currentSelection[currentSelection.length-1];
+             // Select range
+             let min = Math.min(start,index);
+             let max = Math.max(start,index);
+             currentSelection = [];
+             for(let i=min; i<=max; i++) currentSelection.push(i);
+        } else if (isCtrl){
+            // Toggle
+            let idx = currentSelection.indexOf(index);
+            if (idx>=0){
+                currentSelection.splice(idx,1);
+            }else{
+                currentSelection.push(index);
+            }
+        } else {
+            // Single select
+            currentSelection = [index];
+        }
+
+        // Ensure we always have at least one selected if we just clicked (unless we unselected the last one with ctrl)
+        // Actually, if we unselect the last one, we might want empty selection?
+        // But for app behavior, usually there is always an active color.
+        if (currentSelection.length === 0 && !isCtrl) currentSelection = [index];
+
+        if (currentSelection.length === 1){
+            setColor(Palette.get()[currentSelection[0]], currentSelection[0]);
+            toggleBatchPanel(false);
+        } else {
+            // Multiple selected
+            // Set last clicked as active for drawing purposes?
+            if (currentSelection.length > 0)
+                Palette.setColorIndex(index);
+                //setColor(Palette.get()[index], index); // This also updates inputs
+            toggleBatchPanel(true);
+        }
+        
+        // Redraw to show selection
+        renderPalette(paletteCanvas.parentNode);
+    }
+    
+    function toggleBatchPanel(show){
+        let batchPanel = panels.color.querySelector(".batchedit");
+        let colorEdit = panels.color.querySelector(".coloredit");
+        
+        if (!batchPanel || !colorEdit) return;
+
+        if (show){
+
+            let image = ImageFile.getCurrentFile();
+             if (!image.indexedPixels) ImageFile.generateIndexedPixels();
+
+
+             if (batchPanel.style.display !== "block"){
+                 batchPanel.style.display = "block";
+                 colorEdit.style.display = "none";
+                 initBatchPanel(batchPanel);
+             }
+        } else {
+            batchPanel.style.display = "none";
+            colorEdit.style.display = "block";
+        }
+    }
+
+    function initBatchPanel(container){
+        container.innerHTML = "";
+        
+        // Capture initial state
+        batchOriginalColors = {};
+        let allColors = Palette.get();
+        currentSelection.forEach(idx => {
+            if (allColors[idx]){
+                batchOriginalColors[idx] = [...allColors[idx]]; // Copy color
+            }
+        });
+        
+        // Reset adjustments
+        batchAdjustments = {
+            brightness: 0, contrast: 0, gamma: 1.0, hue: 0,
+            saturation: 0, temperature: 0, red: 0, green: 0, blue: 0, smooth: 0
+        };
+
+        let controls = $div("controls","",container);
+        
+        const sliderDefs = [
+            {key: 'brightness', label: 'Brightness', min: -100, max: 100, step: 1, val: 0},
+            {key: 'contrast', label: 'Contrast', min: -100, max: 100, step: 1, val: 0},
+            {key: 'gamma', label: 'Gamma', min: 0.1, max: 3.0, step: 0.1, val: 1.0},
+            {key: 'hue', label: 'Hue', min: -180, max: 180, step: 1, val: 0},
+            {key: 'saturation', label: 'Saturation', min: -100, max: 100, step: 1, val: 0},
+            {key: 'temperature', label: 'Temperature', min: -100, max: 100, step: 1, val: 0},
+            {key: 'red', label: 'Red', min: -255, max: 255, step: 1, val: 0},
+            {key: 'green', label: 'Green', min: -255, max: 255, step: 1, val: 0},
+            {key: 'blue', label: 'Blue', min: -255, max: 255, step: 1, val: 0},
+            {key: 'smooth', label: 'Smooth', min: 0, max: 100, step: 1, val: 0}
+        ];
+        
+        sliderDefs.forEach(def => {
+            let wrapper = $div("custom-slider", "", controls);
+            let fill = $div("slider-fill", "", wrapper);
+            let label = $div("slider-label", def.label + ": " + def.val, wrapper);
+            
+            let updateVisuals = (val) => {
+                let range = def.max - def.min;
+                let percent = (val - def.min) / range * 100;
+                
+                if (def.min < 0) {
+                    let zeroPercent = (0 - def.min) / range * 100;
+                    if (val >= 0) {
+                        fill.style.left = zeroPercent + "%";
+                        fill.style.width = (percent - zeroPercent) + "%";
+                    } else {
+                        fill.style.left = percent + "%";
+                        fill.style.width = (zeroPercent - percent) + "%";
+                    }
+                } else {
+                    fill.style.left = "0";
+                    fill.style.width = percent + "%";
+                }
+                label.innerText = def.label + ": " + (def.step < 1 ? val.toFixed(1) : Math.round(val));
+            }
+            
+            updateVisuals(def.val);
+            
+            let isDragging = false;
+            
+            let updateFromEvent = (e) => {
+                let rect = wrapper.getBoundingClientRect();
+                let x = e.clientX - rect.left;
+                let percent = Math.max(0, Math.min(1, x / rect.width));
+                let range = def.max - def.min;
+                let val = def.min + (range * percent);
+                
+                if (def.step) {
+                    val = Math.round(val / def.step) * def.step;
+                     // Fix floating point precision issues
+                    if (def.step < 1) {
+                        val = parseFloat(val.toFixed(1));
+                    }
+                }
+                
+                // Clamp
+                val = Math.max(def.min, Math.min(def.max, val));
+
+                if (batchAdjustments[def.key] !== val){
+                    batchAdjustments[def.key] = val;
+                    updateVisuals(val);
+                    applyBatchUpdate();
+                }
+            }
+            
+            wrapper.addEventListener("mousedown", (e) => {
+                isDragging = true;
+                updateFromEvent(e);
+                window.addEventListener("mousemove", onMouseMove);
+                window.addEventListener("mouseup", onMouseUp);
+            });
+            
+            let onMouseMove = (e) => {
+                if (isDragging) updateFromEvent(e);
+            }
+            
+            let onMouseUp = () => {
+                isDragging = false;
+                window.removeEventListener("mousemove", onMouseMove);
+                window.removeEventListener("mouseup", onMouseUp);
+            }
+            
+            wrapper.addEventListener("dblclick", () => {
+                 let val = def.key === 'gamma' ? 1.0 : 0;
+                 batchAdjustments[def.key] = val;
+                 updateVisuals(val);
+                 applyBatchUpdate();
+            });
+        });
+
+        $div("button revert small", "Revert", controls, () => {
+              batchAdjustments = {
+                brightness: 0, contrast: 0, gamma: 1.0, hue: 0,
+                saturation: 0, temperature: 0, red: 0, green: 0, blue: 0, smooth: 0
+              };
+              applyBatchUpdate();
+              initBatchPanel(container);
+        });
+    }
+
+    function applyBatchUpdate(){
+        let palette = Palette.get();
+        
+        let indices = currentSelection.slice().sort((a,b)=>a-b);
+        if (indices.length === 0) return;
+        
+        // Calculate adjusted values for each color
+        let newColors = {};
+        
+        indices.forEach(idx => {
+            let original = batchOriginalColors[idx];
+            if (original) {
+               newColors[idx] = applyColorAdjustment(original[0], original[1], original[2], batchAdjustments,idx);
+            }
+        });
+        
+        // Apply smoothing if contiguous and smooth > 0
+        if (batchAdjustments.smooth > 0 && indices.length > 2) {
+             // Basic smoothing over the sorted selection
+             // This assumes the user wants to smooth across the selection order
+             const smoothFactor = batchAdjustments.smooth / 100;
+             // Let's smooth between the first and last of the selection? 
+             // Or just smooth the calculated values?
+             // editor.html logic:
+             // Interpolates between start and end of range.
+             
+             let startIdx = indices[0];
+             let endIdx = indices[indices.length-1];
+             let startColor = newColors[startIdx];
+             let endColor = newColors[endIdx];
+             
+             if (startColor && endColor){
+                 for (let i = 0; i < indices.length; i++) {
+                     let idx = indices[i];
+                     let t = i / (indices.length - 1);
+                     
+                     // Target interpolated color
+                     let ir = startColor[0] + (endColor[0] - startColor[0]) * t;
+                     let ig = startColor[1] + (endColor[1] - startColor[1]) * t;
+                     let ib = startColor[2] + (endColor[2] - startColor[2]) * t;
+                     
+                     let [r,g,b] = newColors[idx];
+                     
+                     r = r * (1 - smoothFactor) + ir * smoothFactor;
+                     g = g * (1 - smoothFactor) + ig * smoothFactor;
+                     b = b * (1 - smoothFactor) + ib * smoothFactor;
+                     
+                     newColors[idx] = [Math.round(r), Math.round(g), Math.round(b)];
+                 }
+             }
+        }
+        
+        // Apply to palette
+        for (let idx in newColors){
+            palette[idx] = newColors[idx];
+        }
+        Palette.set(palette);
+        EventBus.trigger(EVENT.paletteChanged);
+
+        console.error(lockToImage);
+        console.error(newColors);
+
+        if (lockToImage){
+             let image = ImageFile.getCurrentFile();
+             if (!image.indexedPixels) ImageFile.generateIndexedPixels();
+             
+             let pixels = image.indexedPixels;
+             let layer = ImageFile.getActiveLayer();
+             let ctx = layer.getContext();
+             let w = ctx.canvas.width;
+             let h = ctx.canvas.height;
+             let imageData = ctx.getImageData(0,0,Math.floor(w),Math.floor(h));
+             let data = imageData.data;
+             
+             let hasUpdates = false;
+             
+             for (let y=0; y<h; y++){
+                 if (!pixels[y]) continue; 
+                 for (let x=0; x<w; x++){
+                     let index = pixels[y][x];
+                     //console.error(index,typeof index === "number" );
+                     if (typeof index === "number" && newColors[index]){
+                         let color = newColors[index];
+                         let pIndex = (y*w + x)*4;
+                         // Only update if not transparent? 
+                         // Check existing alpha? 
+                         // If indexedPixels said it was this index, it should correspond to this color.
+                         // However, maintain alpha from existing pixel if possible, or force full opaque?
+                         // DPaint colors are usually opaque.
+                         if (data[pIndex+3] > 0){
+                             data[pIndex] = color[0];
+                             data[pIndex+1] = color[1];
+                             data[pIndex+2] = color[2];
+                             data[pIndex+3] = 255;
+                             hasUpdates = true;
+                         }
+                     }
+                 }
+             }
+             
+             console.error(hasUpdates);
+             if (hasUpdates){
+                 ctx.putImageData(imageData,0,0);
+                 EventBus.trigger(EVENT.imageContentChanged);
+             }
+        }
+    }
+
 
     function drawColor(color,index,highlight){
         let colorsPerRow = paletteCanvas.width / colorSize;
@@ -483,17 +981,36 @@ var PaletteDialog = function() {
         let c = Color.toString(color);
         paletteCanvasCtx.fillStyle = c;
         paletteCanvasCtx.fillRect(x,y,colorSize,colorSize);
-        if (highlight){
+        
+        // Check selection
+        let isSelected = currentSelection.includes(index);
+        
+        if (highlight || isSelected){
             paletteCanvasCtx.beginPath();
-            paletteCanvasCtx.strokeStyle = "rgba(255,255,255,0.8)";
-            paletteCanvasCtx.lineWidth = 1;
+            paletteCanvasCtx.strokeStyle = isSelected ? "rgba(255,255,255,1)" : "rgba(255,255,255,0.5)"; // Stronger highlight for selection
+            paletteCanvasCtx.lineWidth = isSelected ? 2 : 1;
             paletteCanvasCtx.rect(x+1.5,y+1.5,colorSize-3,colorSize-3);
             paletteCanvasCtx.closePath();
             paletteCanvasCtx.stroke();
+            
+            // Add secondary stroke for contrast if selected
+            if (isSelected) {
+                paletteCanvasCtx.beginPath();
+                paletteCanvasCtx.strokeStyle = "rgba(0,0,0,0.5)";
+                paletteCanvasCtx.lineWidth = 1;
+                paletteCanvasCtx.rect(x+0.5,y+0.5,colorSize-1,colorSize-1);
+                paletteCanvasCtx.stroke();
+             }
         }
-        if (c === Palette.getDrawColor()){
+        
+        if (highlight){
+        if (c === Palette.getDrawColor() && currentSelection.length<=1){
+            // Only move highlighting box if single selection or it matches draw color
+            // Logic is a bit mixed here, but effectively keeps legacy behavior
             currentIndex = index;
             colorHighlight.style.left = x + "px";
+            // ...
+        }
             colorHighlight.style.top = y + "px";
         }
     }
@@ -508,6 +1025,13 @@ var PaletteDialog = function() {
         let colorsPerRow = paletteCanvas.width / colorSize;
         let colorsPerPage = colorsPerRow * paletteCanvas.height / colorSize;
         let visualIndex =  currentIndex - (palettePage * colorsPerPage);
+        
+        // Hide default highlighter if multi-selected, as we draw them in drawColor
+        if (currentSelection.length > 1) {
+             colorHighlight.style.display = "none";
+             return;
+        }
+
         if ((visualIndex<0) || (visualIndex>=colorsPerPage)){
             colorHighlight.style.display = "none";
         }else{
@@ -650,6 +1174,174 @@ var PaletteDialog = function() {
 
 
     return me;
+
+    // Helper functions for batch color adjustment
+    function rgbToHsl(r, g, b) {
+        r /= 255; g /= 255; b /= 255;
+        const max = Math.max(r, g, b), min = Math.min(r, g, b);
+        let h, s, l = (max + min) / 2;
+
+        if (max === min) {
+            h = s = 0; // achromatic
+        } else {
+            const d = max - min;
+            s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+            switch (max) {
+                case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+                case g: h = (b - r) / d + 2; break;
+                case b: h = (r - g) / d + 4; break;
+            }
+            h /= 6;
+        }
+        return [h, s, l];
+    }
+
+    function hslToRgb(h, s, l) {
+        let r, g, b;
+        if (s === 0) {
+            r = g = b = l; // achromatic
+        } else {
+            const hue2rgb = (p, q, t) => {
+                if (t < 0) t += 1;
+                if (t > 1) t -= 1;
+                if (t < 1 / 6) return p + (q - p) * 6 * t;
+                if (t < 1 / 2) return q;
+                if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+                return p;
+            };
+            const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+            const p = 2 * l - q;
+            r = hue2rgb(p, q, h + 1 / 3);
+            g = hue2rgb(p, q, h);
+            b = hue2rgb(p, q, h - 1 / 3);
+        }
+        return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255)];
+    }
+
+    function applyColorAdjustment(r, g, b, adj, currentIdx) {
+        // Optimization check
+        if (adj.brightness === 0 && adj.contrast === 0 && adj.gamma === 1 &&
+            adj.hue === 0 && adj.saturation === 0 && adj.temperature === 0 &&
+            adj.red === 0 && adj.green === 0 && adj.blue === 0) {
+            return [r, g, b];
+        }
+
+        let brightness = adj.brightness;
+        let contrast = adj.contrast;
+        let gamma = adj.gamma;
+        let hueShift = adj.hue;
+        let saturation = adj.saturation;
+        let temperature = adj.temperature;
+        let redShift = adj.red;
+        let greenShift = adj.green;
+        let blueShift = adj.blue;
+
+        let contrastFactor = (259 * (contrast + 255)) / (255 * (259 - contrast));
+
+        // 1. Hue & Saturation
+        if (hueShift !== 0 || saturation !== 0) {
+            let [h, s, l] = rgbToHsl(r, g, b);
+
+            // Hue
+            if (hueShift !== 0) {
+                h += hueShift / 360;
+                if (h > 1) h -= 1;
+                if (h < 0) h += 1;
+            }
+
+            // Saturation
+            if (saturation !== 0) {
+                s += saturation / 100;
+                s = Math.max(0, Math.min(1, s));
+            }
+
+            [r, g, b] = hslToRgb(h, s, l);
+        }
+
+        // 2. Temperature
+        if (temperature !== 0) {
+            r += temperature;
+            b -= temperature;
+        }
+
+        // 3. Contrast
+        if (contrast !== 0){
+             r = contrastFactor * (r - 128) + 128;
+             g = contrastFactor * (g - 128) + 128;
+             b = contrastFactor * (b - 128) + 128;
+        }
+
+        // 4. Brightness
+        r += brightness;
+        g += brightness;
+        b += brightness;
+
+        // 4b. RGB Adjustments
+        r += redShift;
+        g += greenShift;
+        b += blueShift;
+
+        // 5. Gamma
+        if (gamma !== 1.0) {
+            r = 255 * Math.pow(Math.max(0, r) / 255, 1 / gamma);
+            g = 255 * Math.pow(Math.max(0, g) / 255, 1 / gamma);
+            b = 255 * Math.pow(Math.max(0, b) / 255, 1 / gamma);
+        }
+
+        // Clamp
+        r = Math.min(255, Math.max(0, r));
+        g = Math.min(255, Math.max(0, g));
+        b = Math.min(255, Math.max(0, b));
+
+        // Uniqueness check
+        let finalR = Math.round(r);
+        let finalG = Math.round(g);
+        let finalB = Math.round(b);
+
+        let palette = Palette.get();
+
+        function isUnique(tryR, tryG, tryB) {
+            for (let i = 0; i < palette.length; i++) {
+                if (i === currentIdx) continue;
+                let c = palette[i];
+                let pr, pg, pb;
+                if (typeof c === "string") {
+                    c = Color.fromString(c);
+                }
+                pr = c[0]; pg = c[1]; pb = c[2];
+                if (pr === tryR && pg === tryG && pb === tryB) return false;
+            }
+            return true;
+        }
+
+        if (isUnique(finalR, finalG, finalB)) return [finalR, finalG, finalB];
+
+        // Find closest unique color
+        for (let d = 1; d < 32; d++) {
+            let offsets = [d, -d];
+            for (let off of offsets) {
+                let tr = Math.max(0, Math.min(255, finalR + off));
+                if (isUnique(tr, finalG, finalB)) return [tr, finalG, finalB];
+
+                let tg = Math.max(0, Math.min(255, finalG + off));
+                if (isUnique(finalR, tg, finalB)) return [finalR, tg, finalB];
+
+                let tb = Math.max(0, Math.min(255, finalB + off));
+                if (isUnique(finalR, finalG, tb)) return [finalR, finalG, tb];
+            }
+        }
+        
+        // Fallback: random probe if structured search fails
+        for (let i=0; i<50; i++){
+             let tr = Math.max(0, Math.min(255, finalR + Math.floor(Math.random()*10 - 5)));
+             let tg = Math.max(0, Math.min(255, finalG + Math.floor(Math.random()*10 - 5)));
+             let tb = Math.max(0, Math.min(255, finalB + Math.floor(Math.random()*10 - 5)));
+              if (isUnique(tr, tg, tb)) return [tr, tg, tb];
+        }
+
+        return [finalR, finalG, finalB];
+    }
+
 }();
 
 export default PaletteDialog;

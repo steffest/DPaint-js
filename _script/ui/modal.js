@@ -10,7 +10,7 @@ import DitherDialog from "./components/ditherDialog.js";
 import OptionDialog from "./components/optionDialog.js";
 import TextOutputDialog from "./components/textOutputDialog.js";
 import EventBus from "../util/eventbus.js";
-import {COMMAND} from "../enum.js";
+import {COMMAND, SETTING} from "../enum.js";
 
 export let DIALOG={
     SAVE: 1,
@@ -38,7 +38,7 @@ var Modal = function(){
         1: {title: "Save File As", fuzzy: true,width:600,height:"auto", handler: SaveDialog, position: [0,0]},
         2: {title: "Canvas Size", fuzzy: true, handler: ResizeDialog, position: [0,0],width:406,height:220},
         3: {title: "Image Size", fuzzy: true, handler: ResampleDialog, position: [0,0],width:326,height:220},
-        4: {title: "Palette Editor", handler: PaletteDialog, width:450,height:304, position: [0,0]},
+        4: {title: "Palette Editor", handler: PaletteDialog, width:450,height:()=>{return SETTING.useMultiPalettes?334:304}, position: [0,0]},
         5: {title: "Effects", handler: EffectDialog, position: [0,0],width:500,height:590},
         6: {title: "About", action: showAbout, position: [0,0],width:750,height:470},
         7: {title: "DitherPattern",  handler: DitherDialog, position: [0,0],width:662,height:326},
@@ -86,6 +86,8 @@ var Modal = function(){
         if (dialog){
             let width = data.width || dialog.width || 440;
             let height = data.height || dialog.height || 260;
+
+            if (typeof height === "function") height = height();
 
             let maxWidth = window.innerWidth - 20;
             let maxHeight = window.innerHeight - 20;

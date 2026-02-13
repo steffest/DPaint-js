@@ -760,6 +760,9 @@ body.presentation .menu {
 .toolbar .palettebuttons .button.plus .icon {
   background-image: url("../_img/add.svg");
 }
+.toolbar .palettebuttons .button.minus .icon {
+  background-image: url("../_img/minus.svg");
+}
 .toolbar .palettebuttons .button.hamburger .icon {
   background-image: url("../_img/hamburger.svg");
 }
@@ -1740,7 +1743,7 @@ body.override .splitpanel .panel .toolbar .toolpanel .options .checkbox.pressure
 }
 .contentpanel section {
   padding: 10px;
-  margin-top: 20px;
+  margin-top: 4px;
   font-size: 12px;
 }
 .contentpanel section h4 {
@@ -1748,12 +1751,17 @@ body.override .splitpanel .panel .toolbar .toolpanel .options .checkbox.pressure
   padding: 0 2px;
   font-weight: normal;
   color: #adadad;
-  margin: 0 0 5px 0;
+  margin: 16px 0 5px 0;
   position: relative;
   border-bottom: 1px solid #656565;
 }
 .contentpanel section .checkbox label span:before {
   top: 0;
+}
+.contentpanel section .warning {
+  color: #d08181;
+  padding: 0 0 0 20px;
+  margin-top: 6px;
 }
 
 .palettelist {
@@ -2845,8 +2853,11 @@ body.hovercanvas.pointerdown.cursor-colorpicker .cursor .mark.large {
   outline: none;
 }
 .modalwindow .inner .palette {
-  position: relative;
-  height: 281px;
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  right: 0;
   margin-top: 1px;
 }
 .modalwindow .inner .palette.withactions .palettepanel .caption:after {
@@ -2883,6 +2894,12 @@ body.hovercanvas.pointerdown.cursor-colorpicker .cursor .mark.large {
 }
 .modalwindow .inner .palette.withactions .actions {
   display: block;
+}
+.modalwindow .inner .palette.multipalette .mainpanel .rangepanel {
+  bottom: 30px;
+}
+.modalwindow .inner .palette.multipalette .mainpanel .colorpanel {
+  bottom: 30px;
 }
 .modalwindow .inner .palette .caption.sub {
   cursor: default;
@@ -3055,6 +3072,66 @@ body.hovercanvas.pointerdown.cursor-colorpicker .cursor .mark.large {
   right: 0;
   top: 20px;
   bottom: 0;
+}
+.modalwindow .inner .palette .mainpanel .colorpanel .subpanel {
+  display: none;
+}
+.modalwindow .inner .palette .mainpanel .colorpanel .subpanel.active {
+  display: block;
+}
+.modalwindow .inner .palette .mainpanel .colorpanel .subpanel.batchedit {
+  height: 100%;
+}
+.modalwindow .inner .palette .mainpanel .colorpanel .subpanel.batchedit .controls {
+  height: calc(100% - 30px);
+  overflow-y: auto;
+  padding: 10px 10px 0;
+}
+.modalwindow .inner .palette .mainpanel .colorpanel .subpanel.batchedit .controls .custom-slider {
+  width: 100%;
+  height: 18px;
+  background: #2a2a2a;
+  position: relative;
+  margin-bottom: 4px;
+  border-radius: 2px;
+  border: 1px solid #333;
+  cursor: ew-resize;
+  user-select: none;
+  overflow: hidden;
+}
+.modalwindow .inner .palette .mainpanel .colorpanel .subpanel.batchedit .controls .custom-slider.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.modalwindow .inner .palette .mainpanel .colorpanel .subpanel.batchedit .controls .custom-slider .slider-fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  background: #666;
+  width: 50%;
+  pointer-events: none;
+  /* transition: width 0.05s linear, left 0.05s linear; */
+}
+.modalwindow .inner .palette .mainpanel .colorpanel .subpanel.batchedit .controls .custom-slider .slider-label {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  color: #ddd;
+  pointer-events: none;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+  z-index: 2;
+}
+.modalwindow .inner .palette .mainpanel .colorpanel .subpanel.batchedit .controls .button.revert {
+  position: absolute;
+  bottom: 5px;
+  right: 10px;
 }
 .modalwindow .inner .palette .mainpanel .rangepanel {
   position: absolute;
@@ -3332,6 +3409,70 @@ body.hovercanvas.pointerdown.cursor-colorpicker .cursor .mark.large {
 .modalwindow .inner .palette .button.small .contextmenu .item:hover {
   cursor: pointer;
   background-color: #3C3F41;
+}
+.modalwindow .inner .palette .palette-nav-bottom {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 121px;
+  height: 30px;
+  background-color: #313335;
+  border-right: 1px solid rgba(0, 0, 0, 0.58);
+  border-top: 1px solid black;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: #BBBBBB;
+}
+.modalwindow .inner .palette .palette-nav-bottom .nav-btn {
+  width: 30px;
+  height: 30px;
+  background-image: url("../_img/caret.svg");
+  background-size: 16px 16px;
+  background-repeat: no-repeat;
+  background-position: center;
+  opacity: 0.5;
+  cursor: pointer;
+}
+.modalwindow .inner .palette .palette-nav-bottom .nav-btn:hover {
+  opacity: 1;
+}
+.modalwindow .inner .palette .palette-nav-bottom .nav-btn.prev {
+  transform: rotate(180deg);
+}
+.modalwindow .inner .palette .palette-nav-bottom .page-display {
+  font-size: 12px;
+}
+.modalwindow .inner .palette .blend-controls {
+  position: absolute;
+  left: 122px;
+  right: 0;
+  bottom: 0;
+  height: 30px;
+  border-top: 1px solid black;
+  background-color: #313335;
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+}
+.modalwindow .inner .palette .blend-controls .label {
+  font-size: 11px;
+  color: #bbb;
+  margin-right: 5px;
+}
+.modalwindow .inner .palette .blend-controls input[type=range] {
+  width: 100px;
+  margin-right: 10px;
+}
+.modalwindow .inner .palette .blend-controls select {
+  background-color: #181818;
+  color: #bbb;
+  border: 1px solid #626262;
+  font-size: 11px;
+  height: 20px;
+}
+.modalwindow .inner .palette .blend-controls select:focus {
+  outline: none;
 }
 .modalwindow .inner .palette .options {
   position: absolute;

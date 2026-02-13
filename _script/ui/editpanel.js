@@ -7,8 +7,8 @@ import ImageFile from "../image.js";
 import ToolOptions from "./components/toolOptions.js";
 import Input from "./input.js";
 import Brush from "./brush.js";
-import BrushPanel from "./toolPanels/brushPanel.js";
 import UserSettings from "../userSettings.js";
+import Cursor from "./cursor.js";
 
 var EditPanel = function(parent,type){
     var me = {};
@@ -57,14 +57,16 @@ var EditPanel = function(parent,type){
             let point = canvas.getCursorPosition(e);
             let settings = Brush.get();
             let offset = e.deltaY>0?-1:1;
-            BrushPanel.set({size:settings.width+offset});
+            Brush.setSize(settings.width+offset);
+            if (Cursor.hasOverride("colorpicker")) Cursor.resetOverride();
             EventBus.trigger(EVENT.drawCanvasOverlay,point);
             //console.error(settings);
         }else if (Input.isControlDown()){
             let point = canvas.getCursorPosition(e);
             let settings = Brush.get();
             let offset = e.deltaY>0?-5:5;
-            BrushPanel.set({opacity:settings.opacity+offset});
+            Brush.setOpacity(settings.opacity+offset);
+            if (Cursor.hasOverride("colorpicker")) Cursor.resetOverride();
             EventBus.trigger(EVENT.drawCanvasOverlay,point);
         }else{
             if (e.deltaY>0){
@@ -123,7 +125,7 @@ var EditPanel = function(parent,type){
             if (touchData.startDistance === 0) return;
             let scale = distance / touchData.startDistance;
 
-            if (UserSettings.get(SETTING.touchRotate)) {
+            if (UserSettings.get("touchRotate")) {
                 let angle = Math.atan2(dy, dx);
                 let angleDiff = angle - touchData.startAngle;
                 canvas.setRotation(touchData.startCanvasRotation + angleDiff * 180 / Math.PI);

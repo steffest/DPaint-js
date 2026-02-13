@@ -1,6 +1,9 @@
 .palette{
-  position: relative;
-  height: 281px;
+  position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    right: 0;
   margin-top: 1px;
 
   &.withactions{
@@ -52,6 +55,18 @@
 
     .actions{
       display: block;
+    }
+  }
+
+  &.multipalette{
+    .mainpanel{
+      .rangepanel{
+        bottom: 30px;
+      }
+
+      .colorpanel{
+        bottom: 30px;
+      }
     }
   }
 
@@ -258,6 +273,75 @@
       right: 0;
       top: 20px;
       bottom: 0;
+
+      .subpanel{
+        display: none;
+
+        &.active{
+          display: block;
+        }
+
+        &.batchedit {
+             height: 100%;
+             
+             .controls {
+                 height: calc(100% - 30px);
+                 overflow-y: auto;
+                 padding: 10px 10px 0;
+                 
+                 .custom-slider {
+                    width: 100%;
+                    height: 18px;
+                    background: #2a2a2a;
+                    position: relative;
+                    margin-bottom: 4px;
+                    border-radius: 2px;
+                    border: 1px solid #333;
+                    cursor: ew-resize;
+                    user-select: none;
+                    overflow: hidden;
+                    
+                    &.disabled {
+                        opacity: 0.5;
+                        cursor: not-allowed;
+                    }
+                    
+                    .slider-fill {
+                        position: absolute;
+                        top: 0;
+                        left: 0;
+                        height: 100%;
+                        background: #666;
+                        width: 50%;
+                        pointer-events: none;
+                        /* transition: width 0.05s linear, left 0.05s linear; */
+                    }
+                    
+                    .slider-label {
+                        position: absolute;
+                        top: 0;
+                        left: 0;
+                        width: 100%;
+                        height: 100%;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        font-size: 10px;
+                        color: #ddd;
+                        pointer-events: none;
+                        text-shadow: 0 1px 2px rgba(0,0,0,0.8);
+                        z-index: 2;
+                    }
+                 }
+                 
+                 .button.revert {
+                     position: absolute;
+                     bottom: 5px;
+                     right: 10px;
+                 }
+             }
+        }
+      }
     }
 
     .rangepanel{
@@ -590,6 +674,77 @@
         }
       }
     }
+  }
+
+  .palette-nav-bottom {
+      position: absolute;
+      left: 0;
+      bottom: 0;
+      width: 121px;
+      height: 30px;
+      background-color: #313335;
+      border-right: 1px solid rgba(0, 0, 0, 0.58);
+      border-top: 1px solid black;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      color: #BBBBBB;
+      
+      .nav-btn {
+          width: 30px;
+          height: 30px;
+          background-image: url("../_img/caret.svg");
+          background-size: 16px 16px;
+          background-repeat: no-repeat;
+          background-position: center;
+          opacity: 0.5;
+          cursor: pointer;
+          
+          &:hover {
+              opacity: 1;
+          }
+          
+          &.prev {
+              transform: rotate(180deg);
+          }
+      }
+      
+      .page-display {
+          font-size: 12px;
+      }
+  }
+
+  .blend-controls {
+      position: absolute;
+      left: 122px;
+      right: 0;
+      bottom: 0;
+      height: 30px;
+      border-top: 1px solid black;
+      background-color: #313335;
+      display: flex;
+      align-items: center;
+      padding: 0 10px;
+      
+      .label {
+          font-size: 11px;
+          color: #bbb;
+          margin-right: 5px;
+      }
+      
+      input[type=range] {
+          width: 100px;
+          margin-right: 10px;
+      }
+      
+      select {
+            background-color: #181818;
+            color: #bbb;
+            border: 1px solid #626262;
+            font-size: 11px;
+            height: 20px;
+            &:focus { outline: none; }
+      }
   }
 
   .options{

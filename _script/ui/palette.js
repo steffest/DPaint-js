@@ -1,6 +1,6 @@
 import $, {$checkbox, $div, $input} from "../util/dom.js";
 import EventBus from "../util/eventbus.js";
-import {ANIMATION, COMMAND, EVENT} from "../enum.js";
+import {ANIMATION, COMMAND, EVENT, SETTING} from "../enum.js";
 import Color from "../util/color.js";
 import ImageProcessing from "../util/imageProcessing.js";
 import ImageFile from "../image.js";
@@ -10,6 +10,8 @@ import Animator from "../util/animator.js";
 import ColorRange from "./components/colorRange.js";
 import Modal from "./modal.js";
 import Statusbar from "./statusbar.js";
+import UserSettings from "../userSettings.js";
+import {DIALOG} from "./modal.js";
 
 let Palette = function(){
     let me = {};
@@ -249,28 +251,32 @@ let Palette = function(){
             onClick: ()=>{
                 paletteToolsButton.classList.toggle("active");
                 paletteToolsPanel.classList.toggle("hidden");
+                UserSettings.set("paletteToolsVisible",!paletteToolsPanel.classList.contains("hidden"));
                 me.set(currentPalette);
             },
             info:"Show palette tools"
         },"Palette");
 
-        paletteToolsPanel = $('.palettebuttons.hidden',{parent: paletteParent},
+        paletteToolsPanel = $('.palettebuttons' + (UserSettings.get("paletteToolsVisible")?"":".hidden"),{parent: paletteParent},
             $(".button.edit",{onClick: ()=>{EventBus.trigger(COMMAND.EDITPALETTE)}, info:"Edit palette"},$(".icon")),
             cycleButton = $(".button.cycle",{onClick: ()=>{EventBus.trigger(COMMAND.CYCLEPALETTE)}, info:"<b>tab</b> Toggle Color Cycle"},$(".icon")),
             lockButton = $(".button.lock",{onClick: ()=>{EventBus.trigger(COMMAND.LOCKPALETTE)}, info:"Lock Palette"},$(".icon")),
             $(".button.hamburger",{onClick: ()=>{EventBus.trigger(COMMAND.TOGGLEPALETTES)}, info:"Show Palette Presets"},$(".icon")),
-            //$(".button.plus",{onClick: ()=>{EventBus.trigger(COMMAND.ADDPALETTE)}, info:"Add new Palette"},$(".icon")),
+            SETTING.useMultiPalettes ? $(".button.plus",{onClick: ()=>{EventBus.trigger(COMMAND.ADDPALETTE)}, info:"Add new Palette"},$(".icon")) : null,
+            SETTING.useMultiPalettes ? $(".button.minus",{onClick: ()=>{EventBus.trigger(COMMAND.REMOVEPALETTE)}, info:"Remove this Palette"},$(".icon")) : null
         );
 
 
+        if (SETTING.useMultiPalettes){
+            $(".paletteListNav",{parent: paletteToolsPanel},$(".nav",
+                $(".prev.active",{onClick: ()=>{me.setPaletteListIndex(paletteListIndex,-1)},info:"<b>Pg Up</b> Previous Palette"}),
+                paletteListIndexElm = $(".page","" + (paletteListIndex+1)),
+                $(".next.active",{
+                    onClick: ()=>{me.setPaletteListIndex(paletteListIndex,1)},info:"<b>Pg Dn</b> Next Palette"
+                }))
+            );
+        }
 
-        /*$(".paletteListNav",{parent: paletteToolsPanel},$(".nav",
-            $(".prev.active",{onClick: ()=>{me.setPaletteListIndex(paletteListIndex,-1)},info:"<b>Pg Up</b> Previous Palette"}),
-            paletteListIndexElm = $(".page","" + (paletteListIndex+1)),
-            $(".next.active",{
-                onClick: ()=>{me.setPaletteListIndex(paletteListIndex,1)},info:"<b>Pg Dn</b> Next Palette"
-            }))
-        );*/
 
         paletteCanvas = $("canvas.info.palettecanvas",{
             parent: paletteParent,
@@ -508,6 +514,31 @@ let Palette = function(){
             palette.push(c);
         }
         Palette.set(palette);
+    }
+
+    me.expandFromImage = function(){
+        var imageColors = ImageProcessing.getColors(ImageFile.getCanvas());
+        var current = me.get().slice();
+        var max = 256;
+
+        let existing = new Set();
+        current.forEach(c => {
+            if (typeof c === "string") c = Color.fromString(c);
+            existing.add(c.join(","));
+        });
+
+        for (var i=0; i<imageColors.length; i++){
+            if (current.length >= max) break;
+            var c = imageColors[i];
+            var key = c.join(",");
+            if (!existing.has(key)){
+                current.push(c);
+                existing.add(key);
+            }
+        }
+
+        me.set(current);
+        EventBus.trigger(EVENT.paletteChanged);
     }
 
     me.applyToCanvas= function(canvas,removeAlpha){
@@ -901,6 +932,13 @@ let Palette = function(){
         me.setPaletteListIndex(paletteList.length-1);
     }
 
+    me.removePalette = function(){
+        if (paletteList.length>1){
+            paletteList.splice(paletteListIndex,1);
+            me.setPaletteListIndex(paletteListIndex);
+        }
+    }
+
     me.setPaletteListIndex = function(index,offset){
 
         let fromPalette = currentPalette.slice()
@@ -1134,6 +1172,7 @@ let Palette = function(){
     
 
     EventBus.on(COMMAND.PALETTEFROMIMAGE,me.fromImage);
+    EventBus.on(COMMAND.PALETTEEXPANDFROMIMAGE,me.expandFromImage);
     EventBus.on(COMMAND.PALETTEREDUCE,me.reduce);
     EventBus.on(COMMAND.SWAPCOLORS,()=>{
         let c = drawColor;
@@ -1237,6 +1276,10 @@ let Palette = function(){
        me.addPalette();
     });
 
+    EventBus.on(COMMAND.REMOVEPALETTE,()=>{
+       me.removePalette();
+    });
+
     EventBus.on(COMMAND.NEXTPALETTE,()=>{
         me.setPaletteListIndex(paletteListIndex,1);
     });
@@ -1245,7 +1288,25 @@ let Palette = function(){
         me.setPaletteListIndex(paletteListIndex,1);
     });
 
+    EventBus.on(COMMAND.PALETTEEXPORT,()=>{
+       let paletteString = [];
+       currentPalette.forEach(c=>{
+           if (typeof c === "string") c=Color.fromString(c);
+           paletteString.push(Color.toOCSString(c));
+       });
+       let text = "[" + paletteString.join(",") + "]";
+       Modal.show(DIALOG.TEXTOUTPUT,text);
+    });
 
+
+
+    EventBus.on(COMMAND.NEW,()=>{
+        paletteList = [];
+        paletteListIndex = 0;
+        if (paletteListIndexElm) paletteListIndexElm.innerHTML = paletteListIndex+1;
+        me.set(colors);
+        EventBus.trigger(EVENT.paletteChanged);
+    });
 
     return me;
 }();

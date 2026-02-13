@@ -32,6 +32,9 @@ let ImageFile = function(){
         return currentFile;
     };
 
+    me.addLayer = addLayer;
+    me.removeLayer = removeLayer;
+
     me.getName = function(withoutExtension){
         let name = currentFile.name || "Untitled";
         if (withoutExtension) {

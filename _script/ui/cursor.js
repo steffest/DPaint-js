@@ -102,7 +102,7 @@ var Cursor = function(){
             me.override("pan");
         }
     })
-    
+
     return me;
 }();
 
