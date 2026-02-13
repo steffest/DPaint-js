@@ -1162,8 +1162,25 @@ const IFF = (function () {
             const width = contextImageData.width;
 
             function getIndex(c, palette) {
+                // First try exact match (fast path)
                 let index = palette.findIndex((p) => p[0] === c[0] && p[1] === c[1] && p[2] === c[2]);
-                return index < 0 ? 0 : index;
+                if (index >= 0) return index;
+                
+                // Fall back to nearest color match
+                let minDist = Infinity;
+                let bestIndex = 0;
+                for (let i = 0; i < palette.length; i++) {
+                    const p = palette[i];
+                    const dr = c[0] - p[0];
+                    const dg = c[1] - p[1];
+                    const db = c[2] - p[2];
+                    const dist = dr * dr + dg * dg + db * db;
+                    if (dist < minDist) {
+                        minDist = dist;
+                        bestIndex = i;
+                    }
+                }
+                return bestIndex;
             }
 
             for (let y = 0; y < h; y++) {
@@ -1310,6 +1327,24 @@ const IFF = (function () {
                 opcount++;
             }
 
+
+
+            // Fallback if opcount exceeds safe limit (255 byte limit)
+            // This happens on high-detail vertical changes.
+            if (opcount >= 256) {
+                opcount = 0;
+                ops = [];
+                let idx = 0;
+                while (idx < col_data.length) {
+                    let run = Math.min(MAXRUN, col_data.length - idx);
+                    // Write UNIQ op
+                    ops.push(128 + run); // 128 + cnt
+                    for (let k = 0; k < run; k++) ops.push(col_data[idx + k]);
+                    idx += run;
+                    opcount++;
+                }
+            }
+
             return { opcount: opcount, ops: ops };
         }
 
@@ -1351,10 +1386,17 @@ const IFF = (function () {
                     // no diffs in column
                     // Python code: PASS (does nothing, ops is empty, opcount is 0)
                 } else {
-                    // diff one column
-                    let res = anim5_col_diff(diffmap, colDataNew);
-                    opcount = res.opcount;
-                    ops = res.ops;
+                    // SIMPLIFIED: Just write the entire new column as UNIQ ops
+                    opcount = 0;
+                    ops = [];
+                    let idx = 0;
+                    while (idx < colDataNew.length) {
+                        let run = Math.min(127, colDataNew.length - idx);
+                        ops.push(128 + run); // UNIQ op
+                        for (let k = 0; k < run; k++) ops.push(colDataNew[idx + k]);
+                        idx += run;
+                        opcount++;
+                    }
                 }
 
                 pl_diff.push(opcount);
@@ -1373,18 +1415,36 @@ const IFF = (function () {
             }
         }
 
-        let canvas = ImageFile.getCanvasWithFilters(0);
+        let colorCycle = Palette.getColorRanges() || [];
+
+        let colors = Palette.get().slice();
+
+        // Ensure we have a valid canvas for dimensions from the first frame
+        const canvas = ImageFile.getCanvasWithFilters(0);
         const w = canvas.width;
         const h = canvas.height;
 
-        let colorCycle = Palette.getColorRanges() || [];
-        let colors = Palette.get();
-        if (!colors || !colors.length) colors = ImageProcessing.getColors(canvas, 256);
 
         let bitplaneCount = 1;
         while (1 << bitplaneCount < colors.length) bitplaneCount++;
         if (bitplaneCount > 8) bitplaneCount = 8;        
         while (colors.length < 1 << bitplaneCount) colors.push([0, 0, 0]);
+
+        // For EHB mode (6 bitplanes, 32 base colors), expand to 64 colors with shadows
+        let useEHB = (bitplaneCount === 6 && colors.length === 32);
+        let quantizePalette = colors.slice();
+        if (useEHB) {
+            // Add shadow colors (half brightness of each base color)
+            for (let i = 0; i < 32; i++) {
+                let shadowColor = [
+                    Math.floor(colors[i][0] / 2),
+                    Math.floor(colors[i][1] / 2),
+                    Math.floor(colors[i][2] / 2)
+                ];
+                quantizePalette.push(shadowColor);
+            }
+        }
+
 
         const bytesPerLine = Math.ceil(w / 16) * 2;
         const bodySize = bytesPerLine * bitplaneCount * h;
@@ -1480,11 +1540,48 @@ const IFF = (function () {
         let bodySizePtr = file.index;
         file.writeDWord(0); // Placeholder, will patch later
         
-        // --- Pre-calculate all frame planes to avoid double work ---
+        // ---Pre-calculate all frame planes to avoid double work ---
         let allPlanes = [];
         for (let i=0; i<frames.length; i++) {
-             let curCanvas = ImageFile.getCanvasWithFilters(i);
-             allPlanes.push(getPlanes(curCanvas.getContext("2d").getImageData(0,0,w,h), w, h, colors, bitplaneCount));
+             let curCanvas = ImageFile.getCanvas(i);
+             // Create a temporary canvas and quantize it to the quantizePalette (with EHB if needed)
+             let tempCanvas = document.createElement('canvas');
+             tempCanvas.width = w;
+             tempCanvas.height = h;
+             let tempCtx = tempCanvas.getContext('2d');
+             tempCtx.drawImage(curCanvas, 0, 0);
+             
+             // Apply palette quantization using our expanded palette
+             let imageData = tempCtx.getImageData(0, 0, w, h);
+             let pixels = imageData.data;
+             for (let p = 0; p < pixels.length; p += 4) {
+                 if (pixels[p + 3] > 0) {  // Skip transparent pixels
+                     let r = pixels[p];
+                     let g = pixels[p + 1];
+                     let b = pixels[p + 2];
+                     
+                     // Find nearest color in quantizePalette
+                     let minDist = Infinity;
+                     let bestColor = quantizePalette[0];
+                     for (let c of quantizePalette) {
+                         let dr = r - c[0];
+                         let dg = g - c[1];
+                         let db = b - c[2];
+                         let dist = dr * dr + dg * dg + db * db;
+                         if (dist < minDist) {
+                             minDist = dist;
+                             bestColor = c;
+                         }
+                     }
+                     
+                     pixels[p] = bestColor[0];
+                     pixels[p + 1] = bestColor[1];
+                     pixels[p + 2] = bestColor[2];
+                 }
+             }
+             tempCtx.putImageData(imageData, 0, 0);
+             
+             allPlanes.push(getPlanes(tempCtx.getImageData(0,0,w,h), w, h, quantizePalette, bitplaneCount));
         }
 
         // Write Frame 0 Body (interleaved by line)
@@ -1576,7 +1673,9 @@ const IFF = (function () {
             let dataSize = 0;
             
             for(let p=0; p<bitplaneCount; p++){
-                let diff = anim5_plane_diff(prevPlanes[p], currPlanes[p], bytesPerLine, h);
+                let p0 = prevPlanes && prevPlanes[p] ? prevPlanes[p] : new Uint8Array(bytesPerLine*h);
+                let p1 = currPlanes && currPlanes[p] ? currPlanes[p] : new Uint8Array(bytesPerLine*h);
+                let diff = anim5_plane_diff(p0, p1, bytesPerLine, h);
                 pl_diffs[p] = diff;
                 if (diff) dataSize += diff.length;
             }
