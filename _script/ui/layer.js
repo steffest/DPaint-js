@@ -227,6 +227,8 @@ let Layer = function(width,height,name){
             drawCtx = drawLayer.getContext("2d");
         }
         isDrawing = true;
+        drawOpacity = 1; // Shapes should always be fully opaque
+        drawCtx.globalAlpha = 1; // Reset context alpha from any previous brush operations
 
         drawFunction(drawCtx,x,y,w,h);
     }

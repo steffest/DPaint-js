@@ -58,26 +58,33 @@ TODO before release:
 eydropper should not be active while drawing a line)
 );
 
-preference panel
-icon exports
+
 
 feature previews
 
-- Animated GIF
-- pressure sensitivity
+- Animation support (including  GIF and IFF ANIM import/export)
 - Animation controls
+- pressure sensitivity and multitouch improvements (pen-only support)
 - Palette lock
 - 12 and 9 bit color depths
 - resizable panels
 - Arc tool
 - Texture brushes
 - Gallery
+- New filters: Texture and Dehaze
+- Enhanced Save dialog with save-options
+- Recorder: record your drawing process and export timelapse videos
+- layers to frames / frames to layers
 
 Amiga Specific
  - 12 bit color depth
  - Color Cycle with IFF export
+ - reading and writing IFF ANIM files
 
+ Atari Specific
+ - Better handling of Deluxe Paint for Atari formats  (Byterun2 compression)
 
+New Domain: https://dpaint.app
 
  Rescale bug:
 

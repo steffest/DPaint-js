@@ -90,7 +90,7 @@ let ColorRange = function(){
                 }
             });
 
-            playButton = $div("button small" + (Animator.isRunning()?" active":""),Animator.isRunning()?"Stop":"Play",buttons,Palette.cycle);
+            playButton = $div("button small" + (Animator.isRunning()?" active":""),Animator.isRunning()?"Stop":"Play",buttons,()=>{Palette.cycle()});
         }else{
             $div("norange","No ranges specified",container);
         }

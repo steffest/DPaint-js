@@ -40,7 +40,7 @@ var SidePanel = function(){
         },
         brush:{
             label: "Brush",
-            height: 168,
+            height: 190,
             content: parent=>{
                 BrushPanel.generate(parent);
             }
@@ -55,6 +55,7 @@ var SidePanel = function(){
         grid:{
             label: "Grid",
             height: 120,
+            collapsed: true,
             content: parent=>{
                 GridPanel.generate(parent);
             }
