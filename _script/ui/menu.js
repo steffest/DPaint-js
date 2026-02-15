@@ -81,6 +81,7 @@ let Menu = function(){
                         {label: "Transparent pixels",command: COMMAND.ALPHASELECT},
                     ]},
                 {label: "Deselect",command: COMMAND.CLEARSELECTION,shortKey: "Esc"},
+                {label: "Invert",command: COMMAND.INVERTSELECTION,shortKey: "meta+Shift+I"},
                 {label: "Copy To Layer",command: COMMAND.TOLAYER,shortKey: "meta+L"},
                 {label: "Cut To Layer",command: COMMAND.CUTTOLAYER,shortKey: "meta+K"},
                 {label: "Copy To Brush",command: COMMAND.STAMP,shortKey: "meta+B"}

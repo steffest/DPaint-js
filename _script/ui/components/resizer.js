@@ -32,10 +32,10 @@ var Resizer = function(editor){
         previousSize = undefined;
         currentSize = undefined;
 
-        setSize(options.x,options.y,options.width,options.height,options.rotation);
+        setSize(options.x,options.y,options.width,options.height,options.rotation,options.silent);
     }
 
-    function setSize(x,y,w,h,rotation){
+    function setSize(x,y,w,h,rotation,silent){
         previousSize = Object.assign({},currentSize);
         currentSize = {
             left: Math.round(x),
@@ -49,10 +49,12 @@ var Resizer = function(editor){
         }
 
         updateSizeBox();
-        EventBus.trigger(EVENT.sizerChanged,{
-            from: previousSize,
-            to: currentSize
-        });
+        if (!silent){
+            EventBus.trigger(EVENT.sizerChanged,{
+                from: previousSize,
+                to: currentSize
+            });
+        }
     }
 
     me.setOnUpdate = function(handler){

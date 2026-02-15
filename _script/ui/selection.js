@@ -2,7 +2,7 @@ import Brush from "./brush.js";
 import EventBus from "../util/eventbus.js";
 import {COMMAND, EVENT} from "../enum.js";
 import ImageFile from "../image.js";
-import {duplicateCanvas} from "../util/canvasUtils.js";
+import {duplicateCanvas, outLineCanvas} from "../util/canvasUtils.js";
 
 /*
 Selection holds the data of the current selected pixels.
@@ -48,6 +48,54 @@ let Selection = function(){
         EventBus.trigger(COMMAND.CLEARSELECTION);
         EventBus.trigger(COMMAND.SELECT);
         me.set({left: 0, top: 0, width: w, height: h});
+    }
+
+    me.invert = function(){
+        let w = ImageFile.getCurrentFile().width;
+        let h = ImageFile.getCurrentFile().height;
+
+        let canvas = document.createElement("canvas");
+        canvas.width = w;
+        canvas.height = h;
+        let ctx = canvas.getContext("2d");
+
+        ctx.fillStyle = "white";
+        ctx.fillRect(0,0,w,h);
+
+        ctx.globalCompositeOperation = "destination-out";
+
+        if (currentSelection){
+            if (currentSelection.points && currentSelection.points.length){
+                ctx.beginPath();
+                currentSelection.points.forEach((point,index)=>{
+                    if (index) ctx.lineTo(point.x,point.y);
+                    else ctx.moveTo(point.x,point.y);
+                });
+                ctx.closePath();
+                ctx.fill();
+            }else if (currentSelection.canvas){
+                ctx.drawImage(currentSelection.canvas,0,0);
+            }else{
+                // Rectangle
+                ctx.fillRect(currentSelection.left,currentSelection.top,currentSelection.width,currentSelection.height);
+            }
+        }
+
+        ctx.globalCompositeOperation = "source-over";
+        let outline = outLineCanvas(ctx,false);
+        if (outline.box.w <= 0 || outline.box.h <= 0){
+            me.clear();
+        }else{
+            currentSelection = {
+                left: outline.box.x,
+                top: outline.box.y,
+                width: outline.box.w,
+                height: outline.box.h,
+                canvas: canvas,
+                outline: outline.lines
+            };
+            EventBus.trigger(EVENT.selectionChanged);
+        }
     }
 
     me.getCanvas = function(){
@@ -154,6 +202,7 @@ let Selection = function(){
     }
 
     EventBus.on(COMMAND.SELECTALL,me.selectAll);
+    EventBus.on(COMMAND.INVERTSELECTION,me.invert);
     EventBus.on(COMMAND.CLEARSELECTION,me.clear)
     EventBus.on(COMMAND.STAMP,me.toStamp)
     EventBus.on(COMMAND.TOLAYER,me.toLayer)

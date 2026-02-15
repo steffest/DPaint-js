@@ -384,6 +384,22 @@ let SelectBox = ((editor,resizer)=>{
                 if (showFill) border.classList.add("filled");
 
             }
+
+            if (selectionTool === COMMAND.SELECT && resizer.isActive()){
+                let r = resizer.get();
+                if (r && (r.left !== selection.left || r.top !== selection.top || r.width !== selection.width || r.height !== selection.height)){
+                    resizer.init({
+                        x:selection.left,
+                        y:selection.top,
+                        width:selection.width,
+                        height:selection.height,
+                        rotation:0,
+                        aspectRatio:1,
+                        canRotate: false,
+                        silent: true
+                    });
+                }
+            }
         }else{
             me.deActivate();
         }
