@@ -833,14 +833,14 @@ let ImageFile = function(){
 
     }
 
-    function removeFrame(){
+    function removeFrame(skipHistory){
         if (currentFile.frames.length > 1) {
-            HistoryService.start(EVENT.imageHistory);
+            if (!skipHistory) HistoryService.start(EVENT.imageHistory);
             currentFile.frames.splice(activeFrameIndex, 1);
             if (activeFrameIndex >= currentFile.frames.length) {
                 activeFrameIndex--;
             }
-            Historyservice.end();
+            if (!skipHistory) Historyservice.end();
             me.activateFrame(activeFrameIndex);
             EventBus.trigger(EVENT.imageSizeChanged);
         }
@@ -1115,6 +1115,25 @@ let ImageFile = function(){
 
     EventBus.on(COMMAND.DELETEFRAME, function(){
         removeFrame();
+    });
+
+    EventBus.on(COMMAND.CLEARFRAME, function(){
+        HistoryService.start(EVENT.imageHistory)
+        // clear all layers of the current frame except the first one
+        let len = currentFrame().layers.length;
+        if (len>1){
+            currentFrame().layers.splice(0,len-1);
+        }
+        let layer = currentFrame().layers[0];
+        if (layer) {
+            layer.clear();
+            layer.name = "Layer 1";
+        }
+        activeLayerIndex = 0;
+
+        HistoryService.end();
+        EventBus.trigger(EVENT.layersChanged);
+        EventBus.trigger(EVENT.imageSizeChanged);
     });
 
     EventBus.on(COMMAND.DUPLICATEFRAME, function(){

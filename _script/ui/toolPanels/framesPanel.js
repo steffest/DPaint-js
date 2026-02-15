@@ -141,7 +141,11 @@ let FramesPanel = function(){
 
                 elm.onContextMenu = ()=>{
                     let items = [];
-                    if (hasMultipleItems) items.push ({label: "Remove Frame", command: COMMAND.DELETEFRAME});
+                    if (hasMultipleItems){
+                        items.push ({label: "Remove Frame", command: COMMAND.DELETEFRAME});
+                    }else{
+                        items.push ({label: "Clear Frame", command: COMMAND.CLEARFRAME});
+                    }
                     items.push ({label: "Duplicate Frame", command: COMMAND.DUPLICATEFRAME});
                     items.push ({label: "Move to End", command: COMMAND.FRAMEMOVETOEND});
 
