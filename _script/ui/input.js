@@ -436,7 +436,8 @@ var Input = function(){
 				case "l": EventBus.trigger(COMMAND.LINE); break;
 				case "m": EventBus.trigger(COMMAND.SMUDGE); break;n
 				case "n": EventBus.trigger(COMMAND.SPLITSCREEN); break;
-				case "p": EventBus.trigger(COMMAND.SPRAY); break;
+				case "o": EventBus.trigger(COMMAND.SPRAY); break;
+				case "p": EventBus.trigger(COMMAND.POLYGONSELECT); break;
 				case "q": EventBus.trigger(COMMAND.TOGGLEOVERRIDE); break;
 				case "r": EventBus.trigger(COMMAND.SQUARE); break;
 				case "s":

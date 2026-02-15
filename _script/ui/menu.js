@@ -50,7 +50,7 @@ let Menu = function(){
                 {label: "Gradient",command: COMMAND.GRADIENT,shortKey: "G"},
                 {label: "Erase",command: COMMAND.ERASE,shortKey: "E"},
                 {label: "Smudge",command: COMMAND.SMUDGE,shortKey: "M"},
-                {label: "Spray",command: COMMAND.SPRAY,shortKey: "P"},
+                {label: "Spray",command: COMMAND.SPRAY,shortKey: "O"},
                 {label: "Text",command: COMMAND.TEXT,shortKey: "T"},
                 {label: "Hand",command: COMMAND.PAN,shortKey: "H"},
                 {label: "Color Picker",command: COMMAND.COLORPICKER,shortKey: "K"}
@@ -136,7 +136,7 @@ let Menu = function(){
         {label: "Help", items:[
                 {label: "About DPaint.js",command: COMMAND.ABOUT},
                 {label: "Documentation",action: ()=>{
-                        window.open('https://www.stef.be/dpaint/docs/');
+                        window.open('./docs/');
                     },needsRealClick: true},
                 {label: "SourceCode on GitHub",action: ()=>{
                     window.open('https://github.com/steffest/dpaint-js');

@@ -1201,6 +1201,7 @@ const IFF = (function () {
             return planes;
         }
 
+        // note: this is still buggy ... TODO: investigate. - let's avoid using this for now.
         function anim5_col_diff(diffmap, col_data) {
             const MSKIP = 0;
             const MUNIQ = 1;
@@ -1384,9 +1385,9 @@ const IFF = (function () {
 
                 if (!hasDiff) {
                     // no diffs in column
-                    // Python code: PASS (does nothing, ops is empty, opcount is 0)
                 } else {
                     // SIMPLIFIED: Just write the entire new column as UNIQ ops
+                    // see above: coll_diff is buggy.
                     opcount = 0;
                     ops = [];
                     let idx = 0;
@@ -1409,7 +1410,7 @@ const IFF = (function () {
             }
 
             if (opcount_sum === 0) {
-                return null; // b'' in Python
+                return null;
             } else {
                 return new Uint8Array(pl_diff);
             }

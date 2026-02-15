@@ -55,7 +55,8 @@ var PaletteDialog = function() {
 
         let currentColor = Palette.getDrawColor();
         currentIndex = Palette.getDrawColorIndex();
-        if (currentSelection.length===0 && typeof currentIndex === "number") currentSelection = [currentIndex];
+        // Reset selection to current active color when opening dialog
+        currentSelection = (typeof currentIndex === "number") ? [currentIndex] : [];
 
         let palettePanel;
         let subPanel;
@@ -492,10 +493,10 @@ var PaletteDialog = function() {
         });
 
 
-        $checkbox("Update image with color changes",optionsPanel,"",(checked)=>{
+        $checkbox("Update layer with color changes",optionsPanel,"",(checked)=>{
             lockToImage = checked;
         },lockToImage)
-        $checkbox("HighLight pixels that use selected color",optionsPanel,"",(checked)=>{
+        $checkbox("HighLight pixels in layer that use selected color",optionsPanel,"",(checked)=>{
             highlight = checked;
             setPixelHighLights();
         },highlight)
