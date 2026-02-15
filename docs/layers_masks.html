@@ -1,0 +1,28 @@
+<h2>Layers & Masks</h2>
+
+<p>DPaint.js supports a full layer stack, similar to modern image editors.</p>
+<h3>Layers</h3>
+<p>
+    You can stack multiple layers. Use the Layers panel to reorder, hide, or change the opacity of layers.
+    Double-click a layer to rename it.
+</p>
+<h3>Masks</h3>
+<p>
+    Layer masks allow for <strong>non-destructive editing</strong>. <br>
+    Instead of erasing pixels, you hide them.
+</p>
+<ul>
+    <li>Right-click a layer (or use the menu) to <strong>Add Layer Mask</strong>.</li>
+    <li>Activate the mask by clicking the mask icon next to the layer name - a bright green icon indicates the mask is active.<br>
+    <img src="_img/layermask.png">
+    </li>
+    <li>When the mask is active, painting on the canvas paints on the mask instead of the layer pixels.<br>
+        Paint on the mask with <strong>Grayscale values</strong>:
+        <ul>
+            <li><strong>White:</strong> The layer is fully visible.</li>
+            <li><strong>Black:</strong> The layer is hidden (transparent).</li>
+            <li><strong>Gray:</strong> Partial transparency.</li>
+        </ul>
+    </li>
+    <li>This is useful for complex compositions where you might want to bring back hidden parts later.</li>
+</ul>

@@ -133,7 +133,7 @@ let App = function(){
 	}
 
 	window.addEventListener('DOMContentLoaded', (event) => {
-		if (window.location.protocol==="http:" && window.location.hostname.indexOf("stef.be")>=0){
+		if (window.location.protocol==="http:" && (window.location.hostname.indexOf("stef.be")>=0 || window.location.hostname.indexOf("dpaint.app")>=0)){
 			window.location.href = window.location.href.replace("http:","https:");
 		}else{
 			me.init();

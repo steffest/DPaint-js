@@ -47,18 +47,48 @@
 
         }
 
-        #menu a{
+        #menu a,
+        #menu .item{
             display: block;
-            padding: 4px;
+            padding: 4px 4px 4px 16px;
             text-decoration: none;
             color: #afafaf;
             transition: all 400ms ease;
+            position: relative;
+        }
+
+        #menu a:before,
+        #menu .item:before{
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 50%;
+            margin-top: -6px;
+            width: 12px;
+            height: 12px;
+            opacity: 0.5;
+
+            background-image: url("../_img/caret.svg");
+            background-repeat: no-repeat;
+            background-position: center;
+            background-size: contain;
         }
 
         #menu a:hover,
-        #menu a.active{
+        #menu a.active,
+        #menu .item:hover{
             color: white;
             background-color: rgba(197, 190, 145, 0.1);
+            cursor: pointer;
+        }
+
+        #menu .item.active:before{
+            transform: rotate(90deg);
+        }
+
+        #menu .submenu{
+            display: none;
+            padding-left: 16px;
         }
 
         #content{
@@ -310,17 +340,23 @@
 <div class="container">
     <h1 class="panel">DPaint.js Documentation</h1>
     <div id="menu">
-        <a href="?about" class="active">About</a>
-        <a href="?why">Why?</a>
-        <a href="?features">Features</a>
-        <a href="?tools">Tools</a>
+        <a href="?about" class="active" id="m_about">About</a>
+        <a href="?why" id="m_why">Why?</a>
+        <a href="?features" id="m_features">Features</a>
+        <div class="item" onclick="toggleSub('indepth')" id="indepthbutton">In Depth</div>
+        <div class="submenu" id="indepth">
+            <a href="?tools" id="m_tools">Tools</a>
+            <a href="?layers_masks" id="m_layers_masks">Layers and Masks</a>
+            <a href="?colors" id="m_colors">Colors</a>
+            <a href="?color_cycling" id="m_color_cycling">Color Cycling</a>
+        </div>
         <!--<a href="?manual">Manual</a>-->
-        <a href="?keyboard_commands">Keyboard commands</a>
-        <a href="?url_parameters">URL parameters</a>
-        <a href="?faq">FAQ</a>
-        <a href="?licenses">Licenses</a>
-        <a href="?file_format">File Format</a>
-        <a href="?contact">Contact</a>
+        <a href="?keyboard_commands" id="m_keyboard_commands">Keyboard commands</a>
+        <a href="?url_parameters" id="m_url_parameters">URL parameters</a>
+        <a href="?faq" id="m_faq">FAQ</a>
+        <a href="?licenses" id="m_licenses">Licenses</a>
+        <a href="?file_format" id="m_file_format">File Format</a>
+        <a href="?contact" id="m_contact">Contact</a>
     </div>
     <div id="content" class="panel">
 
@@ -353,11 +389,23 @@
 
 		xhr.open("GET", url + ".html", true);
 		xhr.send();
+
+        let menuItem = document.getElementById("m_" + url);
+        if (menuItem) {
+            menu.querySelectorAll("a").forEach(function(a){
+                a.classList.remove("active");
+            });
+            menuItem.classList.add("active");
+
+            let inSubmenu = menuItem.closest(".submenu");
+            if (inSubmenu) {
+                openSub(inSubmenu.id);
+            }
+        }
     }
 
 	menu.addEventListener('click', function (event) {
-
-		if (!event.target.tagName.toLowerCase() === "a") return;
+		if (event.target.tagName.toLowerCase() !== "a") return;
 		event.preventDefault();
 
 		menu.querySelectorAll("a").forEach(function(a){
@@ -376,6 +424,36 @@
         	loadPage(window.location.hash.substr(1));
         }
     };
+
+    function toggleSub(id){
+        var el = document.getElementById(id);
+        if (!el) return;
+        if (el.style.display === "block"){
+            closeSub(id)
+        }else{
+            openSub(id)
+        }
+    }
+
+    function openSub(id){
+        var el = document.getElementById(id);
+        if (!el) return;
+        el.style.display = "block";
+        let button = document.getElementById(id + "button");
+        if (button) {
+            button.classList.add("active");
+        }
+    }
+
+    function closeSub(id){
+        var el = document.getElementById(id);
+        if (!el) return;
+        el.style.display = "none";
+        let button = document.getElementById(id + "button");
+        if (button) {
+            button.classList.remove("active");
+        }
+    }
 
     loadPage(window.location.hash ? window.location.hash.substr(1) : "about");
 

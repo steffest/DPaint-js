@@ -4,7 +4,7 @@ Next to modern image formats, DPaint.js can read and write Amiga icon files and 
 
 ![DPaint.js Logo](./_img/dpaint-logo.png?raw=true)
 
-Online version available at https://www.stef.be/dpaint/
+Online version available at https://dpaint.app
 
 ![DPaint.js UI](./_img/ui.png?raw=true)
 
@@ -19,17 +19,20 @@ Online version available at https://www.stef.be/dpaint/
    - Copy/Paste from any other image program or image source
    - Customizable dither tools
    - Color Cycling
+   - Frame based animation
  - Heavy focus on colour reduction with fine-grained dithering options
  - Amiga focus
    - Read/write/convert Amiga icon files (all formats)
    - Reads IFF ILBM images (all formats including HAM and 24-bit)
    - Writes IFF ILBM images (up to 256 colors)
+   - Read and write IFF ANIM files (Amiga animation format)
    - Read and write directly from Amiga Disk Files (ADF)
    - Embedded Amiga Emulator to preview your work in the real Deluxe Paint.
    - Limit the palette to 12 bit for Amiga OCS/ECS mode, or 9 bit for Atari ST mode.
  - Deluxe Paint Legacy
    - Supports PBM files as used by the PC version of Deluxe Paint (Thanks to [Michael Smith](https://github.com/michaelshmitty))
    - Supports Deluxe Paint Atari ST compression modes (Thanks to [Nicolas Ramz](https://github.com/warpdesign))
+
 ## Free and Open
 It runs in your browser, works on any system and works fine on touch-screen devices like iPads.  
 It is written in 100% plain JavaScript and has no dependencies.  
@@ -52,7 +55,7 @@ open a terminal and run `npm install` to install Parcel.js and its dependencies.
 Then run `npm run build` to create a compact version of DPaint.js in the "dist" folder.
 
 ## Documentation
-Documentation can be found at https://www.stef.be/dpaint/docs/
+Documentation can be found at https://dpaint.app/docs/
 
 ## Running offline
 Dpaint.js is a web application, not an app that you install on your computer.
@@ -60,7 +63,11 @@ That being said: DPaint.js has no online dependencies and runs fine offline if y
 One caveat: you have to serve the index.html file from a webserver, not just open it in your browser.  
 A quick way to do this is - for example - using the [Spark](https://github.com/rif/spark/releases) app.  
 [Download the binary](https://github.com/rif/spark/releases) for your platform, drop the Spark executable in the folder where you downloaded the Dpaint.js source files and run it.
-If you then point your browser to http://localhost:8080/ it should work.  
+If you then point your browser to http://localhost:8080/ it should work.    
+But any webserver will do, you can also use the one built into Python for example.  ( `python -m http.server` )
+Or - if you have the node.js runtime installed - you can use packages like:  
+ - serve: `npx serve` in the DPaint.js folder 
+ - http-server: `npx http-server` in the DPaint.js folder
 
 If you are using Chrome, you can also "install" dpaint.js as app.  
 ![image](https://github.com/user-attachments/assets/fa4a1e8b-4e45-4fe1-9d77-8b1e3364e867)  
@@ -72,18 +79,14 @@ Current version is still alpha.
 I'm sure there are bugs and missing features.  
 Bug reports and pull requests are welcome.
 
-### Missing Features
-Planned for the next release, already in the works:
-   - <strike>Color Cycling</strike> (done)
-   - <strike>Animation support (GIf and Amiga ANIM files)</strike> (done)
-   - <strike>Shading/transparency tools that stay within the palette.</strike> (done)
-
+### Planned Features
 Planned for a future release if there's a need for it.
   - Support for non-square pixel modes such as HiRes and Interlaced
   - PSD import and export
   - SpriteSheet support
   - Write HAM,SHAM and Dynamic HiRes images
   - Commodore 64 graphics modes
+  - Animated Brushes
       
 ## Browser Quirks
 Please note that the **Brave** browser is using "[farbling](https://brave.com/privacy-updates/4-fingerprinting-defenses-2.0/#2-fingerprinting-protections-20-farbling-for-great-good)" that introduces random image noise in certain conditions.

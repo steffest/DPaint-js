@@ -1,0 +1,42 @@
+<h2>Color Cycling</h2>
+
+<p>
+    Color cycling is a classic technique to animate a classic image by shifting colors within the palette range.
+    <br>DPaint.js fully supports this. (See <a href="https://dpaint.app/dev/?file=gallery/color-cycle/sacks/20000LeaguesUnderTheSea_Shipwreck.iff&zoom=1&play=1">this example</a>.)
+</p>
+<h3>How to set up a Color Cycle</h3>
+<ol>
+    <li>Open the Palette Panel.</li>
+    <li>Click on the <strong>Ranges</strong> tab (next to the "Color" tab).</li>
+    <li>Click the <strong>Add Range</strong> button. A new range control will appear.</li>
+    <li><strong>Define the Range:</strong>
+        <ul>
+            <li>Click on the color strip (preview bar) of the new range. The cursor will change, asking for the "From" color.</li>
+            <li>Click a color slot in your palette to set the <strong>Start</strong> of the range.</li>
+            <li>Click another color slot to set the <strong>End</strong> of the range.</li>
+        </ul>
+    </li>
+    <li>Use the active checkbox to enable/disable the cycle.</li>
+    <li>Use the slider to adjust the speed and direction of the cycle.</li>
+</ol>
+
+
+See also <a href="https://www.youtube.com/watch?v=VyB5cvA6f78" target="_blank">this "making of" video</a> highlighting some more color cycling techniques:
+<br><br>
+<iframe width="100%" height="380" src="https://www.youtube.com/embed/VyB5cvA6f78" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
+
+
+<br><br>
+<div class="warning">
+    <strong>Important Drawback: Avoid Identical Colors</strong><br><br>
+    Because the engine maps pixels to palette indices, it needs to know which index corresponds to which color.
+    If your palette contains <strong>duplicate colors</strong> (e.g., two slots both defining pure black #000000), the engine might get confused about which index to use.
+    <br><br>
+    This can cause issues with <strong>Color Cycling</strong> or pixel-perfect index manipulation, as the engine might accidentally map your pixels to the wrong index (e.g., Index 5 instead of Index 10, because they are identical).
+    <br><br>
+    <strong>Tip:</strong>When using color-cycling, always try to keep your palette colors unique.<br><br>
+    (Yes, I know this is a bit of a bummer, and very different from how traditional indexed color engines worked, but it's a trade-off I had to make to achieve the hybrid true-color/indexed-color approach of DPaint.js.)
+</div>
+
+
+

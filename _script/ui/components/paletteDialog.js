@@ -496,7 +496,7 @@ var PaletteDialog = function() {
         $checkbox("Update layer with color changes",optionsPanel,"",(checked)=>{
             lockToImage = checked;
         },lockToImage)
-        $checkbox("HighLight pixels in layer that use selected color",optionsPanel,"",(checked)=>{
+        $checkbox("HighLight pixels that use selected color",optionsPanel,"",(checked)=>{
             highlight = checked;
             setPixelHighLights();
         },highlight)

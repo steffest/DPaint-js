@@ -1,0 +1,319 @@
+<h2>Tools</h2>
+<h3>Standard Tools</h3>
+<div class="flex">
+    <aside>
+        <img src="_img/toolbar.png" width="120" alt="Toolbar">
+    </aside>
+    <main>
+        <p>
+            The toolbar is your primary interface for interacting with the canvas.
+            At the very top of the toolbar, you will find <strong>Brush Presets</strong>.
+            Use these to quickly select a brush shape and size for painting tools.<br>
+            <br>
+            In Dpaint.js, when you hover over a tool in the toolbar, a small help-text will appear in the bottom right corder, showing the tool name and its keyboard shortcut.
+        </p>
+
+        <table border="0" cellpadding="5" cellspacing="0" class="tools">
+            <tr>
+                <td><img src="../_img/pencil.svg" class="icon"></td>
+                <td>
+                    <strong>Draw / Brush</strong>
+                    <p>The primary painting tool. Use it to draw freehand strokes with the selected brush.</p>
+                    <ul>
+                        <li>Left Click: Draw with the Foreground color.</li>
+                        <li>Right Click: Draw with the Background color.</li>
+                        <li>ShortKey: <b class="shortkey">B</b></li>
+                    </ul>
+                </td>
+            </tr>
+            <tr>
+                <td><img src="../_img/select.svg" class="icon"></td>
+                <td>
+                    <strong>Select (Rectangle)</strong>
+                    <p>Create a rectangular selection.<br>
+                    Selection are mostly used to copy/cut parts of the layer to a new layer.<br>
+                    Use the <b class="shortkey small">ESC</b> key to clear a selection</p>
+                    <ul>
+                        <li>Click and drag to define the selection area.</li>
+                        <li>Use the arrow keys or the resize handles to transform the selection.</li>
+                        <li>ShortKey: <b class="shortkey">S</b></li>
+                        <!--<li>Use <strong>Shift</strong> to add to an existing selection.</li>
+                        <li>Use <strong>Alt</strong> to subtract from an existing selection.</li>-->
+                    </ul>
+                    <small>Note: in Dpaint.js your paint actions are NOT constraint to the selection<br><br></small>
+                </td>
+            </tr>
+            <tr>
+                <td><img src="../_img/poly.svg" class="icon"></td>
+                <td>
+                    <strong>Polygon Select</strong>
+                    <p>Create a freeform polygonal selection.</p>
+                    <ul>
+                        <li>Click to place points, drag the dots to reposition</li>
+                        <li><b class="shortkey">ESC</b> to exit selection mode</li>
+                        <li>ShortKey: <b class="shortkey">P</b></li>
+                    </ul>
+                </td>
+            </tr>
+            <tr>
+                <td><img src="../_img/magicwand.svg" class="icon"></td>
+                <td valign="top">
+                    <strong>Flood Select (Magic Wand)</strong>
+                    <p>Select a contiguous area of pixels that match the clicked color.</p>
+                    <ul>
+                        <li>Adjust in "Tolerance" in the tool settings to determine how close the surrounding pixels should match.</li>
+                        <li>ShortKey: <b class="shortkey">W</b></li>
+                    </ul>
+                </td>
+            </tr>
+            <tr>
+                <td><img src="../_img/circle.svg" class="icon"></td>
+                <td valign="top">
+                    <strong>Circle / Ellipse</strong>
+                    <p>Draw circles or ellipses.</p>
+                    <ul>
+                        <li>Use <b class="shortkey">Shift</b> to constrain to a perfect circle.</li>
+                        <li>Click the tool icon again to toggle between "Filled" and "Outline" mode.</li>
+                        <li>ShortKey: <b class="shortkey">C</b></li>
+                    </ul>
+                </td>
+            </tr>
+            <tr>
+                <td><img src="../_img/square.svg" class="icon"></td>
+                <td valign="top">
+                    <strong>Rectangle / Square</strong>
+                    <p>Draw rectangles or squares.</p>
+                    <ul>
+                        <li>Use <b class="shortkey">Shift</b> to constrain to a square.</li>
+                        <li>Click the tool icon again to toggle between "Filled" and "Outline" mode.</li>
+                        <li>ShortKey: <b class="shortkey">R</b></li>
+                    </ul>
+                </td>
+            </tr>
+            <tr>
+                <td><img src="../_img/line.svg" class="icon"></td>
+                <td valign="top">
+                    <strong>Line</strong>
+                    <p>Draw straight lines.</p>
+                    <ul>
+                        <li>Use <b class="shortkey">Shift</b> to constrain the line to a 45° angle.</li>
+                        <li>Use <b class="shortkey">S</b> to toggle "Smooth" (Anti-aliasing) on/off while drawing.</li>
+                        <li>ShortKey: <b class="shortkey">L</b></li>
+                    </ul>
+                </td>
+            </tr>
+            <tr>
+                <td><img src="../_img/arc.svg" class="icon"></td>
+                <td valign="top">
+                    <strong>Curve / Arc</strong>
+                    <p>Draw curved lines.</p>
+                    <p>Click and drag to set the start and end points of the arc, then move the mouse to adjust the curve radius.</p>
+                    <ul>
+                        <li>Use <b class="shortkey">S</b> to toggle "Smooth" (Anti-aliasing) on/off while drawing.</li>
+                        <li>ShortKey: <b class="shortkey">A</b></li>
+                    </ul>
+                </td>
+            </tr>
+            <tr>
+                <td><img src="../_img/gradient.svg" class="icon"></td>
+                <td valign="top">
+                    <strong>Gradient</strong>
+                    <p>Fill the layer with a gradient.</p>
+                    <ul>
+                        <li>Click and drag to define the start and end points of the gradient.</li>
+                        <li>Uses the current <strong>Foreground</strong> and <strong>Background</strong> colors with an optional <strong>Dither pattern</strong>.</li>
+                        <li>ShortKey: <b class="shortkey">G</b></li>
+                    </ul>
+                </td>
+            </tr>
+            <tr>
+                <td><img src="../_img/fill.svg" class="icon"></td>
+                <td valign="top">
+                    <strong>Flood Fill</strong>
+                    <p>Fill a contiguous area of similar pixels with the foreground color.</p>
+                    <ul>
+                        <li>ShortKey: <b class="shortkey">F</b></li>
+                    </ul>
+                </td>
+            </tr>
+            <tr>
+                <td><img src="../_img/spray.svg" class="icon"></td>
+                <td valign="top">
+                    <strong>Spray / Airbrush</strong>
+                    <p>Spray pixels using the current brush shape.</p>
+                    <ul>
+                        <li>Use the tool settings on the top of the screen to adjust the spray pattern, size and spacing.</li>
+                        <li>ShortKey: <b class="shortkey">O</b></li>
+                    </ul>
+                </td>
+            </tr>
+            <tr>
+                <td><img src="../_img/smudge.svg" class="icon"></td>
+                <td valign="top">
+                    <strong>Smudge / Blend</strong>
+                    <p>Smear colors on the canvas, like finger painting on wet oil paint.</p>
+                    <ul>
+                        <li>Useful for blending colors together organically.</li>
+                        <li><em>Respects "Palette Lock": will only produce colors from your palette if enabled.</em></li>
+                        <li>Toggle between Smudge/Blend/Sharpen modes using the tool settings on the top of the screen.</li>
+                        <li>ShortKey: <b class="shortkey">M</b></li>
+                    </ul>
+                </td>
+            </tr>
+            <tr>
+                <td><img src="../_img/eraser.svg" class="icon"></td>
+                <td valign="top">
+                    <strong>Erase</strong>
+                    <p>Erase pixels from the layer using the current brush shape.</p>
+                    <ul>
+                        <li>ShortKey: <b class="shortkey">E</b></li>
+                    </ul>
+                </td>
+            </tr>
+
+            <tr>
+            <td><img src="../_img/split.svg" class="icon"></td>
+            <td valign="top">
+                <strong>Split View</strong>
+                <p>Toggles the split-screen view, showing the image in 2 panes that you can zoom/pan independently.</p>
+                <ul>
+                    <li>ShortKey: <b class="shortkey">N</b></li>
+                </ul>
+            </td>
+        </tr>
+         <tr>
+            <td><img src="../_img/hand.svg" class="icon"></td>
+            <td valign="top">
+                <strong>Pan (Hand)</strong>
+                <p>Move the canvas view.</p>
+                <ul>
+                    <li>Hold <b class="shortkey">Spacebar</b> temporarily to activate the Pan tool while using any other tool.</li>
+                    <li>ShortKey: <b class="shortkey">H</b></li>
+                </ul>
+            </td>
+        </tr>
+        <tr>
+            <td><img src="../_img/pipette.svg" class="icon"></td>
+            <td valign="top">
+                <strong>Color Picker</strong>
+                <p>Sample a color from the image/canvas to set it as the current Foreground color.</p>
+                <ul>
+                   <li><strong>Right Click:</strong> Set as Background color.</li>
+                    <li>Hold <b class="shortkey">Shift</b> while drawing to temporary select this tool.</li>
+                   <li>ShortKey: <b class="shortkey">K</b></li>
+                </ul>
+            </td>
+        </tr>
+        <tr>
+            <td><img src="../_img/zoom.svg" class="icon"></td>
+            <td valign="top">
+                <strong>Zoom In / Out</strong>
+                <p>Adjust the magnification level of the canvas.</p>
+                <ul>
+                    <li>You can also use the mousewheel while on the canvas to zoom</li>
+                    <li>Or use the zoom buttons top-left of the image to (re)set the zoom.</li>
+                    <li>ShortKey: <b class="shortkey">+</b> / <b class="shortkey">-</b></li>
+                </ul>
+            </td>
+        </tr>
+
+            <tr>
+                <td><img src="../_img/nofill-white.svg" class="icon"></td>
+                <td valign="top">
+                    <strong>Transparent color</strong>
+                    <ul>
+                        <li>Left click: set the Foreground color to transparent</li>
+                        <li>Right click: set the Background color to transparent</li>
+                    </ul>
+                </td>
+            </tr>
+            <tr>
+                <td><img src="../_img/swap.svg" class="icon"></td>
+                <td valign="top">
+                    <strong>Swap Foreground/Background color</strong>
+                    <ul>
+                        <li>ShortKey: <b class="shortkey">x</b></li>
+                    </ul>
+                </td>
+            </tr>
+        
+        </table>
+    </main>
+</div>
+
+<h3>Palette Tools</h3>
+
+<div class="flex">
+    <aside>
+        <img src="_img/toolbar2.png" width="120" alt="Toolbar">
+    </aside>
+    <main>
+        <p>
+            Please note that while DPaint.js is primarily targeted towards limited color pixel art, it is <b class="key">NOT</b> an indexed color paint program. (Weird, right?!)<br>
+            This section of the toolbar displays your palette, but you are always free to pick any color outside your palette and use it in your image. The palette is more of a "suggestion" of colors that you want to use, rather than a strict limit.<br>
+            Of course for low-color pixel art, you want to keep your palette in check, but while working on a piece, it's handy to sometimes stray from your palette.<br>
+        </p>
+        <table border="0" cellpadding="5" cellspacing="0" class="tools">
+            <tr>
+                <td><img src="../_img/palette.svg" class="icon"></td>
+                <td>
+                    <strong>Palette Editor</strong>
+                    <p>Open the palette editor with a large range of options to edit/optimize your palette</p>
+                </td>
+            </tr>
+            <tr>
+                <td><img src="../_img/cycle.svg" class="icon"></td>
+                <td>
+                    <strong>Start/Stop Color Cycling</strong>
+                    <p>You can define color-cycling ranges in the palette editor</p>
+                    <ul>
+                        <li>ShortKey: <b class="shortkey">TAB</b></li>
+                    </ul>
+                </td>
+            </tr>
+            <tr>
+                <td><img src="../_img/lock_open.svg" class="icon"></td>
+                <td>
+                    <strong>Toggle Color Lock</strong>
+                    <p>When color lock is enabled, all the colors in your image will automatically be mapped to your palette.<br>
+                    This enables you to use so called "dirty" tools like smear/blurs/blends/opacity ... without introducing new colors in the image.</p>
+                </td>
+            </tr>
+            <tr>
+                <td><img src="../_img/hamburger.svg" class="icon"></td>
+                <td>
+                    <strong>Palette Presets</strong>
+                    <p>Opens the list of Palette Presets.<br>
+                    You can also extract the palette of an image through the menu "Palette -> From image".
+                    </p>
+                </td>
+            </tr>
+            <tr>
+                <td><img src="_img/colors.png" class="icon"></td>
+                <td>
+                    <strong>Colors</strong>
+                    <p>The bottom part shows your current palette.</p>
+                    <ul>
+                        <li>Left click: select Foreground color</li>
+                        <li>Right click: select Background color</li>
+                        <li>Double click: open palette editor</li>
+                        <li>use the left and right <b class="shortkey">arrow keys</b> to select the previous/next color</li>
+                        <li>The active color is indicated with a little white dot</li>
+                    </ul>
+
+                    <p>
+                        Changing your palette does <b>NOT</b> automatically change the colors in your image if color lock is disabled.<br>
+                        (Remember, DPaint.js is NOT an indexed color program) <br>
+                        If you want to remap your image to the new palette, you can
+                        <ul>
+                            <li>Enable "Color Lock"</li>
+                            <li>Use the "Reduce Colors" panel and set the palette to "current". This gives you some additional dither options as well.</li>
+                            <li>Change a color in the palette editor with the option "Update layer with color changes" selected.</li>
+                        </ul>
+                    </p>
+                </td>
+            </tr>
+        </table>
+    </main>
+</div>
+

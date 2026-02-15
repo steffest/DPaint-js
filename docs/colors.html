@@ -1,0 +1,59 @@
+<h2>Colors</h2>
+
+
+    <h3>Indexed vs True Color</h3>
+    <p>
+        DPaint.js uses a <strong>Hybrid Color Engine</strong>.
+    </p>
+    <p>
+        Traditionally, programs are either <em>True Color</em> (like Photoshop, where pixels hold RGBA values) or <em>Indexed Color</em> (like Deluxe Paint, where pixels hold a number pointing to a palette entry).
+        <br>DPaint.js tries to combine both worlds:
+    </p>
+    <p>
+        While you paint, you are working with layers, opacity, and blending, exactly like a true color application.<br>
+        While there is a palette visible and you can pick colors from it, this palette is more of a "color guide" than a strict indexed color mode. It allows you to have a visual reference and pick colors, but it doesn't restrict you to only those colors while painting.<br>
+        <br>
+        Optionally, when you active the "Palette Lock" mode, your image is still technically in true color, but the engine ensures that every pixel is always mapped to the closest color in your palette. This means that
+        you can use all the "dirty" tools like smudge, blurs, opacity blending, etc. without worrying about your palette.<br>
+        <img src="_img/colorlock.png" alt="Palette Lock"><br>
+        If you're aiming for a low color image, you can keep an eye on your color count in the "info" panel (menu: File->Info) and/or use the various "Reduce Colors" tools to optimize your palette.
+        <br>
+        <img src="_img/infopanel.png" alt="Info Panel"><br>
+    </p>
+
+    <h3>Palette Editor</h3>
+    <p>
+        The Palette Editor allows you to manage your colors. You can add, remove, or edit colors in your palette. <br>
+        Click on a color slot to edit its color. You can enter a hex code or use the various sliders to adjust the color, both in RGB and HSV mode.<br>
+        <br>
+        <img src="_img/palette_editor.png" alt="Palette Editor" width="479"><br>
+
+        When you change a color in the palette. Hit the "apply" button to update the palette with this new color.<br>
+        If you also want to update all the pixels that use this color, make sure to check the "Update Layer with color changes" checkbox before hitting "Apply".<br>
+        Please note that this will only update the <b class="key">active layer</b> not the entire image if you have multiple layers.<br>
+        <img src="_img/palette_editor_update.png" alt="Palette Editor Update" width="324"><br>
+
+        <div class="warning">Because of the Hybrid Indexed vs True Color model, identical colors in the palette will be merged together, so please be aware of this if you create identical colors in the palette. </div>
+    </p>
+
+
+    <h3>Batch Editing Colors</h3>
+    <p>
+        You can edit multiple colors at once in the Palette Editor.
+    </p>
+    <ul>
+        <li><strong>Shift + Click</strong>: Select a range of colors.</li>
+        <li><strong>Ctrl/Cmd + Click</strong>: Toggle selection of individual colors.</li>
+    </ul>
+    <p>
+        When multiple colors are selected, a <strong>Batch Edit</strong> panel appears, replacing the single color editor.
+        Here you can adjust properties like Hue, Saturation, Brightness, or Contrast for all selected colors simultaneously.<br>
+        Please note that batch editing applies the new colors to the active layer automatically. (and it will avoid creating identical colors)<br>
+
+        <br>
+        <img src="_img/palette_editor_batch.png" alt="Palette Editor Batch" width="479"><br>
+        <br>
+    </p>
+
+
+
