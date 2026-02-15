@@ -214,6 +214,8 @@ var Editor = function(){
         })
 
         EventBus.on(COMMAND.TRANSFORMLAYER,()=>{
+            resizer.setOnUpdate(undefined);
+            touchData.transformLayer = undefined;
 
             let box = ImageFile.getLayerBoundingRect();
             if (!box.w || !box.h) return;
