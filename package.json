@@ -5,27 +5,16 @@
     "repository": "https://github.com/steffest/dpaint-js",
     "author": "Steffest",
     "license": "MIT",
-    "devDependencies": {
-        "@parcel/packager-raw-url": "^2.12.0",
-        "@parcel/transformer-webmanifest": "^2.12.0",
-        "@playwright/test": "^1.57.0",
-        "assert": "^2.0.0",
-        "browserify-zlib": "^0.2.0",
-        "buffer": "^5.5.0",
-        "events": "^3.1.0",
-        "http-server": "^14.1.1",
-        "parcel": "^2.12.0",
-        "playwright": "^1.57.0",
-        "process": "^0.11.10",
-        "stream-browserify": "^3.0.0",
-        "util": "^0.12.3"
-    },
     "scripts": {
         "clean": "rm -rf dist && rm -rf .parcel-cache",
         "cleanwin": "del /q .\\.parcel-cache\\* && del /q .\\dist\\*",
-        "build": "parcel build --public-url ./",
+        "build": "vite build --base=./",
         "start": "npx http-server",
         "test": "playwright test --config ./tests/playwright.config.js"
     },
-    "source": "index.html"
+    "source": "index.html",
+    "devDependencies": {
+        "playwright": "^1.58.2",
+        "vite": "^7.3.1"
+    }
 }

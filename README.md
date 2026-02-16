@@ -23,8 +23,7 @@ Online version available at https://dpaint.app
  - Heavy focus on colour reduction with fine-grained dithering options
  - Amiga focus
    - Read/write/convert Amiga icon files (all formats)
-   - Reads IFF ILBM images (all formats including HAM and 24-bit)
-   - Writes IFF ILBM images (up to 256 colors)
+   - Read and write IFF ILBM images (all formats including HAM6, HAM8, SHAM and 24-bit)
    - Read and write IFF ANIM files (Amiga animation format)
    - Read and write directly from Amiga Disk Files (ADF)
    - Embedded Amiga Emulator to preview your work in the real Deluxe Paint.
@@ -49,9 +48,9 @@ DPaint.js is written using ES6 modules and runs out of the box in modern browser
 Just serve "index.html" from a webserver and you're good to go.  
 
 There's an optional build step to create a compact version of DPaint.js if you like.  
-I'm using [Parcel.js](https://parceljs.org/) for this.  
+I'm using [Vite](https://vitejs.dev/) for this.  
 For convenience, I've included a "package.json" file.  
-open a terminal and run `npm install` to install Parcel.js and its dependencies.
+open a terminal and run `npm install` to install Vite and its dependencies.
 Then run `npm run build` to create a compact version of DPaint.js in the "dist" folder.
 
 ## Documentation
@@ -84,7 +83,6 @@ Planned for a future release if there's a need for it.
   - Support for non-square pixel modes such as HiRes and Interlaced
   - PSD import and export
   - SpriteSheet support
-  - Write HAM,SHAM and Dynamic HiRes images
   - Commodore 64 graphics modes
   - Animated Brushes
       
