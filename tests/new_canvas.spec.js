@@ -2,6 +2,8 @@
 import { test, expect } from '@playwright/test';
 
 test('Create New Canvas', async ({ page }) => {
+  page.on('dialog', d => d.dismiss());
+
   await page.goto('/index.html');
   await expect(page.locator('.panel.left .maincanvas')).toBeVisible();
 

@@ -1,6 +1,12 @@
 import { test, expect } from '@playwright/test';
 
 test('Create Brush from Selection', async ({ page }) => {
+  page.on('dialog', d => d.dismiss());
+
+  await page.addInitScript(() => {
+    window.localStorage.setItem('dp_about', 'true');
+  });
+
   page.on('console', msg => {
     if (msg.type() === 'error') console.log(msg.text());
   });
@@ -8,13 +14,7 @@ test('Create Brush from Selection', async ({ page }) => {
   await page.goto('/index.html');
   await expect(page.locator('.panel.left .maincanvas')).toBeVisible();
 
-  // check if the about panel is visible and close it
-  await page.locator('.caption > .button').click();
-  const aboutPanel = page.locator('.modalwindow');
-  if (await aboutPanel.isVisible()) {
-    await aboutPanel.click();
-  }
-
+  // About dialog is disabled via localStorage above.
 
   // 2. Select the "Select" tool
   const selectTool = page.locator('.button.icon.select');
