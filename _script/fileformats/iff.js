@@ -29,6 +29,7 @@ import ImageProcessing from "../util/imageProcessing.js";
 import Palette from "../ui/palette.js";
 import Color from "../util/color.js";
 import ImageFile from "../image.js";
+import HAMEncoder from "./hamEncoder.js";
 
 const FILETYPE = {
     IFF: { name: "IFF file" },
@@ -901,31 +902,71 @@ const IFF = (function () {
     }
 
     // creates an ArrayBuffer with the binary data of the image;
-    me.write = function (canvas) {
-        let colorCycle = Palette.getColorRanges() || [];
-        let lockPalette = colorCycle.length || Palette.isLocked();
-        let colors = lockPalette?Palette.get():ImageProcessing.getColors(canvas, 256);
-
-        let bitplaneCount = 1;
-        while (1 << bitplaneCount < colors.length) bitplaneCount++;
-        while (colors.length < 1 << bitplaneCount) colors.push([0, 0, 0]);
+    me.write = function (canvas, options) {
+        options = options || {};
+        let iffMode = options.iffMode || "standard";
+        let isHAM = iffMode === "ham6" || iffMode === "ham8" || iffMode === "sham";
 
         const w = canvas.width;
         const h = canvas.height;
         const pixels = canvas.getContext("2d").getImageData(0, 0, w, h).data;
 
+        let colors;
+        let bitplaneCount;
+        let hamCodes = null;
+        let shamPalettes = null;
+
+        if (isHAM) {
+            // HAM/SHAM encoding path.
+            let result;
+            if (iffMode === "ham6") {
+                result = HAMEncoder.encodeHAM6(pixels, w, h);
+                bitplaneCount = 6;
+            } else if (iffMode === "ham8") {
+                result = HAMEncoder.encodeHAM8(pixels, w, h);
+                bitplaneCount = 8;
+            } else {
+                // SHAM
+                result = HAMEncoder.encodeSHAM(pixels, w, h);
+                bitplaneCount = 6;
+                shamPalettes = result.shamPalettes;
+            }
+            hamCodes = result.codes;
+            // Convert palette from {r,g,b} objects to [r,g,b] arrays.
+            colors = result.palette.map(c => [c.r, c.g, c.b]);
+        } else {
+            // Standard indexed-color path.
+            let lockPalette = (Palette.getColorRanges() || []).length || Palette.isLocked();
+            colors = lockPalette ? Palette.get() : ImageProcessing.getColors(canvas, 256);
+
+            bitplaneCount = 1;
+            while (1 << bitplaneCount < colors.length) bitplaneCount++;
+            while (colors.length < 1 << bitplaneCount) colors.push([0, 0, 0]);
+        }
+
+        let colorCycle = isHAM ? [] : (Palette.getColorRanges() || []);
+
         const bytesPerLine = Math.ceil(w / 16) * 2;
         const bodySize = bytesPerLine * bitplaneCount * h;
 
         let colorCycleSize = 8 + 8; // header + data
-        let fileSize = 40 + 8 + 8;
-        fileSize += colors.length * 3;
+        let fileSize = 40 + 8 + 8; // FORM header + BMHD header + BODY header
+        fileSize += colors.length * 3; // CMAP data
         fileSize += bodySize;
         let colorRangeCount = colorCycle.length;
         if (colorRangeCount){
-            // we need at least 4 CRNG chunks to store, otherwise Deluxe Paint will inject default values
             colorRangeCount = Math.max(4,colorRangeCount);
             fileSize += (colorCycleSize * colorRangeCount);
+        }
+        // CAMG chunk for HAM modes: 12 bytes (4 tag + 4 size + 4 data).
+        if (isHAM) {
+            fileSize += 12;
+        }
+        // SHAM chunk: 8 header + 2 version + h * 16 * 2 palette bytes.
+        if (shamPalettes) {
+            let shamDataSize = 2 + h * 32;
+            fileSize += 8 + shamDataSize;
+            if (shamDataSize & 1) fileSize++; // IFF pad byte
         }
         if (fileSize & 1) fileSize++;
 
@@ -945,7 +986,7 @@ const IFF = (function () {
         file.writeWord(0);
         file.writeUbyte(bitplaneCount);
         file.writeUbyte(0);
-        file.writeUbyte(0);
+        file.writeUbyte(0); // compression = 0 (uncompressed)
         file.writeUbyte(0);
         file.writeWord(0);
         file.writeUbyte(1);
@@ -953,7 +994,7 @@ const IFF = (function () {
         file.writeWord(w);
         file.writeWord(h);
 
-        // palette
+        // palette (CMAP)
         file.writeString("CMAP");
         file.writeDWord(colors.length * 3);
         colors.forEach((color) => {
@@ -962,7 +1003,7 @@ const IFF = (function () {
             file.writeUbyte(color[2]);
         });
 
-        // color cycling
+        // color cycling (standard mode only)
         if (colorRangeCount){
             for (let i = 0; i < colorRangeCount; i++){
                 let range = colorCycle[i] || {active:0,reverse:0,low:0,high:0,fps:0};
@@ -983,49 +1024,100 @@ const IFF = (function () {
             }
         }
 
-        // body
+        // CAMG chunk for HAM modes.
+        if (isHAM) {
+            file.writeString("CAMG");
+            file.writeDWord(4);
+            file.writeDWord(0x0800); // HAM flag
+        }
+
+        // SHAM chunk: per-scanline palettes.
+        if (shamPalettes) {
+            let shamDataSize = 2 + h * 32;
+            file.writeString("SHAM");
+            file.writeDWord(shamDataSize);
+            file.writeWord(0); // version 0
+            for (let y = 0; y < h; y++) {
+                let pal = shamPalettes[y] || [];
+                for (let i = 0; i < 16; i++) {
+                    if (i < pal.length) {
+                        // Amiga 0x0RGB format: (r4 << 8) | (g4 << 4) | b4
+                        let c = pal[i];
+                        let r4 = Math.trunc(c.r / 17);
+                        let g4 = Math.trunc(c.g / 17);
+                        let b4 = Math.trunc(c.b / 17);
+                        file.writeWord((r4 << 8) | (g4 << 4) | b4);
+                    } else {
+                        file.writeWord(0);
+                    }
+                }
+            }
+            if (shamDataSize & 1) file.writeUbyte(0); // IFF pad byte
+        }
+
+        // body (BODY)
         file.writeString("BODY");
         file.writeDWord(bodySize);
         const bitplaneLines = [];
 
-        function getIndex(color) {
-            let index = colors.findIndex(
-                (c) =>
-                    c[0] === color[0] && c[1] === color[1] && c[2] === color[2]
-            );
-            if (index < 0) {
-                index = 0;
-                console.error("color not found in palette", color);
-            }
-            return index;
-        }
-
-        for (let y = 0; y < h; y++) {
-            for (var i = 0; i < bitplaneCount; i++) {
-                bitplaneLines[i] = new Uint8Array(bytesPerLine);
-            }
-            for (let x = 0; x < w; x++) {
-                let colorIndex = 0;
-                const pixel = (x + y * w) * 4;
-                const color = [
-                    pixels[pixel],
-                    pixels[pixel + 1],
-                    pixels[pixel + 2],
-                ];
-
-                // should we use an alpha threshold?
-                // const a = pixels[pixel + 3];
-
-                colorIndex = getIndex(color);
+        if (isHAM) {
+            // HAM path: use pre-computed codes array.
+            for (let y = 0; y < h; y++) {
+                for (var i = 0; i < bitplaneCount; i++) {
+                    bitplaneLines[i] = new Uint8Array(bytesPerLine);
+                }
+                for (let x = 0; x < w; x++) {
+                    let colorIndex = hamCodes[y * w + x];
+                    for (i = 0; i < bitplaneCount; i++) {
+                        if (colorIndex & (1 << i)) {
+                            bitplaneLines[i][x >> 3] |= 0x80 >> (x & 7);
+                        }
+                    }
+                }
                 for (i = 0; i < bitplaneCount; i++) {
-                    if (colorIndex & (1 << i)) {
-                        bitplaneLines[i][x >> 3] |= 0x80 >> (x & 7);
+                    for (let bi = 0; bi < bytesPerLine; bi++) {
+                        file.writeUbyte(bitplaneLines[i][bi]);
                     }
                 }
             }
-            for (i = 0; i < bitplaneCount; i++) {
-                for (let bi = 0; bi < bytesPerLine; bi++) {
-                    file.writeUbyte(bitplaneLines[i][bi]);
+        } else {
+            // Standard indexed-color path.
+            function getIndex(color) {
+                let index = colors.findIndex(
+                    (c) =>
+                        c[0] === color[0] && c[1] === color[1] && c[2] === color[2]
+                );
+                if (index < 0) {
+                    index = 0;
+                    console.error("color not found in palette", color);
+                }
+                return index;
+            }
+
+            for (let y = 0; y < h; y++) {
+                for (var i = 0; i < bitplaneCount; i++) {
+                    bitplaneLines[i] = new Uint8Array(bytesPerLine);
+                }
+                for (let x = 0; x < w; x++) {
+                    let colorIndex = 0;
+                    const pixel = (x + y * w) * 4;
+                    const color = [
+                        pixels[pixel],
+                        pixels[pixel + 1],
+                        pixels[pixel + 2],
+                    ];
+
+                    colorIndex = getIndex(color);
+                    for (i = 0; i < bitplaneCount; i++) {
+                        if (colorIndex & (1 << i)) {
+                            bitplaneLines[i][x >> 3] |= 0x80 >> (x & 7);
+                        }
+                    }
+                }
+                for (i = 0; i < bitplaneCount; i++) {
+                    for (let bi = 0; bi < bytesPerLine; bi++) {
+                        file.writeUbyte(bitplaneLines[i][bi]);
+                    }
                 }
             }
         }

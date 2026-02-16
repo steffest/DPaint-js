@@ -301,6 +301,20 @@ var SaveDialog = function(){
                                 )
                             )
                         ),
+                        $(".optionspanel.IFF",
+                            $(".content",
+                                $(".group",
+                                    $("label","Mode"),
+                                    $(".options",
+                                        {key:"iffMode"},
+                                        $(".option.selected",{value:"standard",onClick:selectOption},"Standard",$(".tooltip.left",$("div","Up to 256 indexed colors."))),
+                                        $(".option",{value:"ham6",onClick:selectOption},"HAM6",$(".tooltip.left",$("div","Hold-And-Modify."),$("div","4096 colors (OCS/ECS, 6 planes)."))),
+                                        $(".option",{value:"ham8",onClick:selectOption},"HAM8",$(".tooltip.left",$("div","Hold-And-Modify."),$("div","16M colors (AGA only, 8 planes)."))),
+                                        $(".option",{value:"sham",onClick:selectOption},"SHAM",$(".tooltip.left",$("div","Sliced HAM."),$("div","Per-scanline palette for best HAM6 quality.")))
+                                    )
+                                )
+                            )
+                        ),
                         $(".optionspanel.ANIM",
                             $(".content",
                                 $(".group",
