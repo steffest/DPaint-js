@@ -89,7 +89,7 @@ let Generate = function(){
             case "PNGIcon":
                 return await me.PNGIcon();
             case "IFF":
-                return me.iff();
+                return me.iff(options);
             case "BitPlanes":
                 return me.planes();
             case "BitMask":
@@ -125,21 +125,28 @@ let Generate = function(){
         }
     }
 
-    me.iff=(maxColors,tooManyColorMessage)=>{
-        maxColors = maxColors || 256;
-        let check = me.validate({
-            maxColors: maxColors
-        })
+    me.iff=(options)=>{
+        options = options || {};
+        let iffMode = options.iffMode || "standard";
+        let isHAM = iffMode === "ham6" || iffMode === "ham8" || iffMode === "sham";
 
-        if (!check.valid){
-            return {
-                result: "error",
-                title: "Save as IFF",
-                messages: ["Sorry, this image can't be saved as IFF."].concat(check.errors)
+        if (!isHAM) {
+            // Standard mode: validate color count.
+            let maxColors = 256;
+            let check = me.validate({
+                maxColors: maxColors
+            });
+
+            if (!check.valid){
+                return {
+                    result: "error",
+                    title: "Save as IFF",
+                    messages: ["Sorry, this image can't be saved as IFF."].concat(check.errors)
+                }
             }
         }
 
-        let buffer = IFF.write(ImageFile.getCanvas());
+        let buffer = IFF.write(ImageFile.getCanvas(), options);
         return {
             result: "ok",
             file: new Blob([buffer], {type: "application/octet-stream"})
