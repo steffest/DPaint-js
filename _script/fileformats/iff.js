@@ -66,6 +66,38 @@ const IFF = (function () {
 
         let index = 12;
 
+        function shamWordToRgb(word) {
+            // SHAM palette words are typically stored as 0RGB (12-bit), 4 bits per channel.
+            // Expand 0..15 to 0..255 via * 17.
+            const r = (word >> 8) & 0x0f;
+            const g = (word >> 4) & 0x0f;
+            const b = word & 0x0f;
+            return [r * 17, g * 17, b * 17];
+        }
+
+        function finalizeSham() {
+            if (!img.shamPalettes || !img.shamPalettes.length) return;
+            if (!img.height || img.height <= 0) return;
+
+            const pals = img.shamPalettes;
+            const h = img.height;
+            const expectedHalf = Math.ceil(h / 2);
+
+            // If the file is interlaced and SHAM provides per-even-line palettes, map y -> floor(y/2).
+            // Otherwise, map y directly.
+            let useHalfScanlineMap = false;
+            if (pals.length === expectedHalf) useHalfScanlineMap = true;
+            if (img.interlaced && pals.length < h && pals.length <= expectedHalf) useHalfScanlineMap = true;
+
+            img.shamPaletteByLine = new Array(h);
+            for (let y = 0; y < h; y++) {
+                let pi = useHalfScanlineMap ? Math.floor(y / 2) : y;
+                if (pi < 0) pi = 0;
+                if (pi >= pals.length) pi = pals.length - 1;
+                img.shamPaletteByLine[y] = pals[pi];
+            }
+        }
+
         function readChunk() {
             const chunk = {};
             chunk.name = file.readString(4);
@@ -180,6 +212,33 @@ const IFF = (function () {
                     img.ham = v & 0x800;
                     img.hires = v & 0x8000;
                     break;
+                case "SHAM": {
+                    // Sliced HAM (per-scanline palette). Common encoding: version (UWORD), then 16 UWORD colors per palette.
+                    // We store the decoded palettes and derive per-line palettes after all chunks are read (order is not guaranteed).
+                    if (chunk.size < 2) break;
+                    const version = file.readWord();
+                    img.shamVersion = version;
+
+                    // Only version 0 is supported; other versions are ignored (best-effort behavior).
+                    if (version !== 0) {
+                        img.shamUnsupported = true;
+                        break;
+                    }
+
+                    const remainingBytes = chunk.size - 2;
+                    const words = Math.floor(remainingBytes / 2);
+                    const paletteCount = Math.floor(words / 16);
+
+                    img.shamPalettes = [];
+                    for (let p = 0; p < paletteCount; p++) {
+                        const pal = [];
+                        for (let i = 0; i < 16; i++) {
+                            pal.push(shamWordToRgb(file.readWord()));
+                        }
+                        img.shamPalettes.push(pal);
+                    }
+                    break;
+                }
                 case "BODY":
                     img.body = [];
 
@@ -639,6 +698,7 @@ const IFF = (function () {
             if (chunk.size % 2 === 1) index++;
         }
 
+        finalizeSham();
         return img;
     };
 
@@ -670,6 +730,9 @@ const IFF = (function () {
         if (info.ham) {
             result += ` HAM${info.numPlanes < 7 ? "6" : "8"}`;
         }
+        if (info.shamPaletteByLine && info.shamPaletteByLine.length) {
+            result += " SHAM";
+        }
         if (info.trueColor) {
             result += " 24-bit";
         } else if (info.colors) {
@@ -688,6 +751,13 @@ const IFF = (function () {
     };
 
     me.toCanvas = function (img) {
+        //if (img && img.shamPaletteByLine && img.shamPaletteByLine.length && !img._shamAlerted) {
+        //    img._shamAlerted = true;
+        //    if (typeof alert === "function") {
+        //        alert("SHAM detected");
+        //    }
+        //}
+
         const canvas = document.createElement("canvas");
         canvas.width = img.width;
         canvas.height = img.height;
@@ -732,10 +802,12 @@ const IFF = (function () {
         let imageData = new ImageData(img.width, img.height);
         let count = 0;
         for (let y = 0; y < img.height; y++) {
+            const shamPalette = (img.shamPaletteByLine && img.shamPaletteByLine[y]) ? img.shamPaletteByLine[y] : null;
             let prevColor = [0, 0, 0];
             for (let x = 0; x < img.width; x++) {
                 let pixel = img.pixels[y][x];
-                let color = img.palette[pixel] || [0, 0, 0];
+                // In SHAM, the base palette changes per scanline; fall back to global CMAP.
+                let color = (shamPalette && shamPalette[pixel]) || img.palette[pixel] || [0, 0, 0];
                 if (img.ham) {
                     const modifier = img.hamPixels[y][x];
                     if (modifier) {

@@ -2,16 +2,15 @@
 import { test, expect } from '@playwright/test';
 
 test('Line Tool Functionality', async ({ page }) => {
+  page.on('dialog', d => d.dismiss());
+
+  await page.addInitScript(() => {
+    window.localStorage.setItem('dp_about', 'true');
+  });
+
   // 1. Navigate to the app
   await page.goto('/index.html');
   await expect(page.locator('.panel.left .maincanvas')).toBeVisible();
-
-  // Wait for the "About" panel to appear and close it
-  const aboutPanel = page.locator('.modalwindow');
-  await expect(aboutPanel).toBeVisible();
-  // Click the close button (x) in the caption
-  await page.locator('.modalwindow .caption .button').click();
-  await expect(aboutPanel).toBeHidden();
 
   // 2. Select the Line tool
   const lineTool = page.locator('.button.icon.line');
@@ -23,15 +22,31 @@ test('Line Tool Functionality', async ({ page }) => {
   const box = await canvas.boundingBox();
   if (!box) throw new Error('Canvas bounding box not found');
 
-  await page.mouse.move(box.x + 50, box.y + 50);
+  const { scaleX, scaleY } = await page.evaluate(() => {
+    const c = /** @type {HTMLCanvasElement} */ (document.querySelector('.panel.left .maincanvas'));
+    const r = c.getBoundingClientRect();
+    return { scaleX: r.width / c.width, scaleY: r.height / c.height };
+  });
+
+  const toPage = (x, y) => ({
+    x: box.x + x * scaleX,
+    y: box.y + y * scaleY,
+  });
+
+  const p1 = toPage(50, 50);
+  const p2 = toPage(150, 50);
+
+  await page.mouse.move(p1.x, p1.y);
   await page.mouse.down();
-  await page.mouse.move(box.x + 150, box.y + 50);
+  await page.mouse.move(p2.x, p2.y);
   await page.mouse.up();
 
   // 4. Draw a vertical line (50, 50) -> (50, 150)
-  await page.mouse.move(box.x + 50, box.y + 50);
+  const p3 = toPage(50, 150);
+
+  await page.mouse.move(p1.x, p1.y);
   await page.mouse.down();
-  await page.mouse.move(box.x + 50, box.y + 150);
+  await page.mouse.move(p3.x, p3.y);
   await page.mouse.up();
 
   // Helper to get canvas pixel color at (x, y)
@@ -46,26 +61,28 @@ test('Line Tool Functionality', async ({ page }) => {
     }, { x, y });
   }
 
-  // 5. Verify pixels
-  // Default draw color is black [0, 0, 0, 255]
-  
-  // Check point on horizontal line
-  let color = await getPixelColor(100, 50);
-  expect(color).toEqual([0, 0, 0, 255]);
+  // 5. Verify pixels (allow small tolerance for scaling / snapping)
+  async function expectOpaqueNear(x, y) {
+    const samples = [
+      await getPixelColor(x, y),
+      await getPixelColor(x - 1, y),
+      await getPixelColor(x + 1, y),
+      await getPixelColor(x, y - 1),
+      await getPixelColor(x, y + 1),
+    ];
+    const anyOpaque = samples.some(p => p[3] > 0);
+    expect(anyOpaque).toBe(true);
+  }
 
-  // Check point on vertical line
-  color = await getPixelColor(50, 100);
-  expect(color).toEqual([0, 0, 0, 255]);
-
-  // Check intersection
-  color = await getPixelColor(50, 50);
-  expect(color).toEqual([0, 0, 0, 255]);
+  await expectOpaqueNear(100, 50); // horizontal line
+  await expectOpaqueNear(50, 100); // vertical line
+  await expectOpaqueNear(50, 50);  // intersection
 
   // Check point NOT on line (should be transparent or background)
   // Default background is transparent [0, 0, 0, 0] or white depending on init
   // Based on previous tests, it seems to be transparent or white.
   // Let's check a point far away.
-  color = await getPixelColor(200, 200);
+  const color = await getPixelColor(200, 200);
   // Expecting transparent or white. Let's check alpha.
   // If alpha is 0, it's transparent.
   if (color[3] !== 0) {

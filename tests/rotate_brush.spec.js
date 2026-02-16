@@ -1,16 +1,15 @@
 import { test, expect } from '@playwright/test';
 
 test('Rotate Brush Functionality', async ({ page }) => {
+  page.on('dialog', d => d.dismiss());
+
+  await page.addInitScript(() => {
+    window.localStorage.setItem('dp_about', 'true');
+  });
+
   // 1. Navigate to the app
   await page.goto('/index.html');
   await expect(page.locator('.panel.left .maincanvas')).toBeVisible();
-
-  // Wait for the "About" panel to appear and close it
-  const aboutPanel = page.locator('.modalwindow');
-  await expect(aboutPanel).toBeVisible();
-  // Click the close button (x) in the caption
-  await page.locator('.modalwindow .caption .button').click();
-  await expect(aboutPanel).toBeHidden();
 
   // 2. Select the "Select" tool
   const selectTool = page.locator('.button.icon.select');
