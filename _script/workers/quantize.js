@@ -1,441 +1,233 @@
-onmessage = function(e)
-{
-	let lineIndex = e.data.LineIndex;
-	let canvasData = e.data.CanvasData;
-	let maxRecursionDepth = e.data.MaxRecursionDepth;
-	let bitsPerColor = e.data.BitsPerColor;
-	let colorCount = e.data.ColorCount;
-	let transparentColor = e.data.transparentColor;
 
-	// for colorcount < 8 we use the transparent color as color - otherwise we just add it.
-	let useTransParentColor = colorCount<7 && transparentColor;
 
-	let colorCube = createColorCube(canvasData,useTransParentColor?transparentColor:undefined);
+// Optimized Box structure using TypedArrays
+// Colors are stored in a flat Uint32Array: [r, g, b, count, r, g, b, count, ...]
+// A Box is just a range [startIndex, endIndex] into this array.
 
-	let colorCubeInfo = TrimColorCube(colorCube, { RedMin: 0, RedMax: 255, GreenMin: 0, GreenMax: 255, BlueMin: 0, BlueMax: 255 });
+function getBoxStats(colorsData, startIndex, endIndex) {
+    let minR = 255, maxR = 0;
+    let minG = 255, maxG = 0;
+    let minB = 255, maxB = 0;
+    let totalCount = 0;
 
-	let colors = new Array();
+    for (let i = startIndex; i < endIndex; i += 4) {
+        let r = colorsData[i];
+        let g = colorsData[i + 1];
+        let b = colorsData[i + 2];
+        let count = colorsData[i + 3];
 
-	quantizeRecursive(colorCube, colorCubeInfo, colors, 0, maxRecursionDepth);
+        if (r < minR) minR = r;
+        if (r > maxR) maxR = r;
+        if (g < minG) minG = g;
+        if (g > maxG) maxG = g;
+        if (b < minB) minB = b;
+        if (b > maxB) maxB = b;
+        totalCount += count;
+    }
 
-	if (transparentColor && !useTransParentColor){
-		// this is probably not really correct but well ...
-		colors.shift();
-	}
+    return {
+        minR, maxR, minG, maxG, minB, maxB,
+        totalCount,
+        rRange: maxR - minR,
+        gRange: maxG - minG,
+        bRange: maxB - minB
+    };
+}
 
-	colors.sort(function (Color1, Color2) { return (Color1.Red * 0.21 + Color1.Green * 0.72 + Color1.Blue * 0.07) - (Color2.Red * 0.21 + Color2.Green * 0.72 + Color2.Blue * 0.07) });
+function getAverageColor(colorsData, startIndex, endIndex) {
+    let r = 0, g = 0, b = 0;
+    let total = 0;
 
-	var ShadesPerColor = 1 << bitsPerColor;
+    for (let i = startIndex; i < endIndex; i += 4) {
+        let count = colorsData[i + 3];
+        r += colorsData[i] * count;
+        g += colorsData[i + 1] * count;
+        b += colorsData[i + 2] * count;
+        total += count;
+    }
 
-	for(var Index = 0; Index < colors.length; Index++){
-		colors[Index].Red = Math.floor(Math.floor(colors[Index].Red * ShadesPerColor / 256.0) * (255.0 / (ShadesPerColor - 1.0)));
-		colors[Index].Green = Math.floor(Math.floor(colors[Index].Green * ShadesPerColor / 256.0) * (255.0 / (ShadesPerColor - 1.0)));
-		colors[Index].Blue = Math.floor(Math.floor(colors[Index].Blue * ShadesPerColor / 256.0) * (255.0 / (ShadesPerColor - 1.0)));
-	}
+    if (total === 0) return [0, 0, 0];
 
-	for(var Index = colors.length; Index < colorCount; Index++) colors.push({ Red: 0, Green: 0, Blue: 0 });
+    return [
+        Math.round(r / total),
+        Math.round(g / total),
+        Math.round(b / total)
+    ];
+}
 
-	if (useTransParentColor){
-		// force exact match and move in front
-		var d=100000000;
-		var i = -1;
-		for(var Index = 0; Index < colors.length; Index++){
-			var distance =
-				Math.abs(colors[Index].Red - transparentColor[0]) +
-				Math.abs(colors[Index].Green - transparentColor[1]) +
-				Math.abs(colors[Index].Blue - transparentColor[2]);
-			if (distance<d){
-				d=distance;
-				i=Index;
-			}
-		}
-		if (i>=0){
-			colors.splice(i,1);
-			colors.unshift({Red: transparentColor[0], Green: transparentColor[1], Blue: transparentColor[2]})
-		}
-	}
+function medianCut(colorsData, targetCount) {
+    // colorsData is a Uint32Array [r, g, b, count, ...]
+    
+    // Initial box covers all colors
+    // Format: [startIndex, endIndex, score (count), minR, maxR, minG, maxG, minB, maxB]
+    // Actually we just need start/end index and maybe cache the stats? 
+    // Let's keep it simple: objects for boxes are fine as there are few boxes (max 256)
+    
+    let boxes = [{ start: 0, end: colorsData.length, stats: getBoxStats(colorsData, 0, colorsData.length) }];
 
-	self.postMessage({ LineIndex: lineIndex, Colors: colors });
+    while (boxes.length < targetCount) {
+        let bestScore = -1;
+        let bestIndex = -1;
 
-	self.close();
+        for (let i = 0; i < boxes.length; i++) {
+            if (boxes[i].end - boxes[i].start > 4) { // Can split? (more than 1 color)
+                const score = boxes[i].stats.totalCount;
+                if (score > bestScore) {
+                    bestScore = score;
+                    bestIndex = i;
+                }
+            }
+        }
+
+        if (bestIndex === -1) {
+            break;
+        }
+
+        const box = boxes[bestIndex];
+        const stats = box.stats;
+
+        // Split logic
+        const maxRange = Math.max(stats.rRange, stats.gRange, stats.bRange);
+        let offset = 0; // 0=r, 1=g, 2=b
+        if (maxRange === stats.gRange) offset = 1;
+        if (maxRange === stats.bRange) offset = 2;
+
+        // Sort the range in the TypedArray
+        // We need to implement a partial sort or just sort the sub-array?
+        // Sorting TypedArray in place is hard if we want to move 4-element tuples.
+        // It's easier to copy to a temporary array of objects, sort, and copy back? 
+        // OR better: use a custom sort function that swaps 4 elements at a time.
+        
+        // Quicksort implementation for 4-stride array
+        quicksortColors(colorsData, box.start, box.end, offset);
+        
+        // Find median
+        const halfCount = stats.totalCount / 2;
+        let currentCount = 0;
+        let splitIndex = box.start;
+
+        for (let i = box.start; i < box.end; i += 4) {
+            currentCount += colorsData[i+3];
+            if (currentCount >= halfCount) {
+                splitIndex = i + 4; // Include this color in first half
+                break;
+            }
+        }
+        
+        // Safety clamps
+        if (splitIndex >= box.end) splitIndex = box.end - 4;
+        if (splitIndex <= box.start) splitIndex = box.start + 4;
+
+        const box1 = { start: box.start, end: splitIndex, stats: getBoxStats(colorsData, box.start, splitIndex) };
+        const box2 = { start: splitIndex, end: box.end, stats: getBoxStats(colorsData, splitIndex, box.end) };
+        
+        boxes[bestIndex] = box1;
+        boxes.push(box2);
+    }
+
+    return boxes.map(b => getAverageColor(colorsData, b.start, b.end));
+}
+
+function quicksortColors(data, start, end, offset) {
+    // Standard quicksort but operating on 4-element tuples in Uint32Array
+    if (end - start <= 4) return;
+
+    const pivotIndex = Math.floor((start + end) / 8) * 4; // Middle(-ish)
+    const pivotValue = data[pivotIndex + offset];
+    
+    // Swap pivot to end
+    swapColors(data, pivotIndex, end - 4);
+    
+    let storeIndex = start;
+    for (let i = start; i < end - 4; i += 4) {
+        if (data[i + offset] < pivotValue) {
+            swapColors(data, i, storeIndex);
+            storeIndex += 4;
+        }
+    }
+    
+    // Swap pivot to its final place
+    swapColors(data, storeIndex, end - 4);
+    
+    quicksortColors(data, start, storeIndex, offset);
+    quicksortColors(data, storeIndex + 4, end, offset);
+}
+
+function swapColors(data, i, j) {
+    if (i === j) return;
+    let t0 = data[i];
+    let t1 = data[i+1];
+    let t2 = data[i+2];
+    let t3 = data[i+3];
+    
+    data[i] = data[j];
+    data[i+1] = data[j+1];
+    data[i+2] = data[j+2];
+    data[i+3] = data[j+3];
+    
+    data[j] = t0;
+    data[j+1] = t1;
+    data[j+2] = t2;
+    data[j+3] = t3;
+}
+
+
+self.onmessage = function (e) {
+    try {
+        const { imageData, count } = e.data;
+        const pixels = imageData.data;
+
+        // 1. Build Histogram
+        const colorMap = new Map();
+        const pixelCount = pixels.length / 4;
+        // For larger images, sample a subset of pixels to speed up histogram generation
+        // Aim for ~250k samples max for good performance/quality balance
+        let step = 1;
+        if (pixelCount > 250000) {
+            step = Math.ceil(pixelCount / 250000);
+        }
+        // ensure alignment to 4 bytes
+        const byteStep = step * 4;
+
+        for (let i = 0; i < pixels.length; i += byteStep) {
+            // Check alpha transparency
+            if (pixels[i + 3] < 10) continue;
+
+            const r = pixels[i];
+            const g = pixels[i + 1];
+            const b = pixels[i + 2];
+            const key = (r << 16) | (g << 8) | b;
+            colorMap.set(key, (colorMap.get(key) || 0) + 1);
+        }
+
+        // 2. Convert to Flat Array (Uint32Array)
+        // [r, g, b, count, r, g, b, count...]
+        const uniqueColorCount = colorMap.size;
+        const colorsData = new Uint32Array(uniqueColorCount * 4);
+        let idx = 0;
+        
+        for (let [key, count] of colorMap) {
+            colorsData[idx++] = (key >> 16) & 0xFF; // r
+            colorsData[idx++] = (key >> 8) & 0xFF;  // g
+            colorsData[idx++] = key & 0xFF;         // b
+            colorsData[idx++] = count;
+        }
+        
+        if (uniqueColorCount === 0) {
+             self.postMessage({ palette: [[0,0,0]] });
+             self.close();
+             return;
+        }
+
+        // 3. Quantize
+        const palette = medianCut(colorsData, count);
+
+        // 4. Return
+        self.postMessage({ palette: palette });
+    } catch (err) {
+        console.error("Quantization Error:", err);
+        self.postMessage({ palette: [[0,0,0]], error: err.message });
+    } finally {
+        self.close();
+    }
 };
-
-function createColorCube(CanvasData, transparentColor)
-{
-	var TotalColorCount = 0;
-	var ColorCube = {}; // Note: an associative array is actually an object.
-
-	for(var Y = 0; Y < CanvasData.height; Y++)
-	{
-		for(var X = 0; X < CanvasData.width; X++)
-		{
-			var PixelIndex = (X + Y * CanvasData.width) * 4;
-
-			var Red = CanvasData.data[PixelIndex];
-			var Green = CanvasData.data[PixelIndex + 1];
-			var Blue = CanvasData.data[PixelIndex + 2];
-			var Alpha = CanvasData.data[PixelIndex + 3];
-
-			//console.error(Alpha);
-			if (transparentColor && Alpha<100){
-				Red = transparentColor[0];
-				Green = transparentColor[1];
-				Blue = transparentColor[2];
-				Alpha = 255;
-			};
-			//var BitsPerColor = 4;
-			//var ShadesPerColor = 1 << BitsPerColor;
-
-			//Red = Math.round(Math.round(Red * (ShadesPerColor - 1) / 255) * 255 / (ShadesPerColor - 1));
-			//Green = Math.round(Math.round(Green * (ShadesPerColor - 1) / 255) * 255 / (ShadesPerColor - 1));
-			//Blue = Math.round(Math.round(Blue * (ShadesPerColor - 1) / 255) * 255 / (ShadesPerColor - 1));
-
-			if(Alpha == 255)
-			{
-				if(ColorCube[Red * 256 * 256 + Green * 256 + Blue]){
-					ColorCube[Red * 256 * 256 + Green * 256 + Blue]++;
-				}else{
-					ColorCube[Red * 256 * 256 + Green * 256 + Blue] = 1;
-					TotalColorCount++;
-				}
-			}
-		}
-	}
-
-	return ColorCube;
-}
-
-function TrimColorCube(ColorCube, ColorCubeInfo)
-{
-	var RedMin = 255;
-	var RedMax = 0;
-
-	var GreenMin = 255;
-	var GreenMax = 0;
-
-	var BlueMin = 255;
-	var BlueMax = 0;
-
-	var RedCounts = new Uint32Array(256);
-	var GreenCounts = new Uint32Array(256);
-	var BlueCounts = new Uint32Array(256);
-
-	var TotalColorCount = 0;
-
-	var AverageRed = 0;
-	var AverageGreen = 0;
-	var AverageBlue = 0;
-
-	for(var Color in ColorCube)
-	{
-		var Red = Color >> 16;
-		var Green = (Color >> 8) & 0xff;
-		var Blue = Color & 0xff;
-
-		if(Red >= ColorCubeInfo.RedMin && Red <= ColorCubeInfo.RedMax &&
-			Green >= ColorCubeInfo.GreenMin && Green <= ColorCubeInfo.GreenMax &&
-			Blue >= ColorCubeInfo.BlueMin && Blue <= ColorCubeInfo.BlueMax)
-		{
-			var ColorCount = ColorCube[Color];
-
-			// throw JSON.stringify({ data: { Color: Color, Red: Red, Green: Green, Blue: Blue, ColorCount: ColorCount } });
-
-			RedCounts[Red] += ColorCount;
-			GreenCounts[Green] += ColorCount;
-			BlueCounts[Blue] += ColorCount;
-
-			if(Red < RedMin)
-				RedMin = Red;
-
-			if(Red > RedMax)
-				RedMax = Red;
-
-			if(Green < GreenMin)
-				GreenMin = Green;
-
-			if(Green > GreenMax)
-				GreenMax = Green;
-
-			if(Blue < BlueMin)
-				BlueMin = Blue;
-
-			if(Blue > BlueMax)
-				BlueMax = Blue;
-
-			AverageRed += Red * ColorCount;
-			AverageGreen += Green * ColorCount;
-			AverageBlue += Blue * ColorCount;
-
-			TotalColorCount += ColorCount;
-		}
-	}
-
-	AverageRed = Math.round(AverageRed / TotalColorCount);
-	AverageGreen = Math.round(AverageGreen / TotalColorCount);
-	AverageBlue = Math.round(AverageBlue / TotalColorCount);
-
-	return { RedMin: RedMin, RedMax: RedMax, GreenMin: GreenMin, GreenMax: GreenMax, BlueMin: BlueMin, BlueMax: BlueMax, RedCounts: RedCounts, GreenCounts: GreenCounts, BlueCounts: BlueCounts, Red: AverageRed, Green: AverageGreen, Blue: AverageBlue, ColorCount: TotalColorCount };
-}
-
-function QuantizationCountWeight(Count)
-{
-	return Math.pow(Count, 0.2); // Standard.
-	//return Math.pow(Count, 0.1);
-	//return Count;
-}
-
-function quantizeRecursive(ColorCube, ColorCubeInfo, Palette, RecursionDepth, MaxRecursionDepth)
-{
-	var RedLength = ColorCubeInfo.RedMax - ColorCubeInfo.RedMin;
-	var GreenLength = ColorCubeInfo.GreenMax - ColorCubeInfo.GreenMin;
-	var BlueLength = ColorCubeInfo.BlueMax - ColorCubeInfo.BlueMin;
-
-	if(Math.max(RedLength, GreenLength, BlueLength) == 1)
-		return;
-
-	if(RecursionDepth == MaxRecursionDepth)
-	{
-		Palette.push({ Red: ColorCubeInfo.Red, Green: ColorCubeInfo.Green, Blue: ColorCubeInfo.Blue });
-
-		return;
-	}
-
-	var NewColorCubeInfo = new Array();
-
-	NewColorCubeInfo.RedMin = ColorCubeInfo.RedMin;
-	NewColorCubeInfo.RedMax = ColorCubeInfo.RedMax;
-	NewColorCubeInfo.GreenMin = ColorCubeInfo.GreenMin;
-	NewColorCubeInfo.GreenMax = ColorCubeInfo.GreenMax;
-	NewColorCubeInfo.BlueMin = ColorCubeInfo.BlueMin;
-	NewColorCubeInfo.BlueMax = ColorCubeInfo.BlueMax;
-
-	if(RedLength >= GreenLength && RedLength >= BlueLength)
-	{
-		var LowIndex = ColorCubeInfo.RedMin;
-		var HighIndex = ColorCubeInfo.RedMax;
-		var LowCount = QuantizationCountWeight(ColorCubeInfo.RedCounts[LowIndex]);
-		var HighCount = QuantizationCountWeight(ColorCubeInfo.RedCounts[HighIndex]);
-
-		while(LowIndex < HighIndex - 1)
-		{
-			if(LowCount < HighCount)
-			{
-				LowCount += QuantizationCountWeight(ColorCubeInfo.RedCounts[++LowIndex]);
-			}
-			else
-			{
-				HighCount += QuantizationCountWeight(ColorCubeInfo.RedCounts[--HighIndex]);
-			}
-		}
-
-		ColorCubeInfo.RedMax = LowIndex;
-		NewColorCubeInfo.RedMin = HighIndex;
-	}
-	else if(GreenLength >= RedLength && GreenLength >= BlueLength)
-	{
-		var LowIndex = ColorCubeInfo.GreenMin;
-		var HighIndex = ColorCubeInfo.GreenMax;
-		var LowCount = QuantizationCountWeight(ColorCubeInfo.GreenCounts[LowIndex]);
-		var HighCount = QuantizationCountWeight(ColorCubeInfo.GreenCounts[HighIndex]);
-
-		while(LowIndex < HighIndex - 1)
-		{
-			if(LowCount < HighCount)
-			{
-				LowCount += QuantizationCountWeight(ColorCubeInfo.GreenCounts[++LowIndex]);
-			}
-			else
-			{
-				HighCount += QuantizationCountWeight(ColorCubeInfo.GreenCounts[--HighIndex]);
-			}
-		}
-
-		ColorCubeInfo.GreenMax = LowIndex;
-		NewColorCubeInfo.GreenMin = HighIndex;
-	}
-	else
-	{
-		var LowIndex = ColorCubeInfo.BlueMin;
-		var HighIndex = ColorCubeInfo.BlueMax;
-		var LowCount = QuantizationCountWeight(ColorCubeInfo.BlueCounts[LowIndex]);
-		var HighCount = QuantizationCountWeight(ColorCubeInfo.BlueCounts[HighIndex]);
-
-		while(LowIndex < HighIndex - 1)
-		{
-			if(LowCount < HighCount)
-			{
-				LowCount += QuantizationCountWeight(ColorCubeInfo.BlueCounts[++LowIndex]);
-			}
-			else
-			{
-				HighCount += QuantizationCountWeight(ColorCubeInfo.BlueCounts[--HighIndex]);
-			}
-		}
-
-		ColorCubeInfo.BlueMax = LowIndex;
-		NewColorCubeInfo.BlueMin = HighIndex;
-	}
-
-	quantizeRecursive(ColorCube, TrimColorCube(ColorCube, ColorCubeInfo), Palette, RecursionDepth + 1, MaxRecursionDepth);
-	quantizeRecursive(ColorCube, TrimColorCube(ColorCube, NewColorCubeInfo), Palette, RecursionDepth + 1, MaxRecursionDepth);
-}
-
-function QuantizeColors(Canvas, ColorCount)
-{
-	var ColorCube = createColorCube(Canvas);
-	var ColorCubeInfos = new Array(TrimColorCube(ColorCube, { RedMin: 0, RedMax: 255, GreenMin: 0, GreenMax: 255, BlueMin: 0, BlueMax: 255 }));
-
-	while(ColorCubeInfos.length < ColorCount)
-	{
-		var LongestCubeLength = 0;
-		var LongestCubeIndex = 0;
-
-		var HeaviestCubeCount = 0;
-		var HeaviestCubeIndex = 0;
-
-		var RedLength;
-		var GreenLength;
-		var BlueLength;
-
-		for(var Index = 0; Index < ColorCubeInfos.length; Index++)
-		{
-			RedLength = ColorCubeInfos[Index].RedMax - ColorCubeInfos[Index].RedMin;
-			GreenLength = ColorCubeInfos[Index].GreenMax - ColorCubeInfos[Index].GreenMin;
-			BlueLength = ColorCubeInfos[Index].BlueMax - ColorCubeInfos[Index].BlueMin;
-
-			if(Math.max(RedLength, GreenLength, BlueLength) > LongestCubeLength)
-			{
-				LongestCubeLength = Math.max(RedLength, GreenLength, BlueLength);
-				LongestCubeIndex = Index;
-			}
-
-			if(Math.max(RedLength, GreenLength, BlueLength) > 1 && ColorCubeInfos[Index].ColorCount > HeaviestCubeCount)
-			{
-				HeaviestCubeCount = ColorCubeInfos[Index].ColorCount;
-				HeaviestCubeIndex = Index;
-			}
-		}
-
-		var OldColorCubeInfo = ColorCubeInfos[LongestCubeIndex];
-		//var OldColorCubeInfo = ColorCubeInfos[HeaviestCubeIndex];
-		var NewColorCubeInfo = new Array();
-
-		NewColorCubeInfo.RedMin = OldColorCubeInfo.RedMin;
-		NewColorCubeInfo.RedMax = OldColorCubeInfo.RedMax;
-		NewColorCubeInfo.GreenMin = OldColorCubeInfo.GreenMin;
-		NewColorCubeInfo.GreenMax = OldColorCubeInfo.GreenMax;
-		NewColorCubeInfo.BlueMin = OldColorCubeInfo.BlueMin;
-		NewColorCubeInfo.BlueMax = OldColorCubeInfo.BlueMax;
-
-		RedLength = OldColorCubeInfo.RedMax - OldColorCubeInfo.RedMin;
-		GreenLength = OldColorCubeInfo.GreenMax - OldColorCubeInfo.GreenMin;
-		BlueLength = OldColorCubeInfo.BlueMax - OldColorCubeInfo.BlueMin;
-
-		if(RedLength >= GreenLength && RedLength >= BlueLength)
-		{
-			if(RedLength > 1)
-			{
-				var LowIndex = OldColorCubeInfo.RedMin;
-				var HighIndex = OldColorCubeInfo.RedMax;
-				var LowCount = Math.pow(OldColorCubeInfo.RedCounts[LowIndex], 0.2);
-				var HighCount = Math.pow(OldColorCubeInfo.RedCounts[HighIndex], 0.2);
-
-				while(LowIndex < HighIndex - 1)
-				{
-					if(LowCount < HighCount)
-					{
-						LowCount += Math.pow(OldColorCubeInfo.RedCounts[++LowIndex], 0.2);
-					}
-					else
-					{
-						HighCount += Math.pow(OldColorCubeInfo.RedCounts[--HighIndex], 0.2);
-					}
-				}
-
-				//OldColorCubeInfo.RedMax = LowIndex;
-				//NewColorCubeInfo.RedMin = HighIndex;
-
-				NewColorCubeInfo.RedMax = OldColorCubeInfo.RedMax;
-				OldColorCubeInfo.RedMax = OldColorCubeInfo.RedMin + Math.floor(RedLength / 2.0);
-				NewColorCubeInfo.RedMin = OldColorCubeInfo.RedMax + 1;
-			}
-			else
-			{
-				break;
-			}
-		}
-		else if(GreenLength >= RedLength && GreenLength >= BlueLength)
-		{
-			if(GreenLength > 1)
-			{
-				var LowIndex = OldColorCubeInfo.GreenMin;
-				var HighIndex = OldColorCubeInfo.GreenMax;
-				var LowCount = Math.pow(OldColorCubeInfo.GreenCounts[LowIndex], 0.2);
-				var HighCount = Math.pow(OldColorCubeInfo.GreenCounts[HighIndex], 0.2);
-
-				while(LowIndex < HighIndex - 1)
-				{
-					if(LowCount < HighCount)
-					{
-						LowCount += OldColorCubeInfo.GreenCounts[++LowIndex];
-					}
-					else
-					{
-						HighCount += OldColorCubeInfo.GreenCounts[--HighIndex];
-					}
-				}
-
-				//OldColorCubeInfo.GreenMax = LowIndex;
-				//NewColorCubeInfo.GreenMin = HighIndex;
-
-				NewColorCubeInfo.GreenMax = OldColorCubeInfo.GreenMax;
-				OldColorCubeInfo.GreenMax = OldColorCubeInfo.GreenMin + Math.floor(GreenLength / 2.0);
-				NewColorCubeInfo.GreenMin = OldColorCubeInfo.GreenMax + 1;
-			}
-			else
-			{
-				break;
-			}
-		}
-		else
-		{
-			if(BlueLength > 1)
-			{
-				var LowIndex = OldColorCubeInfo.BlueMin;
-				var HighIndex = OldColorCubeInfo.BlueMax;
-				var LowCount = Math.pow(OldColorCubeInfo.BlueCounts[LowIndex], 0.2);
-				var HighCount = Math.pow(OldColorCubeInfo.BlueCounts[HighIndex], 0.2);
-
-				while(LowIndex < HighIndex - 1)
-				{
-					if(LowCount < HighCount)
-					{
-						LowCount += Math.pow(OldColorCubeInfo.BlueCounts[++LowIndex], 0.2);
-					}
-					else
-					{
-						HighCount += Math.pow(OldColorCubeInfo.BlueCounts[--HighIndex], 0.2);
-					}
-				}
-
-				//OldColorCubeInfo.BlueMax = LowIndex;
-				//NewColorCubeInfo.BlueMin = HighIndex;
-
-				NewColorCubeInfo.BlueMax = OldColorCubeInfo.BlueMax;
-				OldColorCubeInfo.BlueMax = OldColorCubeInfo.BlueMin + Math.floor(BlueLength / 2.0);
-				NewColorCubeInfo.BlueMin = OldColorCubeInfo.BlueMax + 1;
-			}
-			else
-			{
-				break;
-			}
-		}
-
-		ColorCubeInfos[LongestCubeIndex] = TrimColorCube(ColorCube, OldColorCubeInfo);
-		//ColorCubeInfos[HeaviestCubeIndex] = TrimColorCube(ColorCube, OldColorCubeInfo);
-		ColorCubeInfos.push(TrimColorCube(ColorCube, NewColorCubeInfo));
-	}
-
-	return ColorCubeInfos;
-}
-

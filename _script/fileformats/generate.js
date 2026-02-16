@@ -132,7 +132,7 @@ let Generate = function(){
 
         if (!isHAM) {
             // Standard mode: validate color count.
-            let maxColors = 256;
+            let maxColors = options.maxColors || 256;
             let check = me.validate({
                 maxColors: maxColors
             });

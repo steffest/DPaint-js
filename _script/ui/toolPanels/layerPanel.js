@@ -176,7 +176,7 @@ let LayerPanel = function(){
 
             elm.onContextMenu = ()=>{
                 let items = [];
-                if (max>1) items.push ({label: "Remove Layer", command: COMMAND.DELETELAYER});
+                if (max>0) items.push ({label: "Remove Layer", command: COMMAND.DELETELAYER});
                 items.push ({label: "Duplicate Layer", command: COMMAND.DUPLICATELAYER});
                 items.push ({label: "Rename Layer", action: ()=>{
                     renameLayer(i);

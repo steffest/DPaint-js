@@ -564,7 +564,6 @@ var SaveDialog = function(){
 
         let result = await Generate.file(generator,currentSaveOptions);
         if (result){
-            console.error(result);
             if (result.file){
                 await saveFile(result.file,getFileName() + "." + fileType.extension,fileType);
             }

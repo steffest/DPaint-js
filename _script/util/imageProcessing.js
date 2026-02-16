@@ -3,6 +3,7 @@ import {COMMAND, EVENT} from "../enum.js";
 import Palette from "../ui/palette.js";
 import ImageFile from "../image.js";
 import Color from "./color.js";
+import { runWebGLQuantizer } from "./webgl-quantizer.js";
 
 var ImageProcessing = function(){
 	var me = {};
@@ -143,7 +144,7 @@ var ImageProcessing = function(){
 
 	};
 	
-	me.reduce = function(canvas,colors,_alphaThreshold,ditherIndex,useAlphaThreshold,ditherAmount){
+	me.reduce = function(canvas,colors,_alphaThreshold,ditherIndex,useAlphaThreshold,ditherAmount,quantizationMethod){
 
 		alphaThreshold = _alphaThreshold || 0;
 		ditherPattern = dithering[ditherIndex || 0].pattern;
@@ -189,7 +190,7 @@ var ImageProcessing = function(){
 
 		if (useAlphaThreshold) me.matting(canvas);
 		
-		processImage(canvas, mode, bitsPerColor, ditherPattern, "id");
+		processImage(canvas, mode, bitsPerColor, ditherPattern, "id", quantizationMethod);
 	};
 
 	function RgbToSrgb(ColorChannel) {
@@ -205,6 +206,26 @@ var ImageProcessing = function(){
 	}
 	
 	function remapImage(canvas, palette, ditherPattern) {
+        
+        let ditherType = null;
+        let ditherAmount = 0;
+
+        if (!ditherPattern) {
+            ditherType = "none";
+        } else if (ditherPattern.length > 16) {
+            ditherType = "bayer";
+            let amount = ditherPattern[0]; // This is 0..1
+            ditherAmount = amount * palette.length; // Adaptation for shader logic
+        }
+
+        if (ditherType) {
+             // ensure palette is compatible (array of arrays or objects -> array of arrays handled by webgl-quantizer now?)
+             // actually webgl-quantizer handles objects now.
+             // But we need to make sure we don't pass weird stuff.
+             let success = runWebGLQuantizer(canvas, palette, ditherType, null, ditherAmount, 1.0);
+             if (success) return;
+        }
+
 		let ctx = canvas.getContext("2d");
 		let data = ctx.getImageData(0, 0, canvas.width, canvas.height);
 
@@ -212,10 +233,11 @@ var ImageProcessing = function(){
 
 
 		for(let i = 0; i < palette.length; i++){
-			let r = typeof palette[i][0] === "number" ? palette[i][0] : palette[i].Red;
-			let g = typeof palette[i][1] === "number" ? palette[i][1] : palette[i].Green;
-			let b = typeof palette[i][2] === "number" ? palette[i][2] : palette[i].Blue;
-			mixedColors.push({ Red: r, Green: g, Blue: b, TrueRed: SrgbToRgb(r), TrueGreen: SrgbToRgb(g), TrueBlue: SrgbToRgb(b) });
+            let c = palette[i];
+			let r = c[0];
+			let g = c[1];
+			let b = c[2];
+			mixedColors.push({ r: r, g: g, b: b, TrueRed: SrgbToRgb(r), TrueGreen: SrgbToRgb(g), TrueBlue: SrgbToRgb(b) });
 		}
 
 
@@ -235,7 +257,7 @@ var ImageProcessing = function(){
 						let g = RgbToSrgb((mixedColors[i2].TrueGreen + mixedColors[i3].TrueGreen) / 2.0);
 						let b = RgbToSrgb((mixedColors[i2].TrueBlue + mixedColors[i3].TrueBlue) / 2.0);
 
-						mixedColors.push({ Index1: i2, Index2: i3, Red: r, Green: g, Blue: b, TrueRed: SrgbToRgb(r), TrueGreen: SrgbToRgb(g), TrueBlue: SrgbToRgb(b) });
+						mixedColors.push({ Index1: i2, Index2: i3, r: r, g: g, b: b, TrueRed: SrgbToRgb(r), TrueGreen: SrgbToRgb(g), TrueBlue: SrgbToRgb(b) });
 					}
 				}
 			}
@@ -404,25 +426,25 @@ var ImageProcessing = function(){
 									RemappedColorIndex = palette[RemappedColorIndex].Index2;
 							}
 
-							data.data[pixelIndex] = palette[RemappedColorIndex].Red;
-							data.data[pixelIndex + 1] = palette[RemappedColorIndex].Green;
-							data.data[pixelIndex + 2] = palette[RemappedColorIndex].Blue;
+							data.data[pixelIndex] = palette[RemappedColorIndex].r;
+							data.data[pixelIndex + 1] = palette[RemappedColorIndex].g;
+							data.data[pixelIndex + 2] = palette[RemappedColorIndex].b;
 							data.data[pixelIndex + 3] = alpha;
 						}
 						else if (ditherPattern.length > 16){
 							// Bayer - already applied to color before matching
 							// Just write the result
 							var c = palette[RemappedColorIndex];
-							data.data[pixelIndex] = c.Red;
-							data.data[pixelIndex + 1] = c.Green;
-							data.data[pixelIndex + 2] =c.Blue;
+							data.data[pixelIndex] = c.r;
+							data.data[pixelIndex + 1] = c.g;
+							data.data[pixelIndex + 2] = c.b;
 							data.data[pixelIndex + 3] = alpha;
 
 						}
 						else { // Error diffusion.
-							var RedDelta = palette[RemappedColorIndex].Red - Red;
-							var GreenDelta = palette[RemappedColorIndex].Green - Green;
-							var BlueDelta = palette[RemappedColorIndex].Blue - Blue;
+							var RedDelta = palette[RemappedColorIndex].r - Red;
+							var GreenDelta = palette[RemappedColorIndex].g - Green;
+							var BlueDelta = palette[RemappedColorIndex].b - Blue;
 
 							if(X < canvas.width - 2)
 							{
@@ -520,17 +542,17 @@ var ImageProcessing = function(){
 								}
 							}
 
-							data.data[pixelIndex] = palette[RemappedColorIndex].Red;
-							data.data[pixelIndex + 1] = palette[RemappedColorIndex].Green;
-							data.data[pixelIndex + 2] = palette[RemappedColorIndex].Blue;
+							data.data[pixelIndex] = palette[RemappedColorIndex].r;
+							data.data[pixelIndex + 1] = palette[RemappedColorIndex].g;
+							data.data[pixelIndex + 2] = palette[RemappedColorIndex].b;
 							data.data[pixelIndex + 3] = alpha;
 						}
 					}
 					else {
 						var c = palette[RemappedColorIndex];
-						data.data[pixelIndex] = c.Red;
-						data.data[pixelIndex + 1] = c.Green;
-						data.data[pixelIndex + 2] =c.Blue;
+						data.data[pixelIndex] = c.r;
+						data.data[pixelIndex + 1] = c.g;
+						data.data[pixelIndex + 2] = c.b;
 						data.data[pixelIndex + 3] = alpha;
 					}
 				}
@@ -541,7 +563,7 @@ var ImageProcessing = function(){
 	}
 
 
-	function processImage(canvas, colorCount, bitsPerColor, ditherPattern, Id) {
+	function processImage(canvas, colorCount, bitsPerColor, ditherPattern, Id, quantizationMethod) {
 		var colors = [];
 		var useTransparentColor = false;
 
@@ -568,7 +590,8 @@ var ImageProcessing = function(){
 			// check if we can reuse the previous palette
 			// we can reuse it if the color count is the same and we have a palette
 			// AND if we are not reducing to specific bit depth (which is currently hardcoded to 3 anyway but let's be safe)
-
+            // AND if the quantization method is the same?
+            
 			if (imageInfos.paletteReduced && imageInfos.paletteReduced.length === colorCount && !isNaN(colorCount)){
 				// reuse palette
 				// console.log("reusing palette for dithering");
@@ -585,8 +608,9 @@ var ImageProcessing = function(){
 				while(Math.pow(2, MaxRecursionDepth) < colorCount) MaxRecursionDepth++;
 
 
+				let workerUrl = quantizationMethod === 1 ? '../workers/quantize2.js' : '../workers/quantize.js';
 				let worker = new Worker(
-					new URL('../workers/quantize2.js', import.meta.url),
+					new URL(workerUrl, import.meta.url),
 					{type: 'module'}
 				);
 
@@ -603,20 +627,34 @@ var ImageProcessing = function(){
 					"message",
 					function(e)
 					{
-						//console.error(e);
-						var paletteReduced = e.data.palette;
+                        if (e.data.error) {
+                            console.error("Worker Error:", e.data.error);
+                            // Fallback? or just finish
+                        }
+						var paletteReduced = e.data.palette || [[0,0,0]];
 						imageInfos.paletteReduced = paletteReduced; // cache the palette!
 
 						// NOW apply dithering with the calculated palette
 						remapImage(canvas, paletteReduced, ditherPattern);
 
 						if (useTransparentColor && colorCount>4){
-							paletteReduced.unshift([transparentColor[0], transparentColor[1], transparentColor[2]])
+							// Use array format for consistency
+							paletteReduced.unshift([
+                                transparentColor[0],
+                                transparentColor[1],
+                                transparentColor[2]
+                            ]);
 						}
 
 						updateImageWindow(Id, canvas, paletteReduced);
 					},
 					false);
+                
+                worker.addEventListener("error", function(e) {
+                    console.error("Worker connection error:", e);
+                    // Ensure we don't hang indenfinitely
+                    EventBus.trigger(EVENT.paletteProcessingEnd);
+                });
 
 				worker.postMessage(data);
 					
@@ -624,8 +662,9 @@ var ImageProcessing = function(){
 
 				return;
 			}else{
-				for (var Index = 0; Index < imageInfos.Colors.length; Index++)
-					colors.push({ Red: imageInfos.Colors[Index].Red, Green: imageInfos.Colors[Index].Green, Blue: imageInfos.Colors[Index].Blue });
+				for (var Index = 0; Index < imageInfos.Colors.length; Index++) {
+					colors.push(imageInfos.Colors[Index]);
+                }
 			}
 
 			var ShadesPerColor = 1 << bitsPerColor;
@@ -635,9 +674,9 @@ var ImageProcessing = function(){
 				var ShadesScale = (ShadesPerColor - 1) / 255;
 				var InverseShadesScale = 1 / ShadesScale;
 
-				colors[Index].Red = Math.round(Math.round(colors[Index].Red * ShadesScale) * InverseShadesScale);
-				colors[Index].Green = Math.round(Math.round(colors[Index].Green * ShadesScale) * InverseShadesScale);
-				colors[Index].Blue = Math.round(Math.round(colors[Index].Blue * ShadesScale) * InverseShadesScale);
+				colors[Index][0] = Math.round(Math.round(colors[Index][0] * ShadesScale) * InverseShadesScale);
+				colors[Index][1] = Math.round(Math.round(colors[Index][1] * ShadesScale) * InverseShadesScale);
+				colors[Index][2] = Math.round(Math.round(colors[Index][2] * ShadesScale) * InverseShadesScale);
 			}
 		}
 
@@ -647,8 +686,6 @@ var ImageProcessing = function(){
 	
 	
 	function updateImageWindow(Id, canvas, palette){
-		//console.error(imageInfos);
-		
 		if (palette){
 
 			// check if we need to reduce the bit depth of the palette

@@ -1668,23 +1668,40 @@ body.presentation .statusbar {
 }
 .sidepanel .subpanel .button.square,
 .contentpanel .subpanel .button.square {
-  position: absolute;
-  right: 4px;
-  top: 4px;
   width: 16px;
-  height: 16px;
+  min-width: 16px;
+  height: 20px;
   border: 1px solid black;
   text-align: center;
-  line-height: 16px;
+  line-height: 20px;
   font-size: 12px;
+  border-right: none;
+  position: relative;
+}
+.sidepanel .subpanel .button.square:after,
+.contentpanel .subpanel .button.square:after {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  background-image: url("../_img/caret.svg");
+  background-position: center center;
+  background-repeat: no-repeat;
+  opacity: 0.5;
 }
 .sidepanel .subpanel .button.square:hover,
 .contentpanel .subpanel .button.square:hover {
   cursor: pointer;
 }
-.sidepanel .subpanel .button.square.prev,
-.contentpanel .subpanel .button.square.prev {
-  right: 21px;
+.sidepanel .subpanel .button.square:hover:after,
+.contentpanel .subpanel .button.square:hover:after {
+  opacity: 1;
+}
+.sidepanel .subpanel .button.square.prev:after,
+.contentpanel .subpanel .button.square.prev:after {
+  transform: rotate(180deg);
 }
 .sidepanel .subpanel select,
 .contentpanel .subpanel select {
@@ -1697,6 +1714,32 @@ body.presentation .statusbar {
 .sidepanel .subpanel select:focus,
 .contentpanel .subpanel select:focus {
   outline: none;
+}
+.sidepanel .subpanel.flex,
+.contentpanel .subpanel.flex {
+  display: flex;
+  align-items: center;
+}
+.sidepanel .subpanel.flex .label,
+.contentpanel .subpanel.flex .label {
+  margin-bottom: 0;
+  margin-right: 4px;
+  min-width: 55px;
+}
+.sidepanel .subpanel.flex select,
+.contentpanel .subpanel.flex select {
+  margin: 0;
+}
+.sidepanel .subpanel.flex .value,
+.contentpanel .subpanel.flex .value {
+  position: relative;
+  margin-left: 4px;
+  right: unset;
+  top: unset;
+}
+.sidepanel .subpanel.hidden,
+.contentpanel .subpanel.hidden {
+  display: none;
 }
 .sidepanel input[type=range],
 .contentpanel input[type=range] {

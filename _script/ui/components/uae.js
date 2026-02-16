@@ -1,6 +1,6 @@
 import $ from "../../util/dom.js";
 import Adf from "../../fileformats/adf.js";
-import Modal from "../modal.js";
+import Modal, {DIALOG} from "../modal.js";
 import Generate from "../../fileformats/generate.js";
 import EventBus from "../../util/eventbus.js";
 import {COMMAND} from "../../enum.js";
@@ -23,9 +23,9 @@ let UAE = function(){
                             if (root && root.files){
                                 let pictureFile = root.files.find(f=>f.name === "picture.iff");
                                 if (pictureFile){
-                                    let image = Generate.iff(32,"Sorry, Deluxe Paint II supports a maximum of 32 colors.");
-                                    if (image){
-                                        image.arrayBuffer().then(buffer=>{
+                                    let result = Generate.iff({maxColors:32});
+                                    if (result && result.file){
+                                        result.file.arrayBuffer().then(buffer=>{
                                             Adf.deleteFileAtSector(pictureFile.sector);
                                             let sector = Adf.writeFile("picture.iff",buffer,pictureFile.parent);
                                             if (sector){
@@ -33,8 +33,13 @@ let UAE = function(){
                                                 //EventBus.trigger(COMMAND.SAVEDISK,[Adf.getDisk().buffer,diskInfo.label || "Disk.adf"])
                                             }
                                         });
-
                                     }else{
+                                        result.messages = ["Sorry, Deluxe Paint II supports a maximum of 32 colors."]
+                                        Modal.show(DIALOG.OPTION,{
+                                            title: result.title || result.result || "Alert",
+                                            text: result.messages,
+                                            buttons: [{label:"OK"}]
+                                        });
                                         me.hide();
                                     }
                                 }

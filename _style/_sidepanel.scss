@@ -769,21 +769,37 @@
     }
 
     .button.square{
-      position: absolute;
-      right: 4px;
-      top: 4px;
       width: 16px;
-      height: 16px;
+      min-width:  16px;
+      height: 20px;
       border: 1px solid black;
       text-align: center;
-      line-height: 16px;
+      line-height: 20px;
       font-size: 12px;
-      &:hover{
-        cursor: pointer;
+      border-right: none;
+      position: relative;
+
+      &:after{
+        content: "";
+        position: absolute;
+        left: 0;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        background-image:  url("../_img/caret.svg");
+        background-position: center center;
+        background-repeat: no-repeat;
+        opacity:  0.5;
       }
 
-      &.prev{
-        right: 21px;
+      &:hover{
+        cursor: pointer;
+        &:after{
+          opacity: 1;
+        }
+      }
+      &.prev:after{
+        transform: rotate(180deg);
       }
     }
 
@@ -797,6 +813,32 @@
       &:focus{
         outline: none;
       }
+    }
+
+    &.flex{
+        display: flex;
+        align-items: center;
+
+        .label{
+            margin-bottom: 0;
+            margin-right: 4px;
+            min-width: 55px;
+        }
+
+        select{
+            margin: 0;
+        }
+
+        .value{
+          position: relative;
+          margin-left: 4px;
+          right: unset;
+          top: unset;
+        }
+    }
+
+    &.hidden{
+      display:  none;
     }
   }
 

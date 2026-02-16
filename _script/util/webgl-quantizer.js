@@ -293,7 +293,7 @@ function runWebGLQuantizer(canvas, palette, dither, ditherPatternImage, ditherAm
 
     if (!gl) {
         console.error('WebGL not supported');
-        return;
+        return false;
     }
 
     const positionAttributeLocation = gl.getAttribLocation(program, 'a_position');
@@ -412,6 +412,7 @@ function runWebGLQuantizer(canvas, palette, dither, ditherPatternImage, ditherAm
 
     let t1 = perf.now();
     console.log("WebGL quantization took " + (t1 - t0) + " milliseconds.");
+    return true;
 }
 
 export { runWebGLQuantizer, resetShaders };

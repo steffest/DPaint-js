@@ -143,7 +143,14 @@ function kMeansPalette(pixels, k, colorDepth) {
 self.onmessage = function(e) {
 	const { imageData, count, colorDepth } = e.data;
 	const pixels = [];
-	for (let i = 0; i < imageData.data.length; i += 4) {
+
+	// don't count every pixel on large images - too slow
+    const pixelCount = imageData.data.length / 4;
+    let step = 1;
+    if (pixelCount > 250000) step = Math.ceil(pixelCount / 250000);
+    const byteStep = step * 4;
+
+	for (let i = 0; i < imageData.data.length; i += byteStep) {
 		pixels.push([imageData.data[i], imageData.data[i + 1], imageData.data[i + 2]]);
 	}
 	const palette = kMeansPalette(pixels, count, colorDepth);

@@ -27,6 +27,7 @@ let Palette = function(){
     let useAlphaThreshold = true;
     var ditherIndex = 0;
     var ditherAmount = 100;
+    var quantizationMethod = 0; // 0 = Median Cut, 1 = K-Means
     var targetColorCount = 32;
     let palettePageIndex = 0;
     let palettePageCount = 1;
@@ -179,8 +180,8 @@ let Palette = function(){
     var gfxkPalette = [[17,10,3],[17,10,3],[99,13,38],[71,18,92],[37,30,106],[62,40,40],[14,53,62],[40,53,74],[152,30,130],[33,74,167],[181,45,27],[133,62,51],[21,105,72],[28,100,112],[109,93,91],[69,105,117],[10,152,216],[238,98,131],[202,117,56],[219,110,83],[240,117,8],[30,182,120],[89,179,45],[126,174,163],[176,162,141],[249,178,167],[245,185,125],[73,227,218],[251,197,49],[211,229,73],[239,239,233],[255,255,255]];
 
     var paletteMap = {
-        optimized: {label: "Optimized", palette: null},
         current: {label: "Current", palette: null},
+        optimized: {label: "Optimized", palette: null},
         mui: {label: "MUI", palette:muiPalette},
         dpaint: {label: "Deluxe Paint 32", palette:dpaintPalette},
         grays: {label: "Grays 8", palette:grayPalette},
@@ -574,9 +575,9 @@ let Palette = function(){
             EventBus.trigger(EVENT.paletteProcessingEnd);
         }else{
             let base = ImageFile.getOriginal();
-            //let base = ImageFile.getActiveLayer().getCanvas();
+             //let base = ImageFile.getActiveLayer().getCanvas();
             let c = duplicateCanvas(base,true);
-                ImageProcessing.reduce(c,targetPalette || targetColorCount,alphaThreshold,ditherIndex,useAlphaThreshold,ditherAmount);
+                ImageProcessing.reduce(c,targetPalette || targetColorCount,alphaThreshold,ditherIndex,useAlphaThreshold,ditherAmount,quantizationMethod);
 
 
             SidePanel.show("reduce");
@@ -737,83 +738,121 @@ let Palette = function(){
     }
 
     me.generateControlPanel = function(parent){
-        colorReducePanel = parent
-        let palettePanel = $div("subpanel","",parent);
-        $div("label","Palette",palettePanel);
-        let pselect = document.createElement("select");
-        Object.keys(paletteMap).forEach((key,index)=>{
-            let option = document.createElement("option");
-            option.value=key;
-            option.innerHTML=paletteMap[key].label;
-            pselect.appendChild(option);
-        });
-        pselect.onchange = function(){
-            targetPalette = paletteMap[pselect.value].palette;
-            if (pselect.value === "current") targetPalette = currentPalette;
-            if (typeof targetPalette === "string"){
-                me.loadPreset(paletteMap[pselect.value]).then(palette=>{
-                    paletteMap[pselect.value].palette = palette;
-                    targetPalette = palette;
-                    me.reduce();
+        colorReducePanel = parent;
+
+        let pselect;
+        let algoSection, colorCountSection;
+
+        $(".subpanel.flex",
+            {parent:parent},
+            $(".label","Palette"), 
+            pselect = $("select",
+                {onchange:e=>{
+                    let v = e.target.value;
+                    targetPalette = paletteMap[v].palette;
+                    if (v === "current") targetPalette = currentPalette;
+
+                    let optimizeVisible = v === "optimized" ? "flex" : "none";
+                    algoSection.style.display = colorCountSection.style.display = optimizeVisible;
+                    if (typeof targetPalette === "string"){
+                        me.loadPreset(paletteMap[v]).then(palette=>{
+                            paletteMap[v].palette = palette;
+                            targetPalette = palette;
+                            applyReduce();
+                        })
+                    }else{
+                        applyReduce();
+                    }
+                }},
+                Object.keys(paletteMap).map(key=>{
+                    return $("option",{
+                        value:key,
+                        text:paletteMap[key].label,
+                    });
                 })
-            }else{
-                applyReduce();
-            }
+            )
+        )
 
-        }
-        palettePanel.appendChild(pselect);
-
-        let fixed = $div("subpanel","",parent);
-        $div("label","Optimize colors",fixed);
-        let value = $div("value","32",fixed);
-        let range = document.createElement("input");
-        range.type = "range";
-        range.value = 5;
-        range.min = 1;
-        range.max = 9;
-        range.oninput = function(){
-            targetColorCount = Math.pow(2,range.value);
-            value.innerHTML = range.value<9?targetColorCount:"Full";
-        }
-        range.onchange = function(){
-            targetColorCount = Math.pow(2,range.value);
-            pselect.value = "optimized";
-            targetPalette = null;
-            applyReduce();
-        }
-        fixed.appendChild(range);
-
-        let dithering = $div("subpanel","",parent);
-        $div("label","Dithering",dithering);
-
-        let select = document.createElement("select");
-        select.value = ditherIndex;
+        algoSection = $(".subpanel.flex.hidden",
+            {parent:parent},
+            $(".label","Algorithm"), 
+            $("select",
+                {onchange:e=>{
+                    quantizationMethod = parseInt(e.target.value);
+                    applyReduce();
+                }},
+                $("option",{
+                    value:0,
+                    text:"Median Cut",
+                    selected:quantizationMethod===0
+                }),
+                $("option",{
+                    value:1,
+                    text:"K-Means",
+                    selected:quantizationMethod===1
+                })
+            )
+        )
+        
+        let value;
+        let range;
+        colorCountSection = $(".subpanel.flex.hidden",
+            {parent:parent},
+            $(".label","Colors"),
+            range = $("input",{
+                type:"range",
+                value:5,
+                min:1,
+                max:9,
+                oninput:function(){
+                    targetColorCount = Math.pow(2,range.value);
+                    value.innerHTML = range.value<9?targetColorCount:"Full";
+                },
+                onchange:function(){
+                    targetColorCount = Math.pow(2,range.value);
+                    targetPalette = null;
+                    applyReduce();
+                }
+            }),
+            value=$(".value","32")
+        );
+        
         let options = ImageProcessing.getDithering();
+        let select;
+        $(".subpanel.flex",
+            {parent:parent},
+            $(".label","Dithering"), 
+            $(".button.square.prev",{onClick:()=>{
+                let v = parseInt(select.value)-1;
+                if (v<0)v=options.length-1;
+                select.value = v;
+                select.onchange();
+            }}),
+            $(".button.square.next",{onClick:()=>{
+                let v = parseInt(select.value)+1;
+                if (v>=options.length)v=0;
+                select.value = v;
+                select.onchange();
+            }}),
+
+            select = $("select",{
+                onchange:()=>{
+                    ditherIndex = select.value;
+                if (ditherAmountPanel) ditherAmountPanel.style.display = ditherIndex == 0 ? "none" : "block";
+                applyReduce();
+            },
+            value:ditherIndex
+        }));
+        
         options.forEach((o,index)=>{
             let option = document.createElement("option");
             option.value=index;
             option.innerHTML=o.label;
             select.appendChild(option);
         });
-        select.onchange = function(){
-            ditherIndex = select.value;
-            if (ditherAmountPanel) ditherAmountPanel.style.display = ditherIndex == 0 ? "none" : "block";
-            applyReduce();
-        }
-        $div("button square prev","<",dithering,()=>{
-            let v = parseInt(select.value)-1;
-            if (v<0)v=options.length-1;
-            select.value = v;
-            select.onchange();
-        });
-        $div("button square next",">",dithering,()=>{
-            let v = parseInt(select.value)+1;
-            if (v>=options.length)v=0;
-            select.value = v;
-            select.onchange();
-        });
+        
+       
 
-        dithering.appendChild(select);
 
         let ditherAmountPanel = $div("subpanel","",parent);
         ditherAmountPanel.style.display = ditherIndex == 0 ? "none" : "block";

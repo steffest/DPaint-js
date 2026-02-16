@@ -28,7 +28,7 @@ let Menu = function(){
             ]},
         {label: "Image", items:[
                 {label: "Rotate", command: COMMAND.ROTATE},
-                {label: "Clear", command: COMMAND.CLEAR},
+                //{label: "Clear", command: COMMAND.CLEAR},
                 {label: "Crop", command: COMMAND.CROP},
                 {label: "Trim", command: COMMAND.TRIM},
                 {label: "Flatten",command: COMMAND.FLATTEN,shortKey: "meta+Shift+F"},
