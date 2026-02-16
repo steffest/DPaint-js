@@ -430,7 +430,7 @@ var PaletteDialog = function() {
                 let newColor = [sliders[0].input.value,sliders[1].input.value,sliders[2].input.value];
                 if (colorDepth<8) newColor = Color.to24bit(newColor,colorDepth);
                 if (hsv){
-                    newColor = Color.fromHSV(sliders[0].range.value*multiplier/360,sliders[1].range.value*multiplier/100,sliders[2].range.value*multiplier/100);
+                    newColor = Color.fromHSV(sliders[0].range.value/360,sliders[1].range.value/100,sliders[2].range.value/100);
                     if (multiplier>1) newColor = Color.setBitDepth(newColor,colorDepth);
                 }
                 updateColor(newColor);
@@ -457,6 +457,7 @@ var PaletteDialog = function() {
                 let newColor = [sliders[0].range.value*multiplier,sliders[1].range.value*multiplier,sliders[2].range.value*multiplier];
                 if (hsv){
                     newColor = Color.fromHSV(sliders[0].range.value/360,sliders[1].range.value/100,sliders[2].range.value/100);
+                    if (multiplier>1) newColor = Color.setBitDepth(newColor,colorDepth);
                 }
                 updateColor(newColor);
             }
