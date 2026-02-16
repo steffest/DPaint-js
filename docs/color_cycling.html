@@ -30,7 +30,7 @@ See also <a href="https://www.youtube.com/watch?v=VyB5cvA6f78" target="_blank">t
 <div class="warning">
     <strong>Important Drawback: Avoid Identical Colors</strong><br><br>
     Because the engine maps pixels to palette indices, it needs to know which index corresponds to which color.
-    If your palette contains <strong>duplicate colors</strong> (e.g., two slots both defining pure black #000000), the engine might get confused about which index to use.
+    If your palette contains <strong>duplicate colors</strong> (e.g., two slots both defining pure black #000000), the engine gets confused about which index to use.
     <br><br>
     This can cause issues with <strong>Color Cycling</strong> or pixel-perfect index manipulation, as the engine might accidentally map your pixels to the wrong index (e.g., Index 5 instead of Index 10, because they are identical).
     <br><br>

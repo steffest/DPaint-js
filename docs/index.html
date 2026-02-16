@@ -349,13 +349,18 @@
             <a href="?layers_masks" id="m_layers_masks">Layers and Masks</a>
             <a href="?colors" id="m_colors">Colors</a>
             <a href="?color_cycling" id="m_color_cycling">Color Cycling</a>
+            <a href="?file_format" id="m_file_format">File Format</a>
         </div>
         <!--<a href="?manual">Manual</a>-->
         <a href="?keyboard_commands" id="m_keyboard_commands">Keyboard commands</a>
         <a href="?url_parameters" id="m_url_parameters">URL parameters</a>
         <a href="?faq" id="m_faq">FAQ</a>
-        <a href="?licenses" id="m_licenses">Licenses</a>
-        <a href="?file_format" id="m_file_format">File Format</a>
+        <div class="item" onclick="toggleSub('more')" id="morebutton">More</div>
+        <div class="submenu" id="more">
+            <a href="?history" id="m_history">History</a>
+            <a href="?licenses" id="m_licenses">Licenses</a>
+        </div>
+
         <a href="?contact" id="m_contact">Contact</a>
     </div>
     <div id="content" class="panel">
@@ -383,6 +388,11 @@
 					content.innerHTML = xhr.responseText;
 					currentPage = url;
 					window.location.hash = url;
+                    updateInternalLinks();
+                    window.scrollTo({
+                        top: 0,
+                        behavior: 'smooth'
+                    });
 				}
 			}
 		};
@@ -424,6 +434,17 @@
         	loadPage(window.location.hash.substr(1));
         }
     };
+
+    function updateInternalLinks(){
+        content.querySelectorAll("a.internal").forEach(function(a){
+            console.error(a.href);
+            a.addEventListener("click", function(e){
+                e.preventDefault();
+                let url = a.href.split("?")[1];
+                loadPage(url);
+            });
+        });
+    }
 
     function toggleSub(id){
         var el = document.getElementById(id);

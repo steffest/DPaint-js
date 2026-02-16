@@ -240,7 +240,7 @@ var Modal = function(){
             $(".text.copyright.link",{onClick:()=>window.open("https://www.stef.be/")},"© 2023-2026 - Steffest"),
             $(".text.github.link",{onClick:()=>window.open("https://github.com/steffest/dpaint-js")},"Open Source - Plain JavaScript - Fork me on GitHub"),
             $(".text.nobullshit","Free software: No cookies - No tracking - No ads - No accounts"),
-            $(".text.contrib",$("i","With contributions from"),"Michael Smith and Nicolas Ramz"),
+            $(".text.contrib",$("i","With contributions from"),"Michael Smith, Nicolas Ramz and Rob Coenen"),
         ));
     }
 

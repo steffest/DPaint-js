@@ -9,7 +9,7 @@
 - small screen support
 - copy image larger than canvas => keep entire image?
 - deselect after resize
-- ctrl-mousewheel should be zoom
+- ctrl-mousewheel should be zoom (?)
 - save to JPG including EXIF data
 - EXIF editor?
 - selection tool should hide the paint-shape cursor
@@ -38,7 +38,7 @@ resizing sizebox negatively, makes the sizebox 0 width/height
 resize image to larger doesn't clear all cached data (like the drawlayer?)
 copy/paste/undo shortcut doesn't work on Firefox
 fill tool is active when scrollbar is clicked
-when applying color palette changes - they get applied to the top layer instead of the active layer
+when applying color palette changes - they get applied to the top layer instead of the active layer (?)
 scrolling removes selection mask
 How to transform layer in touch screens?
 Drawing a line over the edge wraps around to the other side
@@ -47,54 +47,14 @@ When resizing the canvas, the selection should be resized as well
 drag/drop should import as new layer ?
 Transparency settings are not applied on canvas brush
 Palette Edit - pick color from image: apply button is not shown
-INVERT SELECTION!
 Save as Gif - when used in 24-bit alpha image, a black outcome
-duplicate colors in palette causes color cycle bugs.
+duplicate colors in palette causes color cycle bugs. (!)
 
 
 
-TODO before release:
-(why was there a check for "meta key down"? rotate brush stuff?
-eydropper should not be active while drawing a line)
-);
 
 
 
-feature previews
-
-- Animation support (including  GIF and IFF ANIM import/export)
-- Animation controls
-- pressure sensitivity and multitouch improvements (pen-only support)
-- Palette lock
-- 12 and 9 bit color depths
-- resizable panels
-- Arc tool
-- Texture brushes
-- Gallery
-- New filters: Texture and Dehaze
-- Enhanced Save dialog with save-options
-- Recorder: record your drawing process and export timelapse videos
-- layers to frames / frames to layers
-
-Amiga Specific
- - 12 bit color depth
- - Color Cycle with IFF export
- - reading and writing IFF ANIM files
-
- Atari Specific
- - Better handling of Deluxe Paint for Atari formats  (Byterun2 compression)
-
-New Domain: https://dpaint.app
-
- Rescale bug:
-
- start with a layer
- have area in the clipboard with a diffrent size
- transform first layer
- reposition the layer
- paste the clipboard
- transform (v)
- -> the fist layer is rescaled to the pasted clipboard size
 
 
 
