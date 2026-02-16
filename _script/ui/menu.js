@@ -127,7 +127,7 @@ let Menu = function(){
         {label: "Recorder", items:[
                 {label: "Start",command: COMMAND.RECORDINGSTART},
                 {label: "Stop",command: COMMAND.RECORDINGSTOP},
-                {label: "Export",command: COMMAND.RECORDINGEXPORT}
+                //{label: "Export",command: COMMAND.RECORDINGEXPORT}
             ]},
         {label: "Amiga", items:[
                 {label: "Open ADF image",command: COMMAND.ADF, needsRealClick: true},

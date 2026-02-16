@@ -608,11 +608,12 @@ var ImageProcessing = function(){
 				while(Math.pow(2, MaxRecursionDepth) < colorCount) MaxRecursionDepth++;
 
 
-				let workerUrl = quantizationMethod === 1 ? '../workers/quantize2.js' : '../workers/quantize.js';
-				let worker = new Worker(
-					new URL(workerUrl, import.meta.url),
-					{type: 'module'}
-				);
+				let worker;
+				if (quantizationMethod === 1) {
+					worker = new Worker(new URL('../workers/quantize2.js', import.meta.url), {type: 'module'});
+				} else {
+					worker = new Worker(new URL('../workers/quantize.js', import.meta.url), {type: 'module'});
+				}
 
 				// when calculating the palette, we should NOT use dithering info
 				// pure quantization based on the image colors
