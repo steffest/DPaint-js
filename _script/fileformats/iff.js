@@ -800,7 +800,10 @@ const IFF = (function () {
             })
         }
 
-        let imageData = new ImageData(img.width, img.height);
+        // Use canvas dimensions, not img dimensions, because lores interlaced
+        // files (interlaced && !hires) double canvas.width for pixel doubling.
+        // Using img.width here would cause pixel writes to overflow into wrong rows.
+        let imageData = new ImageData(canvas.width, canvas.height);
         let count = 0;
         for (let y = 0; y < img.height; y++) {
             const shamPalette = (img.shamPaletteByLine && img.shamPaletteByLine[y]) ? img.shamPaletteByLine[y] : null;
