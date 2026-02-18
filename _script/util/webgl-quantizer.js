@@ -289,6 +289,9 @@ function runWebGLQuantizer(canvas, palette, dither, ditherPatternImage, ditherAm
 
     if (!glCanvas) {
         prepareShaders(canvas);
+    } else if (glCanvas.width !== canvas.width || glCanvas.height !== canvas.height) {
+        glCanvas.width = canvas.width;
+        glCanvas.height = canvas.height;
     }
 
     if (!gl) {

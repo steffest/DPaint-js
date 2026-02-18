@@ -214,6 +214,7 @@ let ImageFile = function(){
         if (!properties) {
             Modal.show(DIALOG.RESIZE);
         } else {
+            cachedImage = undefined;
             let w = properties.width;
             let h = properties.height;
             let anchor = properties.anchor || "topleft";
@@ -241,6 +242,7 @@ let ImageFile = function(){
         if (!properties) {
             Modal.show(DIALOG.RESAMPLE);
         } else {
+            cachedImage = undefined;
             let w = properties.width;
             let h = properties.height;
             if (w === currentFile.width && h === currentFile.height) return;
