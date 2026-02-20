@@ -174,7 +174,7 @@ let LayerPanel = function(){
                 renameLayer(i);
             }
 
-            elm.onContextMenu = ()=>{
+            let showContextMenu = ()=>{
                 let items = [];
                 if (max>0) items.push ({label: "Remove Layer", command: COMMAND.DELETELAYER});
                 items.push ({label: "Duplicate Layer", command: COMMAND.DUPLICATELAYER});
@@ -203,12 +203,20 @@ let LayerPanel = function(){
 
 
                 ContextMenu.show(items);
-            }
+            };
+            
+            elm.onContextMenu = showContextMenu;
 
             if (elm.currentIndex === editIndex){
                 let input = $input("text",layer.name);
                 elm.appendChild(input);
             }
+
+            $(".more",{
+                parent:elm,
+                onClick:showContextMenu,
+                info:"More options"
+            });
 
             $(".eye",{
                 parent:elm,

@@ -126,9 +126,25 @@
           pointer-events: none;
         }
 
-        .eye{
+        .more{
           position: absolute;
           right: 4px;
+          top: 3px;
+          width: 16px;
+          height: 16px;
+          background-image: url("../_img/more.svg");
+          background-size: contain;
+          background-repeat: no-repeat;
+          opacity: 0.5;
+
+          &:hover{
+            opacity: 1;
+          }
+        }
+
+        .eye{
+          position: absolute;
+          right: 24px;
           top: 7px;
           width: 16px;
           height: 16px;
@@ -140,7 +156,7 @@
 
         .lock{
           position: absolute;
-          right: 24px;
+          right: 44px;
           top: 3px;
           width: 16px;
           height: 16px;
@@ -152,7 +168,7 @@
 
         .mask{
           position: absolute;
-          right: 27px;
+          right: 47px;
           top: 4px;
           width: 16px;
           height: 16px;

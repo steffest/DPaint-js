@@ -1034,10 +1034,26 @@ body.presentation .statusbar {
 .contentpanel .panel .inner .layer.locked {
   pointer-events: none;
 }
+.sidepanel .panel .inner .layer .more,
+.contentpanel .panel .inner .layer .more {
+  position: absolute;
+  right: 4px;
+  top: 3px;
+  width: 16px;
+  height: 16px;
+  background-image: url("../_img/more.svg");
+  background-size: contain;
+  background-repeat: no-repeat;
+  opacity: 0.5;
+}
+.sidepanel .panel .inner .layer .more:hover,
+.contentpanel .panel .inner .layer .more:hover {
+  opacity: 1;
+}
 .sidepanel .panel .inner .layer .eye,
 .contentpanel .panel .inner .layer .eye {
   position: absolute;
-  right: 4px;
+  right: 24px;
   top: 7px;
   width: 16px;
   height: 16px;
@@ -1049,7 +1065,7 @@ body.presentation .statusbar {
 .sidepanel .panel .inner .layer .lock,
 .contentpanel .panel .inner .layer .lock {
   position: absolute;
-  right: 24px;
+  right: 44px;
   top: 3px;
   width: 16px;
   height: 16px;
@@ -1061,7 +1077,7 @@ body.presentation .statusbar {
 .sidepanel .panel .inner .layer .mask,
 .contentpanel .panel .inner .layer .mask {
   position: absolute;
-  right: 27px;
+  right: 47px;
   top: 4px;
   width: 16px;
   height: 16px;
@@ -2718,17 +2734,17 @@ body.hovercanvas.pointerdown.cursor-colorpicker .cursor .mark.large {
   right: 66px;
   bottom: 55px;
 }
+.modalwindow .inner .about .text.contrib i {
+  opacity: 0.8;
+  display: block;
+  font-style: normal;
+}
 .modalwindow .inner .about .text.contrib {
   bottom: 10px;
   text-align: right;
   left: unset;
   right: 66px;
   opacity: 0.5;
-}
-.modalwindow .inner .about .text.contrib i {
-  opacity: 0.8;
-  display: block;
-  font-style: normal;
 }
 .modalwindow .inner .optiondialog p {
   margin: 0;
@@ -4655,10 +4671,12 @@ body.hovercanvas.pointerdown.cursor-colorpicker .cursor .mark.large {
 .gallery .item:hover {
   cursor: pointer;
   transform: scale(1.05);
-  color: #DDDDDD;
 }
 .gallery .item:hover .fileinfo {
   background-color: #505050;
+}
+.gallery .item:hover {
+  color: #DDDDDD;
 }
 .gallery .thumb {
   width: 120px;
