@@ -129,6 +129,7 @@ var Editor = function(){
         });
         EventBus.on(COMMAND.ROTATE,function(){
             EventBus.trigger(COMMAND.CLEARSELECTION);
+            HistoryService.start(EVENT.imageHistory);
             let currentFrame = ImageFile.getActiveFrame();
             currentFrame.layers.forEach(layer=>{
                 ImageProcessing.rotate(layer.getCanvas());
@@ -136,6 +137,7 @@ var Editor = function(){
             let w = ImageFile.getCurrentFile().width;
             ImageFile.getCurrentFile().width = ImageFile.getCurrentFile().height;
             ImageFile.getCurrentFile().height = w;
+            HistoryService.end();
             EventBus.trigger(EVENT.imageSizeChanged);
         });
         EventBus.on(COMMAND.CLEAR,function(){

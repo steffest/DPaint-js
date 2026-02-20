@@ -12,6 +12,7 @@ import Modal from "./modal.js";
 import Statusbar from "./statusbar.js";
 import UserSettings from "../userSettings.js";
 import {DIALOG} from "./modal.js";
+import HistoryService from "../services/historyservice.js";
 
 let Palette = function(){
     let me = {};
@@ -585,9 +586,11 @@ let Palette = function(){
     }
 
     me.apply = function(){
+        HistoryService.start(EVENT.imageHistory);
         let base = ImageFile.getActiveLayer().getCanvas();
         let c = duplicateCanvas(base,true);
         ImageProcessing.reduce(c,currentPalette,alphaThreshold,0,useAlphaThreshold);
+        HistoryService.end();
     }
 
     me.getColorIndex = function(color,forceMatch){

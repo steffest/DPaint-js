@@ -215,6 +215,7 @@ let ImageFile = function(){
             Modal.show(DIALOG.RESIZE);
         } else {
             cachedImage = undefined;
+            HistoryService.start(EVENT.imageHistory);
             let w = properties.width;
             let h = properties.height;
             let anchor = properties.anchor || "topleft";
@@ -234,6 +235,7 @@ let ImageFile = function(){
                     layer.resize(w,h,aX,aY);
                 });
             });
+            HistoryService.end();
             EventBus.trigger(EVENT.imageSizeChanged);
         }
     };

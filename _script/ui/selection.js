@@ -2,6 +2,7 @@ import Brush from "./brush.js";
 import EventBus from "../util/eventbus.js";
 import {COMMAND, EVENT} from "../enum.js";
 import ImageFile from "../image.js";
+import HistoryService from "../services/historyservice.js"
 import {duplicateCanvas, outLineCanvas} from "../util/canvasUtils.js";
 
 /*
@@ -149,13 +150,14 @@ let Selection = function(){
     
     me.toLayer = function(andCut){
         if (currentSelection){
+            HistoryService.start(EVENT.imageHistory);
             let canvas = ImageFile.getActiveLayer().getCanvas();
             let sourceLayerIndex = ImageFile.getActiveLayerIndex();
-            ImageFile.duplicateLayer();
-            let layer = ImageFile.getActiveLayer();
+            
+            ImageFile.duplicateLayer(); 
+            let layer = ImageFile.getActiveLayer(); 
 
             if (currentSelection.points || currentSelection.canvas){
-                // draw on Mask
                 layer.addMask();
                 layer.toggleMask();
                 let ctx = layer.getContext();
@@ -175,29 +177,46 @@ let Selection = function(){
                     });
                     ctx.closePath();
                     ctx.fill();
-                }
-
-                if (currentSelection.canvas){
-                    ctx.drawImage(currentSelection.canvas,0,0);
+                } else if (currentSelection.canvas){
+                     ctx.drawImage(currentSelection.canvas,0,0);
                 }
 
                 layer.update();
-                layer.removeMask(true);
+                layer.removeMask(true); // Apply mask
             }else{
-                // rectangle
                 layer.clear();
-                layer.getContext().drawImage(canvas,currentSelection.left,currentSelection.top,currentSelection.width,currentSelection.height,currentSelection.left,currentSelection.top, currentSelection.width, currentSelection.height);
+                let ctx = layer.getContext();
+                ctx.drawImage(canvas,
+                    currentSelection.left,currentSelection.top,currentSelection.width,currentSelection.height,
+                    currentSelection.left,currentSelection.top, currentSelection.width, currentSelection.height
+                );
             }
 
             if (andCut){
                 ImageFile.activateLayer(sourceLayerIndex);
-                EventBus.trigger(COMMAND.CLEAR);
-                ImageFile.activateLayer(sourceLayerIndex+1);
+                 var s = currentSelection;
+                 let originalLayer = ImageFile.getLayer(sourceLayerIndex); 
+                 let layerCtx = originalLayer.getContext();
+                 
+                 layerCtx.globalCompositeOperation = "destination-out";
+                 if (s.points || s.canvas){
+                      if (s.canvas){
+                          layerCtx.drawImage(s.canvas,0,0);
+                      } else {
+                          let mask = me.getCanvas(); 
+                          layerCtx.drawImage(mask,0,0);
+                      }
+                 } else {
+                     layerCtx.clearRect(s.left,s.top,s.width,s.height);
+                 }
+                 layerCtx.globalCompositeOperation = "source-over";
+                 
+                 ImageFile.activateLayer(sourceLayerIndex+1); 
             }
-
 
             EventBus.trigger(EVENT.layerContentChanged);
             EventBus.trigger(COMMAND.CLEARSELECTION);
+            HistoryService.end();
         }
     }
 
