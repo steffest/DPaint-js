@@ -3681,7 +3681,7 @@ body.hovercanvas.pointerdown.cursor-colorpicker .cursor .mark.large {
 .modalwindow .inner .effects .code {
   position: absolute;
   left: 10px;
-  top: 250px;
+  top: 300px;
   right: 10px;
 }
 .modalwindow .inner .effects .code code {
@@ -3742,7 +3742,7 @@ body.hovercanvas.pointerdown.cursor-colorpicker .cursor .mark.large {
   background-color: #313335;
   z-index: 1;
   right: 0;
-  top: -242px;
+  top: -292px;
   width: 256px;
   height: 206px;
 }
