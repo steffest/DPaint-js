@@ -283,7 +283,9 @@ let Canvas = function(parent){
         var z = prevZoom || zoom;
         prevZoom = undefined;
         const rect = panelParent.getBoundingClientRect();
-        if (!event) event = { clientX: rect.width / 2, clientY: rect.height / 2 };
+        if (!event) event = { clientX: rect.left + rect.width / 2, clientY: rect.top + rect.height / 2 };
+        if (event.clientX === undefined && event.x !== undefined) event.clientX = event.x;
+        if (event.clientY === undefined && event.y !== undefined) event.clientY = event.y;
 
         // Step 1: Get mouse position relative to canvas before zoom
         var mouseX = event.clientX - rect.left - containerTransform.x;
