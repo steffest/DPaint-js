@@ -940,7 +940,7 @@ const IFF = (function () {
             colors = result.palette.map(c => [c.r, c.g, c.b]);
         } else {
             // Standard indexed-color path.
-            let lockPalette = (Palette.getColorRanges() || []).length || Palette.isLocked() || Palette.isLockedGlobal();
+            let lockPalette = (options.palette === "locked") || (Palette.getColorRanges() || []).length || Palette.isLocked() || Palette.isLockedGlobal();
             colors = lockPalette ? Palette.get() : ImageProcessing.getColors(canvas, 256);
 
             bitplaneCount = 1;

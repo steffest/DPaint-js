@@ -52,6 +52,14 @@ var SaveDialog = function(){
                 'application/octet-stream': ['.planes'],
             }
         },
+        PLANEIMAGES:{
+            description: 'Separate bitplane images',
+            extension: "png",
+            generator: "PLANEIMAGES",
+            accept: {
+                'image/png': ['.png'],
+            }
+        },
         MASK:{
             description: 'Binary Bitplane Mask',
             accept: {
@@ -166,41 +174,44 @@ var SaveDialog = function(){
             mainPanel = $(".saveform",
                 $(".flex",
                     $(".panel.main",
-                        $(".flex",
-                            $(".col.name",$("h4","Name"),nameInput = $("input",{type:"text",value:ImageFile.getName(true)})),
-                            $(".col",$("h4","Type"),
-                                $(".filetype.inputbox.select",
-                                    {onClick:(e)=>{
-                                        let button = e.target.closest(".button");
-                                        if (button && button.value){
-                                            setSaveType(button.value);
-                                            menu.classList.remove("active");
-                                            return;
-                                        }
-                                        menu.classList.toggle("active")
-                                    }},
-                                    menu = $(".menu",
-                                        $(".list",
-                                            renderButton("json","DPaint.JSON","The internal format of Dpaint. All features supported","DPAINTJS"),
-                                            renderButton("png","PNG Image","Full color and transparency, no layers, only the current frame gets saved.","PNG"),
-                                            renderButton("gif","GIF Img/anim","Max 256 colors, no layers, animation supported.","GIF"),
-                                            renderButton("jpg","JPG Image","Full color, no transparency, no layers, only the current frame gets saved. LOSSY!","JPG"),
-                                            renderButton("iff","Amiga IFF","Maximum 256 colors, only the current frame gets saved.","IFF"),
-                                            renderButton("anim","Amiga ANIM","Maximum 256 colors, animation supported.","ANIM"),
-                                            renderButton("os3","Amiga Icon","Amiga OS Icon, Maximum 2 frames.","ICO"),
-                                            renderButton("amiga","Amiga Sprite","C Source.","SPRITE"),
+                        $("div",
+                            $(".flex",
+                                $(".col.name",$("h4","Name"),nameInput = $("input",{type:"text",value:ImageFile.getName(true)})),
+                                $(".col",$("h4","Type"),
+                                    $(".filetype.inputbox.select",
+                                        {onClick:(e)=>{
+                                            let button = e.target.closest(".button");
+                                            if (button && button.value){
+                                                setSaveType(button.value);
+                                                menu.classList.remove("active");
+                                                return;
+                                            }
+                                            menu.classList.toggle("active")
+                                        }},
+                                        menu = $(".menu",
+                                            $(".list",
+                                                renderButton("json","DPaint.JSON","The internal format of Dpaint. All features supported","DPAINTJS"),
+                                                renderButton("png","PNG Image","Full color and transparency, no layers, only the current frame gets saved.","PNG"),
+                                                renderButton("gif","GIF Img/anim","Max 256 colors, no layers, animation supported.","GIF"),
+                                                renderButton("jpg","JPG Image","Full color, no transparency, no layers, only the current frame gets saved. LOSSY!","JPG"),
+                                                renderButton("iff","Amiga IFF","Maximum 256 colors, only the current frame gets saved.","IFF"),
+                                                renderButton("anim","Amiga ANIM","Maximum 256 colors, animation supported.","ANIM"),
+                                                renderButton("os3","Amiga Icon","Amiga OS Icon, Maximum 2 frames.","ICO"),
+                                                renderButton("amiga","Amiga Sprite","C Source.","SPRITE"),
+                                                //renderButton("planes","Bitplanes","Separate bitplane images","PLANEIMAGES")
 
-                                            //renderButton("psd","PSD","Coming soon ...","Working on it!"),
+                                                //renderButton("psd","PSD","Coming soon ...","Working on it!"),
 
-                                            //renderButton("planes","BIN","Bitplanes","Binary bitplane data",writePLANES)
-                                        )
-                                    ),
-                                    UIelm.ext = $(".ext"),
-                                    UIelm.info = $(".info")
-                                )
+                                                //renderButton("planes","BIN","Bitplanes","Binary bitplane data",writePLANES)
+                                            )
+                                        ),
+                                        UIelm.ext = $(".ext"),
+                                        UIelm.info = $(".info")
+                                    )
+                                ),
                             ),
+                            imageinfo = $(".imageinfo",'')
                         ),
-                        imageinfo = $(".imageinfo",''),
                         $(".buttons.relative.right",
                             $(".button.cancel.ghost",{onClick:Modal.hide},$("span","Cancel")),
                             $(".button.save.positive",{onClick:saveWithOptions},$("span","Save"))
@@ -303,6 +314,14 @@ var SaveDialog = function(){
                         ),
                         $(".optionspanel.IFF",
                             $(".content",
+                                $('.group.pal',
+                                    $("label","Palette"),
+                                    $(".options.flex",
+                                        {key:"palette"},
+                                        $(".option.suboption.centered.selected",{value:"optimized",onClick:selectOption},"Optimize",$(".tooltip","Rebuild the palette with used colors")),
+                                        $(".option.suboption.centered",{value:"locked",onClick:selectOption},"Current",$(".tooltip","Keep existing palette")),
+                                    )
+                                ),
                                 $(".group",
                                     $("label","Mode"),
                                     $(".options",
@@ -410,6 +429,14 @@ var SaveDialog = function(){
             let paletteOption = panel.querySelector(".group.pal");
             if(paletteOption){
                 paletteOption.classList.toggle("disabled",option.value===24);
+            }
+        }
+
+        if (parent.key === "iffMode"){
+            let panel = parent.closest(".optionspanel");
+            let paletteOption = panel.querySelector(".group.pal");
+            if(paletteOption){
+                paletteOption.classList.toggle("disabled",option.value!=="standard");
             }
         }
     }
@@ -566,6 +593,11 @@ var SaveDialog = function(){
         if (result){
             if (result.file){
                 await saveFile(result.file,getFileName() + "." + fileType.extension,fileType);
+            }
+            if (result.files){
+                for (let i = 0; i < result.files.length; i++) {
+                    await saveFile(result.files[i].blob, getFileName() + result.files[i].name, result.files[i].fileType || fileType);
+                }
             }
             if (result.text){
                 renderTextOutput(result.text);

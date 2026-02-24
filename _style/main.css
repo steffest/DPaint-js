@@ -3943,6 +3943,9 @@ body.hovercanvas.pointerdown.cursor-colorpicker .cursor .mark.large {
 }
 .modalwindow .inner .saveform .panel.main {
   width: 400px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
 }
 .modalwindow .inner .saveform .panel .col {
   width: 200px;
