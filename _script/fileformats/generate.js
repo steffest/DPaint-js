@@ -94,6 +94,8 @@ let Generate = function(){
                 return me.planes();
             case "BitMask":
                 return me.mask();
+            case "PLANEIMAGES":
+                return await me.planeImages();
             case "SPRITE":
                 return me.sprite();
             case "ANIM":
@@ -195,6 +197,82 @@ let Generate = function(){
 
        return IFF.toBitPlanes(ImageFile.getCanvas(),true);
 
+    }
+
+    me.planeImages = async ()=>{
+        let maxColors = 64;
+        let check = me.validate({
+            maxColors: maxColors
+        })
+
+        if (!check.valid){
+            return {
+                result: "error",
+                title: "Save as Plane Images",
+                messages: ["Sorry, this image has too many colors."].concat(check.errors),
+                buttons: [{label:"OK"}]
+            }
+        }
+
+        let canvas = ImageFile.getCanvas();
+        let originalColors = ImageProcessing.getColors(canvas, 256);
+        let isEHB = originalColors.length > 32 && originalColors.length <= 64;
+
+        let files = [];
+        let iffOptions = { maxColors: 64 };
+        if (isEHB) iffOptions.ehb = true;
+        
+        let iffBuffer = IFF.write(canvas, iffOptions);
+        files.push({
+             name: ".iff",
+             blob: new Blob([iffBuffer], {type: "application/octet-stream"}),
+             fileType: { accept: {'image/x-ilbm': ['.iff']} }
+        });
+
+        let bitplanes = IFF.toBitPlanes(canvas,true);
+        let planeCount = bitplanes.planes.byteLength / bitplanes.bitPlaneSize;
+        let byteView = new Uint8Array(bitplanes.planes);
+        let w = bitplanes.width;
+        let h = bitplanes.height;
+
+        for (let p = 0; p < planeCount; p++) {
+             let pCanvas = document.createElement("canvas");
+             pCanvas.width = w;
+             pCanvas.height = h;
+             let pCtx = pCanvas.getContext("2d");
+             let pImgData = pCtx.getImageData(0, 0, w, h);
+             let data = pImgData.data;
+
+             let planeOffset = p * bitplanes.bitPlaneSize;
+             let bytesPerLine = Math.ceil(w / 16) * 2;
+
+             for (let y = 0; y < h; y++) {
+                  for (let x = 0; x < w; x++) {
+                       let byteIndex = planeOffset + (y * bytesPerLine) + (x >> 3);
+                       let bit = byteView[byteIndex] & (0x80 >> (x & 7));
+                       
+                       let idx = (y * w + x) * 4;
+                       let val = bit ? 255 : 0; 
+                       data[idx] = val;
+                       data[idx+1] = val;
+                       data[idx+2] = val;
+                       data[idx+3] = 255;
+                  }
+             }
+             pCtx.putImageData(pImgData, 0, 0);
+
+             let blob = await new Promise(resolve => pCanvas.toBlob(resolve, "image/png"));
+             files.push({
+                 name: "_plane" + p + ".png",
+                 blob: blob,
+                 fileType: { accept: {'image/png': ['.png']} }
+             });
+        }
+
+        return {
+             result: "ok",
+             files: files
+        };
     }
 
     me.sprite=()=>{

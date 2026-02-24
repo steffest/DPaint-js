@@ -908,6 +908,7 @@ const IFF = (function () {
     me.write = function (canvas, options) {
         options = options || {};
         let iffMode = options.iffMode || "standard";
+        let isEHB = options.ehb || iffMode === "ehb";
         let isHAM = iffMode === "ham6" || iffMode === "ham8" || iffMode === "sham";
 
         const w = canvas.width;
@@ -939,7 +940,7 @@ const IFF = (function () {
             colors = result.palette.map(c => [c.r, c.g, c.b]);
         } else {
             // Standard indexed-color path.
-            let lockPalette = (Palette.getColorRanges() || []).length || Palette.isLocked();
+            let lockPalette = (Palette.getColorRanges() || []).length || Palette.isLocked() || Palette.isLockedGlobal();
             colors = lockPalette ? Palette.get() : ImageProcessing.getColors(canvas, 256);
 
             bitplaneCount = 1;
@@ -961,8 +962,8 @@ const IFF = (function () {
             colorRangeCount = Math.max(4,colorRangeCount);
             fileSize += (colorCycleSize * colorRangeCount);
         }
-        // CAMG chunk for HAM modes: 12 bytes (4 tag + 4 size + 4 data).
-        if (isHAM) {
+        // CAMG chunk for HAM and EHB modes: 12 bytes (4 tag + 4 size + 4 data).
+        if (isHAM || isEHB) {
             fileSize += 12;
         }
         // SHAM chunk: 8 header + 2 version + h * 16 * 2 palette bytes.
@@ -1027,11 +1028,14 @@ const IFF = (function () {
             }
         }
 
-        // CAMG chunk for HAM modes.
-        if (isHAM) {
+        // CAMG chunk for HAM and EHB modes.
+        if (isHAM || isEHB) {
             file.writeString("CAMG");
             file.writeDWord(4);
-            file.writeDWord(0x0800); // HAM flag
+            let camg = 0;
+            if (isHAM) camg |= 0x0800; // HAM flag
+            if (isEHB) camg |= 0x0080; // EHB flag
+            file.writeDWord(camg);
         }
 
         // SHAM chunk: per-scanline palettes.
@@ -1128,10 +1132,10 @@ const IFF = (function () {
         return file.buffer;
     };
 
-    me.toBitPlanes = function (canvas,includeTransparent) {
+    me.toBitPlanes = function (canvas,includeTransparent,isEHB) {
         let addExtraPlane = false;
 
-        let colors = Palette.isLocked()?Palette.get():ImageProcessing.getColors(canvas, 256);
+        let colors = (Palette.isLocked() || Palette.isLockedGlobal())?Palette.get():ImageProcessing.getColors(canvas, 256);
 
         // TODO: this is for sprite stuff?
         // then it should also be done for colors.length === 2?
