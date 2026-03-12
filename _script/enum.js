@@ -177,4 +177,5 @@ export const SETTING = {
     touchRotate: true,
     recordingMode: "stroke",
     useMultiPalettes: false,
+    penOnlyAllowColorPicker: true,
 }

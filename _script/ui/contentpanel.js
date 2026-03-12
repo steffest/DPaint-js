@@ -71,6 +71,7 @@ var ContentPanel = function(){
             $("section",
                 $("h4","Touch"),
                 $checkbox("Rotate on Pinch/zoom",null,"",(checked)=>{UserSettings.set("touchRotate",checked)},UserSettings.get("touchRotate")),
+                $checkbox("Allow Color Picker in Pen-Only mode",null,"",(checked)=>{UserSettings.set("penOnlyAllowColorPicker",checked)},UserSettings.get("penOnlyAllowColorPicker")),
                 $("h4","Advanced"),
                 $checkbox("Use Multi Palettes",null,"",(checked)=>{UserSettings.set("useMultiPalettes",checked,true)},UserSettings.get("useMultiPalettes")),
                 $(".warning","Warning: Highly experimental, may cause data loss")

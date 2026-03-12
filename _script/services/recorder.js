@@ -64,6 +64,37 @@ let Recorder = (()=>{
         mediaRecorder = null;
     };
 
+    function getSourceCanvas(){
+        if (window.override) {
+            let frame = ImageFile.getActiveFrame();
+            if (frame && frame.layers){
+                let hasHidden = frame.layers.some(layer => layer.name && layer.name.indexOf("_") === 0);
+
+                if (hasHidden){
+                    let canvas = document.createElement("canvas");
+                    let currentFile = ImageFile.getCurrentFile();
+                    canvas.width = currentFile.width;
+                    canvas.height = currentFile.height;
+                    let ctx = canvas.getContext("2d");
+
+                    frame.layers.forEach((layer) => {
+                        if (layer.visible && layer.name.indexOf("_") !== 0) {
+                            ctx.globalAlpha = layer.opacity / 100;
+                            let blendMode = layer.blendMode || "normal";
+                            if (blendMode === "normal") blendMode = "source-over";
+                            ctx.globalCompositeOperation = blendMode;
+                            ctx.drawImage(layer.render(), 0, 0);
+                            ctx.globalAlpha = 1;
+                            ctx.globalCompositeOperation = "source-over";
+                        }
+                    });
+                    return canvas;
+                }
+            }
+        }
+        return ImageFile.getCanvas();
+    }
+
     // Start recording
     me.startRecording = function() {
         if (!MediaRecorder) {
@@ -77,7 +108,7 @@ let Recorder = (()=>{
         }
         
         try {
-            const sourceCanvas = ImageFile.getCanvas();
+            const sourceCanvas = getSourceCanvas();
             
             // Calculate recording size maintaining aspect ratio
             const aspectRatio = sourceCanvas.width / sourceCanvas.height;
@@ -198,7 +229,7 @@ let Recorder = (()=>{
             mediaRecorder.resume();
         }
 
-        const sourceCanvas = ImageFile.getCanvas();
+        const sourceCanvas = getSourceCanvas();
         recordingCtx.drawImage(sourceCanvas, 0, 0, recordingCanvas.width, recordingCanvas.height);
         
         if (Palette.isLockedGlobal()){

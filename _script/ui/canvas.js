@@ -5,7 +5,6 @@ import {$div} from "../util/dom.js";
 import Palette from "./palette.js";
 import Brush from "./brush.js";
 import Editor from "./editor.js";
-import Selection from "./selection.js";
 import ImageFile from "../image.js";
 import Resizer from "./components/resizer.js";
 import ToolOptions from "./components/toolOptions.js";
@@ -16,14 +15,15 @@ import DitherPanel from "./toolPanels/ditherPanel.js";
 import Color from "../util/color.js";
 import {duplicateCanvas} from "../util/canvasUtils.js";
 import HistoryService from "../services/historyservice.js";
+import historyservice from "../services/historyservice.js";
 import Cursor from "./cursor.js";
 import Smudge from "../paintTools/smudge.js";
-import Spray  from "../paintTools/spray.js";
-import Text  from "../paintTools/text.js";
-import historyservice from "../services/historyservice.js";
+import Spray from "../paintTools/spray.js";
+import Text from "../paintTools/text.js";
 import GridOverlay from "./components/gridOverlay.js";
 import PaletteDialog from "./components/paletteDialog.js";
 import {resetShaders, runWebGLQuantizer} from "../util/webgl-quantizer.js";
+import UserSettings from "../userSettings.js";
 
 let Canvas = function(parent){
 	let me = {};
@@ -407,6 +407,20 @@ let Canvas = function(parent){
         EventBus.trigger(EVENT.layerContentChanged);
     }
 
+    function isLikelyPalmTouch(e){
+        if (!e || e.pointerType !== "touch") return false;
+
+        const width = typeof e.width === "number" ? e.width : 0;
+        const height = typeof e.height === "number" ? e.height : 0;
+        if (!width || !height) return false;
+
+        const maj = Math.max(width, height);
+        const min = Math.min(width, height);
+        const area = width * height;
+
+        return maj >= 74 || (area >= 10000 && min >= 18);
+    }
+
 
     let defaultDrawFunction = function(){
         let box = resizer.get();
@@ -427,6 +441,14 @@ let Canvas = function(parent){
 
                 if (ToolOptions.usePenOnly() && e.pointerType !== "pen"){
                     if (e.pointerType === "touch" || e.pointerType === "mouse"){
+                        if (e.pointerType === "touch"){
+                            if (!UserSettings.get("penOnlyAllowColorPicker")){
+                                return;
+                            }
+                            if (isLikelyPalmTouch(e)){
+                                return;
+                            }
+                        }
                         touchData.isPenOverride = true;
                         touchData.currentTool = Editor.getCurrentTool();
                         EventBus.trigger(COMMAND.COLORPICKER);

@@ -7,6 +7,7 @@ let UserSettings = (()=>{
         let result = {};
         result["touchRotate"] = true;
         result["useMultiPalettes"] = false;
+        result["penOnlyAllowColorPicker"] = true;
         return result;
     }
 
@@ -14,7 +15,7 @@ let UserSettings = (()=>{
     let stored = localStorage.getItem("dp_settings");
     if (stored){
         try {
-            settings = JSON.parse(stored);
+            settings = Object.assign(getDefaultSettings(), JSON.parse(stored));
         }catch (e) {
             console.error("Could not parse settings", e);
             settings = getDefaultSettings();

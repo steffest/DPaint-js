@@ -1814,6 +1814,13 @@ body.override .splitpanel .panel .toolbar .toolpanel .options .checkbox.pressure
   position: relative;
   border-bottom: 1px solid #656565;
 }
+.contentpanel section .checkbox {
+  margin: 8px 0 4px 0;
+}
+.contentpanel section .checkbox label span {
+  display: block;
+  white-space: normal;
+}
 .contentpanel section .checkbox label span:before {
   top: 0;
 }

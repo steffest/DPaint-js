@@ -594,7 +594,7 @@ var Brush = function(){
     }
     
     function generateBrush(){
-        console.log("Generating brush",currentBrush);
+        //console.log("Generating brush",currentBrush);
         brushCanvas.width = brushBackCanvas.width = currentBrush.width;
         brushCanvas.height = brushBackCanvas.height = currentBrush.height;
         brushCtx.clearRect(0,0,currentBrush.width,currentBrush.height);

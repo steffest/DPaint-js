@@ -20,8 +20,16 @@
             border-bottom: 1px solid #656565;
         }
 
-        .checkbox label span:before{
-            top: 0;
+        .checkbox{
+            margin: 8px 0 4px 0;
+            label span{
+                display: block;
+                white-space: normal;
+
+                &:before{
+                    top: 0;
+                }
+            }
         }
 
         .warning{
