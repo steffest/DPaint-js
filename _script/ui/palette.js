@@ -49,6 +49,7 @@ let Palette = function(){
     var drawColorIndex = 1;
     var backColorIndex = 0;
     let colorDepth = 24;
+    let paletteMode = "normal";
 
     var colors = [
         [149,149,149],
@@ -413,7 +414,33 @@ let Palette = function(){
         return isLockedGlobal;
     }
 
+    me.isEHB = function(){
+        return paletteMode === "ehb";
+    }
+
     me.set = function(palette){
+        if (paletteMode === "ehb") {
+            let newPalette = [];
+            for (let i = 0; i < 32; i++) {
+                if (i < palette.length) {
+                    let color = palette[i];
+                    if (typeof color === "string") color = Color.fromString(color);
+                    newPalette.push([color[0], color[1], color[2]]);
+                } else {
+                    newPalette.push([0,0,0]);
+                }
+            }
+            for (let i = 0; i < 32; i++) {
+                let color = newPalette[i];
+                newPalette.push([
+                    color[0] >> 1,
+                    color[1] >> 1,
+                    color[2] >> 1
+                ]);
+            }
+            palette = newPalette;
+        }
+
         let cols = 4;
         let rows = Math.ceil(palette.length/cols);
         paletteCanvas.width = cols*size;
@@ -1131,6 +1158,17 @@ let Palette = function(){
         return colorDepth;
     }
 
+    me.addEHB = function(){
+        console.error(currentPalette);
+        // take the palette and expand it with the same colors but half the brightness
+        let palette = currentPalette.slice();
+        palette.forEach(color=>{
+            palette.push([color[0]>>1,color[1]>>1,color[2]>>1]);
+        });
+        currentPalette = palette;
+        EventBus.trigger(EVENT.paletteChanged);
+    }
+
     function generateColorLayers(resetIndex){
         colorLayers = {};
         let image = ImageFile.getCurrentFile();
@@ -1340,13 +1378,21 @@ let Palette = function(){
        Modal.show(DIALOG.TEXTOUTPUT,text);
     });
 
-
-
     EventBus.on(COMMAND.NEW,()=>{
         paletteList = [];
         paletteListIndex = 0;
         if (paletteListIndexElm) paletteListIndexElm.innerHTML = paletteListIndex+1;
         me.set(colors);
+        EventBus.trigger(EVENT.paletteChanged);
+    });
+
+    EventBus.on(COMMAND.PALETTEMODE_NORMAL,()=>{
+        paletteMode = "normal";
+        EventBus.trigger(EVENT.paletteChanged);
+    });
+
+    EventBus.on(COMMAND.PALETTEMODE_EHB,()=>{
+        paletteMode = "ehb";
         EventBus.trigger(EVENT.paletteChanged);
     });
 

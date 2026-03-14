@@ -8,7 +8,7 @@ import Brush from "./ui/brush.js";
 
 let App = function(){
 	let me = {
-		version: "0.2.0.1 alpha"
+		version: "0.2.0.2 alpha"
 	}
 	
 	me.init = function(){
@@ -105,6 +105,12 @@ let App = function(){
 			});
 		});
 
+		EventBus.on(COMMAND.VIEWPLANES,(andOpen)=>{
+			import("./ui/components/bitplanes.js").then(BitPlanes=>{
+				BitPlanes.default.toggle(andOpen);
+			});
+		});
+
 		EventBus.on(COMMAND.ABOUT,()=>{
 			Modal.show(DIALOG.ABOUT,me.version);
 		})
@@ -156,6 +162,11 @@ let App = function(){
 			}
 		});
 	}
+
+	/*window.ehb = function(){
+		Palette.addEHB();
+
+	}*/
 
 /*
 	window.test = function(){

@@ -549,8 +549,7 @@ var PaletteDialog = function() {
 
     function setColorDepth(){
         let depth = Palette.getColorDepth();
-        depthInfo.innerHTML = "Color depth: " + depth + " bits";
-        depthInfo.classList.toggle("active",depth<24);
+        updateWarningMessage();
 
         let colorDepth = depth/3;
         sliders.forEach((slider,index)=>{
@@ -607,9 +606,12 @@ var PaletteDialog = function() {
         let colors = Palette.get();
         colorHighlight = $div("highlight","",parent);
 
+        let colorCount = colors.length;
+        if (Palette.isEHB()) colorCount = Math.min(colorCount, 32);
+
         let colorsPerPage = paletteCanvas.width / colorSize * paletteCanvas.height / colorSize;
-        let pageCount = Math.ceil(colors.length/colorsPerPage);
-        if (palettePage>=pageCount) palettePage = pageCount-1;
+        let pageCount = Math.ceil(colorCount/colorsPerPage);
+        if (palettePage>=pageCount) palettePage = Math.max(0, pageCount-1);
 
         let isInRange = ()=>{return false;}
         if (ColorRange.getActiveRange() !== undefined){
@@ -621,6 +623,7 @@ var PaletteDialog = function() {
 
         let start = palettePage * colorsPerPage;
         let end = start + colorsPerPage;
+        if (end > colorCount) end = colorCount;
         for (let i=start;i<end;i++){
             if (!colors[i]) break;
             drawColor(colors[i],i-start,isInRange(i));
@@ -667,7 +670,7 @@ var PaletteDialog = function() {
 
 
 
-        if (colors.length>colorsPerPage){
+        if (colorCount>colorsPerPage){
             $(".nav",{parent:parent},
                 $(".prev"+(palettePage?".active":""),{onClick:()=>{palettePage--;renderPalette(parent);}}),
                 $(".page",""+(palettePage+1)),
@@ -1090,6 +1093,7 @@ var PaletteDialog = function() {
             }
         }
         buttons.classList.add("active");
+        updateWarningMessage(color);
         //buttons.forEach(button=>{button.classList.add("active")})
     }
 
@@ -1117,7 +1121,36 @@ var PaletteDialog = function() {
             setPixelHighLights();
             setColorSelection();
             buttons.classList.remove("active");
+            updateWarningMessage();
         }
+    }
+
+    function hasDuplicateEditedColor(color){
+        if (!Array.isArray(color) || currentIndex === undefined || currentIndex < 0) return false;
+        return Palette.get().some((paletteColor, index)=>{
+            return index !== currentIndex && Color.equals(paletteColor,color);
+        });
+    }
+
+    function getWarningMessage(editedColor){
+        let depth = Palette.getColorDepth();
+        let showDuplicateWarning = buttons.classList.contains("active") && hasDuplicateEditedColor(editedColor);
+
+        if (showDuplicateWarning){
+            return "Duplicate";
+        }
+
+        if (depth < 24){
+            return "Color depth: " + depth + " bits";
+        }
+
+        return "";
+    }
+
+    function updateWarningMessage(editedColor){
+        let warningMessage = getWarningMessage(editedColor);
+        depthInfo.innerHTML = warningMessage;
+        depthInfo.classList.toggle("active",!!warningMessage);
     }
 
     EventBus.on(EVENT.colorCount,(count)=>{

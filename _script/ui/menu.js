@@ -113,7 +113,11 @@ let Menu = function(){
                         {label: "24bit",info:"16 Million",command: COMMAND.COLORDEPTH24,checked:true,ref:true},
                         {label: "12bit",info:"4096 - Amiga OCS",command: COMMAND.COLORDEPTH12,checked:false,ref:true},
                         {label: "9bit",info:"512 - Atari ST",command: COMMAND.COLORDEPTH9,checked:false,ref:true},
-                    ]},,
+                    ]},
+                /*{label: "Mode",items:[
+                    {label: "Normal",info:"Default",command: COMMAND.PALETTEMODE_NORMAL,checked:true,ref:true},
+                    {label: "EHB",info:"Amiga Extra Half Bright",command: COMMAND.PALETTEMODE_EHB,checked:false,ref:true},
+                ]},*/
             ]},
         {label: "View", items:[
                 {label: "Grid",command: COMMAND.TOGGLEGRID,shortKey: "G",checked:false},
@@ -132,6 +136,7 @@ let Menu = function(){
         {label: "Amiga", items:[
                 {label: "Open ADF image",command: COMMAND.ADF, needsRealClick: true},
                 {label: "Preview in Deluxe Paint",command: COMMAND.DELUXE},
+                //{label: "View Bitplanes",command: COMMAND.VIEWPLANES},
             ]},
         {label: "Help", items:[
                 {label: "About DPaint.js",command: COMMAND.ABOUT},
@@ -264,6 +269,13 @@ let Menu = function(){
     EventBus.on(COMMAND.COLORDEPTH9,()=>{
         refs[COMMAND.COLORDEPTH12].classList.remove("checked");
         refs[COMMAND.COLORDEPTH24].classList.remove("checked");
+    });
+
+    EventBus.on(COMMAND.PALETTEMODE_NORMAL,()=>{
+        refs[COMMAND.PALETTEMODE_EHB].classList.remove("checked");
+    });
+    EventBus.on(COMMAND.PALETTEMODE_EHB,()=>{
+        refs[COMMAND.PALETTEMODE_NORMAL].classList.remove("checked");
     });
 
     EventBus.on(EVENT.panelUIChanged,()=>{
