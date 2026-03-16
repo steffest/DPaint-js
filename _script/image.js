@@ -568,6 +568,7 @@ let ImageFile = function(){
             if (ext === "info") detectType = true;
             if (ext === "gif") detectType = true;
             if (ext === "png") detectType = true;
+            if (ext === "psd") detectType = true;
             if (ext === "json") isText = true;
 
             var reader = new FileReader();
@@ -728,6 +729,8 @@ let ImageFile = function(){
                     for (let i = 1; i < image.length; i++) addFrame(image[i]);
                     EventBus.release();
                     EventBus.trigger(EVENT.framesChanged);
+                } else if (currentFile.originalData && currentFile.originalData.layers && currentFile.originalData.layers.length) {
+                    newFileFromLayers(currentFile.originalData.layers, image, fileName, currentFile.originalType, currentFile.originalData);
                 } else {
                     newFile(image,fileName,currentFile.originalType,currentFile.originalData)
                 }
@@ -769,6 +772,64 @@ let ImageFile = function(){
             activeLayer.getContext().drawImage(image, 0, 0);
         }
         EventBus.trigger(EVENT.imageSizeChanged);
+    }
+
+    function newFileFromLayers(sourceLayers,image,fileName,type,originalData){
+        Historyservice.clear();
+        Recorder.clear();
+        cachedImage = undefined;
+
+        let w = originalData && originalData.width ? originalData.width : 320;
+        let h = originalData && originalData.height ? originalData.height : 256;
+        if (image) {
+            w = image.width || w;
+            h = image.height || h;
+        }
+
+        currentFile = {
+            width: w,
+            height: h,
+            name: fileName || "Untitled",
+            frames:[{
+                layers:[]
+            }],
+            colorRange:[]
+        };
+
+        if (type) currentFile.originalType = type;
+        if (originalData){
+            currentFile.originalData = originalData;
+        }
+
+        activeFrameIndex = 0;
+        activeLayerIndex = 0;
+
+        let layers = sourceLayers.slice();
+
+        EventBus.hold();
+        layers.forEach((sourceLayer, index) => {
+            let layerIndex = addLayer(undefined, sourceLayer.name || ("Layer " + (index + 1)));
+            let layer = currentFrame().layers[layerIndex];
+            layer.visible = sourceLayer.visible !== false;
+            layer.opacity = typeof sourceLayer.opacity === "number" ? sourceLayer.opacity : 100;
+            layer.blendMode = sourceLayer.blendMode || "normal";
+            layer.clear();
+            if (sourceLayer.canvas) {
+                layer.drawImage(sourceLayer.canvas, sourceLayer.left || 0, sourceLayer.top || 0);
+            }
+        });
+        EventBus.release();
+
+        if (!currentFrame().layers.length) {
+            addLayer();
+        }
+
+        activeLayerIndex = currentFrame().layers.length - 1;
+        activeLayer = currentFrame().layers[activeLayerIndex];
+
+        EventBus.trigger(EVENT.layersChanged);
+        EventBus.trigger(EVENT.imageSizeChanged);
+        EventBus.trigger(EVENT.imageContentChanged);
     }
 
     function addLayer(index,name,options){

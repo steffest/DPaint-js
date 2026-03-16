@@ -3,6 +3,7 @@ import AmigaIcon from "./amigaIcon.js";
 import IFF from "./iff.js";
 import GIF from "./gif.js";
 import PNG from "./png.js";
+import PSD from "./psd.js";
 
 let FileDetector = (function () {
     let me = {};
@@ -48,6 +49,24 @@ let FileDetector = (function () {
                 let result = PNG.detect(file);
                 if (result){
                     PNG.parse(file).then(next);
+                }else{
+                    next(false);
+                }
+            } else if (ext === "psd"){
+                file = BinaryStream(data.slice(0, data.byteLength), true);
+                file.goto(0);
+                let result = PSD.detect(file);
+                if (result){
+                    let data = PSD.parse(file);
+                    if (data && data.image){
+                        next({
+                            image: data.image,
+                            type: "PSD",
+                            data: data,
+                        });
+                    }else{
+                        next(false);
+                    }
                 }else{
                     next(false);
                 }
