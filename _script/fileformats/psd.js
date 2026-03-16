@@ -1,3 +1,7 @@
+// file format: https://www.adobe.com/devnet-apps/photoshop/fileformatashtml/
+
+import BinaryStream from "../util/binarystream.js";
+
 const FILETYPE = {
     PSD: { name: "Adobe Photoshop Document", actions: ["show"], inspect: true },
 };
@@ -23,6 +27,25 @@ const BLEND_MODES = {
     dodge: "color-dodge",
     burn: "color-burn",
     idiv: "color-burn",
+};
+
+const PSD_BLEND_MODES = {
+    normal: "norm",
+    darken: "dark",
+    multiply: "mul",
+    lighten: "lite",
+    screen: "scrn",
+    overlay: "over",
+    difference: "diff",
+    exclusion: "smud",
+    hue: "hue",
+    saturation: "sat",
+    color: "colr",
+    luminosity: "lum",
+    "hard-light": "hLit",
+    "soft-light": "sLit",
+    "color-dodge": "div",
+    "color-burn": "idiv",
 };
 
 const PSD = (function(){
@@ -109,6 +132,58 @@ const PSD = (function(){
         return renderCompositeFromLayers(data);
     };
 
+    me.write = function(frame, width, height, compositeCanvas, options){
+        options = options || {};
+        let compression = options.compression ? 1 : 0;
+        let layerRecords = [];
+        let layerChannelData = [];
+        let layers = frame && frame.layers ? frame.layers : [];
+
+        for (let i = 0; i < layers.length; i++){
+            let encoded = encodeLayer(layers[i], width, height, compression);
+            layerRecords.push(encoded.record);
+            for (let c = 0; c < encoded.channelBlocks.length; c++){
+                layerChannelData.push(encoded.channelBlocks[c]);
+            }
+        }
+
+        let layerInfo = concatArrays([
+            int16ToBytes(layers.length),
+            ...layerRecords,
+            ...layerChannelData,
+        ]);
+
+        let layerMaskInfo = concatArrays([
+            uint32ToBytes(layerInfo.length),
+            layerInfo,
+            uint32ToBytes(0),
+        ]);
+
+        let composite = encodeComposite(compositeCanvas, width, height, compression);
+        let colorModeData = uint32ToBytes(0);
+        let imageResources = uint32ToBytes(0);
+
+        let totalSize = 26 + colorModeData.length + imageResources.length + 4 + layerMaskInfo.length + composite.length;
+        let file = BinaryStream(new ArrayBuffer(totalSize), true);
+
+        file.writeString("8BPS");
+        file.writeWord(1);
+        file.fill(0, 6);
+        file.writeWord(4);
+        file.writeDWord(height);
+        file.writeDWord(width);
+        file.writeWord(8);
+        file.writeWord(3);
+
+        writeBytes(file, colorModeData);
+        writeBytes(file, imageResources);
+        file.writeDWord(layerMaskInfo.length);
+        writeBytes(file, layerMaskInfo);
+        writeBytes(file, composite);
+
+        return file.buffer;
+    };
+
     return me;
 
     function readLayerRecord(file, docWidth, docHeight){
@@ -185,6 +260,14 @@ const PSD = (function(){
     }
 
     function readLayerChannels(file, layer, mode){
+        if (!layer.width || !layer.height){
+            for (let i = 0; i < layer.channels.length; i++){
+                file.jump(layer.channels[i].length);
+            }
+            layer.canvas = null;
+            return;
+        }
+
         let channelMap = {};
         for (let i = 0; i < layer.channels.length; i++){
             let channel = layer.channels[i];
@@ -260,6 +343,8 @@ const PSD = (function(){
     }
 
     function channelsToCanvas(channelMap, width, height, mode){
+        if (!width || !height) return null;
+
         let canvas = document.createElement("canvas");
         canvas.width = width;
         canvas.height = height;
@@ -394,6 +479,275 @@ const PSD = (function(){
         let value = file.dataView.getInt32(file.index, file.litteEndian);
         file.index += 4;
         return value;
+    }
+
+    function encodeLayer(layer, width, height, compression){
+        let canvas = layer.render ? layer.render() : layer.getCanvas();
+        let ctx = canvas.getContext("2d", {willReadFrequently: true});
+        let imageData = ctx.getImageData(0, 0, width, height).data;
+        let channelBytes = extractChannels(imageData, width, height);
+
+        let channelBlocks = [
+            encodeChannel(channelBytes.red, width, height, compression),
+            encodeChannel(channelBytes.green, width, height, compression),
+            encodeChannel(channelBytes.blue, width, height, compression),
+            encodeChannel(channelBytes.alpha, width, height, compression),
+        ];
+
+        let channelIds = [0, 1, 2, -1];
+        let blendMode = PSD_BLEND_MODES[layer.blendMode] || "norm";
+        let layerOpacity = typeof layer.opacity === "number" ? layer.opacity : 100;
+        let opacity = Math.max(0, Math.min(255, Math.round(layerOpacity / 100 * 255)));
+        let flags = layer.visible === false ? 0x02 : 0;
+        let nameBlock = encodePascalString(layer.name || "Layer", 4);
+        let extraData = concatArrays([
+            uint32ToBytes(0),
+            uint32ToBytes(0),
+            nameBlock,
+        ]);
+
+        let recordSize = 16 + 2 + (channelBlocks.length * 6) + 4 + 4 + 4 + 4 + extraData.length;
+        let record = new Uint8Array(recordSize);
+        let offset = 0;
+
+        offset = writeArray(record, int32ToBytes(0), offset);
+        offset = writeArray(record, int32ToBytes(0), offset);
+        offset = writeArray(record, int32ToBytes(height), offset);
+        offset = writeArray(record, int32ToBytes(width), offset);
+        offset = writeArray(record, uint16ToBytes(channelBlocks.length), offset);
+
+        for (let i = 0; i < channelBlocks.length; i++){
+            offset = writeArray(record, int16ToBytes(channelIds[i]), offset);
+            offset = writeArray(record, uint32ToBytes(channelBlocks[i].length), offset);
+        }
+
+        offset = writeAscii(record, "8BIM", offset);
+        offset = writeAscii(record, blendMode, offset);
+        record[offset++] = opacity;
+        record[offset++] = 0;
+        record[offset++] = flags;
+        record[offset++] = 0;
+        offset = writeArray(record, uint32ToBytes(extraData.length), offset);
+        writeArray(record, extraData, offset);
+
+        return {
+            record,
+            channelBlocks,
+        };
+    }
+
+    function encodeComposite(canvas, width, height, compression){
+        let ctx = canvas.getContext("2d", {willReadFrequently: true});
+        let imageData = ctx.getImageData(0, 0, width, height).data;
+        let channels = extractChannels(imageData, width, height);
+
+        if (compression === 1){
+            let encodedRed = encodeChannelRLE(channels.red, width, height);
+            let encodedGreen = encodeChannelRLE(channels.green, width, height);
+            let encodedBlue = encodeChannelRLE(channels.blue, width, height);
+            let encodedAlpha = encodeChannelRLE(channels.alpha, width, height);
+            return concatArrays([
+                uint16ToBytes(1),
+                encodedRed.rowTable,
+                encodedGreen.rowTable,
+                encodedBlue.rowTable,
+                encodedAlpha.rowTable,
+                encodedRed.data,
+                encodedGreen.data,
+                encodedBlue.data,
+                encodedAlpha.data,
+            ]);
+        }
+
+        return concatArrays([
+            uint16ToBytes(0),
+            channels.red,
+            channels.green,
+            channels.blue,
+            channels.alpha,
+        ]);
+    }
+
+    function encodeChannel(bytes, width, height, compression){
+        if (compression === 1){
+            let encoded = encodeChannelRLE(bytes, width, height);
+            return concatArrays([
+                uint16ToBytes(1),
+                encoded.rowTable,
+                encoded.data,
+            ]);
+        }
+        return encodeRawChannel(bytes);
+    }
+
+    function encodeRawChannel(bytes){
+        let result = new Uint8Array(2 + bytes.length);
+        result[0] = 0;
+        result[1] = 0;
+        result.set(bytes, 2);
+        return result;
+    }
+
+    function encodeChannelRLE(bytes, width, height){
+        let rows = [];
+        let rowLengths = new Uint8Array(height * 2);
+        for (let y = 0; y < height; y++){
+            let start = y * width;
+            let row = bytes.subarray(start, start + width);
+            let packed = packBitsEncode(row);
+            let length = packed.length;
+            rowLengths[y * 2] = (length >> 8) & 0xff;
+            rowLengths[y * 2 + 1] = length & 0xff;
+            rows.push(packed);
+        }
+        return {
+            rowTable: rowLengths,
+            data: concatArrays(rows),
+        };
+    }
+
+    function packBitsEncode(bytes){
+        let output = [];
+        let i = 0;
+
+        while (i < bytes.length){
+            let runLength = 1;
+            while (
+                i + runLength < bytes.length &&
+                bytes[i + runLength] === bytes[i] &&
+                runLength < 128
+            ){
+                runLength++;
+            }
+
+            if (runLength >= 3){
+                output.push(257 - runLength);
+                output.push(bytes[i]);
+                i += runLength;
+                continue;
+            }
+
+            let literalStart = i;
+            i += runLength;
+
+            while (i < bytes.length){
+                runLength = 1;
+                while (
+                    i + runLength < bytes.length &&
+                    bytes[i + runLength] === bytes[i] &&
+                    runLength < 128
+                ){
+                    runLength++;
+                }
+                if (runLength >= 3) break;
+                i += runLength;
+                if (i - literalStart >= 128) break;
+            }
+
+            let literalLength = i - literalStart;
+            while (literalLength > 0){
+                let chunkLength = Math.min(128, literalLength);
+                output.push(chunkLength - 1);
+                for (let j = 0; j < chunkLength; j++){
+                    output.push(bytes[literalStart + j]);
+                }
+                literalStart += chunkLength;
+                literalLength -= chunkLength;
+            }
+        }
+
+        return Uint8Array.from(output);
+    }
+
+    function extractChannels(imageData, width, height){
+        let pixelCount = width * height;
+        let red = new Uint8Array(pixelCount);
+        let green = new Uint8Array(pixelCount);
+        let blue = new Uint8Array(pixelCount);
+        let alpha = new Uint8Array(pixelCount);
+
+        for (let i = 0; i < pixelCount; i++){
+            let src = i * 4;
+            red[i] = imageData[src];
+            green[i] = imageData[src + 1];
+            blue[i] = imageData[src + 2];
+            alpha[i] = imageData[src + 3];
+        }
+
+        return { red, green, blue, alpha };
+    }
+
+    function encodePascalString(value, padding){
+        value = (value || "").replace(/[\u0100-\uffff]/g, "?");
+        if (value.length > 255) value = value.substring(0, 255);
+        let length = value.length;
+        let blockLength = length + 1;
+        let remainder = blockLength % padding;
+        if (remainder) blockLength += padding - remainder;
+        let result = new Uint8Array(blockLength);
+        result[0] = length;
+        for (let i = 0; i < length; i++){
+            result[i + 1] = value.charCodeAt(i) & 0xff;
+        }
+        return result;
+    }
+
+    function concatArrays(arrays){
+        let total = 0;
+        for (let i = 0; i < arrays.length; i++){
+            total += arrays[i].length;
+        }
+        let result = new Uint8Array(total);
+        let offset = 0;
+        for (let i = 0; i < arrays.length; i++){
+            result.set(arrays[i], offset);
+            offset += arrays[i].length;
+        }
+        return result;
+    }
+
+    function writeArray(target, source, offset){
+        target.set(source, offset);
+        return offset + source.length;
+    }
+
+    function writeAscii(target, value, offset){
+        for (let i = 0; i < value.length; i++){
+            target[offset + i] = value.charCodeAt(i) & 0xff;
+        }
+        return offset + value.length;
+    }
+
+    function uint16ToBytes(value){
+        let result = new Uint8Array(2);
+        result[0] = (value >> 8) & 0xff;
+        result[1] = value & 0xff;
+        return result;
+    }
+
+    function int16ToBytes(value){
+        if (value < 0) value = 0x10000 + value;
+        return uint16ToBytes(value);
+    }
+
+    function uint32ToBytes(value){
+        let result = new Uint8Array(4);
+        result[0] = (value >>> 24) & 0xff;
+        result[1] = (value >>> 16) & 0xff;
+        result[2] = (value >>> 8) & 0xff;
+        result[3] = value & 0xff;
+        return result;
+    }
+
+    function int32ToBytes(value){
+        if (value < 0) value = 0x100000000 + value;
+        return uint32ToBytes(value);
+    }
+
+    function writeBytes(file, bytes){
+        for (let i = 0; i < bytes.length; i++){
+            file.writeUbyte(bytes[i]);
+        }
     }
 })();
 

@@ -82,6 +82,14 @@ var SaveDialog = function(){
                 'image/png': ['.png'],
             }
         },
+        PSD:{
+            description: 'Photoshop PSD',
+            extension: 'psd',
+            generator: 'PSD',
+            accept: {
+                'application/octet-stream': ['.psd'],
+            }
+        },
         GIF:{
             description: 'GIF Image',
             generator: "GIF",
@@ -192,6 +200,7 @@ var SaveDialog = function(){
                                             $(".list",
                                                 renderButton("json","DPaint.JSON","The internal format of Dpaint. All features supported","DPAINTJS"),
                                                 renderButton("png","PNG Image","Full color and transparency, no layers, only the current frame gets saved.","PNG"),
+                                                renderButton("psd","PSD Image","Basic layered PSD export, current frame only.","PSD"),
                                                 renderButton("gif","GIF Img/anim","Max 256 colors, no layers, animation supported.","GIF"),
                                                 renderButton("jpg","JPG Image","Full color, no transparency, no layers, only the current frame gets saved. LOSSY!","JPG"),
                                                 renderButton("iff","Amiga IFF","Maximum 256 colors, only the current frame gets saved.","IFF"),
@@ -199,8 +208,6 @@ var SaveDialog = function(){
                                                 renderButton("os3","Amiga Icon","Amiga OS Icon, Maximum 2 frames.","ICO"),
                                                 renderButton("amiga","Amiga Sprite","C Source.","SPRITE"),
                                                 //renderButton("planes","Bitplanes","Separate bitplane images","PLANEIMAGES")
-
-                                                //renderButton("psd","PSD","Coming soon ...","Working on it!"),
 
                                                 //renderButton("planes","BIN","Bitplanes","Binary bitplane data",writePLANES)
                                             )
@@ -295,6 +302,18 @@ var SaveDialog = function(){
                                                 currentSaveOptions.quality = v;
                                             }
                                         }),
+                                    )
+                                )
+                            )
+                        ),
+                        $(".optionspanel.PSD",
+                            $(".content",
+                                $(".group",
+                                    $("label","Compression"),
+                                    $(".options",
+                                        {key:"compression"},
+                                        $(".option",{value:false,onClick:selectOption},"Uncompressed",$(".tooltip.left",$("div","Larger files, but simplest PSD layout."))),
+                                        $(".option.selected",{value:true,onClick:selectOption},"Compressed",$(".tooltip.left",$("div","Uses PackBits/RLE compression."),$("div","Usually much smaller, with low CPU cost.")))
                                     )
                                 )
                             )

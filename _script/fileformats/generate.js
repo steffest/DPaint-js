@@ -6,6 +6,7 @@ import Icon from "./amigaIcon.js";
 import Palette from "../ui/palette.js";
 import IndexedPng from "./png.js";
 import GIF from "./gif.js";
+import PSD from "./psd.js";
 
 function rleCompress(bytes) {
     var packed = [];
@@ -105,6 +106,8 @@ let Generate = function(){
                     result: "ok",
                     file: await new Promise(resolve => ImageFile.getCanvasWithFilters().toBlob(resolve))
                 };
+            case "PSD":
+                return me.psd();
             case "JPG":
                 let q = (options && options.quality) ? (options.quality/100) : 0.8;
                 console.error(options);
@@ -371,6 +374,18 @@ let Generate = function(){
         }
 
         let buffer = GIF.write(ImageFile.getCurrentFile().frames);
+        return {
+            result: "ok",
+            file: new Blob([buffer], {type: "application/octet-stream"})
+        };
+    }
+
+    me.psd=(options)=>{
+        let currentFile = ImageFile.getCurrentFile();
+        let frame = ImageFile.getActiveFrame();
+        let canvas = ImageFile.getCanvas();
+        options = options || {};
+        let buffer = PSD.write(frame, currentFile.width, currentFile.height, canvas, options);
         return {
             result: "ok",
             file: new Blob([buffer], {type: "application/octet-stream"})

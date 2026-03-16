@@ -52,7 +52,8 @@ V 0.2.0
     - Invert Selection (Finally)
     - export to HAM mode images (thanks Rob!
 
-V 0.2.0.1
+V 0.2.1
     - bug fixes interlaced IFF images
     - Touch UI improvements
     - Added palm-rejection and option to disable touch-color-picker when pen-only mode is on.
+    - Experimental Photoshop PSD import (read only for now)

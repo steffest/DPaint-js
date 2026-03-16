@@ -8,7 +8,7 @@ import Brush from "./ui/brush.js";
 
 let App = function(){
 	let me = {
-		version: "0.2.0.2 alpha"
+		version: "0.2.0.3 alpha"
 	}
 	
 	me.init = function(){
