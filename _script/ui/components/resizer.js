@@ -282,6 +282,14 @@ var Resizer = function(editor){
         let xz = x/zoom;
         let yz = y/zoom;
 
+        if (Input.isShiftDown() && dot.index === 8){
+            if (Math.abs(xz) > Math.abs(yz)){
+                yz = 0;
+            }else{
+                xz = 0;
+            }
+        }
+
         switch (dot.index){
             case 0:
                 l+=xz;
