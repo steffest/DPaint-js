@@ -741,6 +741,7 @@ let ImageFile = function(){
         Historyservice.clear();
         Recorder.clear();
         cachedImage = undefined;
+        EventBus.trigger(COMMAND.CLEARSELECTION);
         let w = 320;
         let h = 256;
         if (image) {
@@ -778,6 +779,7 @@ let ImageFile = function(){
         Historyservice.clear();
         Recorder.clear();
         cachedImage = undefined;
+        EventBus.trigger(COMMAND.CLEARSELECTION);
 
         let w = originalData && originalData.width ? originalData.width : 320;
         let h = originalData && originalData.height ? originalData.height : 256;
