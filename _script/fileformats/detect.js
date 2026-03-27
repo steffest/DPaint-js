@@ -4,6 +4,7 @@ import IFF from "./iff.js";
 import GIF from "./gif.js";
 import PNG from "./png.js";
 import PSD from "./psd.js";
+import Aseprite from "./aseprite.js";
 
 let FileDetector = (function () {
     let me = {};
@@ -62,6 +63,24 @@ let FileDetector = (function () {
                         next({
                             image: data.image,
                             type: "PSD",
+                            data: data,
+                        });
+                    }else{
+                        next(false);
+                    }
+                }else{
+                    next(false);
+                }
+            } else if (ext === "ase" || ext === "aseprite"){
+                file = BinaryStream(data.slice(0, data.byteLength), false);
+                file.goto(0);
+                let result = Aseprite.detect(file);
+                if (result){
+                    let data = Aseprite.parse(file);
+                    if (data && data.image){
+                        next({
+                            image: data.image,
+                            type: "ASEPRITE",
                             data: data,
                         });
                     }else{
