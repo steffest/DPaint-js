@@ -180,6 +180,9 @@ let ToolOptions = function(){
                 options.appendChild(selectSetting());
                 if (command === COMMAND.FLOODSELECT) options.appendChild(toleranceSetting());
                 break;
+            case COMMAND.SELECTLAYER:
+                options.appendChild(label("Layer Select:"));
+                break;
             case COMMAND.FLOOD:
                 options.appendChild(label("Fill:"));
                 options.appendChild(toleranceSetting());

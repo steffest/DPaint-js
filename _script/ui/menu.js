@@ -43,6 +43,7 @@ let Menu = function(){
         {label: "Tools", items:[
                 {label: "Draw",command: COMMAND.DRAW,shortKey: "B"},
                 {label: "Select",command: COMMAND.SELECT,shortKey: "S"},
+                {label: "Select Layer",command: COMMAND.SELECTLAYER},
                 {label: "Circle",command: COMMAND.CIRCLE,shortKey: "C"},
                 {label: "Rectangle",command: COMMAND.SQUARE,shortKey: "R"},
                 {label: "Line",command: COMMAND.LINE,shortKey: "L"},

@@ -121,6 +121,10 @@ var Editor = function(){
             currentTool = COMMAND.COLORPICKER;
             Cursor.set("colorpicker");
         });
+        EventBus.on(COMMAND.SELECTLAYER,function(){
+            currentTool = COMMAND.SELECTLAYER;
+            Cursor.set("select");
+        });
         EventBus.on(COMMAND.SPLITSCREEN,function(){
             me.splitPanel();
         });

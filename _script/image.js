@@ -139,6 +139,26 @@ let ImageFile = function(){
         return frame ? frame.layers[index] : undefined;
     };
 
+    me.getTopLayerIndexAtPoint = function(point){
+        let frame = currentFrame();
+        if (!frame || !point) return -1;
+        if (point.x < 0 || point.y < 0 || point.x >= currentFile.width || point.y >= currentFile.height) return -1;
+
+        for (let i = frame.layers.length - 1; i >= 0; i--){
+            let layer = frame.layers[i];
+            if (!layer || !layer.visible || !layer.opacity) continue;
+
+            let layerCanvas = layer.render();
+            let layerContext = layerCanvas ? layerCanvas.getContext("2d",{willReadFrequently:true}) : undefined;
+            if (!layerContext) continue;
+
+            let pixel = layerContext.getImageData(point.x,point.y,1,1).data;
+            if (pixel[3] > 0) return i;
+        }
+
+        return -1;
+    };
+
     me.getLayerIndexesOfType = function(type){
         let frame = currentFile.frames[activeFrameIndex];
         let result = [];

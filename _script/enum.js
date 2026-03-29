@@ -121,6 +121,7 @@ export const COMMAND = {
     VIEWPLANES: 1120,
     PALETTEMODE_NORMAL: 1121,
     PALETTEMODE_EHB: 1122,
+    SELECTLAYER: 1123,
 };
 
 export let EVENT = {

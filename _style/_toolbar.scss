@@ -120,6 +120,11 @@
       background-image: url("../_img/select.svg");
     }
 
+    &.layerselect{
+      background-image: url("../_img/layers.svg");
+      background-size: 80% 80%;
+    }
+
     &.zoomout{
       background-image: url("../_img/zoomout.svg");
       background-size: 70% 70%;

@@ -525,6 +525,15 @@ let Canvas = function(parent){
                         touchData.isSelecting = true;
                         selectBox.boundingBoxSelect(point);
                         break;
+                    case COMMAND.SELECTLAYER:
+                        if (!isOnCanvas) return;
+                        let selectedLayerIndex = ImageFile.getTopLayerIndexAtPoint(point);
+                        if (selectedLayerIndex < 0) return;
+                        if (selectedLayerIndex !== ImageFile.getActiveLayerIndex()){
+                            ImageFile.activateLayer(selectedLayerIndex);
+                        }
+                        EventBus.trigger(COMMAND.TRANSFORMLAYER);
+                        break;
                     case COMMAND.POLYGONSELECT:
                         touchData.isPolySelect = true;
                         selectBox.polySelect(point);
