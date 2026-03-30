@@ -134,7 +134,7 @@ var PaletteDialog = function() {
                         $(".item",{onClick:()=>{Palette.sortByLightness(); contextMenu.classList.remove("active")},"info":"Sort by lightness"},"Lightness"),
                         $(".item",{onClick:()=>{Palette.sortByUseCount(); contextMenu.classList.remove("active")},"info":"Sort by how much a color is used in the image (optimized for compression)"},"Use Count"),
                         $(".item",{onClick:()=>{Palette.sortByUseCount(true); contextMenu.classList.remove("active")},"info":"optimize and test compression results"},"File Size"))),
-                $(".button.small",{onClick:()=>{EventBus.trigger(COMMAND.LOADPALETTE)},"info":"Open palette from disk"},"Load"),
+                $(".button.small",{onClick:()=>{EventBus.trigger(COMMAND.LOADPALETTE)},"info":"Open palette JSON or indexed PNG from disk"},"Load"),
                 $(".button.small",{onClick:()=>{EventBus.trigger(COMMAND.SAVEPALETTE)},"info":"Save palette to disk"},"Save"),
                 $(".button.small",{onClick:()=>{
                         let palette = Palette.get();
@@ -1051,15 +1051,12 @@ var PaletteDialog = function() {
     function setPixelHighLights(){
         removePixelHighLigts();
         if (highlight){
-            EventBus.trigger(COMMAND.COLORMASK);
+            EventBus.trigger(COMMAND.COLORMASK,{flash:true});
         }
     }
 
     function removePixelHighLigts(){
-        let currentHighLight = ImageFile.getLayerIndexesOfType("pixelSelection");
-        currentHighLight.forEach(layerIndex=>{
-            ImageFile.removeLayer(layerIndex);
-        })
+        EventBus.trigger(COMMAND.COLORMASK,{clear:true});
     }
 
     function updateColor(color){
@@ -1079,11 +1076,8 @@ var PaletteDialog = function() {
         colorCanvasCtx.fillRect(30,0,30,30);
 
         if (lockToImage){
+            EventBus.trigger(COMMAND.COLORMASK,true);
             let currentHighLight = ImageFile.getLayerIndexesOfType("pixelSelection");
-            if (!currentHighLight.length){
-                EventBus.trigger(COMMAND.COLORMASK,true);
-                currentHighLight = ImageFile.getLayerIndexesOfType("pixelSelection");
-            }
             let colorLayer = ImageFile.getLayer(currentHighLight[0]);
             if (colorLayer){
                 colorLayer.fill(color);

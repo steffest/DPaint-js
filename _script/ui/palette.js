@@ -936,27 +936,38 @@ let Palette = function(){
     me.openLocal = function(){
         var input = document.createElement('input');
         input.type = 'file';
+        input.accept = ".json,application/json,.png,image/png";
         input.onchange = function(e){
             let files = e.target.files;
             if (files.length){
                 var file = files[0];
                 var ext = file.name.split(".").pop().toLowerCase();
+                var reader = new FileReader();
                 if (ext === "json"){
-                    var reader = new FileReader();
                     reader.onload = function(){
                         let data = {};
                         try{
                             data = JSON.parse(reader.result);
                         }catch(error){
                             console.error("Error parsing Palette");
-                        };
+                        }
                         if (data && data.type === "palette" && data.palette){
                             me.set(data.palette);
                             EventBus.trigger(EVENT.paletteChanged);
                         }
-
                     }
                     reader.readAsText(file);
+                }else if (ext === "png"){
+                    reader.onload = function(){
+                        let palette = parseIndexedPngPalette(reader.result);
+                        if (palette && palette.length){
+                            me.set(palette);
+                            EventBus.trigger(EVENT.paletteChanged);
+                        }else{
+                            console.warn("Selected PNG is not an indexed PNG palette source");
+                        }
+                    };
+                    reader.readAsArrayBuffer(file);
                 }
             }
         };
@@ -1248,6 +1259,62 @@ let Palette = function(){
         EventBus.trigger(EVENT.paletteChanged);
         me.apply();
         EventBus.trigger(EVENT.colorDepthChanged);
+    }
+
+    function parseIndexedPngPalette(buffer){
+        if (!buffer || buffer.byteLength < 8) return null;
+
+        const bytes = new Uint8Array(buffer);
+        const view = new DataView(buffer);
+        const signature = [137,80,78,71,13,10,26,10];
+        for (let i = 0; i < signature.length; i++){
+            if (bytes[i] !== signature[i]) return null;
+        }
+
+        let offset = 8;
+        let isIndexed = false;
+
+        while (offset + 12 <= bytes.length){
+            let length = view.getUint32(offset);
+            let typeOffset = offset + 4;
+            let dataOffset = offset + 8;
+            let chunkEnd = dataOffset + length;
+
+            if (chunkEnd + 4 > bytes.length) return null;
+
+            let isIHDR =
+                bytes[typeOffset] === 73 &&
+                bytes[typeOffset + 1] === 72 &&
+                bytes[typeOffset + 2] === 68 &&
+                bytes[typeOffset + 3] === 82;
+
+            let isPLTE =
+                bytes[typeOffset] === 80 &&
+                bytes[typeOffset + 1] === 76 &&
+                bytes[typeOffset + 2] === 84 &&
+                bytes[typeOffset + 3] === 69;
+
+            if (isIHDR){
+                if (length < 13) return null;
+                isIndexed = bytes[dataOffset + 9] === 3;
+                if (!isIndexed) return null;
+            }else if (isPLTE){
+                if (!isIndexed || length < 3) return null;
+                let palette = [];
+                for (let i = 0; i + 2 < length; i += 3){
+                    palette.push([
+                        bytes[dataOffset + i],
+                        bytes[dataOffset + i + 1],
+                        bytes[dataOffset + i + 2]
+                    ]);
+                }
+                return palette;
+            }
+
+            offset = chunkEnd + 4;
+        }
+
+        return null;
     }
     
 

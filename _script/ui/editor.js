@@ -31,9 +31,49 @@ var Editor = function(){
     let previousTool;
     var touchData = {};
     let rotSprite;
+    let colorMaskFlashTimer;
+    let colorMaskFlashLayerIndex = -1;
+    const COLOR_MASK_FLASH_INTERVAL = 500;
+    const COLOR_MASK_RED_DISTANCE_THRESHOLD = 140;
     var state= {
         splitPanel: false,
         left: 250
+    }
+
+    function stopColorMaskFlash(){
+        if (colorMaskFlashTimer){
+            clearInterval(colorMaskFlashTimer);
+            colorMaskFlashTimer = undefined;
+        }
+        colorMaskFlashLayerIndex = -1;
+    }
+
+    function removeColorMaskLayers(){
+        stopColorMaskFlash();
+        let currentHighLight = ImageFile.getLayerIndexesOfType("pixelSelection");
+        currentHighLight.slice().reverse().forEach(layerIndex=>{
+            ImageFile.removeLayer(layerIndex);
+        });
+    }
+
+    function drawColorMaskState(layer, imageData, isVisible){
+        if (!layer) return;
+        let ctx = layer.getContext();
+        let w = ctx.canvas.width;
+        let h = ctx.canvas.height;
+        ctx.clearRect(0,0,w,h);
+        if (isVisible && imageData){
+            ctx.putImageData(imageData,0,0);
+        }
+        EventBus.trigger(EVENT.imageContentChanged);
+    }
+
+    function getColorMaskFlashColor(color){
+        color = Color.fromString(color);
+        if (Color.distance(color,[255,0,0]) < COLOR_MASK_RED_DISTANCE_THRESHOLD){
+            return [255,255,0];
+        }
+        return [255,0,0];
     }
 
     me.init=function(parent){
@@ -252,9 +292,22 @@ var Editor = function(){
             resizer.setOnUpdate(updateTransform);
         });
 
-        EventBus.on(COMMAND.COLORMASK,()=>{
+        EventBus.on(COMMAND.COLORMASK,(options)=>{
+            if (options === true){
+                options = {flash:false};
+            }
+            options = options || {};
+
+            if (options.clear){
+                removeColorMaskLayers();
+                return;
+            }
+
+            removeColorMaskLayers();
+
             let ctx = ImageFile.getActiveContext();
             let color = Palette.getDrawColor();
+            let sourceColor = Color.fromString(color);
             let w = ImageFile.getCurrentFile().width;
             let h = ImageFile.getCurrentFile().height;
             let data = ctx.getImageData(0,0,w,h).data;
@@ -262,7 +315,10 @@ var Editor = function(){
             let layer = ImageFile.getLayer(layerIndex);
             layer.type = "pixelSelection";
             let ctx2 = ImageFile.getLayer(layerIndex).getContext();
-            ctx2.fillStyle = "red";
+            let flashColor = getColorMaskFlashColor(sourceColor);
+            let maskColor = options.flash ? flashColor : sourceColor;
+            let maskImageData = ctx2.createImageData(w,h);
+            let maskData = maskImageData.data;
             let count = 0;
             for (let y = 0;y<h;y++){
                 for (let x = 0;x<w;x++){
@@ -273,14 +329,43 @@ var Editor = function(){
                     let c = Color.toString([r,g,b]);
                     if (c === color){
                         count++;
-                        ctx2.fillRect(x,y,1,1);
+                        maskData[index] = maskColor[0];
+                        maskData[index+1] = maskColor[1];
+                        maskData[index+2] = maskColor[2];
+                        maskData[index+3] = 255;
                     }
                 }
             }
-            EventBus.trigger(EVENT.imageContentChanged);
+
+            if (options.flash){
+                colorMaskFlashLayerIndex = layerIndex;
+                drawColorMaskState(layer,maskImageData,true);
+                let isVisible = true;
+                colorMaskFlashTimer = setInterval(()=>{
+                    let flashLayer = ImageFile.getLayer(colorMaskFlashLayerIndex);
+                    if (!flashLayer || flashLayer.type !== "pixelSelection"){
+                        stopColorMaskFlash();
+                        return;
+                    }
+                    isVisible = !isVisible;
+                    drawColorMaskState(flashLayer,maskImageData,isVisible);
+                },COLOR_MASK_FLASH_INTERVAL);
+            }else{
+                ctx2.putImageData(maskImageData,0,0);
+                EventBus.trigger(EVENT.imageContentChanged);
+            }
+
             EventBus.trigger(EVENT.colorCount,count);
             return layerIndex;
         })
+
+        EventBus.on(EVENT.layersChanged,()=>{
+            if (!colorMaskFlashTimer) return;
+            let flashLayer = ImageFile.getLayer(colorMaskFlashLayerIndex);
+            if (!flashLayer || flashLayer.type !== "pixelSelection"){
+                stopColorMaskFlash();
+            }
+        });
 
         EventBus.on(COMMAND.LAYERMASK,(hide)=>{
             HistoryService.start(EVENT.layerHistory);
