@@ -56,4 +56,8 @@ V 0.2.1
     - bug fixes interlaced IFF images
     - Touch UI improvements
     - Added palm-rejection and option to disable touch-color-picker when pen-only mode is on.
-    - Experimental Photoshop PSD import (read only for now)
+    - Experimental Photoshop PSD import/export
+    - Experimental .aseprite import (read only for now)
+    - layer move axis lock
+    - load palette from image
+    - better handling/editing of Amiga Icons, including tooltypes, icon type and default tool

@@ -168,7 +168,6 @@ var Icon = function(){
             icon.stackSize = file.readDWord();
 
             // total size 78 bytes
-
             var offset = 78;
 
             var drawerData = {};
@@ -261,27 +260,48 @@ var Icon = function(){
         return result;
     };
 
-    me.getImage = function(icon,index){
+    me.getImage = function(icon,index,imageType){
         index = index || 0;
-        if (icon.colorIcon) {
-            return me.toCanvas(icon.colorIcon, index);
-        }else if (icon.newIcon){
-            return me.toCanvas(icon.newIcon, index);
-        }else if (icon.PNGIcon){
-            index = Math.min(index,icon.PNGIcon.canvas.length-1);
-            return icon.PNGIcon.canvas[index];
-        }else{
+        imageType = imageType || me.getType(icon);
+
+        if (imageType === "classicIcon"){
             var img = index?icon.img2:icon.img;
             if (img){
                 img.palette = icon.userData ? MUIPalette : WB13Palette;
                 return(me.toCanvas(img));
             }
+            return;
         }
+
+        if (imageType === "PNGIcon" && icon.PNGIcon){
+            index = Math.min(index,icon.PNGIcon.canvas.length-1);
+            return icon.PNGIcon.canvas[index];
+        }
+
+        if (imageType === "colorIcon"){
+            if (icon.colorIcon) {
+                return me.toCanvas(icon.colorIcon, index);
+            }
+            if (icon.newIcon){
+                return me.toCanvas(icon.newIcon, index);
+            }
+        }
+
+        return me.getImage(icon,index,me.getType(icon));
+    };
+
+    me.getImageTypes = function(icon){
+        let result = [];
+        if (icon && (icon.img || icon.img2)) result.push("classicIcon");
+        if (icon && (icon.colorIcon || icon.newIcon)) result.push("colorIcon");
+        if (icon && icon.PNGIcon) result.push("PNGIcon");
+        return result;
     };
 
     me.getType=function(icon){
-        if (icon.colorIcon || icon.newIcon) return "colorIcon";
-        if (icon.PNGIcon) return "PNGIcon";
+        let types = me.getImageTypes(icon);
+        if (types.includes("colorIcon")) return "colorIcon";
+        if (types.includes("PNGIcon")) return "PNGIcon";
         return "classicIcon";
     }
 
@@ -447,6 +467,13 @@ var Icon = function(){
     // creates an ArrayBuffer with the binary data of the Icon;
     me.write = function(icon){
         var fileSize = 2 + 76;
+        let toolTypes = Array.isArray(icon.toolTypes) ? icon.toolTypes.filter(Boolean) : [];
+        let defaultTool = typeof icon.defaultTool === "string" ? icon.defaultTool : "";
+        let toolWindow = typeof icon.toolWindow === "string" ? icon.toolWindow : "";
+        icon.toolTypes = toolTypes;
+        icon.hasToolTypes = toolTypes.length ? 1 : 0;
+        icon.hasDefaultTool = defaultTool ? 1 : 0;
+        icon.hasToolWindow = toolWindow ? 1 : 0;
 
         var bitPlanes = icon.img.depth;
 
@@ -458,6 +485,21 @@ var Icon = function(){
         bitPlanes = icon.img2.depth;
         bitSize = (icon.img2.height * bitWidth) * bitPlanes;
         fileSize += 20 + (bitSize/8);
+
+        if (defaultTool){
+            fileSize += getTextByteSize(defaultTool);
+        }
+
+        if (toolTypes.length){
+            fileSize += 4;
+            toolTypes.forEach(toolType=>{
+                fileSize += getTextByteSize(toolType);
+            });
+        }
+
+        if (toolWindow){
+            fileSize += getTextByteSize(toolWindow);
+        }
 
         //icon.colorIcon = 0;
 
@@ -510,6 +552,21 @@ var Icon = function(){
         // write first image
         writeImage(icon.img,1);
         writeImage(icon.img2,2);
+
+        if (defaultTool){
+            writeText(file,defaultTool);
+        }
+
+        if (toolTypes.length){
+            file.writeDWord((toolTypes.length + 1) * 4);
+            toolTypes.forEach(toolType=>{
+                writeText(file,toolType);
+            });
+        }
+
+        if (toolWindow){
+            writeText(file,toolWindow);
+        }
 
         function writeImage(img,index){
             file.writeWord(img.leftEdge);
@@ -708,6 +765,18 @@ var Icon = function(){
         var s = file.readString(length-1);
         file.readUbyte(); // zero byte;
         return s;
+    }
+
+    function writeText(file,text){
+        text = text || "";
+        file.writeDWord(text.length + 1);
+        file.writeString(text);
+        file.writeUbyte(0);
+    }
+
+    function getTextByteSize(text){
+        text = text || "";
+        return 4 + text.length + 1;
     }
 
     function decodeNewIcon(toolTypes){
@@ -996,6 +1065,8 @@ var Icon = function(){
         };
         return iconTypes[type] ||"unknown";
     }
+
+    me.getIconType = getIconType;
 
     me.MUIPalette = MUIPalette;
 

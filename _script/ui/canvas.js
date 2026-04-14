@@ -122,7 +122,7 @@ let Canvas = function(parent){
         overlayCtx.clearRect(0,0, canvas.width, canvas.height);
         overlayCtx.globalAlpha = Brush.getOpacity();
         let color = Palette.getDrawColor();
-        if (window.override){
+        if (false && window.override){
             let c = ImageFile.getActiveLayer().getCanvasType();
             let p = c.getContext("2d").getImageData(point.x,point.y,1,1).data;
             color = "rgb("+p[0]+","+p[1]+","+p[2]+")";

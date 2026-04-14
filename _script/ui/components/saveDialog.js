@@ -10,6 +10,7 @@ import Brush from "../brush.js";
 import Color from "../../util/color.js";
 import BinaryStream from "../../util/binarystream.js";
 import ImageProcessing from "../../util/imageProcessing.js";
+import UserSettings from "../../userSettings.js";
 
 var SaveDialog = function(){
     let me ={};
@@ -27,6 +28,7 @@ var SaveDialog = function(){
         compression: true  // Default to compressed for ANIM files
     };
     let UIelm = {};
+    const DEFAULT_SAVE_TYPE = "DPAINTJS";
 
 
     let filetypes = {
@@ -376,7 +378,7 @@ var SaveDialog = function(){
             ImageFile.setName(getFileName());
         }
 
-        setSaveType(currentSaveOptions.type || "PNG");
+        setSaveType(getPreferredSaveType());
 
 
         let  file = ImageFile.getCurrentFile();
@@ -621,8 +623,57 @@ var SaveDialog = function(){
             if (result.text){
                 renderTextOutput(result.text);
             }
+            if (result.file || result.files || result.text){
+                rememberSaveType(currentSaveOptions.type);
+            }
         }
         return result;
+    }
+
+    function getPreferredSaveType(){
+        let imageFile = ImageFile.getCurrentFile();
+        let preferredType = imageFile && imageFile.saveType;
+        if (!filetypes[preferredType]){
+            preferredType = mapOriginalTypeToSaveType(imageFile && imageFile.originalType);
+        }
+        if (!filetypes[preferredType]){
+            preferredType = UserSettings.get("lastSaveFormat");
+        }
+        if (!filetypes[preferredType]){
+            preferredType = DEFAULT_SAVE_TYPE;
+        }
+
+        let originalType = imageFile && imageFile.originalType;
+        if (isIconType(originalType)){
+            currentSaveOptions.iconType = originalType;
+        }
+
+        return preferredType;
+    }
+
+    function rememberSaveType(type){
+        if (!filetypes[type]) return;
+        UserSettings.set("lastSaveFormat",type);
+        let imageFile = ImageFile.getCurrentFile();
+        if (imageFile) imageFile.saveType = type;
+    }
+
+    function mapOriginalTypeToSaveType(type){
+        if (!type) return;
+        let map = {
+            PNG: "PNG",
+            GIF: "GIF",
+            PSD: "PSD",
+            IFF: "IFF",
+            classicIcon: "ICO",
+            colorIcon: "ICO",
+            PNGIcon: "ICO",
+        };
+        return map[type];
+    }
+
+    function isIconType(type){
+        return ["classicIcon","colorIcon","PNGIcon"].includes(type);
     }
 
 

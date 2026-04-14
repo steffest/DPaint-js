@@ -16,12 +16,22 @@ var SidePanel = function(){
     let container;
     let innerContainer;
     let collapsedHeight = 21;
+    let minWidth = 120;
 
     let panels = {
         info:{
             label: "Info",
             height: 84,
             collapsed: true,
+        },
+        icon:{
+            label: "Amiga Icon",
+            height: 210,
+            collapsed: true,
+            isVisible: ()=>isAmigaIconFile(),
+            content: parent=>{
+                renderIconInfo(parent);
+            }
         },
         frames:{
             label: "Frames",
@@ -71,7 +81,7 @@ var SidePanel = function(){
     }
 
     me.init = parent=>{
-        let w=175;
+        let w = getInitialWidth();
         container = $(".sidepanel",{
             parent: parent,
             style: {width: w + "px"}
@@ -79,12 +89,15 @@ var SidePanel = function(){
             innerContainer=$(".panelcontainer"),
             $(".panelsizer",{
                 onDrag: (x)=>{
-                    let _w = Math.max(w + x,120);
+                    let _w = Math.max(w + x,minWidth);
                     container.style.width = _w + "px";
                     EventBus.trigger(EVENT.panelUIChanged);
                 },
                 onDragStart: e=>{
                     w=container.offsetWidth;
+                },
+                onDragEnd: ()=>{
+                    UserSettings.set("sidepanelWidth",container.offsetWidth);
                 }
             })
         );
@@ -158,15 +171,19 @@ var SidePanel = function(){
     }
 
     function generate(){
-        let y = 0;
         Object.keys(panels).forEach(key=>{
             let panel = panels[key];
-            let height = panel.collapsed?collapsedHeight:(panel.height || 100);
             panel.container = generatePanel(panel,innerContainer);
-            panel.container.style.height = height + "px";
-            panel.container.style.top = y + "px";
-            y+= height;
         })
+        setPanelsState();
+    }
+
+    function getInitialWidth(){
+        let width = parseInt(UserSettings.get("sidepanelWidth"),10);
+        if (!width || Number.isNaN(width)){
+            width = 175;
+        }
+        return Math.max(width,minWidth);
     }
 
     function generatePanel(panelInfo,parent){
@@ -202,6 +219,9 @@ var SidePanel = function(){
         let y = 0;
         Object.keys(panels).forEach(key=>{
             let panel = panels[key];
+            let isVisible = panel.isVisible ? panel.isVisible() : true;
+            panel.container.style.display = isVisible ? "" : "none";
+            if (!isVisible) return;
             let height = (panel.height || 100);
             if (panel.collapsed) height=collapsedHeight;
             panel.container.style.height = height + "px";
@@ -209,6 +229,154 @@ var SidePanel = function(){
             panel.container.classList.toggle("collapsed",!!panel.collapsed);
             y+= height;
         })
+    }
+
+    function isAmigaIconFile(){
+        let file = ImageFile.getCurrentFile();
+        return ["classicIcon","colorIcon","PNGIcon"].includes(file && file.originalType);
+    }
+
+    function renderIconInfo(parent){
+        let contentPanel = parent || (panels.icon.container && panels.icon.container.querySelector(".inner"));
+        if (!contentPanel) return;
+
+        let file = ImageFile.getCurrentFile();
+        let iconMeta = file && file.meta && file.meta.icon;
+        let iconType = iconMeta && iconMeta.iconType;
+        if (!iconType && file && file.originalData) iconType = file.originalData.type;
+        let availableImageTypes = file && file.originalData && Array.isArray(file.originalData.availableImageTypes)
+            ? file.originalData.availableImageTypes
+            : iconMeta && Array.isArray(iconMeta.availableImageTypes)
+                ? iconMeta.availableImageTypes
+                : [];
+        let selectedImageType = file && file.originalData && file.originalData.selectedImageType
+            ? file.originalData.selectedImageType
+            : iconMeta && iconMeta.selectedImageType
+                ? iconMeta.selectedImageType
+                : file && file.originalType;
+        let defaultTool = file && file.originalData && typeof file.originalData.defaultTool === "string"
+            ? file.originalData.defaultTool
+            : iconMeta && typeof iconMeta.defaultTool === "string"
+                ? iconMeta.defaultTool
+                : "";
+        let toolTypes = file && file.originalData && Array.isArray(file.originalData.toolTypes)
+            ? file.originalData.toolTypes
+            : iconMeta && Array.isArray(iconMeta.toolTypes)
+                ? iconMeta.toolTypes
+                : [];
+
+        contentPanel.innerHTML = "";
+
+        if (availableImageTypes.length > 1) renderImageTypeSelector(contentPanel,availableImageTypes,selectedImageType);
+        if (iconType) renderIconTypeSelector(contentPanel,iconType);
+
+        renderDefaultToolEditor(contentPanel,defaultTool);
+        renderToolTypesEditor(contentPanel,toolTypes);
+    }
+
+    function renderIconTypeSelector(parent,selectedType){
+        let wrapper = $(".subpanel.flex.condensed",{parent});
+        $(".label",{parent: wrapper},"Type");
+        let select = $("select",{
+            parent: wrapper,
+            onchange: e=>{
+                ImageFile.setOriginalIconType(e.target.value);
+                renderIconInfo(parent);
+            }
+        });
+
+        getAvailableIconTypes().forEach(iconType=>{
+            $("option",{
+                parent: select,
+                value: iconType.value,
+                text: iconType.label,
+                selected: parseInt(selectedType,10) === iconType.value
+            });
+        });
+    }
+
+    function renderImageTypeSelector(parent,availableImageTypes,selectedImageType){
+        let wrapper = $(".subpanel.flex.condensed",{parent});
+        $(".label",{parent: wrapper},"Image");
+        let select = $("select",{
+            parent: wrapper,
+            onchange: e=>{
+                if (e.target.value !== selectedImageType){
+                    ImageFile.setOriginalImageType(e.target.value);
+                }
+            }
+        });
+
+        availableImageTypes.forEach(imageType=>{
+            $("option",{
+                parent: select,
+                value: imageType,
+                text: getImageTypeLabel(imageType),
+                selected: imageType === selectedImageType
+            });
+        });
+    }
+
+    function getImageTypeLabel(type){
+        if (type === "classicIcon") return "Classic";
+        if (type === "colorIcon") return "Color";
+        if (type === "PNGIcon") return "PNG";
+        return type || "Unknown";
+    }
+
+    function getAvailableIconTypes(){
+        return [
+            {value: 1, label: "Disk"},
+            {value: 2, label: "Drawer"},
+            {value: 3, label: "Tool"},
+            {value: 4, label: "Project"},
+            {value: 5, label: "Garbage"},
+        ];
+    }
+
+    function renderToolTypesEditor(parent,toolTypes){
+        let wrapper = $div("subpanel","",parent);
+        $div("label","Tooltypes",wrapper);
+        let textarea = $("textarea",{
+            parent: wrapper,
+            rows: Math.max(4,Math.min(10,(toolTypes || []).length || 4)),
+            value: (toolTypes || []).join("\n"),
+            onkeydown: e=>{
+                e.stopPropagation();
+            },
+            oninput: e=>{
+                ImageFile.setOriginalToolTypes(e.target.value);
+            },
+            style: {
+                width: "100%",
+                minHeight: "88px",
+                resize: "vertical",
+                boxSizing: "border-box"
+            }
+        });
+        textarea.placeholder = "One tooltype per line";
+    }
+
+    function renderDefaultToolEditor(parent,defaultTool){
+        $(".subpanel.flex.condensed",
+            {parent},
+            $(".label","Default tool"),
+            $("input",{
+                type: "text",
+                value: defaultTool || "",
+                placeholder: "Optional default tool",
+                onkeydown: e=>{
+                    e.stopPropagation();
+                },
+                oninput: e=>{
+                    ImageFile.setOriginalDefaultTool(e.target.value);
+                },
+                style: {
+                    width: "100%",
+                    boxSizing: "border-box"
+                }
+            })
+        );
     }
 
     function generateInfoLine(label,value,parent){
@@ -223,6 +391,10 @@ var SidePanel = function(){
     }
 
     EventBus.on(COMMAND.TOGGLESIDEPANEL,me.toggle);
+    EventBus.on(EVENT.imageSizeChanged,()=>{
+        renderIconInfo();
+        setPanelsState();
+    });
 
     return me;
 }()

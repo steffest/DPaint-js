@@ -847,6 +847,22 @@
           right: unset;
           top: unset;
         }
+
+        &.condensed{
+          padding: 0 4px;
+
+          .label{
+            min-width: 64px;
+          }
+
+          input[type=text]{
+            font-size: 12px;
+            border: 1px solid black;
+            background-color: #1c1c1c;
+            color: #8f8f8f;
+            padding: 2px 4px;
+          }
+        }
     }
 
     &.hidden{
@@ -874,6 +890,14 @@
       background-color: $button-background-dark;
 
     }
+  }
+
+  textarea{
+    border: 1px solid black;
+    background-color: #1c1c1c;
+    color: #8f8f8f;
+    text-wrap: nowrap;
+    font-size: 11px;
   }
 }
 

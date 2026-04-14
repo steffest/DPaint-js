@@ -460,6 +460,7 @@ let Generate = function(){
         let r,g,b,alpha;
 
         let icon = Icon.create(w,h);
+        applyOriginalIconMetadata(icon);
 
         // discard ColorIcon
         icon.colorIcon = undefined;
@@ -546,7 +547,7 @@ let Generate = function(){
         };
     }
 
-    me.colorIcon=(config)=>{
+    me.colorIcon=async (config)=>{
         config = config || {};
         config.title = "Save as Amiga Color Icon";
         let check = me.validate({
@@ -564,13 +565,25 @@ let Generate = function(){
             }
         }
 
+        let currentType = ImageFile.getCurrentFile().originalType;
+        let colorCanvases = currentType === "colorIcon"
+            ? await getMainCanvases()
+            : await getVariantCanvases("colorIcon");
+        if (!colorCanvases.length){
+            colorCanvases = await getMainCanvases();
+        }
+
+        let classicCanvases = currentType === "classicIcon"
+            ? await getMainCanvases()
+            : await getVariantCanvases("classicIcon");
+
         // save as ColorIcon
-        let canvas1 = ImageFile.getCanvas(0);
+        let canvas1 = colorCanvases[0];
         var palette = [];
         var pixels = [];
         var ctx = canvas1.getContext("2d");
 
-        let canvas2 = ImageFile.getCanvas(1) || canvas1;
+        let canvas2 = colorCanvases[1] || canvas1;
         var palette2 = [];
         var pixels2 = [];
         var ctx2 = canvas2.getContext("2d");
@@ -667,6 +680,8 @@ let Generate = function(){
         }
 
         var icon = Icon.create(w,h);
+        applyOriginalIconMetadata(icon);
+        applyClassicVariant(icon, classicCanvases);
 
         icon.colorIcon.MaxPaletteSize = palette.length;
         var state = icon.colorIcon.states[0];
@@ -732,6 +747,141 @@ let Generate = function(){
 
     function rgbToHex(r, g, b) {
         return "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
+    }
+
+    function applyOriginalIconMetadata(icon){
+        let currentFile = ImageFile.getCurrentFile();
+        let iconMeta = currentFile.meta && currentFile.meta.icon;
+        let originalData = currentFile.originalData;
+        let source = iconMeta || originalData;
+        if (!source) return;
+
+        let iconType = parseInt(source.iconType || source.type,10);
+        if (!isNaN(iconType)) icon.type = iconType;
+
+        if (Array.isArray(source.toolTypes)){
+            icon.toolTypes = source.toolTypes.slice();
+            icon.hasToolTypes = icon.toolTypes.length ? 1 : 0;
+        }
+
+        if (typeof source.userData === "number") icon.userData = source.userData;
+        if (typeof source.stackSize === "number") icon.stackSize = source.stackSize;
+
+        let defaultTool = source.defaultTool;
+        if (typeof defaultTool === "string" && defaultTool){
+            icon.defaultTool = defaultTool;
+            icon.hasDefaultTool = 1;
+        }else{
+            icon.defaultTool = "";
+            icon.hasDefaultTool = 0;
+        }
+
+        let toolWindow = source.toolWindow || source.hasToolWindow;
+        if (typeof toolWindow === "string" && toolWindow){
+            icon.toolWindow = toolWindow;
+            icon.hasToolWindow = 1;
+        }else{
+            icon.toolWindow = "";
+            icon.hasToolWindow = 0;
+        }
+    }
+
+    function applyClassicVariant(icon, canvases){
+        if (!canvases || !canvases.length) return;
+
+        icon.width = canvases[0].width;
+        icon.height = canvases[0].height;
+        applyClassicCanvasToImage(icon.img, canvases[0]);
+        applyClassicCanvasToImage(icon.img2, canvases[1] || canvases[0]);
+        icon.gadgetRender = 1;
+        icon.selectRender = 1;
+    }
+
+    function applyClassicCanvasToImage(img, canvas){
+        let ctx = canvas.getContext("2d");
+        let w = canvas.width;
+        let h = canvas.height;
+        img.width = w;
+        img.height = h;
+        img.depth = 3;
+        img.planePick = 7;
+        img.pixels = [];
+
+        let MUIColors = [
+            "#959595",
+            "#000000",
+            "#ffffff",
+            "#3b67a2",
+            "#7b7b7b",
+            "#afafaf",
+            "#aa907c",
+            "#ffa997"
+        ];
+
+        let additionalColors = ["#000000"];
+        let data = ctx.getImageData(0, 0, w, h).data;
+        for (let y = 0; y < h; y++) {
+            for (let x = 0; x < w; x++) {
+                let index = (x + y * w) * 4;
+                let r = data[index];
+                let g = data[index+1];
+                let b = data[index+2];
+                let alpha = data[index+3];
+
+                if(alpha>100){
+                    let rgb = rgbToHex(r,g,b);
+                    let colorIndex = MUIColors.indexOf(rgb);
+                    if (colorIndex<0){
+                        colorIndex = Palette.getColorIndex([r,g,b],true);
+                        if (colorIndex<0) colorIndex = additionalColors.indexOf(rgb);
+                        if (colorIndex<0){
+                            additionalColors.push(rgb);
+                            colorIndex = additionalColors.length-1;
+                        }
+                        if (colorIndex>15){
+                            colorIndex = 0;
+                        }
+                    }
+                    img.pixels.push(colorIndex);
+                }else{
+                    img.pixels.push(0);
+                }
+            }
+        }
+    }
+
+    async function getMainCanvases(){
+        let canvas1 = ImageFile.getCanvas(0);
+        if (!canvas1) return [];
+        let canvas2 = ImageFile.getCanvas(1);
+        return [canvas1, canvas2 || canvas1].filter(Boolean);
+    }
+
+    async function getVariantCanvases(type){
+        let currentFile = ImageFile.getCurrentFile();
+        if (!type) return [];
+        if (currentFile.originalType === type){
+            return getMainCanvases();
+        }
+        let iconMeta = currentFile.meta && currentFile.meta.icon;
+        let variant = iconMeta && iconMeta.variants && iconMeta.variants[type];
+        if (!variant || !variant.length) return [];
+        return Promise.all(variant.map(loadCanvasFromDataUrl));
+    }
+
+    function loadCanvasFromDataUrl(dataUrl){
+        return new Promise((resolve,reject)=>{
+            let image = new Image();
+            image.onload = ()=>{
+                let canvas = document.createElement("canvas");
+                canvas.width = image.width;
+                canvas.height = image.height;
+                canvas.getContext("2d").drawImage(image,0,0);
+                resolve(canvas);
+            };
+            image.onerror = reject;
+            image.src = dataUrl;
+        });
     }
 
     async function writeSPRITE(){

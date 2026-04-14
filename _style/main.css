@@ -1757,6 +1757,22 @@ body.presentation .statusbar {
   right: unset;
   top: unset;
 }
+.sidepanel .subpanel.flex.condensed,
+.contentpanel .subpanel.flex.condensed {
+  padding: 0 4px;
+}
+.sidepanel .subpanel.flex.condensed .label,
+.contentpanel .subpanel.flex.condensed .label {
+  min-width: 64px;
+}
+.sidepanel .subpanel.flex.condensed input[type=text],
+.contentpanel .subpanel.flex.condensed input[type=text] {
+  font-size: 12px;
+  border: 1px solid black;
+  background-color: #1c1c1c;
+  color: #8f8f8f;
+  padding: 2px 4px;
+}
 .sidepanel .subpanel.hidden,
 .contentpanel .subpanel.hidden {
   display: none;
@@ -1780,6 +1796,14 @@ body.presentation .statusbar {
   cursor: pointer;
   color: #BBBBBB;
   background-color: #282A2C;
+}
+.sidepanel textarea,
+.contentpanel textarea {
+  border: 1px solid black;
+  background-color: #1c1c1c;
+  color: #8f8f8f;
+  text-wrap: nowrap;
+  font-size: 11px;
 }
 
 body.override .sidepanel .panel .layer.system {

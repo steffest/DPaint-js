@@ -21,11 +21,15 @@ let FileDetector = (function () {
                 // Note: this can be Async!
                 AmigaIcon.parse(file, function (icon) {
                     if (icon) {
-                        let canvas = AmigaIcon.getImage(icon);
-                        let canvas2 = AmigaIcon.getImage(icon, 1);
+                        let selectedType = AmigaIcon.getType(icon);
+                        let canvas = AmigaIcon.getImage(icon, 0, selectedType);
+                        let canvas2 = AmigaIcon.getImage(icon, 1, selectedType);
+                        icon.selectedImageType = selectedType;
+                        icon.availableImageTypes = AmigaIcon.getImageTypes(icon);
                         next({
-                            image: [canvas, canvas2],
-                            type: AmigaIcon.getType(icon),
+                            image: [canvas, canvas2].filter(Boolean),
+                            type: selectedType,
+                            data: icon,
                         });
                     } else {
                         detectIFF();

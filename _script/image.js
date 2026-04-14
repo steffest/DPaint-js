@@ -1,4 +1,5 @@
 import FileDetector from "./fileformats/detect.js";
+import AmigaIcon from "./fileformats/amigaIcon.js";
 import EventBus from "./util/eventbus.js";
 import {COMMAND,EVENT} from "./enum.js";
 import Historyservice from "./services/historyservice.js";
@@ -481,6 +482,7 @@ let ImageFile = function(){
         });
 
         if (currentFile.colorRange) struct.image.colorRange = currentFile.colorRange;
+        if (currentFile.meta) struct.image.meta = clonePlainData(currentFile.meta);
 
         return struct;
     };
@@ -490,7 +492,9 @@ let ImageFile = function(){
         currentFile.width = image.width;
         currentFile.height = image.height;
         let mockImage = new Image(currentFile.width, currentFile.height);
-        newFile(mockImage, currentFile.name, currentFile.type);
+        let restoredType = getRestoredTypeFromMeta(image.meta);
+        let restorePromises = [];
+        newFile(mockImage, image.name || currentFile.name, restoredType, undefined, image.meta);
         currentFile.name = image.name || "Untitled";
         image.frames.forEach((_frame, frameIndex) => {
             let frame = currentFile.frames[frameIndex];
@@ -505,7 +509,7 @@ let ImageFile = function(){
                     layer = Layer(currentFile.width, currentFile.height);
                     frame.layers.push(layer);
                 }
-                layer.restore(_layer).then(() => {
+                restorePromises.push(layer.restore(_layer).then(() => {
 
                     if (frame.activeLayerIndex === layerIndex && image.activeFrameIndex === frameIndex) {
                         me.activateFrame(frameIndex);
@@ -513,8 +517,13 @@ let ImageFile = function(){
                     }
                     EventBus.trigger(EVENT.layersChanged);
                     EventBus.trigger(EVENT.imageSizeChanged);
-                });
+                }));
             });
+        });
+
+        Promise.all(restorePromises).then(()=>{
+            restoreOriginalDataFromMeta();
+            EventBus.trigger(EVENT.framesChanged);
         });
 
         if (image.colorRange) currentFile.colorRange = image.colorRange;
@@ -646,8 +655,10 @@ let ImageFile = function(){
         FileDetector.detect(data, name).then((result) => {
             console.log(" FileDetector: ", result);
             if (result) {
+                let meta = extractFileMeta(result.type,result.data);
                 currentFile.originalType = result.type;
                 currentFile.originalData = result.data;
+                currentFile.meta = meta;
                 if (result.data) {
                     if (
                         result.data.xAspect &&
@@ -672,7 +683,7 @@ let ImageFile = function(){
                     }
                 }
                 let image = result.image;
-                handleOpenedImage(image,fileName,target);
+                handleOpenedImage(image,fileName,target,meta);
 
                 let time = performance.now() - now;
                 console.log("File loaded in " + time + "ms");
@@ -697,6 +708,92 @@ let ImageFile = function(){
                 }
             }
         });
+    };
+
+    me.setOriginalImageType = async function(type){
+        let iconMeta = getCurrentIconMeta();
+        let currentType = currentFile.originalType;
+        if (!iconMeta || !type || type === currentType) return;
+
+        storeCurrentIconVariant(currentType);
+        let image = await getIconVariantCanvases(type);
+        if (!image.length) return;
+
+        if (iconMeta.variants) delete iconMeta.variants[type];
+        iconMeta.selectedImageType = type;
+        updateIconMetaAvailableTypes(iconMeta);
+
+        currentFile.originalType = type;
+        if (currentFile.originalData){
+            currentFile.originalData.selectedImageType = type;
+            currentFile.originalData.availableImageTypes = iconMeta.availableImageTypes.slice();
+        }
+
+        let fileName = currentFile.name || "Untitled";
+        newFile(image[0],fileName,type,currentFile.originalData,currentFile.meta);
+
+        EventBus.hold();
+        for (let i = 1; i < image.length; i++) addFrame(image[i]);
+        EventBus.release();
+        EventBus.trigger(EVENT.framesChanged);
+    };
+
+    me.setOriginalIconType = function(type){
+        let originalData = currentFile.originalData;
+        if (!type) return;
+
+        let numericType = parseInt(type,10);
+        if (isNaN(numericType)) return;
+
+        if (originalData){
+            originalData.type = numericType;
+            if (!originalData.info) originalData.info = {};
+            originalData.info.type = AmigaIcon.getIconType(numericType);
+        }
+        let iconMeta = getCurrentIconMeta(true);
+        if (iconMeta){
+            iconMeta.iconType = numericType;
+            iconMeta.iconTypeLabel = AmigaIcon.getIconType(numericType);
+        }
+        EventBus.trigger(EVENT.framesChanged);
+    };
+
+    me.setOriginalToolTypes = function(toolTypes){
+        if (typeof toolTypes === "string"){
+            toolTypes = toolTypes
+                .split(/\r?\n/)
+                .map(line=>line.trim())
+                .filter(Boolean);
+        }
+
+        if (!Array.isArray(toolTypes)) return;
+
+        let originalData = currentFile.originalData;
+        if (originalData){
+            originalData.toolTypes = toolTypes.slice();
+            originalData.hasToolTypes = toolTypes.length ? 1 : 0;
+        }
+        let iconMeta = getCurrentIconMeta(true);
+        if (iconMeta){
+            iconMeta.toolTypes = toolTypes.slice();
+        }
+        EventBus.trigger(EVENT.framesChanged);
+    };
+
+    me.setOriginalDefaultTool = function(defaultTool){
+        if (typeof defaultTool !== "string") return;
+
+        let originalData = currentFile.originalData;
+        if (originalData){
+            originalData.defaultTool = defaultTool;
+            originalData.hasDefaultTool = defaultTool ? 1 : 0;
+        }
+
+        let iconMeta = getCurrentIconMeta(true);
+        if (iconMeta){
+            iconMeta.defaultTool = defaultTool;
+        }
+        EventBus.trigger(EVENT.framesChanged);
     };
 
     me.handleJSON = function(data,target){
@@ -730,7 +827,7 @@ let ImageFile = function(){
         }
     }
 
-    function handleOpenedImage(image,fileName,target){
+    function handleOpenedImage(image,fileName,target,meta){
         switch (target){
             case "frame":
                 if (Array.isArray(image)) {
@@ -744,20 +841,20 @@ let ImageFile = function(){
                 break;
             default:
                 if (Array.isArray(image)) {
-                    newFile(image[0],fileName,currentFile.originalType,currentFile.originalData);
+                    newFile(image[0],fileName,currentFile.originalType,currentFile.originalData,meta);
                     EventBus.hold();
                     for (let i = 1; i < image.length; i++) addFrame(image[i]);
                     EventBus.release();
                     EventBus.trigger(EVENT.framesChanged);
                 } else if (currentFile.originalData && currentFile.originalData.layers && currentFile.originalData.layers.length) {
-                    newFileFromLayers(currentFile.originalData.layers, image, fileName, currentFile.originalType, currentFile.originalData);
+                    newFileFromLayers(currentFile.originalData.layers, image, fileName, currentFile.originalType, currentFile.originalData, meta);
                 } else {
-                    newFile(image,fileName,currentFile.originalType,currentFile.originalData)
+                    newFile(image,fileName,currentFile.originalType,currentFile.originalData,meta)
                 }
         }
     }
 
-    function newFile(image,fileName,type,originalData){
+    function newFile(image,fileName,type,originalData,meta){
         Historyservice.clear();
         Recorder.clear();
         cachedImage = undefined;
@@ -784,6 +881,7 @@ let ImageFile = function(){
             if (originalData.pixels) currentFile.indexedPixels = originalData.pixels;
             currentFile.originalData = originalData;
         }
+        if (meta) currentFile.meta = clonePlainData(meta);
         activeFrameIndex = 0;
         activeLayerIndex = 0;
         addLayer();
@@ -793,9 +891,12 @@ let ImageFile = function(){
             activeLayer.getContext().drawImage(image, 0, 0);
         }
         EventBus.trigger(EVENT.imageSizeChanged);
+        if (["classicIcon","colorIcon","PNGIcon"].includes(type)){
+            SidePanel.show("icon");
+        }
     }
 
-    function newFileFromLayers(sourceLayers,image,fileName,type,originalData){
+    function newFileFromLayers(sourceLayers,image,fileName,type,originalData,meta){
         Historyservice.clear();
         Recorder.clear();
         cachedImage = undefined;
@@ -822,6 +923,7 @@ let ImageFile = function(){
         if (originalData){
             currentFile.originalData = originalData;
         }
+        if (meta) currentFile.meta = clonePlainData(meta);
 
         activeFrameIndex = 0;
         activeLayerIndex = 0;
@@ -852,6 +954,188 @@ let ImageFile = function(){
         EventBus.trigger(EVENT.layersChanged);
         EventBus.trigger(EVENT.imageSizeChanged);
         EventBus.trigger(EVENT.imageContentChanged);
+        restoreOriginalDataFromMeta();
+    }
+
+    function isIconType(type){
+        return ["classicIcon","colorIcon","PNGIcon"].includes(type);
+    }
+
+    function clonePlainData(data){
+        if (typeof data === "undefined") return undefined;
+        return JSON.parse(JSON.stringify(data));
+    }
+
+    function extractFileMeta(type,data){
+        if (!isIconType(type) || !data) return undefined;
+        let selectedImageType = data.selectedImageType || type;
+        let availableImageTypes = Array.isArray(data.availableImageTypes) ? data.availableImageTypes.slice() : AmigaIcon.getImageTypes(data);
+        let variants = {};
+        availableImageTypes.forEach(imageType=>{
+            if (imageType === selectedImageType) return;
+            let images = [
+                AmigaIcon.getImage(data,0,imageType),
+                AmigaIcon.getImage(data,1,imageType),
+            ].filter(Boolean);
+            if (images.length){
+                variants[imageType] = serializeCanvasSet(images);
+            }
+        });
+        return {
+            icon: {
+                iconType: data.type,
+                iconTypeLabel: data.info && data.info.type,
+                selectedImageType: selectedImageType,
+                availableImageTypes: availableImageTypes.slice(),
+                toolTypes: Array.isArray(data.toolTypes) ? data.toolTypes.slice() : [],
+                variants: variants,
+                userData: data.userData,
+                stackSize: data.stackSize,
+                defaultTool: data.defaultTool,
+                toolWindow: typeof data.hasToolWindow === "string" ? data.hasToolWindow : data.toolWindow,
+                drawerData: data.drawerData ? clonePlainData(data.drawerData) : undefined,
+                drawerData2: data.drawerData2 ? clonePlainData(data.drawerData2) : undefined,
+            }
+        };
+    }
+
+    function getCurrentIconMeta(create){
+        if (!currentFile.meta){
+            if (!create) return;
+            currentFile.meta = {};
+        }
+        if (!currentFile.meta.icon && create){
+            currentFile.meta.icon = {};
+        }
+        return currentFile.meta.icon;
+    }
+
+    function getRestoredTypeFromMeta(meta){
+        let iconMeta = meta && meta.icon;
+        if (!iconMeta) return;
+        return iconMeta.selectedImageType || "classicIcon";
+    }
+
+    function buildOriginalDataFromMeta(){
+        let iconMeta = getCurrentIconMeta();
+        if (!iconMeta) return;
+
+        let originalData = {
+            type: iconMeta.iconType,
+            selectedImageType: iconMeta.selectedImageType || currentFile.originalType || "classicIcon",
+            toolTypes: Array.isArray(iconMeta.toolTypes) ? iconMeta.toolTypes.slice() : [],
+            hasToolTypes: Array.isArray(iconMeta.toolTypes) && iconMeta.toolTypes.length ? 1 : 0,
+            userData: typeof iconMeta.userData === "number" ? iconMeta.userData : 1,
+            stackSize: typeof iconMeta.stackSize === "number" ? iconMeta.stackSize : 8192,
+        };
+
+        if (iconMeta.iconTypeLabel){
+            originalData.info = {type: iconMeta.iconTypeLabel};
+        }
+        if (iconMeta.defaultTool){
+            originalData.defaultTool = iconMeta.defaultTool;
+            originalData.hasDefaultTool = 1;
+        }
+        if (iconMeta.toolWindow){
+            originalData.toolWindow = iconMeta.toolWindow;
+            originalData.hasToolWindow = iconMeta.toolWindow;
+        }
+
+        originalData.availableImageTypes = Array.isArray(iconMeta.availableImageTypes)
+            ? iconMeta.availableImageTypes.slice()
+            : [originalData.selectedImageType];
+
+        return originalData;
+    }
+
+    function restoreOriginalDataFromMeta(){
+        if (currentFile.originalData || !getCurrentIconMeta()) return;
+        currentFile.originalData = buildOriginalDataFromMeta();
+        if (currentFile.originalData && !currentFile.originalType){
+            currentFile.originalType = currentFile.originalData.selectedImageType;
+        }
+    }
+
+    function canvasToRGBAState(canvas){
+        let ctx = canvas.getContext("2d");
+        let imageData = ctx.getImageData(0,0,canvas.width,canvas.height).data;
+        let pixels = [];
+        for (let i = 0; i<imageData.length; i += 4){
+            pixels.push([
+                imageData[i],
+                imageData[i+1],
+                imageData[i+2],
+                imageData[i+3] / 255
+            ]);
+        }
+        return {
+            rgba: true,
+            pixels: pixels,
+            palette: []
+        };
+    }
+
+    function serializeCanvasSet(canvases){
+        return (canvases || []).filter(Boolean).map(canvas=>canvas.toDataURL("image/png"));
+    }
+
+    function deserializeCanvasSet(images){
+        return Promise.all((images || []).map(loadCanvasFromDataUrl));
+    }
+
+    function loadCanvasFromDataUrl(dataUrl){
+        return new Promise((resolve,reject)=>{
+            let image = new Image();
+            image.onload = ()=>{
+                let canvas = document.createElement("canvas");
+                canvas.width = image.width;
+                canvas.height = image.height;
+                canvas.getContext("2d").drawImage(image,0,0);
+                resolve(canvas);
+            };
+            image.onerror = reject;
+            image.src = dataUrl;
+        });
+    }
+
+    function getCurrentImageSetCanvases(){
+        return [me.getCanvas(0), me.getCanvas(1)].filter(Boolean).map(canvas=>duplicateCanvas(canvas,true));
+    }
+
+    function storeCurrentIconVariant(type){
+        let iconMeta = getCurrentIconMeta(true);
+        if (!iconMeta || !type) return;
+        iconMeta.variants = iconMeta.variants || {};
+        iconMeta.variants[type] = serializeCanvasSet(getCurrentImageSetCanvases());
+        updateIconMetaAvailableTypes(iconMeta);
+    }
+
+    async function getIconVariantCanvases(type){
+        let iconMeta = getCurrentIconMeta();
+        if (iconMeta && iconMeta.variants && iconMeta.variants[type]){
+            return deserializeCanvasSet(iconMeta.variants[type]);
+        }
+
+        let originalData = currentFile.originalData;
+        if (!originalData) return [];
+
+        return [
+            AmigaIcon.getImage(originalData,0,type),
+            AmigaIcon.getImage(originalData,1,type),
+        ].filter(Boolean).map(canvas=>duplicateCanvas(canvas,true));
+    }
+
+    function updateIconMetaAvailableTypes(iconMeta){
+        if (!iconMeta) return [];
+        let selectedImageType = iconMeta.selectedImageType || currentFile.originalType;
+        let availableImageTypes = selectedImageType ? [selectedImageType] : [];
+        if (iconMeta.variants){
+            Object.keys(iconMeta.variants).forEach(type=>{
+                if (iconMeta.variants[type]) availableImageTypes.push(type);
+            });
+        }
+        iconMeta.availableImageTypes = Array.from(new Set(availableImageTypes));
+        return iconMeta.availableImageTypes;
     }
 
     function addLayer(index,name,options){
