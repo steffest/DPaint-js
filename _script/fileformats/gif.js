@@ -67,29 +67,35 @@ const GIF = (()=>{
                             console.log("Application Extension Found");
                             block.size = file.readUbyte();
                             block.app = file.readString(11);
-                            let subBlockSize = file.readUbyte();
                             if (block.app === "NETSCAPE2.0") {
-                                file.jump(1);
-                                img.loopCount = file.readShort();
-                                file.readUbyte(); //block terminator
+                                let subBlockSize = file.readUbyte();
+                                if (subBlockSize >= 3) {
+                                    file.jump(1);
+                                    img.loopCount = file.readShort();
+                                    file.jump(subBlockSize - 3);
+                                } else {
+                                    file.jump(subBlockSize);
+                                }
+                                skipSubBlocks();
                             } else {
-                                file.jump(subBlockSize);
-                                file.readUbyte(); //block terminator
+                                skipSubBlocks();
                             }
                             break;
                         case 0xFE:
-                        case 0x01:
-                            //0xFE: Comment Extension
-                            //0x01: Plain Text Extension
-                            // ignore for now
+                            //Comment Extension
                             console.log("Comment Extension found, skipping");
-                            file.jump(1);
-                            let size = file.readUbyte();
-                            file.jump(size);
-                            file.readUbyte(); //block terminator
+                            skipSubBlocks();
+                            break;
+                        case 0x01:
+                            //Plain Text Extension
+                            console.log("Plain Text Extension found, skipping");
+                            block.size = file.readUbyte();
+                            file.jump(block.size);
+                            skipSubBlocks();
                             break;
                         default:
-                            console.error("Unknown GIF block label: " + block.label);
+                            console.error("Unknown GIF block label: " + block.label + ", skipping");
+                            skipSubBlocks();
                     }
                     break;
                 case 0x2C:
@@ -145,6 +151,14 @@ const GIF = (()=>{
                     console.error("Unknown GIF block: ", block);
             }
             return block;
+        }
+
+        function skipSubBlocks() {
+            let size;
+            do {
+                size = file.readUbyte();
+                file.jump(size);
+            } while (size > 0 && !file.isEOF());
         }
 
         let block = parseBlock();
