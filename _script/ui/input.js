@@ -396,6 +396,7 @@ var Input = function(){
 					case "i": EventBus.trigger(COMMAND.INVERTSELECTION); break;
 					case "l": EventBus.trigger(COMMAND.TOSELECTION); break;
 					case "p": EventBus.trigger(COMMAND.COLORSELECT); break;
+					case "r": EventBus.trigger(COMMAND.TOGGLERULERS); break;
 					case "x": EventBus.trigger(COMMAND.INFO); break;
 					case "arrowdown": EventBus.trigger(COMMAND.MERGEDOWN); break;
 				}

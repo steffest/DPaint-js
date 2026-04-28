@@ -310,7 +310,7 @@ input[type=range]:focus::-ms-fill-upper {
   height: 25px;
   background-color: #313335;
   color: #BBBBBB;
-  z-index: 1000;
+  z-index: 3000;
   user-select: none;
   white-space: nowrap;
 }
@@ -408,6 +408,9 @@ input[type=range]:focus::-ms-fill-upper {
 }
 .menu a.main .sub .subsub.checkable a.hasinfo {
   padding-right: 120px;
+}
+.menu a.main.view a.wide.ultra {
+  padding-left: 20px;
 }
 .menu a.main:hover, .menu a.main.active {
   background-color: #3C3F41;
@@ -2261,6 +2264,137 @@ body.presentation .sidepanel {
   border-top: 1px solid white;
   height: 1px;
 }
+.visualaids .rulerguide {
+  display: none;
+  position: absolute;
+  pointer-events: auto;
+  z-index: 2;
+}
+.visualaids .rulerguide:before {
+  content: "";
+  position: absolute;
+  background: #BBBBBB;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.55);
+}
+.visualaids .rulerguide.vertical {
+  top: 0;
+  bottom: 0;
+  width: 9px;
+  margin-left: -4px;
+  cursor: ew-resize;
+}
+.visualaids .rulerguide.vertical:before {
+  top: 0;
+  bottom: 0;
+  left: 4px;
+  width: 1px;
+  background: #2de0ff;
+}
+.visualaids .rulerguide.horizontal {
+  left: 0;
+  right: 0;
+  height: 9px;
+  margin-top: -4px;
+  cursor: ns-resize;
+}
+.visualaids .rulerguide.horizontal:before {
+  left: 0;
+  right: 0;
+  top: 4px;
+  height: 1px;
+  background: #2de0ff;
+}
+.visualaids.rulersvisible .rulerguide {
+  display: block;
+}
+
+.rulers {
+  display: none;
+  position: absolute;
+  z-index: 2000;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+}
+.rulers.visible {
+  display: block;
+}
+.rulers .corner {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 18px;
+  height: 18px;
+  border-right: 1px solid black;
+  border-bottom: 1px solid black;
+  background: #1a1a1a;
+  pointer-events: auto;
+}
+.rulers canvas {
+  position: absolute;
+  z-index: auto;
+  width: auto;
+  height: auto;
+  pointer-events: auto;
+  image-rendering: auto;
+}
+.rulers canvas.top {
+  top: 0;
+  left: 18px;
+  height: 18px;
+  border-bottom: 1px solid black;
+  cursor: ns-resize;
+}
+.rulers canvas.left {
+  top: 18px;
+  left: 0;
+  width: 18px;
+  border-right: 1px solid black;
+  cursor: ew-resize;
+}
+.rulers .cursorindicator {
+  display: none;
+  position: absolute;
+  pointer-events: none;
+}
+.rulers .cursorindicator.visible {
+  display: block;
+}
+.rulers .cursorindicator:before, .rulers .cursorindicator:after {
+  content: "";
+  position: absolute;
+  background: #d0d0d0;
+}
+.rulers .cursorindicator.top {
+  top: 0;
+  width: 1px;
+  height: 18px;
+}
+.rulers .cursorindicator.top:before {
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+}
+.rulers .cursorindicator.top:after {
+  display: none;
+}
+.rulers .cursorindicator.left {
+  left: 0;
+  width: 18px;
+  height: 1px;
+}
+.rulers .cursorindicator.left:before {
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+}
+.rulers .cursorindicator.left:after {
+  display: none;
+}
 
 .sizebox {
   position: absolute;
@@ -2769,17 +2903,17 @@ body.hovercanvas.pointerdown.cursor-colorpicker .cursor .mark.large {
   right: 66px;
   bottom: 55px;
 }
-.modalwindow .inner .about .text.contrib i {
-  opacity: 0.8;
-  display: block;
-  font-style: normal;
-}
 .modalwindow .inner .about .text.contrib {
   bottom: 10px;
   text-align: right;
   left: unset;
   right: 66px;
   opacity: 0.5;
+}
+.modalwindow .inner .about .text.contrib i {
+  opacity: 0.8;
+  display: block;
+  font-style: normal;
 }
 .modalwindow .inner .optiondialog p {
   margin: 0;
@@ -4709,12 +4843,10 @@ body.hovercanvas.pointerdown.cursor-colorpicker .cursor .mark.large {
 .gallery .item:hover {
   cursor: pointer;
   transform: scale(1.05);
+  color: #DDDDDD;
 }
 .gallery .item:hover .fileinfo {
   background-color: #505050;
-}
-.gallery .item:hover {
-  color: #DDDDDD;
 }
 .gallery .thumb {
   width: 120px;

@@ -36,5 +36,159 @@
     }
   }
 
+  .rulerguide{
+    display: none;
+    position: absolute;
+    pointer-events: auto;
+    z-index: 2;
+
+    &:before{
+      content: "";
+      position: absolute;
+      background: $menu-text-color;
+      box-shadow: 0 0 0 1px rgba(0,0,0,0.55);
+    }
+
+    &.vertical{
+      top: 0;
+      bottom: 0;
+      width: 9px;
+      margin-left: -4px;
+      cursor: ew-resize;
+
+      &:before{
+        top: 0;
+        bottom: 0;
+        left: 4px;
+        width: 1px;
+        background: #2de0ff;
+      }
+    }
+
+    &.horizontal{
+      left: 0;
+      right: 0;
+      height: 9px;
+      margin-top: -4px;
+      cursor: ns-resize;
+
+      &:before{
+        left: 0;
+        right: 0;
+        top: 4px;
+        height: 1px;
+        background: #2de0ff;
+      }
+    }
+  }
+
+  &.rulersvisible{
+    .rulerguide{
+      display: block;
+    }
+  }
+}
+
+.rulers{
+  display: none;
+  position: absolute;
+  z-index: 2000;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+
+  &.visible{
+    display: block;
+  }
+
+  .corner{
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 18px;
+    height: 18px;
+    border-right: 1px solid black;
+    border-bottom: 1px solid black;
+    background: #1a1a1a;
+    pointer-events: auto;
+  }
+
+  canvas{
+    position: absolute;
+    z-index: auto;
+    width: auto;
+    height: auto;
+    pointer-events: auto;
+    image-rendering: auto;
+
+    &.top{
+      top: 0;
+      left: 18px;
+      height: 18px;
+      border-bottom: 1px solid black;
+      cursor: ns-resize;
+    }
+
+    &.left{
+      top: 18px;
+      left: 0;
+      width: 18px;
+      border-right: 1px solid black;
+      cursor: ew-resize;
+    }
+  }
+
+  .cursorindicator{
+    display: none;
+    position: absolute;
+    pointer-events: none;
+
+    &.visible{
+      display: block;
+    }
+
+    &:before,
+    &:after{
+      content: "";
+      position: absolute;
+      background: #d0d0d0;
+    }
+
+    &.top{
+      top: 0;
+      width: 1px;
+      height: 18px;
+
+      &:before{
+        left: 0;
+        top: 0;
+        bottom: 0;
+        width: 1px;
+      }
+
+      &:after{
+        display: none;
+      }
+    }
+
+    &.left{
+      left: 0;
+      width: 18px;
+      height: 1px;
+
+      &:before{
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 1px;
+      }
+
+      &:after{
+        display: none;
+      }
+    }
+  }
 
 }

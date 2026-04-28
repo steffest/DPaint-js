@@ -21,6 +21,7 @@ import Smudge from "../paintTools/smudge.js";
 import Spray from "../paintTools/spray.js";
 import Text from "../paintTools/text.js";
 import GridOverlay from "./components/gridOverlay.js";
+import RulerOverlay from "./components/rulerOverlay.js";
 import PaletteDialog from "./components/paletteDialog.js";
 import {resetShaders, runWebGLQuantizer} from "../util/webgl-quantizer.js";
 import UserSettings from "../userSettings.js";
@@ -38,6 +39,7 @@ let Canvas = function(parent){
     let selectBox;
     let resizer;
     let gridOverlay;
+    let rulerOverlay;
     let drawFunction;
     let containerTransform = {x:0,y:0,startX:0,startY:0, rotation:0, startRotation: 0};
     let currentCursorPoint;
@@ -71,6 +73,12 @@ let Canvas = function(parent){
     
     panelParent = parent.getViewPort();
     panelParent.appendChild(wrapper);
+    rulerOverlay = RulerOverlay(panelParent,visualAids,()=>({
+        zoom: zoom,
+        transform: containerTransform,
+        width: canvas.width,
+        height: canvas.height
+    }));
 
     panelParent.addEventListener('scroll',(e)=>{handle('scroll', e)},false);
 
@@ -164,16 +172,19 @@ let Canvas = function(parent){
         me.zoom(1);
         me.resetPan();
         gridOverlay.update();
+        rulerOverlay.update();
     })
 
     EventBus.on(EVENT.UIresize,()=>{
         if (!parent.isVisible()) return;
         me.zoom(1);
+        rulerOverlay.update();
     });
 
     EventBus.on(EVENT.panelUIChanged,()=>{
         if (!parent.isVisible()) return;
         me.zoom(1);
+        rulerOverlay.update();
     });
 
     EventBus.on(EVENT.imageContentChanged,()=>{
@@ -185,6 +196,10 @@ let Canvas = function(parent){
     EventBus.on(COMMAND.TOGGLEGRID,()=>{
         if (!parent.isVisible()) return;
         gridOverlay.toggle();
+    });
+
+    EventBus.on(EVENT.rulerOptionsChanged,(visible)=>{
+        rulerOverlay.setVisible(visible);
     });
 
     EventBus.on(EVENT.gridOptionsChanged,()=>{
@@ -318,6 +333,7 @@ let Canvas = function(parent){
         if (selectBox.isActive()) selectBox.zoom(zoom);
         if (resizer.isActive()) resizer.zoom(zoom);
         gridOverlay.zoom(zoom);
+        rulerOverlay.update();
 
         me.applyGlobalFilter();
     }
@@ -349,6 +365,10 @@ let Canvas = function(parent){
 
     me.getPanning = ()=>{
         return {x:containerTransform.x,y:containerTransform.y};
+    }
+
+    me.getViewInset = ()=>{
+        return rulerOverlay.getInset();
     }
 
     me.getCanvas = function(){
@@ -1061,6 +1081,7 @@ let Canvas = function(parent){
 
     function setContainer(){
         container.style.transform = "translate(" + containerTransform.x + "px," + containerTransform.y + "px) rotate(" + containerTransform.rotation + "deg)";
+        rulerOverlay.update();
     }
 
     function resetContainer(){
@@ -1075,10 +1096,11 @@ let Canvas = function(parent){
 
         // center the canvas in the panel
         let rect = panelParent.getBoundingClientRect();
+        let inset = me.getViewInset();
         let w = Math.floor(canvas.width * zoom);
         let h = Math.floor(canvas.height * zoom);
-        containerTransform.x = (rect.width - w)/2;
-        containerTransform.y = (rect.height - h)/2;
+        containerTransform.x = inset.left + (rect.width - inset.left - w)/2;
+        containerTransform.y = inset.top + (rect.height - inset.top - h)/2;
         setContainer();
     }
 

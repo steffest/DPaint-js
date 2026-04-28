@@ -61,3 +61,4 @@ V 0.2.1
     - layer move axis lock
     - load palette from image
     - better handling/editing of Amiga Icons, including tooltypes, icon type and default tool
+    - ruler tool

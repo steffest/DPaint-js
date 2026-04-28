@@ -8,7 +8,7 @@
   height: 25px;
   background-color: $panel-background-color;
   color: $menu-text-color;
-  z-index: 1000;
+  z-index: 3000;
   user-select: none;
   white-space: nowrap;
 
@@ -128,6 +128,12 @@
             }
           }
         }
+      }
+    }
+
+    &.view{
+      a.wide.ultra{
+        padding-left: 20px;
       }
     }
 

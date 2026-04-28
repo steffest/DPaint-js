@@ -37,6 +37,7 @@ var Editor = function(){
     const COLOR_MASK_RED_DISTANCE_THRESHOLD = 140;
     var state= {
         splitPanel: false,
+        rulers: false,
         left: 250
     }
 
@@ -167,6 +168,10 @@ var Editor = function(){
         });
         EventBus.on(COMMAND.SPLITSCREEN,function(){
             me.splitPanel();
+        });
+        EventBus.on(COMMAND.TOGGLERULERS,function(){
+            state.rulers = !state.rulers;
+            EventBus.trigger(EVENT.rulerOptionsChanged,state.rulers);
         });
         EventBus.on(COMMAND.ARC,function(){
             currentTool = COMMAND.ARC;

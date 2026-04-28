@@ -120,8 +120,9 @@ let Menu = function(){
                     {label: "EHB",info:"Amiga Extra Half Bright",command: COMMAND.PALETTEMODE_EHB,checked:false,ref:true},
                 ]},*/
             ]},
-        {label: "View", items:[
+        {label: "View", className: "view", items:[
                 {label: "Grid",command: COMMAND.TOGGLEGRID,shortKey: "G",checked:false},
+                {label: "Rulers",command: COMMAND.TOGGLERULERS,shortKey: "meta+Shift+R",checked:false},
                 {label: "Split Screen",command: COMMAND.SPLITSCREEN,shortKey: "N", checked: false},
                 {label: "Tool Options",command: COMMAND.TOGGLESIDEPANEL, checked: false,ref:true},
                 {label: "Gallery",command: COMMAND.TOGGLEGALLERY, checked: false},
@@ -244,6 +245,7 @@ let Menu = function(){
             item.element = $link("menuitem main handle",item.label,container,(e) =>{
                 me.activateMenu(index);
             });
+            if (item.className) item.element.classList.add(item.className);
             item.element.addEventListener("pointerenter",(e)=>{
                 if (isMenuActive && activeMenu!==index){
                     me.activateMenu(index);

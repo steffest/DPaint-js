@@ -202,8 +202,9 @@ var EditPanel = function(parent,type){
 
     me.zoomToFit = function(){
         const rect = viewport.getBoundingClientRect();
-        let sx = rect.width/canvas.getCanvas().width;
-        let sy = rect.height/canvas.getCanvas().height;
+        let inset = canvas.getViewInset();
+        let sx = (rect.width - inset.left)/canvas.getCanvas().width;
+        let sy = (rect.height - inset.top)/canvas.getCanvas().height;
         canvas.setZoom(Math.min(sx,sy));
         canvas.resetPan();
         syncZoomLevel();

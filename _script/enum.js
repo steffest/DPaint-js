@@ -122,6 +122,7 @@ export const COMMAND = {
     PALETTEMODE_NORMAL: 1121,
     PALETTEMODE_EHB: 1122,
     SELECTLAYER: 1123,
+    TOGGLERULERS: 1124,
 };
 
 export let EVENT = {
@@ -166,6 +167,7 @@ export let EVENT = {
     penOnlyChanged: 39,
     paletteLockChanged: 40,
     panelUIChanged: 41,
+    rulerOptionsChanged: 42,
 };
 
 export const ANIMATION = {
