@@ -1,5 +1,23 @@
 import * as StackBlur from "../util/stackBlur.js";
 
+// Detect ctx.filter support (absent in Safari / IOS). Load pixel fallback only when needed.
+const _canvasFilterSupported = (()=>{
+    const c = document.createElement('canvas');
+    c.width = c.height = 1;
+    const ctx = c.getContext('2d');
+    const src = document.createElement('canvas');
+    src.width = src.height = 1;
+    src.getContext('2d').fillRect(0, 0, 1, 1); // black pixel
+    ctx.filter = 'brightness(100)';
+    ctx.drawImage(src, 0, 0);
+    ctx.filter = 'none';
+    return ctx.getImageData(0, 0, 1, 1).data[0] > 200;
+})();
+let _pixelFallback = null;
+if (!_canvasFilterSupported) {
+    import('./effectsFallback.js').then(m => { _pixelFallback = m; });
+}
+
 let Effects = function(){
     let me = {}
     let filters = {};
@@ -241,10 +259,13 @@ let Effects = function(){
                 }
             }
 
-            _target.filter = filter;
-            _target.drawImage(_target.canvas, 0, 0);
-            _target.filter = "none";
-
+            if (_canvasFilterSupported) {
+                _target.filter = filter;
+                _target.drawImage(_target.canvas, 0, 0);
+                _target.filter = "none";
+            } else if (_pixelFallback && filter) {
+                _pixelFallback.applyPixelFilters(_target, filters);
+            }
         }
 
    }
