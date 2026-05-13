@@ -573,6 +573,7 @@ var Editor = function(){
             panels[0].setWidth("calc(50% - 4px)");
             panels[1].setWidth("calc(50% - 4px)");
             panels[1].show();
+            divider.style.left = "";
             divider.style.display = "block";
             EventBus.trigger(EVENT.imageSizeChanged);
         }
