@@ -8,6 +8,7 @@ var ContentPanel = function(){
     let me = {}
     let container;
     let innerContainer;
+    let recorderQualitySelect;
 
     me.init = parent=>{
         let w=175;
@@ -72,6 +73,20 @@ var ContentPanel = function(){
                 $("h4","Touch"),
                 $checkbox("Rotate on Pinch/zoom",null,"",(checked)=>{UserSettings.set("touchRotate",checked)},UserSettings.get("touchRotate")),
                 $checkbox("Allow Color Picker in Pen-Only mode",null,"",(checked)=>{UserSettings.set("penOnlyAllowColorPicker",checked)},UserSettings.get("penOnlyAllowColorPicker")),
+                $("h4","Recorder"),
+                $(".subpanel.flex",
+                    $(".label","Timelapse video quality"),
+                    recorderQualitySelect = $("select",{
+                            oninput: ()=>{
+                                UserSettings.set("recorderQuality", recorderQualitySelect.value);
+                            }
+                        },
+                        $("option",{value:"standard", selected: UserSettings.get("recorderQuality") === "standard"},"Standard (720p)"),
+                        $("option",{value:"high", selected: UserSettings.get("recorderQuality") === "high"},"High (1080p)"),
+                        $("option",{value:"best", selected: UserSettings.get("recorderQuality") === "best"},"Best (source size)")
+                    )
+                ),
+                $(".hint","Higher quality keeps more detail on iPad, but export size and memory usage go up."),
                 $("h4","Advanced"),
                 $checkbox("Use Multi Palettes",null,"",(checked)=>{UserSettings.set("useMultiPalettes",checked,true)},UserSettings.get("useMultiPalettes")),
                 $(".warning","Warning: Highly experimental, may cause data loss")

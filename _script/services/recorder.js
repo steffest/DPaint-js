@@ -3,6 +3,7 @@ import {COMMAND, EVENT, SETTING} from "../enum.js";
 import ImageFile from "../image.js";
 import Palette from "../ui/palette.js";
 import {runWebGLQuantizer} from "../util/webgl-quantizer.js";
+import UserSettings from "../userSettings.js";
 
 let Recorder = (()=>{
     let me = {};
@@ -12,6 +13,8 @@ let Recorder = (()=>{
     let recordingCanvas = null;
     let recordingCtx = null;
     let stream = null;
+    let recordingDrawWidth = 0;
+    let recordingDrawHeight = 0;
     
     // Simple configuration for timelapse
     const config = {
@@ -20,6 +23,102 @@ let Recorder = (()=>{
         maxHeight: 720,
         bitrate: 2000000  // 2 Mbps
     };
+
+    const qualityPresets = {
+        standard: {
+            maxWidth: 1280,
+            maxHeight: 720,
+            bitrate: 2000000
+        },
+        high: {
+            maxWidth: 1920,
+            maxHeight: 1080,
+            bitrate: 6000000
+        },
+        best: {
+            maxWidth: 0,
+            maxHeight: 0,
+            bitrate: 12000000
+        }
+    };
+
+    function getRecorderQuality() {
+        let quality = UserSettings.get("recorderQuality") || "standard";
+        return qualityPresets[quality] ? quality : "standard";
+    }
+
+    function getRecordingConfig(sourceCanvas) {
+        let preset = qualityPresets[getRecorderQuality()];
+
+        let maxWidth = preset.maxWidth || sourceCanvas.width;
+        let maxHeight = preset.maxHeight || sourceCanvas.height;
+
+        return {
+            framerate: config.framerate,
+            maxWidth,
+            maxHeight,
+            bitrate: preset.bitrate
+        };
+    }
+
+    function getRecordingDimensions(sourceCanvas, recordingConfig) {
+        const widthScale = recordingConfig.maxWidth / sourceCanvas.width;
+        const heightScale = recordingConfig.maxHeight / sourceCanvas.height;
+        const maxScale = Math.min(widthScale, heightScale);
+
+        let drawWidth;
+        let drawHeight;
+
+        if (maxScale >= 1) {
+            const integerScale = Math.max(1, Math.floor(maxScale));
+            drawWidth = sourceCanvas.width * integerScale;
+            drawHeight = sourceCanvas.height * integerScale;
+        } else {
+            const scale = Math.max(0.01, maxScale);
+            drawWidth = Math.max(1, Math.round(sourceCanvas.width * scale));
+            drawHeight = Math.max(1, Math.round(sourceCanvas.height * scale));
+        }
+
+        return {
+            drawWidth,
+            drawHeight,
+            canvasWidth: drawWidth + (drawWidth % 2),
+            canvasHeight: drawHeight + (drawHeight % 2)
+        };
+    }
+
+    function drawFrame(sourceCanvas) {
+        if (!recordingCtx || !recordingCanvas) return;
+
+        recordingCtx.clearRect(0, 0, recordingCanvas.width, recordingCanvas.height);
+        recordingCtx.drawImage(sourceCanvas, 0, 0, recordingDrawWidth, recordingDrawHeight);
+
+        if (recordingCanvas.width > recordingDrawWidth) {
+            recordingCtx.drawImage(
+                sourceCanvas,
+                sourceCanvas.width - 1, 0, 1, sourceCanvas.height,
+                recordingDrawWidth, 0, recordingCanvas.width - recordingDrawWidth, recordingDrawHeight
+            );
+        }
+
+        if (recordingCanvas.height > recordingDrawHeight) {
+            recordingCtx.drawImage(
+                sourceCanvas,
+                0, sourceCanvas.height - 1, sourceCanvas.width, 1,
+                0, recordingDrawHeight, recordingDrawWidth, recordingCanvas.height - recordingDrawHeight
+            );
+        }
+
+        if (recordingCanvas.width > recordingDrawWidth && recordingCanvas.height > recordingDrawHeight) {
+            recordingCtx.drawImage(
+                sourceCanvas,
+                sourceCanvas.width - 1, sourceCanvas.height - 1, 1, 1,
+                recordingDrawWidth, recordingDrawHeight,
+                recordingCanvas.width - recordingDrawWidth,
+                recordingCanvas.height - recordingDrawHeight
+            );
+        }
+    }
     
     // Detect best supported format
     function getSupportedMimeType() {
@@ -31,6 +130,7 @@ let Recorder = (()=>{
             'video/webm;codecs=vp9',
             'video/webm;codecs=vp8',
             'video/webm',
+            'video/mp4;codecs=h264',
             'video/mp4'
         ];
         
@@ -60,6 +160,8 @@ let Recorder = (()=>{
             recordingCanvas = null;
             recordingCtx = null;
         }
+        recordingDrawWidth = 0;
+        recordingDrawHeight = 0;
         
         mediaRecorder = null;
     };
@@ -109,44 +211,33 @@ let Recorder = (()=>{
         
         try {
             const sourceCanvas = getSourceCanvas();
-            
-            // Calculate recording size maintaining aspect ratio
-            const aspectRatio = sourceCanvas.width / sourceCanvas.height;
-            let width = Math.min(sourceCanvas.width, config.maxWidth);
-            let height = Math.min(sourceCanvas.height, config.maxHeight);
-            
-            if (width / height > aspectRatio) {
-                width = height * aspectRatio;
-            } else {
-                height = width / aspectRatio;
-            }
-            
-            // Ensure even dimensions
-            width = Math.floor(width / 2) * 2;
-            height = Math.floor(height / 2) * 2;
+            const recordingConfig = getRecordingConfig(sourceCanvas);
+            const dimensions = getRecordingDimensions(sourceCanvas, recordingConfig);
             
             // Create recording canvas
             recordingCanvas = document.createElement('canvas');
-            recordingCanvas.width = width;
-            recordingCanvas.height = height;
+            recordingCanvas.width = dimensions.canvasWidth;
+            recordingCanvas.height = dimensions.canvasHeight;
             recordingCtx = recordingCanvas.getContext('2d');
-            recordingCtx.imageSmoothingEnabled = true;
+            recordingCtx.imageSmoothingEnabled = false;
+            recordingDrawWidth = dimensions.drawWidth;
+            recordingDrawHeight = dimensions.drawHeight;
             
             // Draw initial frame
-            recordingCtx.drawImage(sourceCanvas, 0, 0, width, height);
+            drawFrame(sourceCanvas);
             
             if (Palette.isLockedGlobal()){
                 runWebGLQuantizer(recordingCanvas, Palette.get(), false, undefined, 0, 0);
             }
 
             // Create stream
-            stream = recordingCanvas.captureStream();
+            stream = recordingCanvas.captureStream(recordingConfig.framerate);
             
             // Create recorder
             const mimeType = getSupportedMimeType();
             mediaRecorder = new MediaRecorder(stream, {
                 mimeType: mimeType,
-                videoBitsPerSecond: config.bitrate
+                videoBitsPerSecond: recordingConfig.bitrate
             });
             
             recordedChunks = [];
@@ -172,7 +263,7 @@ let Recorder = (()=>{
             mediaRecorder.pause();
             isRecording = true;
             
-            console.log(`Recording started: ${width}x${height}`);
+            console.log(`Recording started: ${recordingCanvas.width}x${recordingCanvas.height} (content ${recordingDrawWidth}x${recordingDrawHeight}) @ ${recordingConfig.bitrate}bps`);
             
         } catch (error) {
             console.error('Failed to start recording:', error);
@@ -230,7 +321,7 @@ let Recorder = (()=>{
         }
 
         const sourceCanvas = getSourceCanvas();
-        recordingCtx.drawImage(sourceCanvas, 0, 0, recordingCanvas.width, recordingCanvas.height);
+        drawFrame(sourceCanvas);
         
         if (Palette.isLockedGlobal()){
             runWebGLQuantizer(recordingCanvas, Palette.get(), false, undefined, 0, 0);
