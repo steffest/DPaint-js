@@ -32,6 +32,12 @@
             }
         }
 
+        .hint{
+            color: $dimmed-text-color;
+            line-height: 1.4;
+            margin-top: 6px;
+        }
+
         .warning{
             color: #d08181;
             padding: 0 0 0 20px;

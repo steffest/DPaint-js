@@ -62,3 +62,4 @@ V 0.2.1
     - load palette from image
     - better handling/editing of Amiga Icons, including tooltypes, icon type and default tool
     - ruler tool
+    - Add/Subtract from selection with shift and alt keys

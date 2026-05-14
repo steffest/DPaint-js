@@ -5,6 +5,7 @@ import GIF from "./gif.js";
 import PNG from "./png.js";
 import PSD from "./psd.js";
 import Aseprite from "./aseprite.js";
+import DEGAS from "./degas.js";
 
 let FileDetector = (function () {
     let me = {};
@@ -73,6 +74,40 @@ let FileDetector = (function () {
                         next(false);
                     }
                 }else{
+                    next(false);
+                }
+            } else if (ext === "pi1" || ext === "pi2" || ext === "pi3") {
+                file = BinaryStream(data.slice(0, data.byteLength), true);
+                file.goto(0);
+                if (DEGAS.detect(file)) {
+                    let parsed = DEGAS.parse(file);
+                    if (parsed && parsed.image) {
+                        next({
+                            image: parsed.image,
+                            type: "DEGAS",
+                            data: parsed,
+                        });
+                    } else {
+                        next(false);
+                    }
+                } else {
+                    next(false);
+                }
+            } else if (ext === "neo") {
+                file = BinaryStream(data.slice(0, data.byteLength), true);
+                file.goto(0);
+                if (DEGAS.detectNeo(file)) {
+                    let parsed = DEGAS.parseNeo(file);
+                    if (parsed && parsed.image) {
+                        next({
+                            image: parsed.image,
+                            type: "NEO",
+                            data: parsed,
+                        });
+                    } else {
+                        next(false);
+                    }
+                } else {
                     next(false);
                 }
             } else if (ext === "ase" || ext === "aseprite"){
