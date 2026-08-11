@@ -17,7 +17,9 @@ let HistoryService = function(){
         console.log("start his");
         currentHistory={type,data:{}};
         let index = ImageFile.getActiveLayerIndex();
-        if (typeof data === "number") index = data;
+        // data may be a flat layer index (number) or a path array (number[]) pointing
+        // into nested groups. Honour either so property history targets the right node.
+        if (typeof data === "number" || Array.isArray(data)) index = data;
 
         switch (type){
             case EVENT.layerContentHistory:

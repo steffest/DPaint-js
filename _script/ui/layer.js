@@ -9,6 +9,7 @@ import Palette from "./palette.js";
 import ImageFile from "../image.js";
 import EventBus from "../util/eventbus.js";
 import {EVENT} from "../enum.js";
+import {compositeNodes} from "../util/layerUtils.js";
 
 let Layer = function(width,height,name){
     let me = {
@@ -19,13 +20,17 @@ let Layer = function(width,height,name){
         hasMask: false,
         locked: false,
     }
-    
+
     let canvas = document.createElement("canvas");
     canvas.width = width;
     canvas.height = height;
     let ctx = canvas.getContext("2d",{willReadFrequently:true});
     //note: willReadFrequently forces the canvas to remain on the CPU instead of the GPU
     // this also "fixes" a bug in Chrome where multiple calls to getImageData() on the same canvas clears the canvas incorrectly
+
+    // group nodes (me.type === "group") composite their children onto this offscreen canvas
+    let groupCanvas;
+    let groupCtx;
 
     let mask;
     let maskCtx;
@@ -43,6 +48,7 @@ let Layer = function(width,height,name){
     let currentColor;
 
     me.getCanvas = function(){
+        if (me.type === "group") return me.render();
         if (maskActive){
             return mask;
         }else{
@@ -53,8 +59,13 @@ let Layer = function(width,height,name){
     me.getCanvasType = function(maskType){
        return (maskType) ? mask : canvas;
     }
-    
+
     me.getContext = function(){
+        if (me.type === "group"){
+            // read-only: returns the composited group context. Tools must not draw here.
+            me.render();
+            return groupCtx;
+        }
         if (maskActive){
             return maskCtx;
         }else{
@@ -63,6 +74,17 @@ let Layer = function(width,height,name){
     }
 
     me.render = function(){
+        if (me.type === "group"){
+            if (!groupCanvas){
+                groupCanvas = document.createElement("canvas");
+                groupCanvas.width = canvas.width;
+                groupCanvas.height = canvas.height;
+                groupCtx = groupCanvas.getContext("2d",{willReadFrequently:true});
+            }
+            groupCtx.clearRect(0,0,groupCanvas.width,groupCanvas.height);
+            compositeNodes(me.layers.filter(c=>c.visible), groupCtx);
+            return groupCanvas;
+        }
         if ((mask && maskEnabled) || isDrawing){
             if (!combined) combined = duplicateCanvas(canvas);
             let combinedCtx = combined.getContext("2d",{willReadFrequently:true});
@@ -133,6 +155,13 @@ let Layer = function(width,height,name){
     }
 
     me.resize = function(width,height,x,y){
+        if (me.type === "group"){
+            me.layers.forEach(c=>c.resize(width,height,x,y));
+            groupCanvas = undefined;
+            groupCtx = undefined;
+            EventBus.trigger(EVENT.layerContentChanged);
+            return;
+        }
         let d = duplicateCanvas(canvas, true);
         canvas.width = width;
         canvas.height = height;
@@ -160,6 +189,13 @@ let Layer = function(width,height,name){
     }
 
     me.crop = function(x,y,w,h){
+        if (me.type === "group"){
+            me.layers.forEach(c=>c.crop(x,y,w,h));
+            groupCanvas = undefined;
+            groupCtx = undefined;
+            EventBus.trigger(EVENT.layerContentChanged);
+            return;
+        }
         let d = duplicateCanvas(canvas, true);
         canvas.width = w;
         canvas.height = h;
@@ -248,19 +284,23 @@ let Layer = function(width,height,name){
         historyservice.end();
     }
 
-    me.fill = function(color){
+    // Recolor the layer with a solid color.
+    // By default only existing (non-transparent) pixels are recolored, preserving
+    // transparency — this is what the palette editor's live colour preview relies on.
+    // Pass fillTransparent=true to paint the entire layer opaque (used by the public API).
+    me.fill = function(color,fillTransparent){
         color = Color.fromString(color);
         let imageData = ctx.getImageData(0,0,canvas.width, canvas.height);
         let data = imageData.data;
         let max = data.length>>2;
         for (let i = 0; i<max; i++){
             let index = i*4;
-            //if (data[index + 3]>100){
+            if (fillTransparent || data[index + 3]>100){
                 data[index] = color[0];
                 data[index+1] = color[1];
                 data[index+2] = color[2];
                 data[index + 3] = 255;
-            //}
+            }
         }
         ctx.putImageData(imageData,0,0);
     }
@@ -339,9 +379,17 @@ let Layer = function(width,height,name){
             blendMode: me.blendMode,
             opacity: me.opacity,
             visible: me.visible,
+            locked: !!me.locked,
             hasMask: me.hasMask
         };
         if (!forSerialization) indexed=false;
+
+        if (me.type === "group"){
+            struct.type = "group";
+            struct.collapsed = !!me.collapsed;
+            struct.layers = me.layers.map(c=>c.clone(forSerialization,indexed));
+            return struct;
+        }
 
         if (indexed){
             let indexed = me.generateIndexedPixels();
@@ -364,7 +412,22 @@ let Layer = function(width,height,name){
             me.blendMode = struct.blendMode;
             me.opacity = struct.opacity;
             me.visible = !!struct.visible;
+            me.locked = !!struct.locked;
             me.hasMask = !!struct.hasMask;
+
+            if (struct.type === "group"){
+                me.type = "group";
+                me.collapsed = !!struct.collapsed;
+                groupCanvas = undefined;
+                groupCtx = undefined;
+                let children = Array.isArray(struct.layers) ? struct.layers : [];
+                if (!Array.isArray(struct.layers)){
+                    console.warn("Layer.restore: group struct without layers array; restoring as empty group");
+                }
+                me.layers = children.map(()=>Layer(canvas.width,canvas.height));
+                Promise.all(me.layers.map((child,i)=>child.restore(children[i]))).then(()=>next());
+                return;
+            }
 
             let canvasRestored = true;
             let maskRestored = true;
@@ -460,6 +523,16 @@ let Layer = function(width,height,name){
     }
 
     return me;
+}
+
+// Creates a group layer: a Layer with type "group" and an (initially empty) layers array.
+// render() composites its children onto an offscreen canvas (see render() above).
+Layer.makeGroup = function(width,height,name){
+    let group = Layer(width,height,name || "Group");
+    group.type = "group";
+    group.layers = [];
+    group.collapsed = false;
+    return group;
 }
 
 export default Layer;
