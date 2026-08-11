@@ -119,7 +119,7 @@ let Generate = function(){
                     file: await new Promise(resolve => ImageFile.getCanvas().toBlob(resolve,"image/jpeg",q))
                 };
             case "PNG8":
-                return me.png8();
+                return me.png8(options);
             case "GIF":
                 return me.gif();
             case "PCX":
@@ -201,7 +201,9 @@ let Generate = function(){
             return;
         }
 
-       return IFF.toBitPlanes(ImageFile.getCanvas(),true);
+       // Raw bitplanes have no embedded palette, so their indices must follow
+       // the current palette regardless of the palette-lock setting.
+       return IFF.toBitPlanes(ImageFile.getCanvas(),true,false,Palette.get());
 
     }
 
@@ -225,9 +227,12 @@ let Generate = function(){
         let isEHB = originalColors.length > 32 && originalColors.length <= 64;
 
         let files = [];
-        let iffOptions = { maxColors: 64 };
+        // The plane images below are raw bitplanes indexed against the current palette,
+        // so the .iff shipped alongside them has to use that same palette - an optimized
+        // CMAP would not match the planes. This export has no palette option of its own.
+        let iffOptions = { maxColors: 64, palette: "locked" };
         if (isEHB) iffOptions.ehb = true;
-        
+
         let iffBuffer = IFF.write(canvas, iffOptions);
         files.push({
              name: ".iff",
@@ -342,7 +347,8 @@ let Generate = function(){
         return IFF.toBitMask(ImageFile.getCanvas());
     }
 
-    me.png8=()=>{
+    me.png8=(options)=>{
+        options = options || {};
         let maxColors = 256;
 
         let check = me.validate({
@@ -356,7 +362,16 @@ let Generate = function(){
             }
         }
 
-        let buffer = IndexedPng.write(ImageFile.getCanvas());
+        let canvas = ImageFile.getCanvas();
+
+        // Honour the "Optimize"/"Current" palette option (mirrors the IFF writer).
+        // When not locked, rebuild the palette from the colors actually used in the
+        // image instead of relying on the current global palette - otherwise opening
+        // a true-color image and saving as PNG8 would write with the default palette.
+        let lockPalette = (options.palette === "locked") || (Palette.getColorRanges() || []).length || Palette.isLocked() || Palette.isLockedGlobal();
+        let palette = lockPalette ? Palette.get() : ImageProcessing.getColors(canvas, maxColors);
+
+        let buffer = IndexedPng.write(canvas, palette);
         return {
             result: "ok",
             file: new Blob([buffer], {type: "application/octet-stream"})

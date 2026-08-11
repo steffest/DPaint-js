@@ -119,20 +119,7 @@ const Aseprite = (function(){
             file.goto(frameEnd);
         }
 
-        data.layers = spriteLayers
-            .filter((layer) => layer.type === 0)
-            .map((layer) => {
-                if (!layer.canvas) layer.canvas = createCanvas(data.width, data.height);
-                return {
-                    name: layer.name,
-                    visible: layer.visible,
-                    opacity: layer.opacity,
-                    blendMode: layer.blendMode,
-                    left: 0,
-                    top: 0,
-                    canvas: layer.canvas,
-                };
-            });
+        data.layers = buildLayerTree(spriteLayers, data.width, data.height);
 
         data.image = renderComposite(data);
 
@@ -225,19 +212,100 @@ const Aseprite = (function(){
         return canvasFromRgba(width, height, pixels);
     }
 
+    // Reconstructs the group hierarchy from the flat Aseprite layer list using childLevel.
+    // Aseprite stores layers bottom-to-top; a group (layerType 1) is followed by its
+    // children at childLevel+1. We track a stack of open groups keyed by depth.
+    function buildLayerTree(spriteLayers, width, height){
+        let root = [];
+        let stack = [];   // stack[d] = the group node opened at childLevel d
+
+        function descriptorFor(layer){
+            if (!layer.canvas) layer.canvas = createCanvas(width, height);
+            return {
+                name: layer.name,
+                visible: layer.visible,
+                opacity: layer.opacity,
+                blendMode: layer.blendMode,
+                left: 0,
+                top: 0,
+                canvas: layer.canvas,
+            };
+        }
+
+        spriteLayers.forEach((layer)=>{
+            let level = layer.childLevel || 0;
+            let parent = level > 0 && stack[level - 1] ? stack[level - 1].layers : root;
+
+            if (layer.type === 1){
+                // group layer
+                let group = {
+                    type: "group",
+                    name: layer.name,
+                    visible: layer.visible,
+                    opacity: layer.opacity,
+                    blendMode: layer.blendMode,
+                    locked: false,
+                    collapsed: false,
+                    layers: [],
+                };
+                parent.push(group);
+                stack[level] = group;
+                stack.length = level + 1; // drop any deeper stale entries
+            } else if (layer.type === 0){
+                parent.push(descriptorFor(layer));
+            }
+            // other layer types (e.g. 2 = tilemap) are ignored
+        });
+
+        return root;
+    }
+
     function renderComposite(data){
         let canvas = createCanvas(data.width, data.height);
         let ctx = canvas.getContext("2d");
-        data.layers.forEach((layer) => {
-            if (!layer.visible || !layer.canvas) return;
-            ctx.save();
-            ctx.globalAlpha = (typeof layer.opacity === "number" ? layer.opacity : 100) / 100;
-            let blendMode = layer.blendMode || "normal";
-            if (blendMode === "normal") blendMode = "source-over";
-            ctx.globalCompositeOperation = blendMode;
-            ctx.drawImage(layer.canvas, 0, 0);
-            ctx.restore();
-        });
+        (function draw(nodes){
+            nodes.forEach((layer) => {
+                if (!layer.visible) return;
+                if (layer.type === "group" && Array.isArray(layer.layers)){
+                    // composite group children with the group's own opacity/blend
+                    let groupCanvas = createCanvas(data.width, data.height);
+                    let gctx = groupCanvas.getContext("2d");
+                    (function drawInto(n, targetCtx){
+                        n.forEach((child)=>{
+                            if (!child.visible) return;
+                            if (child.type === "group" && Array.isArray(child.layers)){
+                                let sub = createCanvas(data.width, data.height);
+                                drawInto(child.layers, sub.getContext("2d"));
+                                targetCtx.save();
+                                targetCtx.globalAlpha = (typeof child.opacity === "number" ? child.opacity : 100) / 100;
+                                targetCtx.drawImage(sub, 0, 0);
+                                targetCtx.restore();
+                            } else if (child.canvas){
+                                targetCtx.save();
+                                targetCtx.globalAlpha = (typeof child.opacity === "number" ? child.opacity : 100) / 100;
+                                let bm = child.blendMode || "normal";
+                                targetCtx.globalCompositeOperation = bm === "normal" ? "source-over" : bm;
+                                targetCtx.drawImage(child.canvas, 0, 0);
+                                targetCtx.restore();
+                            }
+                        });
+                    })(layer.layers, gctx);
+                    ctx.save();
+                    ctx.globalAlpha = (typeof layer.opacity === "number" ? layer.opacity : 100) / 100;
+                    ctx.drawImage(groupCanvas, 0, 0);
+                    ctx.restore();
+                    return;
+                }
+                if (!layer.canvas) return;
+                ctx.save();
+                ctx.globalAlpha = (typeof layer.opacity === "number" ? layer.opacity : 100) / 100;
+                let blendMode = layer.blendMode || "normal";
+                if (blendMode === "normal") blendMode = "source-over";
+                ctx.globalCompositeOperation = blendMode;
+                ctx.drawImage(layer.canvas, 0, 0);
+                ctx.restore();
+            });
+        })(data.layers);
         return canvas;
     }
 

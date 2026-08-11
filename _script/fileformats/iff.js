@@ -1001,9 +1001,16 @@ const IFF = (function () {
             // Convert palette from {r,g,b} objects to [r,g,b] arrays.
             colors = result.palette.map(c => [c.r, c.g, c.b]);
         } else {
-            // Standard indexed-color path.
+            // Standard indexed-color path. An ILBM embeds its own CMAP, so the save dialog
+            // offers a choice (Palette: Optimize / Current -> options.palette):
+            //   "optimized" rebuilds the palette from the colours actually used,
+            //   "locked" writes the current palette as is.
+            // A locked palette or an active color cycle forces "current" regardless.
+            // Both branches are copied because of the padding below.
             let lockPalette = (options.palette === "locked") || (Palette.getColorRanges() || []).length || Palette.isLocked() || Palette.isLockedGlobal();
-            colors = lockPalette ? Palette.get() : ImageProcessing.getColors(canvas, 256);
+            colors = lockPalette
+                ? Palette.get().map(color => Color.fromString(color).slice(0,3))
+                : ImageProcessing.getColors(canvas, 256).map(color => color.slice());
 
             bitplaneCount = 1;
             while (1 << bitplaneCount < colors.length) bitplaneCount++;
@@ -1150,18 +1157,14 @@ const IFF = (function () {
                 }
             }
         } else {
-            // Standard indexed-color path.
-            function getIndex(color) {
-                let index = colors.findIndex(
-                    (c) =>
-                        c[0] === color[0] && c[1] === color[1] && c[2] === color[2]
-                );
-                if (index < 0) {
-                    index = 0;
-                    console.error("color not found in palette", color);
-                }
-                return index;
+            // Standard indexed-color path. Index the palette by packed RGB rather than
+            // scanning it per pixel; filled back to front so duplicate colours resolve to
+            // the lowest index, as a findIndex over `colors` would.
+            const colorIndexMap = new Map();
+            for (let c = colors.length - 1; c >= 0; c--) {
+                colorIndexMap.set((colors[c][0] << 16) | (colors[c][1] << 8) | colors[c][2], c);
             }
+            let reportedMissingColor = false;
 
             for (let y = 0; y < h; y++) {
                 for (var i = 0; i < bitplaneCount; i++) {
@@ -1170,13 +1173,16 @@ const IFF = (function () {
                 for (let x = 0; x < w; x++) {
                     let colorIndex = 0;
                     const pixel = (x + y * w) * 4;
-                    const color = [
-                        pixels[pixel],
-                        pixels[pixel + 1],
-                        pixels[pixel + 2],
-                    ];
 
-                    colorIndex = getIndex(color);
+                    colorIndex = colorIndexMap.get((pixels[pixel] << 16) | (pixels[pixel + 1] << 8) | pixels[pixel + 2]);
+                    if (colorIndex === undefined) {
+                        colorIndex = 0;
+                        if (!reportedMissingColor) {
+                            // one report per call: this fires per pixel otherwise
+                            reportedMissingColor = true;
+                            console.error("color not found in palette", [pixels[pixel], pixels[pixel + 1], pixels[pixel + 2]]);
+                        }
+                    }
                     for (i = 0; i < bitplaneCount; i++) {
                         if (colorIndex & (1 << i)) {
                             bitplaneLines[i][x >> 3] |= 0x80 >> (x & 7);
@@ -1194,16 +1200,35 @@ const IFF = (function () {
         return file.buffer;
     };
 
-    me.toBitPlanes = function (canvas,includeTransparent,isEHB) {
-        let addExtraPlane = false;
-
-        let colors = (Palette.isLocked() || Palette.isLockedGlobal())?Palette.get():ImageProcessing.getColors(canvas, 256);
+    // Resolves the palette toBitPlanes() maps the canvas onto. Exposed so callers that
+    // need that palette themselves (e.g. the bitplane viewer, to detect EHB) can compute
+    // it once and hand it back in, instead of triggering a second full-canvas colour scan.
+    //
+    // Always the current palette, as is. Unlike an ILBM (which embeds a CMAP, and so can
+    // offer the save dialog's Optimize/Current choice - see write()), raw bitplanes carry
+    // no palette at all: their indices are meaningless unless they line up with the
+    // palette the user sees. Scanning the canvas for its colours instead (the old
+    // unlocked-palette path) produced a luminance-sorted "optimized" palette, so the
+    // planes were indexed against a palette that existed nowhere in the application.
+    // Callers that need a specific palette pass it to toBitPlanes() directly.
+    me.getBitPlanePalette = function (canvas,includeTransparent) {
+        // Padding in toBitPlanes() must not alter the application's current palette.
+        // (entries can still be in string form if the palette hasn't been drawn yet)
+        let colors = Palette.get().map(color => Color.fromString(color).slice(0,3));
 
         // TODO: this is for sprite stuff?
         // then it should also be done for colors.length === 2?
         if (colors.length === 3 && includeTransparent){
             colors.unshift([-1,-1,-1]);
         }
+        return colors;
+    }
+
+    me.toBitPlanes = function (canvas,includeTransparent,isEHB,palette) {
+        let addExtraPlane = false;
+
+        let colors = palette ? palette.map(color => color.slice()) : me.getBitPlanePalette(canvas,includeTransparent);
+
         let bitplaneCount = 1;
         while (1 << bitplaneCount < colors.length) bitplaneCount++;
         while (colors.length < 1 << bitplaneCount) colors.push([0, 0, 0]);
@@ -1220,21 +1245,18 @@ const IFF = (function () {
             fileSize += bitPlaneSize;
         }
 
-        const file = BinaryStream(new ArrayBuffer(fileSize), true);
-        file.goto(0);
         const bitplanes = [];
 
-        function getIndex(color) {
-            let index = colors.findIndex(
-                (c) =>
-                    c[0] === color[0] && c[1] === color[1] && c[2] === color[2]
-            );
-            if (index < 0) {
-                index = 0;
-                console.error("color not found in palette", color);
-            }
-            return index;
+        // Palette lookup is done once per pixel, so a linear scan over the palette makes
+        // this O(pixels * colours). Index the palette by packed RGB up front instead.
+        // Built after the padding above so it matches the final `colors` array, and filled
+        // back to front so the lowest index wins for duplicate colours (as findIndex did).
+        const colorIndexMap = new Map();
+        for (let c = colors.length - 1; c >= 0; c--) {
+            colorIndexMap.set((colors[c][0] << 16) | (colors[c][1] << 8) | colors[c][2], c);
         }
+        let reportedMissingColor = false;
+
         for (var i = 0; i < bitplaneCount; i++) {
             bitplanes[i] = new Uint8Array(bitPlaneSize);
         }
@@ -1243,15 +1265,18 @@ const IFF = (function () {
             for (let x = 0; x < w; x++) {
                 let colorIndex = 0;
                 const pixel = (x + y * w) * 4;
-                const color = [
-                    pixels[pixel],
-                    pixels[pixel + 1],
-                    pixels[pixel + 2],
-                ];
                 if (includeTransparent && pixels[pixel + 3] < 128){
                     colorIndex = 0;
                 }else{
-                    colorIndex = getIndex(color);
+                    colorIndex = colorIndexMap.get((pixels[pixel] << 16) | (pixels[pixel + 1] << 8) | pixels[pixel + 2]);
+                    if (colorIndex === undefined) {
+                        colorIndex = 0;
+                        if (!reportedMissingColor) {
+                            // one report per call: this fires per pixel otherwise
+                            reportedMissingColor = true;
+                            console.error("color not found in palette", [pixels[pixel], pixels[pixel + 1], pixels[pixel + 2]]);
+                        }
+                    }
                 }
                 for (i = 0; i < bitplaneCount; i++) {
                     if (colorIndex & (1 << i)) {
@@ -1262,23 +1287,22 @@ const IFF = (function () {
             }
         }
 
+        // straight block copies instead of a BinaryStream write per byte
+        const buffer = new ArrayBuffer(fileSize);
+        const out = new Uint8Array(buffer);
         for (i = 0; i < bitplaneCount; i++) {
-            for (let bi = 0; bi < bitPlaneSize; bi++) {
-                file.writeUbyte(bitplanes[i][bi]);
-            }
+            out.set(bitplanes[i], i * bitPlaneSize);
         }
 
         if (addExtraPlane){
-            for (let bi = 0; bi < bitPlaneSize; bi++) {
-                file.writeUbyte(255);
-            }
+            out.fill(255, bitplaneCount * bitPlaneSize);
         }
 
         return {
             width: w,
             height: h,
             palette: colors,
-            planes: file.buffer,
+            planes: buffer,
             bitPlaneSize: bitPlaneSize,
         }
 

@@ -108,11 +108,7 @@ const PSD = (function(){
                     readLayerChannels(file, layerRecords[i], data.mode);
                 }
 
-                data.layers = layerRecords.filter((layer) => {
-                    if (layer.sectionDivider && layer.sectionDivider !== 0) return false;
-                    if (!layer.canvas) return false;
-                    return layer.width > 0 && layer.height > 0;
-                });
+                data.layers = buildLayerTree(layerRecords);
 
                 file.goto(layerInfoEnd);
             }
@@ -139,16 +135,26 @@ const PSD = (function(){
         let layerChannelData = [];
         let layers = frame && frame.layers ? frame.layers : [];
 
-        for (let i = 0; i < layers.length; i++){
-            let encoded = encodeLayer(layers[i], width, height, compression);
+        // Flatten the tree into a bottom-up record sequence. Groups are bracketed by an
+        // opening bounding divider (lsct=3) below their children and a folder header
+        // (lsct=1 open / 2 closed) above them — the inverse of how buildLayerTree reads.
+        let flat = flattenForWrite(layers);
+        let recordCount = 0;
+
+        for (let i = 0; i < flat.length; i++){
+            let item = flat[i];
+            let encoded = item.divider
+                ? encodeDivider(item, width, height, compression)
+                : encodeLayer(item.layer, width, height, compression);
             layerRecords.push(encoded.record);
             for (let c = 0; c < encoded.channelBlocks.length; c++){
                 layerChannelData.push(encoded.channelBlocks[c]);
             }
+            recordCount++;
         }
 
         let layerInfo = concatArrays([
-            int16ToBytes(layers.length),
+            int16ToBytes(recordCount),
             ...layerRecords,
             ...layerChannelData,
         ]);
@@ -185,6 +191,71 @@ const PSD = (function(){
     };
 
     return me;
+
+    // Reconstructs the group hierarchy from the flat PSD layer-record list.
+    // PSD stores layers bottom-to-top (record 0 = bottom of the stack), which matches
+    // DPaint's frame.layers ordering. Section dividers (lsct):
+    //   3 = bounding divider — the hidden "</Layer group>" marker BELOW a group's content
+    //       (seen first, bottom-up) → OPENS a new group scope.
+    //   1 or 2 = open/closed folder header — sits ABOVE the content (seen last) → CLOSES
+    //       the scope and supplies the group's name/opacity/blend/visibility/collapsed.
+    // Pixel layers in between are pushed into the current scope. Unmatched dividers fall
+    // back to flattening (warn) so a malformed file still loads.
+    function buildLayerTree(records){
+        let root = [];
+        let stack = [];                 // each: { node, target }
+        let current = root;
+
+        function pushLeaf(layer){
+            if (!layer.canvas) return;
+            if (!(layer.width > 0 && layer.height > 0)) return;
+            current.push({
+                name: layer.name,
+                visible: layer.visible,
+                opacity: layer.opacity,
+                blendMode: layer.blendMode,
+                canvas: layer.canvas,
+                left: layer.left,
+                top: layer.top,
+            });
+        }
+
+        records.forEach((layer)=>{
+            let divider = layer.sectionDivider || 0;
+            if (divider === 3){
+                // open a new (inner) group scope
+                let group = { type: "group", name: "Group", visible: true, opacity: 100,
+                    blendMode: "normal", locked: false, collapsed: false, layers: [] };
+                stack.push({ node: group, parent: current });
+                current = group.layers;
+            } else if (divider === 1 || divider === 2){
+                // close the current group scope; this record is the folder header
+                let frame = stack.pop();
+                if (!frame){
+                    console.warn("PSD: unmatched group divider; flattening this layer");
+                    return;
+                }
+                frame.node.name = layer.name || frame.node.name;
+                frame.node.opacity = layer.opacity;
+                frame.node.blendMode = layer.blendMode;
+                frame.node.visible = layer.visible;
+                frame.node.collapsed = (divider === 2); // 2 = closed folder
+                current = frame.parent;
+                current.push(frame.node);
+            } else {
+                pushLeaf(layer);
+            }
+        });
+
+        // Any groups still open (missing header) → splice their contents into root.
+        while (stack.length){
+            let frame = stack.pop();
+            console.warn("PSD: group divider never closed; flattening its contents");
+            frame.parent.push(...frame.node.layers);
+        }
+
+        return root;
+    }
 
     function readLayerRecord(file, docWidth, docHeight){
         let layer = {
@@ -481,6 +552,89 @@ const PSD = (function(){
         return value;
     }
 
+    // Flattens the layer tree into a bottom-up sequence for writing. For each group emits:
+    //   { divider: 3 }  (opening bounding divider, below the children)
+    //   ...children (recursively)...
+    //   { divider: group, node }  (folder header above the children: lsct 1 open / 2 closed)
+    function flattenForWrite(nodes){
+        let out = [];
+        nodes.forEach((node)=>{
+            if (node && node.type === "group" && Array.isArray(node.layers)){
+                out.push({ divider: 3 });
+                out.push(...flattenForWrite(node.layers));
+                out.push({ divider: node.collapsed ? 2 : 1, node: node });
+            } else {
+                out.push({ layer: node });
+            }
+        });
+        return out;
+    }
+
+    // Emits a PSD layer record acting as a section divider (group bracket). Carries an
+    // empty/zero-size channel set and an "lsct" additional-info block with the divider type.
+    function encodeDivider(item, width, height, compression){
+        let dividerType = item.divider;          // 1 open folder, 2 closed folder, 3 bounding
+        let node = item.node;
+        let isHeader = dividerType === 1 || dividerType === 2;
+
+        // a single transparent channel set (zero rect) keeps the record minimal;
+        // always raw (uncompressed) since there are no rows to RLE-encode
+        let channelBlocks = [
+            encodeChannel(new Uint8Array(0), 0, 0, 0),
+            encodeChannel(new Uint8Array(0), 0, 0, 0),
+            encodeChannel(new Uint8Array(0), 0, 0, 0),
+            encodeChannel(new Uint8Array(0), 0, 0, 0),
+        ];
+        let channelIds = [0, 1, 2, -1];
+
+        let blendMode = isHeader ? (PSD_BLEND_MODES[node.blendMode] || "norm") : "norm";
+        let layerOpacity = isHeader && typeof node.opacity === "number" ? node.opacity : 100;
+        let opacity = Math.max(0, Math.min(255, Math.round(layerOpacity / 100 * 255)));
+        let flags = (isHeader && node.visible === false) ? 0x02 : 0;
+        let name = isHeader ? (node.name || "Group") : "</Layer group>";
+        let nameBlock = encodePascalString(name, 4);
+
+        // lsct additional-info block: 4-byte length-tagged section-divider type
+        let lsctBody = int32ToBytes(dividerType);
+        let lsctBlock = concatArrays([
+            asciiToBytes("8BIM"),
+            asciiToBytes("lsct"),
+            uint32ToBytes(lsctBody.length),
+            lsctBody,
+        ]);
+
+        let extraData = concatArrays([
+            uint32ToBytes(0),          // mask data length
+            uint32ToBytes(0),          // blending ranges length
+            nameBlock,
+            lsctBlock,
+        ]);
+
+        let recordSize = 16 + 2 + (channelBlocks.length * 6) + 4 + 4 + 4 + 4 + extraData.length;
+        let record = new Uint8Array(recordSize);
+        let offset = 0;
+        // zero rect (top/left/bottom/right all 0)
+        offset = writeArray(record, int32ToBytes(0), offset);
+        offset = writeArray(record, int32ToBytes(0), offset);
+        offset = writeArray(record, int32ToBytes(0), offset);
+        offset = writeArray(record, int32ToBytes(0), offset);
+        offset = writeArray(record, uint16ToBytes(channelBlocks.length), offset);
+        for (let i = 0; i < channelBlocks.length; i++){
+            offset = writeArray(record, int16ToBytes(channelIds[i]), offset);
+            offset = writeArray(record, uint32ToBytes(channelBlocks[i].length), offset);
+        }
+        offset = writeAscii(record, "8BIM", offset);
+        offset = writeAscii(record, blendMode, offset);
+        record[offset++] = opacity;
+        record[offset++] = 0;
+        record[offset++] = flags;
+        record[offset++] = 0;
+        offset = writeArray(record, uint32ToBytes(extraData.length), offset);
+        writeArray(record, extraData, offset);
+
+        return { record, channelBlocks };
+    }
+
     function encodeLayer(layer, width, height, compression){
         let canvas = layer.render ? layer.render() : layer.getCanvas();
         let ctx = canvas.getContext("2d", {willReadFrequently: true});
@@ -716,6 +870,14 @@ const PSD = (function(){
             target[offset + i] = value.charCodeAt(i) & 0xff;
         }
         return offset + value.length;
+    }
+
+    function asciiToBytes(value){
+        let result = new Uint8Array(value.length);
+        for (let i = 0; i < value.length; i++){
+            result[i] = value.charCodeAt(i) & 0xff;
+        }
+        return result;
     }
 
     function uint16ToBytes(value){

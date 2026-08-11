@@ -26,7 +26,11 @@ let IndexedPng = function(){
 
     let pngHeader = new Uint8Array([137,80,78,71,13,10,26,10]);
 
-    me.write=function(canvas){
+    // canvas: the image to write.
+    // paletteOverride: optional [r,g,b][] palette to use instead of the current global
+    //   palette (e.g. an optimized palette built from the image). Colors are matched
+    //   against this palette, not Palette.get().
+    me.write=function(canvas, paletteOverride){
         let performance = window.performance || Date;
         let startTime = performance.now();
         let bitDepth = 8;
@@ -35,33 +39,64 @@ let IndexedPng = function(){
         let filterMethod = 0;
         let interlaceMethod = 0;
 
-        let paletteColors = Palette.get().slice();
+        let paletteColors = (paletteOverride || Palette.get()).slice();
         let transparentIndex = -1;
-        let hasTransparency = false;
-        
+
+        let w = canvas.width;
+        let h = canvas.height;
         let ctx = canvas.getContext("2d");
-        let imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        let imageData = ctx.getImageData(0, 0, w, h);
         let pixels = imageData.data;
-        for (let i = 3; i < pixels.length; i += 4) {
-            if (pixels[i] === 0) {
+
+        // Single pass: map each opaque pixel to a palette index (exact match against the
+        // palette we're actually writing, falling back to 0 - same as the old
+        // Palette.getColorIndex(color,true)), and track transparency + which indices
+        // opaque pixels use. Transparent pixels are resolved later, once we know the
+        // transparent index.
+        let lookup = buildColorLookup(paletteColors);
+        let indices = new Uint8Array(w * h);
+        let usedByOpaque = new Uint8Array(paletteColors.length);
+        let hasTransparency = false;
+        for (let i = 0, p = 0; i < pixels.length; i += 4, p++) {
+            if (pixels[i + 3] === 0) {
                 hasTransparency = true;
-                break;
+            } else {
+                let idx = lookup(pixels[i], pixels[i + 1], pixels[i + 2]);
+                indices[p] = idx;
+                usedByOpaque[idx] = 1;
             }
         }
 
         if (hasTransparency) {
             if (paletteColors.length < 256) {
+                // Room for a dedicated transparent entry - no image color is affected.
                 transparentIndex = paletteColors.length;
                 paletteColors.push([0, 0, 0]);
             } else {
-                transparentIndex = typeof Palette.getBackColorIndex === "function" ? Palette.getBackColorIndex() : 0;
+                // Palette is full. Reuse an index that no opaque pixel uses, so we don't
+                // turn opaque pixels of that color transparent. (Common case: the palette
+                // contains a color only used by the transparent area.)
+                for (let i = 0; i < usedByOpaque.length; i++) {
+                    if (!usedByOpaque[i]) { transparentIndex = i; break; }
+                }
+                // Last resort - every color is used by an opaque pixel, so transparency
+                // and that color can't both be represented. Fall back to the background
+                // color index (may turn matching opaque pixels transparent).
+                if (transparentIndex < 0) {
+                    transparentIndex = typeof Palette.getBackColorIndex === "function" ? Palette.getBackColorIndex() : 0;
+                }
+            }
+
+            // Now assign the chosen transparent index to every transparent pixel.
+            for (let i = 0, p = 0; i < pixels.length; i += 4, p++) {
+                if (pixels[i + 3] === 0) indices[p] = transparentIndex;
             }
         }
 
-        let header = getHeaderChunk(canvas.width, canvas.height, bitDepth, colorType, compressionMethod, filterMethod, interlaceMethod);
+        let header = getHeaderChunk(w, h, bitDepth, colorType, compressionMethod, filterMethod, interlaceMethod);
         let palette = getPaletteChunk(paletteColors);
         let transparency = getTransparencyChunk(paletteColors, transparentIndex);
-        let data = getDataChunk(canvas, transparentIndex, imageData);
+        let data = getDataChunk(w, h, indices);
 
         let pngSize = pngHeader.length + chunkSize(header) + chunkSize(palette) + (transparency ? chunkSize(transparency) : 0) + chunkSize(data) + chunkSize([]);
         let arrayBuffer = new ArrayBuffer(pngSize);
@@ -151,33 +186,32 @@ let IndexedPng = function(){
         return data;
     }
 
-    function getDataChunk(canvas, transparentIndex, imageData){
-        let w = canvas.width;
-        let h = canvas.height;
+    // Build a fast exact-match color->palette-index lookup. First match wins (same as
+    // Array.findIndex), and unmatched colors fall back to index 0 - matching the old
+    // Palette.getColorIndex(color, true) behaviour, but against the palette being written.
+    function buildColorLookup(paletteColors){
+        let map = new Map();
+        for (let i = 0; i < paletteColors.length; i++){
+            let c = paletteColors[i];
+            let key = c[0] + "," + c[1] + "," + c[2];
+            if (!map.has(key)) map.set(key, i);
+        }
+        return (r, g, b) => {
+            let idx = map.get(r + "," + g + "," + b);
+            return idx === undefined ? 0 : idx;
+        };
+    }
 
-        // convert canvas to indexed color
-        // put scanline filter method in first byte of each scanline
-        // zlib compress the whole thing
-
-        let pixels = imageData.data;
-
+    function getDataChunk(w, h, indices){
+        // indices already holds one palette index per pixel.
+        // put scanline filter method in first byte of each scanline,
+        // then zlib compress the whole thing.
         let data = new Uint8Array(w * h + h);
         for (let y = 0; y < h; y++){
             let scanLineIndex = y * (w + 1);
             data[scanLineIndex] = 0; // no filter
             for (let x = 0; x < w; x++){
-                let i = (y * w + x) * 4;
-                let a = pixels[i + 3];
-                let color;
-                if (a === 0 && transparentIndex >= 0) {
-                    color = transparentIndex;
-                } else {
-                    let r = pixels[i];
-                    let g = pixels[i + 1];
-                    let b = pixels[i + 2];
-                    color = Palette.getColorIndex([r, g, b],true);
-                }
-                data[scanLineIndex + x + 1] = color;
+                data[scanLineIndex + x + 1] = indices[y * w + x];
             }
         }
 
