@@ -522,6 +522,20 @@ let Canvas = function(parent){
                 }
 
                 let currentTool = Editor.getCurrentTool();
+
+                // Lock guard: tools that modify the active layer's pixels no-op when the
+                // active layer (or any ancestor group) is locked, or when the active node
+                // is a group (no paintable canvas). Non-destructive tools (selection,
+                // colour pick, pan — handled above) remain usable on a locked layer.
+                const PIXEL_TOOLS = [
+                    COMMAND.DRAW, COMMAND.ERASE, COMMAND.SMUDGE, COMMAND.SPRAY, COMMAND.TEXT,
+                    COMMAND.FLOOD, COMMAND.CIRCLE, COMMAND.SQUARE, COMMAND.LINE,
+                    COMMAND.GRADIENT, COMMAND.ARC
+                ];
+                if (PIXEL_TOOLS.indexOf(currentTool) >= 0 && ImageFile.isActiveLayerLocked()){
+                    return;
+                }
+
                 switch (currentTool){
                     case COMMAND.DRAW:
                     case COMMAND.ERASE:
@@ -549,10 +563,11 @@ let Canvas = function(parent){
                         break;
                     case COMMAND.SELECTLAYER:
                         if (!isOnCanvas) return;
-                        let selectedLayerIndex = ImageFile.getTopLayerIndexAtPoint(point);
-                        if (selectedLayerIndex < 0) return;
-                        if (selectedLayerIndex !== ImageFile.getActiveLayerIndex()){
-                            ImageFile.activateLayer(selectedLayerIndex);
+                        let selectedLayerPath = ImageFile.getTopLayerIndexAtPoint(point);
+                        if (!selectedLayerPath) return;
+                        let activePath = ImageFile.getActiveLayerPath();
+                        if (selectedLayerPath.join(",") !== (activePath||[]).join(",")){
+                            ImageFile.activateLayer(selectedLayerPath);
                         }
                         EventBus.trigger(COMMAND.TRANSFORMLAYER);
                         break;

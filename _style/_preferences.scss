@@ -1,10 +1,6 @@
-/* override the default sidebar panel style */
-.contentpanel{
-    position: absolute;
-    left: 250px;
-    width: 300px;
-    z-index: 300;
-
+// Preferences panel content (the Touch / Recorder / Advanced settings form).
+// Scoped to `.free-panel.preferences`; its content lives in the panel's .inner.
+.free-panel.preferences{
     section{
         padding: 10px;
         margin-top: 4px;

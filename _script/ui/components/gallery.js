@@ -2,7 +2,6 @@ import $ from "../../util/dom.js";
 import EventBus from "../../util/eventbus.js";
 import {COMMAND} from "../../enum.js";
 import ImageFile from "../../image.js";
-import Modal from "../modal.js";
 
 let Gallery = (()=>{
     let me = {};
@@ -11,32 +10,17 @@ let Gallery = (()=>{
     let firstItem;
     let openFirstItem;
 
-    me.toggle = function(andOpen){
-        if (!container) generate();
-        container.classList.toggle("active");
-        let isActive = container.classList.contains("active");
-        document.body.classList.toggle("withfilebrowser",isActive);
-        if(isActive && andOpen){
-            if (firstItem){
-                openItem(firstItem);
-            }else{
-                openFirstItem = true;
-            }
-        }
+    // Content generator for the free-panel system: renders the gallery list into the
+    // panel's content area (the panel chrome/caption/close is owned by PanelManager).
+    me.generate = function(parent){
+        container = $(".gallery",{parent:parent}, listContainer = $(".list"));
+        list();
+        return container;
     }
 
-
-    function generate(){
-        let parent = document.querySelector(".container");
-        container = $(".filebrowser.gallery",
-            {parent:parent},
-            $(".caption","Gallery",$(".close",{
-                onclick:()=>{
-                    EventBus.trigger(COMMAND.TOGGLEGALLERY);
-                },info:"Close Gallery"},"x")),
-            listContainer = $(".list")
-        );
-        list();
+    // Open the first gallery item once the list has loaded (used by deep-link/autoplay).
+    me.openFirst = function(){
+        if (firstItem) openItem(firstItem); else openFirstItem = true;
     }
 
     function list(){

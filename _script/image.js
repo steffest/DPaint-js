@@ -5,7 +5,8 @@ import {COMMAND,EVENT} from "./enum.js";
 import Historyservice from "./services/historyservice.js";
 import Layer from "./ui/layer.js";
 import Modal,{DIALOG} from "./ui/modal.js";
-import SidePanel from "./ui/sidepanel.js";
+import PanelManager from "./ui/panelManager.js";
+import NativePanels from "./ui/nativePanels.js";
 import {duplicateCanvas, indexPixelsToPalette, releaseCanvas} from "./util/canvasUtils.js";
 import Palette from "./ui/palette.js";
 import SaveDialog from "./ui/components/saveDialog.js";
@@ -16,11 +17,13 @@ import storage from "./util/storage.js";
 import {DuplicateName} from "./util/textUtils.js";
 import Recorder from "./services/recorder.js";
 import {runWebGLQuantizer} from "./util/webgl-quantizer.js";
+import {compositeNodes, resolveLayerPath, flatIndex, pathFromFlatIndex, isGroup, parentOf, removeAtPath, insertAtPath, moveAtPath, isLockedInTree} from "./util/layerUtils.js";
 
 let ImageFile = function(){
     let me = {};
     let activeLayer;
     let activeLayerIndex = 0;
+    let activeLayerPath = [0];
     let activeFrameIndex = 0;
     let cachedImage;
     let currentFile = {
@@ -32,6 +35,15 @@ let ImageFile = function(){
     me.getCurrentFile = function(){
         return currentFile;
     };
+
+    // Normalises a layer reference to a path array. Accepts a path (number[]) as-is,
+    // or a legacy flat top-level integer index → [index]. Used by all path-aware ops
+    // so existing integer callers keep working while a flat tree has no groups.
+    function toPath(ref){
+        if (Array.isArray(ref)) return ref;
+        if (typeof ref === "number") return [ref];
+        return undefined;
+    }
 
     me.addLayer = addLayer;
     me.removeLayer = removeLayer;
@@ -87,43 +99,35 @@ let ImageFile = function(){
                 ? currentFile.frames[frameIndex]
                 : currentFrame();
         if (!frame) return;
-        if (frame.layers.length === 1) {
-            if (typeof frameIndex === "number") {
-                return frame.layers[0].render();
-            } else {
-                if (activeLayer && activeLayer.visible) {
-                    return activeLayer.render();
-                }
-            }
-        } else {
-            let canvas = document.createElement("canvas");
-            let ctx = canvas.getContext("2d");
-            canvas.width = currentFile.width;
-            canvas.height = currentFile.height;
-            frame.layers.forEach((layer) => {
-                if (layer.visible) {
-                    ctx.globalAlpha = layer.opacity / 100;
-                    let blendMode = layer.blendMode || "normal";
-                    if (blendMode === "normal") blendMode = "source-over";
-                    ctx.globalCompositeOperation = blendMode;
-                    ctx.drawImage(layer.render(), 0, 0);
-                    ctx.globalAlpha = 1;
-                    ctx.globalCompositeOperation = "source-over";
-                }
-            });
-            return canvas;
+        // Single top-level leaf layer: return its render directly (fast path).
+        // Note: only valid for a leaf — a single group must still be composited so
+        // its own opacity/blendMode apply. References frame.layers[0], not activeLayer,
+        // which may now be a nested child.
+        if (frame.layers.length === 1 && !isGroup(frame.layers[0])) {
+            let only = frame.layers[0];
+            if (only.visible) return only.render();
+            // hidden single layer → fall through to produce an empty canvas
         }
+        let canvas = document.createElement("canvas");
+        let ctx = canvas.getContext("2d");
+        canvas.width = currentFile.width;
+        canvas.height = currentFile.height;
+        compositeNodes(frame.layers, ctx);
+        return canvas;
     };
 
     me.getContext = function(){
-        if (currentFrame().layers.length === 1 && activeLayer) {
-            return activeLayer.getContext();
+        let active = me.getActiveLayer();
+        if (active && !isGroup(active) && currentFrame().layers.length === 1) {
+            return active.getContext();
         }else{
             return me.getCanvas().getContext("2d");
         }
     };
 
     me.getActiveContext = function(){
+        // A group has no paintable context; tools must no-op (see editor guard).
+        if (activeLayer && isGroup(activeLayer)) return undefined;
         if (activeLayer) return activeLayer.getContext();
     };
 
@@ -135,38 +139,72 @@ let ImageFile = function(){
         return activeLayer;
     };
 
-    me.getLayer = function(index){
-        let frame = currentFile.frames[activeFrameIndex];
-        return frame ? frame.layers[index] : undefined;
+    // True if the active node is itself locked OR sits inside a locked group, OR is a
+    // group (groups have no paintable canvas). Drawing/editing tools no-op when true.
+    me.isActiveLayerLocked = function(){
+        let frame = currentFrame();
+        if (!frame) return false;
+        if (isGroup(activeLayer)) return true;
+        return isLockedInTree(frame.layers, activeLayerPath);
     };
 
+    me.getLayer = function(ref){
+        let frame = currentFile.frames[activeFrameIndex];
+        if (!frame) return undefined;
+        let path = toPath(ref);
+        if (!path) return undefined;
+        // legacy flat integer → top-level index
+        if (path.length === 1) return frame.layers[path[0]];
+        return resolveLayerPath(frame.layers, path);
+    };
+
+    // Returns the path (number[]) of the topmost opaque node at `point`, or undefined.
+    // Descends into visible groups to find the topmost opaque leaf; returns a collapsed
+    // group's own path when the hit lies inside it.
     me.getTopLayerIndexAtPoint = function(point){
         let frame = currentFrame();
-        if (!frame || !point) return -1;
-        if (point.x < 0 || point.y < 0 || point.x >= currentFile.width || point.y >= currentFile.height) return -1;
+        if (!frame || !point) return undefined;
+        if (point.x < 0 || point.y < 0 || point.x >= currentFile.width || point.y >= currentFile.height) return undefined;
 
-        for (let i = frame.layers.length - 1; i >= 0; i--){
-            let layer = frame.layers[i];
-            if (!layer || !layer.visible || !layer.opacity) continue;
-
-            let layerCanvas = layer.render();
-            let layerContext = layerCanvas ? layerCanvas.getContext("2d",{willReadFrequently:true}) : undefined;
-            if (!layerContext) continue;
-
-            let pixel = layerContext.getImageData(point.x,point.y,1,1).data;
-            if (pixel[3] > 0) return i;
+        function opaqueAt(node){
+            if (!node || !node.visible || !node.opacity) return false;
+            let c = node.render();
+            let cx = c ? c.getContext("2d",{willReadFrequently:true}) : undefined;
+            if (!cx) return false;
+            return cx.getImageData(point.x,point.y,1,1).data[3] > 0;
         }
 
-        return -1;
+        function search(nodes, prefix){
+            for (let i = nodes.length - 1; i >= 0; i--){
+                let node = nodes[i];
+                if (!node || !node.visible || !node.opacity) continue;
+                let path = prefix.concat(i);
+                if (isGroup(node) && !node.collapsed){
+                    let inner = search(node.layers, path);
+                    if (inner) return inner;
+                    // group is expanded but nothing opaque inside at this point
+                    continue;
+                }
+                if (opaqueAt(node)) return path;
+            }
+            return undefined;
+        }
+
+        return search(frame.layers, []);
     };
 
+    // Returns an array of paths (number[][]) for nodes whose type matches, full-tree depth-first.
     me.getLayerIndexesOfType = function(type){
         let frame = currentFile.frames[activeFrameIndex];
         let result = [];
         if (frame) {
-            frame.layers.forEach((layer, index) => {
-                if (layer.type === type) result.push(index);
-            });
+            (function walk(nodes, prefix){
+                nodes.forEach((node, index) => {
+                    let path = prefix.concat(index);
+                    if (node.type === type) result.push(path);
+                    if (isGroup(node)) walk(node.layers, path);
+                });
+            })(frame.layers, []);
         }
         return result;
     };
@@ -325,24 +363,65 @@ let ImageFile = function(){
         }
     };
 
-    me.activateLayer = function(index){
-        activeLayerIndex = index;
-        activeLayer = currentFrame().layers[activeLayerIndex];
+    me.activateLayer = function(ref){
+        let frame = currentFrame();
+        let path = toPath(ref) || [0];
+        let layer = path.length === 1 ? frame.layers[path[0]] : resolveLayerPath(frame.layers, path);
+        if (!layer){
+            // path no longer resolves (e.g. after a structural change) → fall back to root 0
+            path = [0];
+            layer = frame.layers[0];
+        }
+        activeLayerPath = path;
+        activeLayer = layer;
+        activeLayerIndex = flatIndex(frame.layers, path);
+        if (activeLayerIndex < 0) activeLayerIndex = path[0] || 0;
         EventBus.trigger(EVENT.layersChanged);
     };
 
-    me.toggleLayer = function(index){
-        currentFrame().layers[index].visible =
-            !currentFrame().layers[index].visible;
+    me.getActiveLayerPath = function(){
+        return activeLayerPath;
+    };
+
+    me.toggleLayer = function(ref){
+        let layer = me.getLayer(ref);
+        if (!layer) return;
+        layer.visible = !layer.visible;
         EventBus.trigger(EVENT.layersChanged);
         EventBus.trigger(EVENT.imageContentChanged);
     };
 
-    me.duplicateLayer = function(index){
-        if (typeof index !== "number") index = activeLayerIndex;
-        let layer = currentFrame().layers[index];
+    me.toggleLayerLock = function(ref){
+        let layer = me.getLayer(ref);
+        if (!layer) return;
+        layer.locked = !layer.locked;
+        EventBus.trigger(EVENT.layersChanged);
+    };
 
-        let newName = DuplicateName(layer.name, currentFrame().layers);
+    me.duplicateLayer = function(ref){
+        let path = typeof ref === "undefined" ? activeLayerPath : toPath(ref);
+        if (!path) return;
+        let frame = currentFrame();
+        let p = parentOf(frame.layers, path);
+        let layer = resolveLayerPath(frame.layers, path) || (path.length===1 ? frame.layers[path[0]] : undefined);
+        if (!p || !layer) return;
+
+        let newName = DuplicateName(layer.name, p.parent);
+
+        if (isGroup(layer)){
+            // deep-copy the whole subtree via clone/restore (async), like duplicateFrame
+            let newLayer = Layer.makeGroup(currentFile.width, currentFile.height, newName);
+            let struct = layer.clone(false);
+            struct.name = newName;
+            let insertPath = path.slice();
+            insertPath[insertPath.length-1] = p.index + 1;
+            insertAtPath(frame.layers, insertPath, newLayer);
+            me.activateLayer(insertPath);
+            // returns a Promise so callers can sequence history capture after the deep copy
+            return newLayer.restore(struct).then(()=>{
+                EventBus.trigger(EVENT.layerContentChanged);
+            });
+        }
 
         let newLayer = Layer(
             currentFile.width,
@@ -351,9 +430,12 @@ let ImageFile = function(){
         );
         newLayer.opacity = layer.opacity;
         newLayer.blendMode = layer.blendMode;
+        newLayer.locked = layer.locked;
         newLayer.drawImage(layer.getCanvas());
-        currentFrame().layers.splice(index + 1, 0, newLayer);
-        me.activateLayer(index + 1);
+        let insertPath = path.slice();
+        insertPath[insertPath.length-1] = p.index + 1;
+        insertAtPath(frame.layers, insertPath, newLayer);
+        me.activateLayer(insertPath);
     };
 
     me.flipLayer = function(index, horizontal){
@@ -517,7 +599,8 @@ let ImageFile = function(){
         if (frame)  activeLayerIndex = frame.activeLayerIndex || 0;
         activeFrameIndex = index;
         cachedImage = undefined;
-        activeLayer = currentFrame().layers[activeLayerIndex];
+        activeLayerPath = pathFromFlatIndex(currentFrame().layers, activeLayerIndex) || [activeLayerIndex];
+        activeLayer = resolveLayerPath(currentFrame().layers, activeLayerPath) || currentFrame().layers[activeLayerIndex];
         EventBus.trigger(EVENT.layersChanged);
         EventBus.trigger(EVENT.imageContentChanged);
         EventBus.trigger(EVENT.framesChanged);
@@ -542,6 +625,7 @@ let ImageFile = function(){
         struct.image.width = currentFile.width;
         struct.image.height = currentFile.height;
         struct.image.activeLayerIndex = activeLayerIndex;
+        struct.image.activeLayerPath = activeLayerPath;
         struct.image.activeFrameIndex = activeFrameIndex;
         struct.image.frames = [];
         struct.errorCount = 0;
@@ -581,18 +665,14 @@ let ImageFile = function(){
                 frame = currentFile.frames[frameIndex];
             }
             frame.activeLayerIndex = _frame.activeLayerIndex || 0;
-            _frame.layers.forEach((_layer, layerIndex) => {
-                let layer = frame.layers[layerIndex];
-                if (!layer) {
-                    layer = Layer(currentFile.width, currentFile.height);
-                    frame.layers.push(layer);
-                }
+            // Rebuild the top-level layer list from scratch so structural changes
+            // (added/removed/regrouped nodes) restore correctly. Layer.restore owns
+            // the recursion into group children.
+            frame.layers = [];
+            _frame.layers.forEach((_layer) => {
+                let layer = Layer(currentFile.width, currentFile.height);
+                frame.layers.push(layer);
                 restorePromises.push(layer.restore(_layer).then(() => {
-
-                    if (frame.activeLayerIndex === layerIndex && image.activeFrameIndex === frameIndex) {
-                        me.activateFrame(frameIndex);
-                        me.activateLayer(layerIndex);
-                    }
                     EventBus.trigger(EVENT.layersChanged);
                     EventBus.trigger(EVENT.imageSizeChanged);
                 }));
@@ -600,6 +680,13 @@ let ImageFile = function(){
         });
 
         Promise.all(restorePromises).then(()=>{
+            // Reactivate after the whole tree exists, by path (falls back to flat index).
+            me.activateFrame(image.activeFrameIndex || 0);
+            if (Array.isArray(image.activeLayerPath)){
+                me.activateLayer(image.activeLayerPath);
+            } else {
+                me.activateLayer(image.activeLayerIndex || 0);
+            }
             restoreOriginalDataFromMeta();
             EventBus.trigger(EVENT.framesChanged);
         });
@@ -963,6 +1050,7 @@ let ImageFile = function(){
         if (meta) currentFile.meta = clonePlainData(meta);
         activeFrameIndex = 0;
         activeLayerIndex = 0;
+        activeLayerPath = [0];
         addLayer();
         activeLayer = currentFrame().layers[0];
         activeLayer.clear();
@@ -971,8 +1059,33 @@ let ImageFile = function(){
         }
         EventBus.trigger(EVENT.imageSizeChanged);
         if (["classicIcon","colorIcon","PNGIcon"].includes(type)){
-            SidePanel.show("icon");
+            PanelManager.reveal("icon", true);
         }
+    }
+
+    // Builds a Layer (or group Layer) from a plain source-layer descriptor as produced by
+    // the file-format parsers (PSD/Aseprite) or newFileFromLayers callers. Recurses into
+    // `layers` for groups.
+    function buildLayerNode(source, index, w, h){
+        if (source && source.type === "group" && Array.isArray(source.layers)){
+            let group = Layer.makeGroup(w, h, source.name || ("Group " + (index + 1)));
+            group.visible = source.visible !== false;
+            group.opacity = typeof source.opacity === "number" ? source.opacity : 100;
+            group.blendMode = source.blendMode || "normal";
+            group.locked = !!source.locked;
+            group.collapsed = !!source.collapsed;
+            group.layers = source.layers.map((child, i)=>buildLayerNode(child, i, w, h));
+            return group;
+        }
+        let layer = Layer(w, h, source.name || ("Layer " + (index + 1)));
+        layer.visible = source.visible !== false;
+        layer.opacity = typeof source.opacity === "number" ? source.opacity : 100;
+        layer.blendMode = source.blendMode || "normal";
+        layer.locked = !!source.locked;
+        if (source.canvas){
+            layer.drawImage(source.canvas, source.left || 0, source.top || 0);
+        }
+        return layer;
     }
 
     function newFileFromLayers(sourceLayers,image,fileName,type,originalData,meta){
@@ -1006,21 +1119,15 @@ let ImageFile = function(){
 
         activeFrameIndex = 0;
         activeLayerIndex = 0;
+        activeLayerPath = [0];
 
         let layers = sourceLayers.slice();
 
         EventBus.hold();
-        layers.forEach((sourceLayer, index) => {
-            let layerIndex = addLayer(undefined, sourceLayer.name || ("Layer " + (index + 1)));
-            let layer = currentFrame().layers[layerIndex];
-            layer.visible = sourceLayer.visible !== false;
-            layer.opacity = typeof sourceLayer.opacity === "number" ? sourceLayer.opacity : 100;
-            layer.blendMode = sourceLayer.blendMode || "normal";
-            layer.clear();
-            if (sourceLayer.canvas) {
-                layer.drawImage(sourceLayer.canvas, sourceLayer.left || 0, sourceLayer.top || 0);
-            }
-        });
+        // Build the layer tree from the source list. A source entry with type "group" and
+        // a `layers` array becomes a group Layer with recursively-built children (this is
+        // what the PSD/Aseprite parsers emit once group reconstruction is active).
+        currentFrame().layers = layers.map((sourceLayer, index)=>buildLayerNode(sourceLayer, index, w, h));
         EventBus.release();
 
         if (!currentFrame().layers.length) {
@@ -1028,6 +1135,7 @@ let ImageFile = function(){
         }
 
         activeLayerIndex = currentFrame().layers.length - 1;
+        activeLayerPath = [activeLayerIndex];
         activeLayer = currentFrame().layers[activeLayerIndex];
 
         EventBus.trigger(EVENT.layersChanged);
@@ -1239,32 +1347,197 @@ let ImageFile = function(){
         return newIndex;
     }
 
-    function removeLayer(index){
-        if (typeof index === "undefined") index = activeLayerIndex;
-        if (currentFrame().layers.length > 1) {
-            currentFrame().layers.splice(index, 1);
-            if (activeLayerIndex >= currentFrame().layers.length) {
-                activeLayerIndex--;
+    function removeLayer(ref){
+        let path = typeof ref === "undefined" ? activeLayerPath : toPath(ref);
+        if (!path) return;
+        let frame = currentFrame();
+        let p = parentOf(frame.layers, path);
+        if (!p) return;
+        // Don't remove the last remaining top-level layer.
+        if (p.parent === frame.layers && frame.layers.length <= 1) return;
+        removeAtPath(frame.layers, path);
+        // Reactivate: prefer the previous sibling in the same parent, else parent/root 0.
+        let activeP = activeLayerPath.slice();
+        if (activeP.length){
+            if (activeP[activeP.length-1] >= p.parent.length && activeP.length === path.length){
+                activeP[activeP.length-1] = Math.max(0, p.parent.length - 1);
             }
-            me.activateLayer(activeLayerIndex);
-            EventBus.trigger(EVENT.imageContentChanged);
         }
+        me.activateLayer(activeP.length ? activeP : [0]);
+        EventBus.trigger(EVENT.imageContentChanged);
     }
 
-    function moveLayer(fromIndex,toIndex){
-        if (currentFrame().layers.length > 1) {
-            if (toIndex >= currentFrame().layers.length) {
-                toIndex = currentFrame().layers.length - 1;
-            }
-            if (toIndex < 0) toIndex = 0;
-            if (toIndex !== fromIndex) {
-                let layer = currentFrame().layers[fromIndex];
-                currentFrame().layers.splice(fromIndex, 1);
-                currentFrame().layers.splice(toIndex, 0, layer);
-            }
-            me.activateLayer(toIndex);
-            EventBus.trigger(EVENT.imageContentChanged);
+    // ── Group operations ──────────────────────────────────────────────────────────
+
+    // Creates an empty group. atPath: insertion path (defaults to just above active layer at root).
+    me.addGroup = function(name, atPath){
+        let frame = currentFrame();
+        let group = Layer.makeGroup(currentFile.width, currentFile.height,
+            name || DuplicateName("Group", frame.layers));
+        if (Array.isArray(atPath)){
+            insertAtPath(frame.layers, atPath, group);
+            me.activateLayer(atPath);
+        }else{
+            frame.layers.push(group);
+            me.activateLayer([frame.layers.length - 1]);
         }
+        EventBus.trigger(EVENT.layersChanged);
+        EventBus.trigger(EVENT.imageContentChanged);
+        return group;
+    };
+
+    // Wraps the nodes at `paths` (which must share one parent) into a new group,
+    // placed at the position of the topmost (lowest-index) selected node.
+    me.groupLayers = function(paths){
+        let frame = currentFrame();
+        if (!Array.isArray(paths) || !paths.length){
+            return me.addGroup();
+        }
+        // All selected paths must share the same parent.
+        let parentKey = p => p.slice(0,-1).join(",");
+        let key0 = parentKey(paths[0]);
+        if (!paths.every(p => parentKey(p) === key0)){
+            console.warn("groupLayers: selection spans multiple parents; ignoring");
+            return;
+        }
+        // Sort by last index so we remove/insert deterministically.
+        let sorted = paths.slice().sort((a,b)=>a[a.length-1]-b[b.length-1]);
+        let parentPath = sorted[0].slice(0,-1);
+        let parentArr = parentPath.length ? resolveLayerPath(frame.layers, parentPath).layers : frame.layers;
+        let insertIndex = sorted[0][sorted[0].length-1];
+
+        // Capture nodes, then remove them high-index-first so indices stay valid.
+        let nodes = sorted.map(p => parentArr[p[p.length-1]]);
+        for (let i = sorted.length-1; i>=0; i--){
+            parentArr.splice(sorted[i][sorted[i].length-1], 1);
+        }
+        let group = Layer.makeGroup(currentFile.width, currentFile.height,
+            DuplicateName("Group", frame.layers));
+        nodes.forEach(n => group.layers.push(n));
+        parentArr.splice(insertIndex, 0, group);
+
+        let groupPath = parentPath.concat(insertIndex);
+        me.activateLayer(groupPath);
+        EventBus.trigger(EVENT.layersChanged);
+        EventBus.trigger(EVENT.imageContentChanged);
+        return group;
+    };
+
+    // Promotes a group's children into its parent scope (one level up) and removes the container.
+    me.ungroupLayers = function(path){
+        let frame = currentFrame();
+        let p = parentOf(frame.layers, path);
+        if (!p) return;
+        let group = p.parent[p.index];
+        if (!isGroup(group)) return;
+        let children = group.layers.slice();
+        // Replace the group with its children, in order, at the group's position.
+        p.parent.splice(p.index, 1, ...children);
+        me.activateLayer(p.parent.length ? path.slice(0,-1).concat(Math.min(p.index, p.parent.length-1)) : [0]);
+        EventBus.trigger(EVENT.layersChanged);
+        EventBus.trigger(EVENT.imageContentChanged);
+    };
+
+    // Flattens a group into a single leaf Layer at the same position,
+    // inheriting the group's name/opacity/blendMode.
+    me.mergeGroup = function(path){
+        let frame = currentFrame();
+        let p = parentOf(frame.layers, path);
+        if (!p) return;
+        let group = p.parent[p.index];
+        if (!isGroup(group)) return;
+
+        let merged = Layer(currentFile.width, currentFile.height, group.name);
+        merged.opacity = group.opacity;
+        merged.blendMode = group.blendMode;
+        merged.locked = group.locked;
+        // group.render() composites all visible children (applying their own opacity/blend/mask).
+        merged.drawImage(group.render(), 0, 0);
+        p.parent.splice(p.index, 1, merged);
+        me.activateLayer(path);
+        EventBus.trigger(EVENT.layersChanged);
+        EventBus.trigger(EVENT.imageContentChanged);
+        return merged;
+    };
+
+    function moveLayer(from,to){
+        let frame = currentFrame();
+        let fromPath = toPath(from);
+        let toP = toPath(to);
+        if (!fromPath || !toP) return;
+
+        // Legacy flat path: both top-level integers → clamp like before.
+        if (fromPath.length === 1 && toP.length === 1){
+            if (frame.layers.length <= 1) return;
+            let toIndex = toP[0];
+            if (toIndex >= frame.layers.length) toIndex = frame.layers.length - 1;
+            if (toIndex < 0) toIndex = 0;
+            if (toIndex !== fromPath[0]){
+                let layer = frame.layers[fromPath[0]];
+                frame.layers.splice(fromPath[0], 1);
+                frame.layers.splice(toIndex, 0, layer);
+            }
+            me.activateLayer([toIndex]);
+            EventBus.trigger(EVENT.imageContentChanged);
+            return;
+        }
+
+        // Tree move: moveAtPath rejects moving a group into its own subtree.
+        let node = resolveLayerPath(frame.layers, fromPath);
+        if (!node) return;
+        moveAtPath(frame.layers, fromPath, toP);
+        // Re-find the moved node to set the active path correctly post-mutation.
+        me.activateLayer(pathOfNode(frame.layers, node) || [0]);
+        EventBus.trigger(EVENT.imageContentChanged);
+    }
+
+    // Move the node at fromPath into the array at parentPath, inserting at `index`
+    // expressed in POST-REMOVAL coordinates (i.e. after fromPath has been spliced out).
+    // This is the contract resolveDropPath() produces. Returns true if a move happened.
+    me.moveLayerToParent = function(fromPath, parentPath, index){
+        let frame = currentFrame();
+        if (!Array.isArray(fromPath) || !Array.isArray(parentPath)) return false;
+        // Reject moving a group into itself or its own subtree.
+        if (parentPath.length >= fromPath.length){
+            let inside = true;
+            for (let i=0;i<fromPath.length;i++){ if (parentPath[i]!==fromPath[i]){ inside=false; break; } }
+            if (inside) return false;
+        }
+        let node = resolveLayerPath(frame.layers, fromPath);
+        if (!node) return false;
+
+        // Resolve the target parent ARRAY by reference now (before removal), so any index
+        // shifts from the removal don't invalidate it. `index` is given in post-removal
+        // coordinates within this same array.
+        let parentArr = parentPath.length === 0
+            ? frame.layers
+            : (resolveLayerPath(frame.layers, parentPath) || {}).layers;
+        if (!parentArr) return false;
+
+        removeAtPath(frame.layers, fromPath);
+
+        if (index < 0) index = 0;
+        if (index > parentArr.length) index = parentArr.length;
+        parentArr.splice(index, 0, node);
+
+        me.activateLayer(pathOfNode(frame.layers, node) || [0]);
+        EventBus.trigger(EVENT.imageContentChanged);
+        return true;
+    };
+
+    // Depth-first search for the path of a specific node instance in the tree.
+    function pathOfNode(nodes, target, prefix){
+        prefix = prefix || [];
+        for (let i=0;i<nodes.length;i++){
+            let n = nodes[i];
+            let path = prefix.concat(i);
+            if (n === target) return path;
+            if (isGroup(n)){
+                let inner = pathOfNode(n.layers, target, path);
+                if (inner) return inner;
+            }
+        }
+        return undefined;
     }
 
     function addFrame(image){
@@ -1350,28 +1623,37 @@ let ImageFile = function(){
         }
     };
 
-    me.mergeDown = function (index,skipHistory){
-        if (typeof index !== "number") index = activeLayerIndex;
-        let layer = currentFrame().layers[index];
-        let belowLayer = currentFrame().layers[index - 1];
-        if (layer && belowLayer) {
-            if (!skipHistory) HistoryService.start(EVENT.imageHistory);
-            if (layer.hasMask) {
-                layer.removeMask(true);
-            }
-            let ctx = belowLayer.getContext();
-            ctx.globalAlpha = layer.opacity;
-            let blendMode = layer.blendMode || "normal";
-            if (blendMode === "normal") blendMode = "source-over";
-            ctx.globalCompositeOperation = blendMode;
-            belowLayer.drawImage(layer.getCanvas(), 0, 0);
-            ctx.globalAlpha = 1;
-            ctx.globalCompositeOperation = "source-over";
-            currentFrame().layers.splice(index, 1);
-            if (!skipHistory) Historyservice.end();
-            me.activateLayer(index - 1);
-            EventBus.trigger(EVENT.layerContentChanged);
+    me.mergeDown = function (ref,skipHistory){
+        let frame = currentFrame();
+        let path = typeof ref === "undefined" ? activeLayerPath : toPath(ref);
+        if (!path) return;
+        let p = parentOf(frame.layers, path);
+        if (!p) return;
+        // "Down" is the previous sibling in the same parent scope.
+        if (p.index <= 0) return; // nothing below in this scope (group-boundary guard)
+        let layer = p.parent[p.index];
+        let belowLayer = p.parent[p.index - 1];
+        // A group can't be merged into (you'd lose its structure); only leaf targets below.
+        if (!layer || !belowLayer || isGroup(belowLayer)) return;
+
+        if (!skipHistory) HistoryService.start(EVENT.imageHistory);
+        if (!isGroup(layer) && layer.hasMask) {
+            layer.removeMask(true);
         }
+        let ctx = belowLayer.getContext();
+        ctx.globalAlpha = layer.opacity / 100;
+        let blendMode = layer.blendMode || "normal";
+        if (blendMode === "normal") blendMode = "source-over";
+        ctx.globalCompositeOperation = blendMode;
+        belowLayer.drawImage(layer.render(), 0, 0); // render() composites a group; returns canvas for a leaf
+        ctx.globalAlpha = 1;
+        ctx.globalCompositeOperation = "source-over";
+        p.parent.splice(p.index, 1);
+        if (!skipHistory) Historyservice.end();
+        let belowPath = path.slice();
+        belowPath[belowPath.length-1] = p.index - 1;
+        me.activateLayer(belowPath);
+        EventBus.trigger(EVENT.layerContentChanged);
     };
 
     me.paste = function(image){
@@ -1473,11 +1755,11 @@ let ImageFile = function(){
     });
 
     EventBus.on(COMMAND.INFO, function(){
-        SidePanel.showInfo(currentFile);
+        NativePanels.showInfo(currentFile);
     });
 
     EventBus.on(COMMAND.NEWLAYER, function(){
-        SidePanel.show();
+        PanelManager.showContainer("left");
         let newIndex = addLayer(activeLayerIndex+1);
         HistoryService.add(EVENT.layerPropertyHistory,{
             index:-1,
@@ -1495,7 +1777,39 @@ let ImageFile = function(){
 
     EventBus.on(COMMAND.DUPLICATELAYER, function(){
         HistoryService.start(EVENT.imageHistory);
-        me.duplicateLayer();
+        let result = me.duplicateLayer();
+        // group duplication is async (deep clone/restore); end history once it completes
+        if (result && typeof result.then === "function"){
+            result.then(()=>HistoryService.end());
+        }else{
+            HistoryService.end();
+        }
+    });
+
+    EventBus.on(COMMAND.NEWGROUP, function(){
+        PanelManager.showContainer("left");
+        HistoryService.start(EVENT.imageHistory);
+        let atPath = activeLayerPath && activeLayerPath.length ? activeLayerPath.slice() : undefined;
+        if (atPath) atPath[atPath.length-1] = atPath[atPath.length-1] + 1;
+        me.addGroup(undefined, atPath);
+        HistoryService.end();
+    });
+
+    EventBus.on(COMMAND.GROUPLAYERS, function(paths){
+        HistoryService.start(EVENT.imageHistory);
+        me.groupLayers(paths || [activeLayerPath]);
+        HistoryService.end();
+    });
+
+    EventBus.on(COMMAND.UNGROUP, function(path){
+        HistoryService.start(EVENT.imageHistory);
+        me.ungroupLayers(path || activeLayerPath);
+        HistoryService.end();
+    });
+
+    EventBus.on(COMMAND.MERGEGROUP, function(path){
+        HistoryService.start(EVENT.imageHistory);
+        me.mergeGroup(path || activeLayerPath);
         HistoryService.end();
     });
 
@@ -1565,7 +1879,7 @@ let ImageFile = function(){
 
     EventBus.on(COMMAND.ADDFRAME, function(){
         HistoryService.start(EVENT.imageHistory);
-        SidePanel.show();
+        PanelManager.showContainer("left");
         addFrame();
         HistoryService.end();
     });
@@ -1587,6 +1901,8 @@ let ImageFile = function(){
             layer.name = "Layer 1";
         }
         activeLayerIndex = 0;
+        activeLayerPath = [0];
+        activeLayer = currentFrame().layers[0];
 
         HistoryService.end();
         EventBus.trigger(EVENT.layersChanged);

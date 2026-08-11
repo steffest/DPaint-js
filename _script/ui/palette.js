@@ -4,7 +4,7 @@ import {ANIMATION, COMMAND, EVENT, SETTING} from "../enum.js";
 import Color from "../util/color.js";
 import ImageProcessing from "../util/imageProcessing.js";
 import ImageFile from "../image.js";
-import SidePanel from "./sidepanel.js";
+import PanelManager from "./panelManager.js";
 import {duplicateCanvas} from "../util/canvasUtils.js";
 import Animator from "../util/animator.js";
 import ColorRange from "./components/colorRange.js";
@@ -608,7 +608,7 @@ let Palette = function(){
                 ImageProcessing.reduce(c,targetPalette || targetColorCount,alphaThreshold,ditherIndex,useAlphaThreshold,ditherAmount,quantizationMethod);
 
 
-            SidePanel.show("reduce");
+            PanelManager.reveal("reduce", true);
         }
     }
 

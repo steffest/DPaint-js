@@ -1,5 +1,4 @@
 import dom from "../../util/dom.js";
-import SidePanel from "../sidepanel.js";
 import Palette from "../palette.js";
 
 let ColorPicker = function(){

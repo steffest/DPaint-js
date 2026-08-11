@@ -16,8 +16,7 @@ import Cursor from "./cursor.js";
 import ToolOptions from "./components/toolOptions.js";
 import UI from "./ui.js";
 import UserSettings from "../userSettings.js";
-import Sidepanel from "./sidepanel.js";
-import Contentpanel from "./contentpanel.js";
+import PanelManager from "./panelManager.js";
 
 var Editor = function(){
     var me = {};
@@ -52,8 +51,16 @@ var Editor = function(){
     function removeColorMaskLayers(){
         stopColorMaskFlash();
         let currentHighLight = ImageFile.getLayerIndexesOfType("pixelSelection");
-        currentHighLight.slice().reverse().forEach(layerIndex=>{
-            ImageFile.removeLayer(layerIndex);
+        // Remove deepest/highest paths first so earlier removals don't shift later ones.
+        currentHighLight.slice().sort((a,b)=>{
+            let len = Math.max(a.length,b.length);
+            for (let i=0;i<len;i++){
+                let av = a[i] ?? -1, bv = b[i] ?? -1;
+                if (av !== bv) return bv - av;
+            }
+            return 0;
+        }).forEach(path=>{
+            ImageFile.removeLayer(path);
         });
     }
 
@@ -108,8 +115,13 @@ var Editor = function(){
 
 
         EventBus.on(EVENT.panelUIChanged,function(){
-            container.style.left = (Sidepanel.getWidth() + Contentpanel.getWidth() + 70) + "px";
+            container.style.left = (PanelManager.getDockWidth("left") + 70) + "px";
+            container.style.right = PanelManager.getDockWidth("right") + "px";
+            container.style.bottom = (PanelManager.getDockHeight() + 22) + "px";
         });
+        // PanelManager.init() runs before this subscription exists, so its initial
+        // panelUIChanged is missed; recompute the editor offsets now that we're wired.
+        EventBus.trigger(EVENT.panelUIChanged);
         
         EventBus.on(COMMAND.ZOOMIN,function(center){
             activePanel.zoom(zoomFactor,center);
@@ -413,10 +425,11 @@ var Editor = function(){
             EventBus.trigger(EVENT.layersChanged);
         });
         EventBus.on(COMMAND.EDITPALETTE, ()=>{
-            Modal.show(DIALOG.PALETTE);
+            // Palette editor is now a dock-capable, floating-by-default free panel.
+            PanelManager.show("palette");
         })
         EventBus.on(COMMAND.EFFECTS, ()=>{
-            Modal.show(DIALOG.EFFECTS);
+            PanelManager.show("effects");
         })
         EventBus.on(EVENT.toolChanged,(tool)=>{
             me.commit();

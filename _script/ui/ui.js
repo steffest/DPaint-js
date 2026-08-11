@@ -4,13 +4,11 @@ import Menu from "./menu.js";
 import Toolbar from "./toolbar.js";
 import Editor from "./editor.js";
 import Cursor from "./cursor.js";
-import Sidepanel from "./sidepanel.js";
-import Contentpanel from "./contentpanel.js";
 import StatusBar from "./statusbar.js";
 import PaletteList from "./components/paletteList.js";
 import EventBus from "../util/eventbus.js";
 import {COMMAND, EVENT, SETTING} from "../enum.js";
-import Bottompanel from "./bottompanel.js";
+import PanelManager from "./panelManager.js";
 
 let UI = function(){
 	let me = {}
@@ -24,9 +22,9 @@ let UI = function(){
 		Menu.init(container);
 		Toolbar.init(container);
 		StatusBar.init(container);
-		Sidepanel.init(container);
-		if (SETTING.useBottomPanel) Bottompanel.init(container);
-		Contentpanel.init(container);
+		// Side / bottom / content panels are now owned by PanelManager (free-panel
+		// docking). The legacy Sidepanel/Bottompanel/Contentpanel modules are retired.
+		PanelManager.init(container);
 		PaletteList.init(container);
 		Editor.init(container);
 

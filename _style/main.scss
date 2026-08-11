@@ -64,20 +64,29 @@ h1.error{
 @import "scrollbar";
 @import "forms";
 @import "range";
+// Free/dockable tool-panel chrome + content (container-agnostic). Imported after the
+// shared base and before the container partials that position panels.
+@import "panel";
 @import "menu";
 @import "contextMenu";
 @import "toolbar";
 @import "statusbar";
 @import "sidepanel";
 @import "bottompanel";
-@import "contentpanel";
+@import "preferences";
+@import "dockpanel";
 @import "paletteList";
 @import "editor";
 @import "visualAids";
 @import "selection";
 @import "cursor";
 @import "modal";
+// Palette Editor + Effects render in free panels (floating/docked) as well as modals,
+// so their styles live at top level rather than scoped under .modalwindow.
+@import "paletteEditor";
+@import "effectEditor";
 @import "fileBrowser";
 @import "gallery";
+@import "bitplanes";
 @import "uae";
 @import "mobile";

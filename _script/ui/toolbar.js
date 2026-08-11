@@ -5,7 +5,7 @@ import Palette from "./palette.js";
 import Brush from "./brush.js";
 import Editor from "./editor.js";
 import ToolOptions from "./components/toolOptions.js";
-import SidePanel from "./sidepanel.js";
+import PanelManager from "./panelManager.js";
 
 let Toolbar = function(){
     let me = {}
@@ -50,7 +50,7 @@ let Toolbar = function(){
 
         EventBus.on(EVENT.panelUIChanged,()=>{
             if (toggleButton){
-                let sidePanelsVisible = SidePanel.isVisible();
+                let sidePanelsVisible = PanelManager.isContainerVisible("left");
                 toggleButton.classList.toggle("active",sidePanelsVisible);
             }
         });

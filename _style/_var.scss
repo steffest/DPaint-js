@@ -25,3 +25,18 @@ $positive-background: #313c31;
   image-rendering: pixelated;
   -ms-interpolation-mode: nearest-neighbor;
 }
+
+// Standard bordered button chrome (border + padding + hover). Single source of truth for
+// the look that used to live only under `.modalwindow .inner .button`; free-panel editors
+// `@include` it instead of re-declaring the border/hover colours.
+@mixin button-chrome{
+  border: 1px solid #6a6a6a;
+  padding: 6px;
+  user-select: none;
+
+  &:hover{
+    cursor: pointer;
+    border: 1px solid #8c8c8c;
+    background-color: #232323;
+  }
+}

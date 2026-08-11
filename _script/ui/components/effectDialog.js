@@ -31,7 +31,7 @@ var EffectDialog = function() {
         }
 
         container.innerHTML = "";
-        mainPanel = $div("effects panel form","",container);
+        mainPanel = $div("effects-editor","",container);
 
         let tabs = $div("tabs","",mainPanel);
         let generalTab = $div("tab active","General",tabs,()=>{
@@ -54,7 +54,13 @@ var EffectDialog = function() {
 
         let sliders = $div("sliders active","",mainPanel);
 
-        currentSource = duplicateCanvas(ImageFile.getActiveLayer().getCanvas(),true);
+        // No active layer yet (e.g. opened before an image exists) → nothing to preview.
+        let activeLayer = ImageFile.getActiveLayer();
+        if (!activeLayer){
+            $div("hint","No image to apply effects to.",mainPanel);
+            return;
+        }
+        currentSource = duplicateCanvas(activeLayer.getCanvas(),true);
         HistoryService.start(EVENT.layerContentHistory);
 
         Effects.setSrcTarget(currentSource,previewCanvas.getContext("2d"))

@@ -64,7 +64,7 @@ var PaletteDialog = function() {
         let contextMenu;
 
         $setTarget(container);
-        panelContainer = $(".palette.panel.form" + (withActions? ".withactions" : "") + (SETTING.useMultiPalettes? ".multipalette" : ""),
+        panelContainer = $(".palette-editor" + (withActions? ".withactions" : "") + (SETTING.useMultiPalettes? ".multipalette" : ""),
             palettePanel=$(".palettepanel"),
             $(".actions",
                 $(".caption.sub",{onClick:()=>{
@@ -162,8 +162,8 @@ var PaletteDialog = function() {
             $(".mainpanel",
                 $('.tabs',panels.colortab = $(".caption.sub",{onClick:toggleRangePanel},"Color"),panels.rangestab = $(".caption.sub.inactive",{onClick:toggleRangePanel},"Ranges")),
                 panels.color = $(".colorpanel",
-                    $(".batchedit.subpanel"),
-                    $(".coloredit.subpanel.active",
+                    $(".batchedit.editor-subpanel"),
+                    $(".coloredit.editor-subpanel.active",
                     $(".sliders",
                     colorCanvas = $("canvas",{
                         width:60,
@@ -487,7 +487,8 @@ var PaletteDialog = function() {
                 let currentHighLight = ImageFile.getLayerIndexesOfType("pixelSelection");
                 if (currentHighLight.length){
                     let newIndex = ImageFile.getActiveLayerIndex()+1
-                    ImageFile.moveLayer(currentHighLight[0],newIndex);
+                    // pixelSelection layers live at root → path[0] is the top-level index
+                    ImageFile.moveLayer(currentHighLight[0][0],newIndex);
                     EventBus.trigger(COMMAND.MERGEDOWN,newIndex);
                 }
             }

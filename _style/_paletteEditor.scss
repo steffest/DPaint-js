@@ -1,4 +1,7 @@
-.palette{
+// Palette Editor. Root element is `.palette-editor` — a unique context class (no shared
+// `panel`/`palette` token), so it never collides with the toolbar `.palette` swatch, the
+// `.palettelist .palette` preset card, or the `.free-panel` chrome it may be nested in.
+.palette-editor{
   position: absolute;
     left: 0;
     top: 0;
@@ -274,7 +277,7 @@
       top: 20px;
       bottom: 0;
 
-      .subpanel{
+      .editor-subpanel{
         display: none;
 
         &.active{

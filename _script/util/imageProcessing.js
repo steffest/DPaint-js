@@ -585,6 +585,10 @@ var ImageProcessing = function(){
 			}
 			imageInfos.paletteReduced = colors;
 			remapImage(canvas, colors, ditherPattern);
+			// we are mapping the image ONTO a palette that was given to us:
+			// that palette must stay exactly as it is - no bit depth reduction, no dedupe, no sorting
+			updateImageWindow(Id, canvas, colors, true);
+			return;
 		}else{
 
 			// check if we can reuse the previous palette
@@ -686,32 +690,34 @@ var ImageProcessing = function(){
 	}
 	
 	
-	function updateImageWindow(Id, canvas, palette){
+	function updateImageWindow(Id, canvas, palette, keepPaletteAsIs){
 		if (palette){
 
-			// check if we need to reduce the bit depth of the palette
-			let colorDepth = Palette.getColorDepth();
-			if (colorDepth !== 24){
-				let bits = Math.floor(colorDepth/3);
-				palette.forEach((color,index)=>{
-					palette[index] = Color.setBitDepth(color,bits);
-				});
-			}
-
-			// remove duplicates
-			let uniquePalette = [];
-			let map = {};
-			palette.forEach(color=>{
-				let key = color.join(",");
-				if (!map[key]){
-					map[key] = true;
-					uniquePalette.push(color);
+			if (!keepPaletteAsIs){
+				// check if we need to reduce the bit depth of the palette
+				let colorDepth = Palette.getColorDepth();
+				if (colorDepth !== 24){
+					let bits = Math.floor(colorDepth/3);
+					palette.forEach((color,index)=>{
+						palette[index] = Color.setBitDepth(color,bits);
+					});
 				}
-			});
-			palette = uniquePalette;
 
-			// sort from dark to light
-			palette.sort(function (c1, c2) { return (SrgbToRgb(c1[0]) * 0.21 + SrgbToRgb(c1[1]) * 0.72 + SrgbToRgb(c1[2]) * 0.07) - (SrgbToRgb(c2[0]) * 0.21 + SrgbToRgb(c2[1]) * 0.72 + SrgbToRgb(c2[2]) * 0.07) });
+				// remove duplicates
+				let uniquePalette = [];
+				let map = {};
+				palette.forEach(color=>{
+					let key = color.join(",");
+					if (!map[key]){
+						map[key] = true;
+						uniquePalette.push(color);
+					}
+				});
+				palette = uniquePalette;
+
+				// sort from dark to light
+				palette.sort(function (c1, c2) { return (SrgbToRgb(c1[0]) * 0.21 + SrgbToRgb(c1[1]) * 0.72 + SrgbToRgb(c1[2]) * 0.07) - (SrgbToRgb(c2[0]) * 0.21 + SrgbToRgb(c2[1]) * 0.72 + SrgbToRgb(c2[2]) * 0.07) });
+			}
 
 			let f = ImageFile.getCurrentFile();
 			let ctx = ImageFile.getActiveContext();

@@ -659,13 +659,12 @@
 }
 
 .saveoverlay{
-  position: absolute;
-  top: 20px;
-  left: 1px;
-  right: 1px;
-  bottom: 1px;
+  // in normal flow (not absolute) so the auto-height modal sizes to fit it,
+  // the same way it resizes when a format like IFF reveals option panels.
+  position: relative;
   background-color:#3D3F41;
   z-index: 10;
+  padding-bottom: 10px;
 
   .info{
     text-align: center;
@@ -676,6 +675,14 @@
       display: block;
       padding: 20px 0;
     }
+  }
+
+  // override the global absolute-bottom buttons: keep them in flow, right-aligned
+  .buttons{
+    position: relative;
+    bottom: auto;
+    right: auto;
+    justify-content: flex-end;
   }
 
   .spinner{

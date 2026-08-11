@@ -6,6 +6,7 @@ import Palette from "./ui/palette.js";
 import Modal, {DIALOG} from "./ui/modal.js";
 import Brush from "./ui/brush.js";
 import ClientApi from "./services/api.js";
+import PanelManager from "./ui/panelManager.js";
 
 let App = function(){
 	let me = {
@@ -102,15 +103,26 @@ let App = function(){
 		});
 
 		EventBus.on(COMMAND.TOGGLEGALLERY,(andOpen)=>{
-			import("./ui/components/gallery.js").then(Gallery=>{
-				Gallery.default.toggle(andOpen);
-			});
+			// Gallery is now a dock-capable free panel.
+			if (PanelManager.isVisible("gallery")){
+				PanelManager.hide("gallery");
+			}else{
+				PanelManager.reveal("gallery", true);
+				if (andOpen){
+					import("./ui/components/gallery.js").then(Gallery=>{
+						Gallery.default.openFirst();
+					});
+				}
+			}
 		});
 
-		EventBus.on(COMMAND.VIEWPLANES,(andOpen)=>{
-			import("./ui/components/bitplanes.js").then(BitPlanes=>{
-				BitPlanes.default.toggle(andOpen);
-			});
+		EventBus.on(COMMAND.VIEWPLANES,()=>{
+			// Bitplane viewer is now a dock-capable free panel.
+			if (PanelManager.isVisible("bitplanes")){
+				PanelManager.hide("bitplanes");
+			}else{
+				PanelManager.reveal("bitplanes", true);
+			}
 		});
 
 		EventBus.on(COMMAND.ABOUT,()=>{
@@ -278,6 +290,9 @@ let App = function(){
 			window.ImageFile = ImageFile;
 			window.EventBus = EventBus;
 			window.UI = UI;
+			window.COMMAND = COMMAND;
+			window.EVENT = EVENT;
+			window.PanelManager = PanelManager;
 		}
 
 	return me;

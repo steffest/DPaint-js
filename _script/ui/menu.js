@@ -10,6 +10,7 @@ let Menu = function(){
     let isMenuActive;
     let isMac = navigator.platform.toUpperCase().indexOf('MAC')>=0;
     let refs = {};
+    let panelSubMenu;   // the View ▸ Panels submenu container (populated by PanelManager)
 
     let items=[
         {label: "File", items:[
@@ -58,6 +59,7 @@ let Menu = function(){
             ]},
         {label: "Layer", items:[
                 {label: "New",command: COMMAND.NEWLAYER},
+                {label: "New Group",command: COMMAND.NEWGROUP},
                 {label: "Transform",items:[
                         {label: "Free Transform",command: COMMAND.TRANSFORMLAYER,shortKey: "T / V"},
                         {label: "Flip Horizontal",command: COMMAND.FLIPHORIZONTAL},
@@ -68,6 +70,8 @@ let Menu = function(){
                 {label: "Move Up",command: COMMAND.LAYERUP},
                 {label: "Move Down",command: COMMAND.LAYERDOWN},
                 {label: "Merge Down",command: COMMAND.MERGEDOWN, shortKey: "meta+Shift+↓"},
+                {label: "Ungroup",command: COMMAND.UNGROUP},
+                {label: "Merge Group",command: COMMAND.MERGEGROUP},
                 {label: "Add Mask",items:[
                         {label: "Show All",command: COMMAND.LAYERMASK, shortKey: "meta+Shift+A"},
                         {label: "Hide All",command: COMMAND.LAYERMASKHIDE, shortKey: "meta+Shift+H"},
@@ -129,6 +133,7 @@ let Menu = function(){
                 {label: "Split Screen",command: COMMAND.SPLITSCREEN,shortKey: "N", checked: false},
                 {label: "Tool Options",command: COMMAND.TOGGLESIDEPANEL, checked: false,ref:true},
                 SETTING.useBottomPanel ? {label: "Timeline",command: COMMAND.TOGGLEBOTTOMPANEL, checked: false,ref:true} : undefined,
+                {label: "Panels", panelMenu: true, items: []},
                 {label: "Gallery",command: COMMAND.TOGGLEGALLERY, checked: false},
                 {label: "Presentation mode",command: COMMAND.PRESENTATION, checked: false},
                 {label: "Full Screen",command: COMMAND.FULLSCREEN,needsRealClick: true, checked: false},
@@ -158,6 +163,19 @@ let Menu = function(){
     me.init = function(parent){
         container = $div("menu","",parent);
         generate();
+    }
+
+    // Populate the View ▸ Panels submenu from PanelManager (called after panels register
+    // and on visibility changes). Each entry toggles a panel; a leading "✓ " marks visible.
+    me.setPanelMenu = function(entries){
+        if (!panelSubMenu) return;
+        panelSubMenu.innerHTML = "";
+        entries.forEach(entry=>{
+            buildMenuItem({
+                label: (entry.visible ? "✓ " : "    ") + entry.label,
+                action: entry.action
+            }, panelSubMenu);
+        });
     }
 
     me.activateMenu = function(index){
@@ -207,6 +225,7 @@ let Menu = function(){
             menuItem.classList.add("caret");
             menuItem.classList.add("menuitem");
             let sub = $div("menuitem subsub","",menuItem);
+            if (item.panelMenu) panelSubMenu = sub;
             item.items.forEach(subitem=>{
                 buildMenuItem(subitem,sub);
             });

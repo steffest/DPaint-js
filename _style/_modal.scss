@@ -448,8 +448,9 @@
 
 
 
-    @import "paletteEditor";
-    @import "effectEditor";
+    // NOTE: paletteEditor + effectEditor are imported at top level in main.scss (not here)
+    // because the Palette Editor and Effects are now free panels that can float OUTSIDE
+    // the modal. Keeping their styles modal-scoped would break the floating panels.
     @import "ditherEditor";
     @import "saveDialog";
   }

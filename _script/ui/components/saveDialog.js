@@ -50,6 +50,8 @@ var SaveDialog = function(){
         },
         PLANES:{
             description: 'Binary Bitplane Data',
+            extension: "planes",
+            generator: "BitPlanes",
             accept: {
                 'application/octet-stream': ['.planes'],
             }
@@ -218,9 +220,7 @@ var SaveDialog = function(){
                                                 renderButton("anim","Amiga ANIM","Maximum 256 colors, animation supported.","ANIM"),
                                                 renderButton("os3","Amiga Icon","Amiga OS Icon, Maximum 2 frames.","ICO"),
                                                 renderButton("amiga","Amiga Sprite","C Source.","SPRITE"),
-                                                //renderButton("planes","Bitplanes","Separate bitplane images","PLANEIMAGES")
-
-                                                //renderButton("planes","BIN","Bitplanes","Binary bitplane data",writePLANES)
+                                                renderButton("planes","Bitplanes","Binary bitplane data","PLANES")
                                             )
                                         ),
                                         UIelm.ext = $(".ext"),
@@ -548,9 +548,17 @@ var SaveDialog = function(){
     }
 
     function addPostBackOverlay(postBack,container){
+        // The overlay replaces the normal save form. It lives in normal flow (not
+        // absolutely positioned) so the auto-height modal sizes to fit it — same
+        // mechanism that resizes the dialog when you pick e.g. an IFF type. We hide
+        // the form while it's shown; "More options" restores it.
+        if (mainPanel) mainPanel.style.display = "none";
         let overridePanel = $(".saveoverlay",
 
-            $(".info","This editor is configured to save files back to",$("b",postBack.domain), $(".textlink",{onClick:()=>{overridePanel.remove()}},"More options")),
+            $(".info","This editor is configured to save files back to",$("b",postBack.domain), $(".textlink",{onClick:()=>{
+                overridePanel.remove();
+                if (mainPanel) mainPanel.style.display = "";
+            }},"More options")),
             $(".spinner"),
             $(".buttons",
                 $(".button.ghost",{onclick:()=>{
@@ -558,7 +566,10 @@ var SaveDialog = function(){
                 }},"Cancel"),
                 $(".button.primary",{onclick:async ()=>{
                     overridePanel.classList.add("loading");
-                    let blob = await Generate.file("PNG");
+                    // Generate.file returns {result, file: Blob} — send the Blob,
+                    // not the wrapper object (which fetch stringifies to "[object Object]").
+                    let result = await Generate.file("PNG");
+                    let blob = result && result.file;
                     if (blob){
                         fetch(postBack.url,{
                             method: postBack.method,
@@ -620,6 +631,9 @@ var SaveDialog = function(){
         if (!fileType) {
             console.error("Unknown file type",info.type);
             return;
+        }
+        if (currentSaveOptions.type === "PLANES"){
+            return writePLANES();
         }
         let generator = fileType.generator;
         if (currentSaveOptions.depth === 8){
@@ -698,7 +712,6 @@ var SaveDialog = function(){
 
     async function writePLANES(){
         let result = await Generate.file("BitPlanes");
-        console.error(result);
         if (result && result.planes){
             let blob = new Blob([result.planes], {type: "application/octet-stream"});
             let fileName = getFileName() + '.planes';
@@ -720,8 +733,8 @@ var SaveDialog = function(){
             content = content.slice(0,-1) + "}";
             let blob2 = new Blob([content], {type: "application/octet-stream"});
             await saveFile(blob2,fileName,filetypes.FILE);
-            Modal.hide();
         }
+        return result;
     }
 
     async function writeMASK(){

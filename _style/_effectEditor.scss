@@ -1,4 +1,7 @@
-.effects{
+// Effects editor. Root element is `.effects-editor` — a unique context class (no shared
+// `panel`/`effects` token), so it never collides with the `.free-panel` chrome it may be
+// nested in, nor with any other context.
+.effects-editor{
   position: absolute;
   left: 0;
   right: 0;
@@ -204,7 +207,7 @@
       position: absolute;
       left: 0;
       top: 176px;
-      user-select: none;
+      @include button-chrome;
     }
 
     .params{
@@ -285,10 +288,31 @@
     }
   }
 
+  // Self-contained positioning: this editor renders as a free panel (not only a modal),
+  // so it can't rely on the modal's `.inner .buttons` base for absolute placement.
   .buttons{
+    position: absolute;
+    display: flex;
+    bottom: 0;
     left: 0;
     right: 0;
+    padding: 10px 8px;
     justify-content: flex-end;
+
+    // Button chrome was inherited from `.modalwindow .inner .button(s)`; as a free panel
+    // it provides its own (shared chrome via the mixin + this editor's geometry).
+    .button{
+      @include button-chrome;
+      width: 150px;
+      text-align: center;
+      font-size: 12px;
+      line-height: 20px;
+      margin: 0 2px;
+
+      &.ghost{
+        opacity: 0.7;
+      }
+    }
 
     .button.left{
       position: absolute;
