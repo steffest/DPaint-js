@@ -286,6 +286,15 @@
       border: 1px solid black;
       margin-bottom: 10px;
     }
+
+    .ditherwarning{
+      max-width: 200px;
+      margin-top: 6px;
+      font-size: 11px;
+      line-height: 14px;
+      color: orange;
+      opacity: 0.8;
+    }
   }
 
   // Self-contained positioning: this editor renders as a free panel (not only a modal),

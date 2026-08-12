@@ -5,7 +5,7 @@ import Color from "../util/color.js";
 import ImageProcessing from "../util/imageProcessing.js";
 import ImageFile from "../image.js";
 import PanelManager from "./panelManager.js";
-import {duplicateCanvas} from "../util/canvasUtils.js";
+import {duplicateCanvas, releaseCanvas} from "../util/canvasUtils.js";
 import Animator from "../util/animator.js";
 import ColorRange from "./components/colorRange.js";
 import Modal from "./modal.js";
@@ -42,6 +42,13 @@ let Palette = function(){
     let hasDuplicates = false;
     let paletteListIndexElm;
     let colorReducePanel;
+    let reducePaletteSelect;
+    let reduceApplyButton;
+    let reduceCancelButton;
+    let reducePreview = null;       // {layerIndex, canvas, palette} snapshot taken before the first preview
+    let reducePendingCommit = false;// commit requested while a (worker) reduce is still running
+    let reduceCancelPending = false;// cancel requested while a (worker) reduce is still running
+    let reduceProcessing = false;
     let perf = {};
 
     var drawColor = "black";
@@ -612,12 +619,21 @@ let Palette = function(){
         }
     }
 
-    me.apply = function(){
-        HistoryService.start(EVENT.imageHistory);
+    // useDither: also apply the dither settings from the "Reduce Colors" panel
+    // skipHistory: caller manages its own history session (HistoryService can't nest)
+    me.apply = function(useDither,skipHistory){
+        if (!skipHistory) HistoryService.start(EVENT.imageHistory);
         let base = ImageFile.getActiveLayer().getCanvas();
         let c = duplicateCanvas(base,true);
-        ImageProcessing.reduce(c,currentPalette,alphaThreshold,0,useAlphaThreshold);
-        HistoryService.end();
+        ImageProcessing.reduce(c,currentPalette,alphaThreshold,useDither ? ditherIndex : 0,useAlphaThreshold,useDither ? ditherAmount : undefined);
+        if (!skipHistory) HistoryService.end();
+    }
+
+    me.getDitherSettings = function(){
+        let options = ImageProcessing.getDithering();
+        let index = parseInt(ditherIndex) || 0;
+        let entry = options[index] || options[0];
+        return {index: index, amount: parseInt(ditherAmount) || 0, label: entry.label};
     }
 
     me.getColorIndex = function(color,forceMatch){
@@ -869,6 +885,7 @@ let Palette = function(){
                 onchange:()=>{
                     ditherIndex = select.value;
                 if (ditherAmountPanel) ditherAmountPanel.style.display = ditherIndex == 0 ? "none" : "block";
+                EventBus.trigger(EVENT.ditherSettingsChanged);
                 applyReduce();
             },
             value:ditherIndex
@@ -898,6 +915,7 @@ let Palette = function(){
         }
         daRange.onchange = function(){
             ditherAmount = daRange.value;
+            EventBus.trigger(EVENT.ditherSettingsChanged);
             applyReduce();
         }
         ditherAmountPanel.appendChild(daRange);
@@ -925,12 +943,88 @@ let Palette = function(){
         alpha.appendChild(arange);
 
 
-        let button = $div("button full","Apply",parent,applyReduce);
+        let buttonRow = $div("buttonrow","",parent);
+        reduceCancelButton = $div("button full","Cancel",buttonRow,cancelReduce);
+        reduceApplyButton = $div("button full","Apply",buttonRow,commitReduce);
+        reducePaletteSelect = pselect;
+        updateReducePanelState();
 
         function applyReduce(){
+            if (isLockedGlobal){
+                // palette lock is on: the panel settings only feed the locked-palette
+                // rendering (e.g. the effect-panel dither preview), don't reduce the image
+                EventBus.trigger(EVENT.layerContentChanged);
+                return;
+            }
+            startReducePreview();
             if (pselect.value === "current") targetPalette = currentPalette;
             me.reduce();
         }
+
+        function commitReduce(){
+            if (isLockedGlobal) return;
+            if (reducePreview && !reduceProcessing){
+                finishReduceCommit();
+            }else{
+                // nothing previewed yet (or a reduce is still running):
+                // run/await the reduction and commit when processing finishes
+                reducePendingCommit = true;
+                if (!reducePreview) applyReduce();
+            }
+        }
+    }
+
+    // snapshot the active layer and palette so the live reduce preview can be cancelled
+    function startReducePreview(){
+        if (reducePreview) return;
+        let layer = ImageFile.getActiveLayer();
+        if (!layer) return;
+        reducePreview = {
+            layerIndex: ImageFile.getActiveLayerIndex(),
+            canvas: duplicateCanvas(layer.getCanvas(),true),
+            palette: currentPalette.slice()
+        };
+        updateReducePanelState();
+    }
+
+    function finishReduceCommit(){
+        reducePendingCommit = false;
+        if (!reducePreview) return;
+        let layer = ImageFile.getLayer(reducePreview.layerIndex);
+        if (layer){
+            // the snapshot canvas is handed over to the history stack, don't release it
+            HistoryService.add(EVENT.layerContentHistory,reducePreview.canvas,duplicateCanvas(layer.getCanvas(),true),reducePreview.layerIndex);
+        }
+        reducePreview = null;
+        updateReducePanelState();
+    }
+
+    function cancelReduce(){
+        if (!reducePreview || isLockedGlobal) return;
+        if (reduceProcessing){
+            // a reduce is still running and would repaint the preview right after the
+            // restore: defer the cancel until processing finishes
+            reduceCancelPending = true;
+            return;
+        }
+        reducePendingCommit = false;
+        let layer = ImageFile.getLayer(reducePreview.layerIndex);
+        if (layer){
+            layer.clear();
+            layer.drawImage(reducePreview.canvas);
+        }
+        me.set(reducePreview.palette);
+        releaseCanvas(reducePreview.canvas);
+        reducePreview = null;
+        updateReducePanelState();
+        EventBus.trigger(EVENT.paletteChanged);
+        EventBus.trigger(EVENT.layerContentChanged);
+    }
+
+    function updateReducePanelState(){
+        if (reducePaletteSelect) reducePaletteSelect.disabled = isLockedGlobal;
+        if (reduceApplyButton) reduceApplyButton.classList.toggle("disabled",isLockedGlobal);
+        if (reduceCancelButton) reduceCancelButton.classList.toggle("disabled",isLockedGlobal || !reducePreview);
     }
 
     me.openLocal = function(){
@@ -1366,6 +1460,7 @@ let Palette = function(){
     })
 
     EventBus.on(EVENT.paletteProcessingStart,()=>{
+        reduceProcessing = true;
         perf.start = performance.now();
         if (colorReducePanel){
             colorReducePanel.classList.add("waiting");
@@ -1377,6 +1472,7 @@ let Palette = function(){
     })
 
     EventBus.on(EVENT.paletteProcessingEnd,()=>{
+        reduceProcessing = false;
         if (colorReducePanel){
             colorReducePanel.classList.remove("waiting");
             let spinner = colorReducePanel.querySelector('.spinner');
@@ -1385,12 +1481,20 @@ let Palette = function(){
         perf.end = performance.now();
         perf.time = perf.end - perf.start;
         console.log("Palette processing took " + perf.time + "ms");
+
+        if (reduceCancelPending){
+            reduceCancelPending = false;
+            cancelReduce();
+        }else if (reducePendingCommit){
+            finishReduceCommit();
+        }
     })
 
     EventBus.on(COMMAND.LOCKPALETTE,()=>{
         //isLocked = !isLocked;
         isLockedGlobal = !isLockedGlobal;
         lockButton.classList.toggle("active",isLockedGlobal);
+        updateReducePanelState();
         EventBus.trigger(EVENT.layerContentChanged);
         EventBus.trigger(EVENT.paletteLockChanged,isLockedGlobal);
     });

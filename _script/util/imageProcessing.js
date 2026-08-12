@@ -28,9 +28,20 @@ var ImageProcessing = function(){
 			{ Name: "s", label: "Sierra", pattern: [ 0, 0, 0, 5.0 / 32.0, 3.0 / 32.0, 2.0 / 32.0, 4.0 / 32.0, 5.0 / 32.0, 4.0 / 32.0, 2.0 / 32.0, 0, 2.0 / 32.0, 3.0 / 32.0, 2.0 / 32.0, 0 ] },
 			{ Name: "trs", label: "Two-Row Sierra", pattern: [ 0, 0, 0, 4.0 / 16.0, 3.0 / 16.0, 1.0 / 16.0, 2.0 / 16.0, 3.0 / 16.0, 2.0 / 16.0, 1.0 / 16.0, 0, 0, 0, 0, 0 ] },
 			{ Name: "sl", label: "Sierra Lite", pattern: [ 0, 0, 0, 2.0 / 4.0, 0, 0, 1.0 / 4.0, 1.0 / 4.0, 0, 0, 0, 0, 0, 0, 0 ] } ,
-			{ Name: "bayer", label: "Bayer", pattern: [0,15/255, 135/255, 45/255, 165/255, 195/255, 75/255, 225/255, 105/255, 60/255, 180/255, 30/255, 150/255 , 240/255, 120/255, 210/255, 90/255] }
+			{ Name: "bayer", label: "Bayer", pattern: [0,15/255, 135/255, 45/255, 165/255, 195/255, 75/255, 225/255, 105/255, 60/255, 180/255, 30/255, 150/255 , 240/255, 120/255, 210/255, 90/255] },
+			// procedural dithers that only exist in the WebGL shader (webgl-quantizer.js)
+			// scale feeds u_ditherScale and its meaning differs per pattern
+			{ Name: "gradientnoise", label: "Gradient Noise", pattern: null, webgl: "gradient-noise", scale: 1 },
+			{ Name: "random", label: "Random Noise", pattern: null, webgl: "random", scale: 1 },
+			{ Name: "halftone", label: "Halftone", pattern: null, webgl: "halftone", scale: 1 },
+			{ Name: "curly", label: "Curly", pattern: null, webgl: "curly", scale: 8 },
+			{ Name: "voronoi", label: "Voronoi", pattern: null, webgl: "voronoi", scale: 4 },
+			{ Name: "curl", label: "Curl Noise", pattern: null, webgl: "curl", scale: 10 },
+			{ Name: "foliage", label: "Foliage", pattern: null, webgl: "foliage", scale: 10 },
+			{ Name: "ripples", label: "Ripples", pattern: null, webgl: "ripples", scale: 30 }
 		];
 	var ditherPattern = null;
+	var ditherWebGL = null;
 	var alphaThreshold = 44;
 	var mattingColor = "rgb(149,149,149)";
 	//mattingColor = "rgb(192,192,192)";
@@ -147,33 +158,7 @@ var ImageProcessing = function(){
 	me.reduce = function(canvas,colors,_alphaThreshold,ditherIndex,useAlphaThreshold,ditherAmount,quantizationMethod){
 
 		alphaThreshold = _alphaThreshold || 0;
-		ditherPattern = dithering[ditherIndex || 0].pattern;
-		if (ditherPattern){
-			// clone ditherPattern
-			ditherPattern = ditherPattern.slice();
-			// apply ditherAmount
-			if (typeof ditherAmount === "undefined") ditherAmount = 100;
-			var amount = ditherAmount/100;
-
-			// check for checker pattern
-			if (ditherPattern[0] > 0 && ditherPattern[3] === 0){
-				// checks
-				var maxCheck = 16 * 8; // Max checks level
-				ditherPattern[0] = Math.max(1, maxCheck * amount);
-			}else if(ditherPattern.length>16){
-				// bayer / ordered
-				// store amount in index 0 for usage in shader/remap
-				ditherPattern[0] = amount;
-				for (var i=1;i<ditherPattern.length;i++){
-					ditherPattern[i] = ditherPattern[i] * amount;
-				}
-			}else{
-				// error diffusion
-				for (var i=0;i<ditherPattern.length;i++){
-					ditherPattern[i] = ditherPattern[i] * amount;
-				}
-			}
-		}
+		ditherPattern = prepareDither(ditherIndex,ditherAmount);
 
 		var bitsPerColor = 3;
 		
@@ -193,6 +178,51 @@ var ImageProcessing = function(){
 		processImage(canvas, mode, bitsPerColor, ditherPattern, "id", quantizationMethod);
 	};
 
+	// remap a canvas onto a fixed palette with the given dither settings.
+	// unlike reduce() this doesn't touch the image file, palette or history and triggers no events;
+	// used a.o. by the palette-locked display filter for the effect-panel live preview.
+	me.remap = function(canvas,palette,ditherIndex,ditherAmount){
+		let pattern = prepareDither(ditherIndex,ditherAmount);
+		let colors = palette.map(c => typeof c === "string" ? Color.fromString(c) : c);
+		remapImage(canvas, colors, pattern);
+	};
+
+	// scales the dither pattern of dithering[ditherIndex] by ditherAmount (0-100)
+	// and sets ditherWebGL for shader-only dither types
+	function prepareDither(ditherIndex,ditherAmount){
+		let entry = dithering[ditherIndex || 0] || dithering[0];
+		if (typeof ditherAmount === "undefined") ditherAmount = 100;
+		var amount = ditherAmount/100;
+
+		ditherWebGL = entry.webgl ? {type: entry.webgl, amount: amount, scale: entry.scale || 1} : null;
+
+		let pattern = entry.pattern;
+		if (pattern){
+			// clone pattern before scaling
+			pattern = pattern.slice();
+
+			// check for checker pattern
+			if (pattern[0] > 0 && pattern[3] === 0){
+				// checks
+				var maxCheck = 16 * 8; // Max checks level
+				pattern[0] = Math.max(1, maxCheck * amount);
+			}else if(pattern.length>16){
+				// bayer / ordered
+				// store amount in index 0 for usage in shader/remap
+				pattern[0] = amount;
+				for (var i=1;i<pattern.length;i++){
+					pattern[i] = pattern[i] * amount;
+				}
+			}else{
+				// error diffusion
+				for (var i=0;i<pattern.length;i++){
+					pattern[i] = pattern[i] * amount;
+				}
+			}
+		}
+		return pattern;
+	}
+
 	function RgbToSrgb(ColorChannel) {
 		return Math.pow(ColorChannel / 255, 1 / 2.2) * 255;
 	}
@@ -206,11 +236,17 @@ var ImageProcessing = function(){
 	}
 	
 	function remapImage(canvas, palette, ditherPattern) {
-        
+
         let ditherType = null;
         let ditherAmount = 0;
+        let ditherScale = 1.0;
 
-        if (!ditherPattern) {
+        if (ditherWebGL) {
+            // procedural dither that only exists in the shader
+            ditherType = ditherWebGL.type;
+            ditherAmount = ditherWebGL.amount * palette.length; // Adaptation for shader logic
+            ditherScale = ditherWebGL.scale;
+        } else if (!ditherPattern) {
             ditherType = "none";
         } else if (ditherPattern.length > 16) {
             ditherType = "bayer";
@@ -222,8 +258,9 @@ var ImageProcessing = function(){
              // ensure palette is compatible (array of arrays or objects -> array of arrays handled by webgl-quantizer now?)
              // actually webgl-quantizer handles objects now.
              // But we need to make sure we don't pass weird stuff.
-             let success = runWebGLQuantizer(canvas, palette, ditherType, null, ditherAmount, 1.0);
+             let success = runWebGLQuantizer(canvas, palette, ditherType, null, ditherAmount, ditherScale);
              if (success) return;
+             // webgl failed: fall through to the CPU path (plain remap for shader-only dithers)
         }
 
 		let ctx = canvas.getContext("2d");

@@ -20,6 +20,7 @@ var EffectDialog = function() {
     let currentSource;
     let currentRecipeSource;
     let mainPanel;
+    let ditherWarning;
 
     me.render = function (container,modal) {
         if (!previewCanvas){
@@ -64,6 +65,10 @@ var EffectDialog = function() {
         HistoryService.start(EVENT.layerContentHistory);
 
         Effects.setSrcTarget(currentSource,previewCanvas.getContext("2d"))
+
+        // let the canvas know effect changes are driving updates:
+        // with palette lock on, the live preview then includes the reduce-panel dithering
+        EventBus.trigger(EVENT.effectPreviewChanged,true);
 
         createSlider(sliders,"Brightness",0,-50,50,(value)=>{
             Effects.setBrightness(value); update();
@@ -141,6 +146,9 @@ var EffectDialog = function() {
             update();
         },livePreview);
 
+        ditherWarning = $div("ditherwarning","",previewPanel);
+        updateDitherWarning();
+
         let buttons = $div("buttons","",mainPanel);
         $div("button ghost left","Reset",buttons,()=>{
             Effects.hold();
@@ -171,11 +179,13 @@ var EffectDialog = function() {
             Effects.clear();
             releaseCanvas(currentSource);
             modal.hide();
-            EventBus.trigger(EVENT.layerContentChanged);
 
-            if (Palette.isLocked()){
-                Palette.apply();
+            if (Palette.isLockedGlobal()){
+                // bake the locked-palette reduction (including the reduce-panel dither
+                // settings) into the layer; history is captured by the session below
+                Palette.apply(true,true);
             }
+            EventBus.trigger(EVENT.layerContentChanged);
             HistoryService.end();
         });
 
@@ -331,6 +341,29 @@ var EffectDialog = function() {
 
         }
     }
+
+    // called by modal on every close (Apply, Cancel and the close button)
+    me.onClose = function(){
+        EventBus.trigger(EVENT.effectPreviewChanged,false);
+    }
+
+    function updateDitherWarning(){
+        if (!ditherWarning) return;
+        let show = false;
+        if (Palette.isLockedGlobal()){
+            let dither = Palette.getDitherSettings();
+            if (dither.index > 0){
+                ditherWarning.innerHTML = "Palette lock: \"" + dither.label + "\" dithering is applied to the preview and the result.";
+                show = true;
+            }
+        }
+        ditherWarning.style.display = show ? "block" : "none";
+    }
+
+    // the EventBus has no "off": register once at module level and let the handler
+    // target whatever warning element the latest render created
+    EventBus.on(EVENT.ditherSettingsChanged,updateDitherWarning);
+    EventBus.on(EVENT.paletteLockChanged,updateDitherWarning);
 
     function camelCaseToSpace(str){
         let result = "";

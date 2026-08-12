@@ -1026,6 +1026,9 @@ input[type=range]:focus::-ms-fill-upper {
 .free-panel .subpanel select:focus {
   outline: none;
 }
+.free-panel .subpanel select:disabled {
+  opacity: 0.4;
+}
 .free-panel .subpanel.flex {
   display: flex;
   align-items: center;
@@ -1076,6 +1079,23 @@ input[type=range]:focus::-ms-fill-upper {
   cursor: pointer;
   color: #BBBBBB;
   background-color: #282A2C;
+}
+.free-panel .button.full.disabled {
+  opacity: 0.4;
+  pointer-events: none;
+}
+.free-panel .buttonrow {
+  display: flex;
+}
+.free-panel .buttonrow .button.full {
+  flex: 1;
+  margin: 4px 2px;
+}
+.free-panel .buttonrow .button.full:first-child {
+  margin-left: 4px;
+}
+.free-panel .buttonrow .button.full:last-child {
+  margin-right: 4px;
 }
 .free-panel textarea {
   border: 1px solid black;
@@ -5314,6 +5334,14 @@ body.hovercanvas.pointerdown.cursor-colorpicker .cursor .mark.large {
   height: 200px;
   border: 1px solid black;
   margin-bottom: 10px;
+}
+.effects-editor .previewpanel .ditherwarning {
+  max-width: 200px;
+  margin-top: 6px;
+  font-size: 11px;
+  line-height: 14px;
+  color: orange;
+  opacity: 0.8;
 }
 .effects-editor .buttons {
   position: absolute;

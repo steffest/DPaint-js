@@ -174,6 +174,8 @@ export let EVENT = {
     paletteLockChanged: 40,
     panelUIChanged: 41,
     rulerOptionsChanged: 42,
+    effectPreviewChanged: 43,
+    ditherSettingsChanged: 44,
 };
 
 export const ANIMATION = {

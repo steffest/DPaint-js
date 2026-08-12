@@ -43,6 +43,7 @@ let Canvas = function(parent){
     let drawFunction;
     let containerTransform = {x:0,y:0,startX:0,startY:0, rotation:0, startRotation: 0};
     let currentCursorPoint;
+    let effectDitherPreview = false;
 
     canvas = document.createElement("canvas");
     overlayCanvas = document.createElement("canvas");
@@ -238,6 +239,13 @@ let Canvas = function(parent){
 
     EventBus.on(EVENT.layerContentChanged,()=>{
        me.applyGlobalFilter();
+    });
+
+    // while the effect dialog is open its changes get the dithered locked-palette
+    // preview; regular drawing keeps the plain (undithered) quantized view
+    EventBus.on(EVENT.effectPreviewChanged,(active)=>{
+        effectDitherPreview = !!active;
+        if (Palette.isLockedGlobal()) me.update();
     });
 
     EventBus.on(EVENT.paletteChanged,()=>{
@@ -1140,6 +1148,13 @@ let Canvas = function(parent){
 
     me.applyGlobalFilter = function(){
         if (Palette.isLockedGlobal()){
+            if (effectDitherPreview){
+                let dither = Palette.getDitherSettings();
+                if (dither.index > 0){
+                    ImageProcessing.remap(canvas, Palette.get(), dither.index, dither.amount);
+                    return;
+                }
+            }
             runWebGLQuantizer(canvas, Palette.get(), false, undefined, 1, 0);
         }
     }

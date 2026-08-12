@@ -75,8 +75,10 @@ let HistoryService = function(){
         currentHistory = undefined;
     }
 
-    me.add = function(type,from,to){
-        history.unshift({type,data:{from,to}});
+    me.add = function(type,from,to,layerIndex){
+        let data = {from,to};
+        if (layerIndex !== undefined) data.layerIndex = layerIndex;
+        history.unshift({type,data});
         if (history.length>maxHistory) history.pop();
         future=[];
         EventBus.trigger(EVENT.historyChanged,[history.length,future.length]);
@@ -156,7 +158,7 @@ let HistoryService = function(){
             //console.log(historyStep);
             switch (historyStep.type){
                 case EVENT.layerContentHistory:
-                    layer = ImageFile.getActiveLayer();
+                    layer = (historyStep.data.layerIndex !== undefined ? ImageFile.getLayer(historyStep.data.layerIndex) : undefined) || ImageFile.getActiveLayer();
                     layer.clear();
                     layer.drawImage(historyStep.data.to);
                     EventBus.trigger(EVENT.layerContentChanged);

@@ -223,7 +223,7 @@ let ClientApi = (()=>{
                 fill(hex) {
                     const layer = getActiveLayer();
                     if (!layer) return false;
-                    layer.fill(hex);
+                    layer.fill(hex,true);
                     EventBus.trigger(EVENT.layerContentChanged);
                     return true;
                 },
