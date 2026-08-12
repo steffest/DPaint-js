@@ -25,6 +25,7 @@ var SaveDialog = function(){
         depth: 24,
         palette: "optimized",
         iconType: "colorIcon",
+        spriteFormat: "code",
         compression: true  // Default to compressed for ANIM files
     };
     let UIelm = {};
@@ -76,6 +77,25 @@ var SaveDialog = function(){
             generator: "SPRITE",
             accept: {
                 'application/octet-stream': ['.c'],
+            },
+            // The sprite exporter writes either C source or a binary sprite bank,
+            // so its extension follows the "Output" option instead of being fixed.
+            variantKey: "spriteFormat",
+            variants: {
+                code: {
+                    description: 'Sprite C Source',
+                    extension: "c",
+                    accept: {
+                        'application/octet-stream': ['.c'],
+                    }
+                },
+                binary: {
+                    description: 'Amiga Sprite Bank',
+                    extension: "spr",
+                    accept: {
+                        'application/octet-stream': ['.spr'],
+                    }
+                }
             }
         },
         PNG:{
@@ -219,7 +239,7 @@ var SaveDialog = function(){
                                                 renderButton("iff","Amiga IFF","Maximum 256 colors, current frame only.","IFF"),
                                                 renderButton("anim","Amiga ANIM","Maximum 256 colors, animation supported.","ANIM"),
                                                 renderButton("os3","Amiga Icon","Amiga OS Icon, Maximum 2 frames.","ICO"),
-                                                renderButton("amiga","Amiga Sprite","C Source.","SPRITE"),
+                                                renderButton("amiga","Amiga Sprite","C source or binary sprite bank.","SPRITE"),
                                                 renderButton("planes","Bitplanes","Binary bitplane data","PLANES")
                                             )
                                         ),
@@ -376,6 +396,18 @@ var SaveDialog = function(){
                                 )
                             )
                         ),
+                        $(".optionspanel.SPRITE",
+                            $(".content",
+                                $(".group",
+                                    $("label","Output"),
+                                    $(".options",
+                                        {key:"spriteFormat"},
+                                        $(".option.selected",{value:"code",onClick:selectOption},"Show code",$(".tooltip.left",$("div","C source for one hardware sprite."),$("div","Current frame only."))),
+                                        $(".option",{value:"binary",onClick:selectOption},"Binary file",$(".tooltip.left",$("div","Sprite bank (.spr) with one sprite per frame."),$("div","Loads straight into CHIP RAM.")))
+                                    )
+                                )
+                            )
+                        ),
                         $(".optionspanel.PCX",
                             $(".content",
                                 UIelm.pcxInfo = $(".pcxinfo","")
@@ -467,6 +499,11 @@ var SaveDialog = function(){
             }
         }
 
+        let fileType = filetypes[currentSaveOptions.type];
+        if (fileType && parent.key === fileType.variantKey){
+            updateFileTypeInfo();
+        }
+
         if (parent.key === "iffMode"){
             let panel = parent.closest(".optionspanel");
             let paletteOption = panel.querySelector(".group.pal");
@@ -481,6 +518,26 @@ var SaveDialog = function(){
         waitFor(writeFile(),button);
     }
 
+    // Some file types write a different file depending on one of their options
+    // (e.g. Amiga Sprite: C source or a binary sprite bank). Those declare a
+    // variantKey + variants, and the active variant overrides extension/description.
+    function resolveFileType(type){
+        let fileType = filetypes[type];
+        if (!fileType) return;
+        let variant = fileType.variants && fileType.variants[currentSaveOptions[fileType.variantKey]];
+        return variant ? Object.assign({},fileType,variant) : fileType;
+    }
+
+    function updateFileTypeInfo(){
+        let fileType = resolveFileType(currentSaveOptions.type);
+        if (!fileType) return;
+        currentSaveOptions.fileType = fileType;
+
+        UIelm.ext.innerHTML = "." + fileType.extension;
+        UIelm.ext.className = "ext " + fileType.extension;
+        UIelm.info.innerHTML = fileType.description || "";
+    }
+
     function setSaveType(type){
         let fileType = filetypes[type];
         if (!fileType) {
@@ -488,12 +545,9 @@ var SaveDialog = function(){
             return;
         }
         currentSaveOptions.type = type;
-        currentSaveOptions.fileType = fileType;
 
         // Set UI elements
-        UIelm.ext.innerHTML = "." + fileType.extension;
-        UIelm.ext.className = "ext " + fileType.extension;
-        UIelm.info.innerHTML = fileType.description || "";
+        updateFileTypeInfo();
 
         let optionsPanel = mainPanel.querySelector(".optionspanel." + type);
         let active = mainPanel.querySelectorAll(".optionspanel.visible");

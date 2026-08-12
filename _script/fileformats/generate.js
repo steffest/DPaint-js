@@ -8,6 +8,7 @@ import IndexedPng from "./png.js";
 import GIF from "./gif.js";
 import PSD from "./psd.js";
 import PCX from "./pcx.js";
+import BinaryStream from "../util/binarystream.js";
 
 function rleCompress(bytes) {
     var packed = [];
@@ -99,7 +100,7 @@ let Generate = function(){
             case "PLANEIMAGES":
                 return await me.planeImages();
             case "SPRITE":
-                return me.sprite();
+                return me.sprite(options);
             case "ANIM":
                 return me.anim(options);
             case "PNG":
@@ -286,61 +287,182 @@ let Generate = function(){
         };
     }
 
-    me.sprite=()=>{
-        let maxColors = 4;
-        // TODO: support for 16 color sprites
-        let check = me.validate({
-            maxColors: maxColors,
-            maxWidth: 16,
-            maxHeight: 320
-        })
+    // --- Amiga hardware sprites ------------------------------------------------
+    // An Amiga hardware sprite is 16 pixels wide and always built from 2 bitplanes:
+    // color index 0 is transparent, 1-3 are the sprite colors. Two output flavours:
+    //  - "code"  : C source for the current frame only
+    //  - "binary": a Sprite Bank (.spr) file holding one sprite per frame
+    // See project/documentation/amiga-sprite.md for the binary layout.
+    // TODO: support for 16 color (AGA attached) sprites
+    const SPRITE_WIDTH = 16;
+    const SPRITE_MAX_HEIGHT = 320;
+    const SPRITE_COLORS = 4;
+    const SPRITE_BANK_MAGIC = 0x5350; // "SP"
 
-        if (!check.valid){
+    me.sprite=(options)=>{
+        options = options || {};
+        return options.spriteFormat === "binary" ? me.spriteBank() : me.spriteCode();
+    }
+
+    me.spriteCode=()=>{
+        let title = "Save as Sprite data";
+        let check = validateSprite([ImageFile.getCanvas()]);
+
+        if (check.errors.length){
             return {
                 result: "error",
-                title: "Save as Sprite data",
+                title: title,
                 messages: ["Sorry, this image can't be saved as Sprite data."].concat(check.errors),
                 buttons: [{label:"OK"}]
             }
         }
 
-        let iff = IFF.toBitPlanes(ImageFile.getCanvas(),true);
+        let sprite = toSpriteWords(ImageFile.getCanvas(),check.palette);
 
         let output = [];
-        if (iff && iff.planes){
-            let planeCount = iff.planes.byteLength / iff.bitPlaneSize;
-            console.error(planeCount);
-            output.push("static UWORD __chip sprite[] = {");
-            output.push("  0x0000, 0x0000, ");
-            var byteView = new Uint8Array(iff.planes);
-            for (let i = 0; i < iff.height; i++){
-                let b1 = byteView[i * 2];
-                let b2 = byteView[i * 2 + 1];
-                let w = (b1 << 8) | b2;
-                let hex = "0x" + w.toString(16).padStart(4,"0") + ", ";
-                if (planeCount > 1){
-                    b1 = byteView[i * 2 + iff.height * 2];
-                    b2 = byteView[i * 2 + 1 + iff.height * 2];
-                    w = (b1 << 8) | b2;
-                    hex += "0x" + w.toString(16).padStart(4,"0") + ", ";
-                }
-                output.push("  " + hex);
-            }
-
-            output.push("  0x0000, 0x0000");
-            output.push("};");
-
-            //renderTextOutput(output.join("\n"));
+        output.push("static UWORD __chip sprite[] = {");
+        output.push("  0x0000, 0x0000,"); // vstart/vstop control words
+        for (let i = 0; i < sprite.height; i++){
+            output.push("  " + hexWord(sprite.words[i*2]) + ", " + hexWord(sprite.words[i*2 + 1]) + ",");
         }
-
-        debugger;
+        output.push("  0x0000, 0x0000"); // hardware termination
+        output.push("};");
 
         return {
             result: "ok",
-            text: output.join("\n"),
-            //file: new Blob([buffer], {type: "application/octet-stream"})
+            text: output.join("\n")
         };
+    }
 
+    // Sprite Bank: every frame becomes one sprite, in a single big-endian binary file
+    // that can be loaded straight into CHIP RAM without any parsing.
+    me.spriteBank=()=>{
+        let title = "Save as Amiga Sprite";
+        let frames = ImageFile.getCurrentFile().frames || [];
+        let canvases = frames.map((frame,index)=>ImageFile.getCanvas(index)).filter(Boolean);
+
+        if (!canvases.length){
+            return {
+                result: "error",
+                title: title,
+                messages: ["There are no frames to export."],
+                buttons: [{label:"OK"}]
+            }
+        }
+
+        let check = validateSprite(canvases);
+
+        if (check.errors.length){
+            return {
+                result: "error",
+                title: title,
+                messages: ["Sorry, this image can't be saved as a sprite bank."].concat(check.errors),
+                buttons: [{label:"OK"}]
+            }
+        }
+
+        let sprites = canvases.map(canvas=>toSpriteWords(canvas,check.palette));
+        let spriteSize = sprite => 4 + sprite.words.length * 2 + 4; // control + data + termination
+        let headerSize = 4 + sprites.length * 4; // magic + count + offset table
+        let fileSize = sprites.reduce((total,sprite)=>total + spriteSize(sprite),headerSize);
+
+        // big-endian: the file is read as-is by a 68000
+        let file = BinaryStream(new ArrayBuffer(fileSize),true);
+        file.writeWord(SPRITE_BANK_MAGIC);
+        file.writeWord(sprites.length);
+
+        let offset = headerSize;
+        sprites.forEach(sprite=>{
+            file.writeUint(offset);
+            offset += spriteSize(sprite);
+        });
+
+        sprites.forEach(sprite=>{
+            // control words, overwritten by sprite_setPosition() on the Amiga side
+            file.writeWord(0);
+            file.writeWord(0);
+            sprite.words.forEach(word=>file.writeWord(word));
+            // hardware termination
+            file.writeWord(0);
+            file.writeWord(0);
+        });
+
+        return {
+            result: "ok",
+            file: new Blob([file.buffer], {type: "application/octet-stream"})
+        };
+    }
+
+    // Interleaved bitplane words for one sprite: [plane0,plane1] for each line.
+    // The palette is padded to 4 entries by validateSprite(), so toBitPlanes() always
+    // returns the 2 planes the hardware expects, even for a 2 color image.
+    function toSpriteWords(canvas,palette){
+        let bitplanes = IFF.toBitPlanes(canvas,true,false,palette);
+        let byteView = new Uint8Array(bitplanes.planes);
+        let words = [];
+        for (let y = 0; y < bitplanes.height; y++){
+            // 16 pixels wide, so exactly one word per bitplane per line
+            let plane0 = y * 2;
+            let plane1 = bitplanes.bitPlaneSize + plane0;
+            words.push((byteView[plane0] << 8) | byteView[plane0 + 1]);
+            words.push((byteView[plane1] << 8) | byteView[plane1 + 1]);
+        }
+        return {
+            height: bitplanes.height,
+            words: words
+        };
+    }
+
+    // Sprites carry no palette of their own: their indices only make sense against the
+    // first 4 colors of the current palette, so colors outside those are an error
+    // instead of silently ending up as index 0.
+    function validateSprite(canvases){
+        let errors = [];
+        let currentFile = ImageFile.getCurrentFile();
+
+        let palette = IFF.getBitPlanePalette(canvases[0],true).slice(0,SPRITE_COLORS);
+        while (palette.length < SPRITE_COLORS) palette.push([0,0,0]);
+
+        if (currentFile.width > SPRITE_WIDTH){
+            errors.push("Sprites are " + SPRITE_WIDTH + " pixels wide. Please reduce the image width to " + SPRITE_WIDTH + " pixels or less.");
+        }
+        if (currentFile.height > SPRITE_MAX_HEIGHT){
+            errors.push("Please reduce the image height to maximum " + SPRITE_MAX_HEIGHT + " pixels.");
+        }
+
+        let used = new Set();
+        canvases.forEach(canvas=>getUsedColors(canvas).forEach(color=>used.add(color)));
+
+        if (used.size > SPRITE_COLORS){
+            errors.push("Please reduce the number of colors to maximum " + SPRITE_COLORS + ".");
+        }else{
+            let available = new Set(palette.map(color=>(color[0] << 16) | (color[1] << 8) | color[2]));
+            let missing = [...used].filter(color=>!available.has(color));
+            if (missing.length){
+                let list = missing.map(color=>rgbToHex((color >> 16) & 255,(color >> 8) & 255,color & 255)).join(", ");
+                errors.push("Sprites use the first " + SPRITE_COLORS + " colors of the palette, but " + list + (missing.length>1 ? " are" : " is") + " not among them.");
+            }
+        }
+
+        return {errors: errors, palette: palette};
+    }
+
+    // Opaque colors used in a canvas, as packed rgb values.
+    // Same alpha cutoff as toBitPlanes(), so transparent pixels don't count as a color.
+    function getUsedColors(canvas){
+        let w = canvas.width;
+        let h = canvas.height;
+        let data = canvas.getContext("2d").getImageData(0,0,w,h).data;
+        let colors = new Set();
+        for (let i = 0; i < data.length; i += 4){
+            if (data[i + 3] < 128) continue;
+            colors.add((data[i] << 16) | (data[i + 1] << 8) | data[i + 2]);
+        }
+        return colors;
+    }
+
+    function hexWord(value){
+        return "0x" + value.toString(16).padStart(4,"0");
     }
 
     me.mask=()=>{
@@ -923,39 +1045,6 @@ let Generate = function(){
             image.onerror = reject;
             image.src = dataUrl;
         });
-    }
-
-    async function writeSPRITE(){
-        let result = await Generate.file("SPRITE");
-        console.error(result);
-        if (result && result.planes){
-            let output = [];
-            let planeCount = result.planes.byteLength / result.bitPlaneSize;
-            output.push("static UWORD __chip sprite[] = {");
-            output.push("  0x0000, 0x0000, ");
-            var byteView = new Uint8Array(result.planes);
-            for (let i = 0; i < result.height; i++){
-                let b1 = byteView[i * 2];
-                let b2 = byteView[i * 2 + 1];
-                let w = (b1 << 8) | b2;
-                let hex = "0x" + w.toString(16).padStart(4,"0") + ", ";
-                if (planeCount > 1){
-                    b1 = byteView[i * 2 + result.height * 2];
-                    b2 = byteView[i * 2 + 1 + result.height * 2];
-                    w = (b1 << 8) | b2;
-                    hex += "0x" + w.toString(16).padStart(4,"0") + ", ";
-                }
-                output.push("  " + hex);
-            }
-
-            console.error(planeCount);
-
-            output.push("  0x0000, 0x0000");
-            output.push("};");
-
-            //renderTextOutput(output.join("\n"));
-        }
-        return result;
     }
 
     return me
