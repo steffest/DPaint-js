@@ -5,6 +5,7 @@ import {ANIMATION, EVENT} from "../enum.js";
 import Animator from "../util/animator.js";
 import ToolOptions from "../ui/components/toolOptions.js";
 import Brush from "../ui/brush.js";
+import {emitParticles} from "../util/sprayKernel.js";
 
 let Spray = (()=>{
 
@@ -20,7 +21,9 @@ let Spray = (()=>{
         useOpacity = ToolOptions.usePressure();
         if (!useOpacity) Brush.setPressure(1);
 
-        let {x,y} = touchData;
+        // spray draws into the layer's own canvas -> layer-local coordinates
+        let x = touchData.layerX;
+        let y = touchData.layerY;
         let color = touchData.button?Palette.getBackgroundColor():Palette.getDrawColor();
 
         touchData.isSpraying = true;
@@ -31,16 +34,20 @@ let Spray = (()=>{
         EventBus.trigger(EVENT.layerContentChanged);
 
         Animator.start(ANIMATION.SPRAY,()=>{
-            let {x,y} = currentData;
+            let x = currentData.layerX;
+            let y = currentData.layerY;
             let color = currentData.button?Palette.getBackgroundColor():Palette.getDrawColor();
 
-            for (let i = 0; i < speed; i++){
-                let angle = Math.random() * Math.PI * 2;
-                let radius = Math.sqrt(Math.random()) * size;
-                let _x = Math.round(x + radius * Math.cos(angle));
-                let _y = Math.round(y + radius * Math.sin(angle));
-                if (useOpacity) Brush.setPressure(Math.random());
-                currentData.drawLayer.draw(_x,_y,color,currentData);
+            // Spec 016 phase 3 (R4): the ordered particle emission runs in the pure
+            // kernel (util/sprayKernel.js) fed by Math.random, so the draw order,
+            // rounding, and pressure sequence are byte-identical to the old inline
+            // loop — only now the batch is materialised up front (enabling seeded
+            // replay in tests and batched damage).
+            let particles = emitParticles({x:x, y:y, size:size, count:speed, useOpacity:useOpacity, rng:Math.random});
+            for (let i = 0; i < particles.length; i++){
+                let p = particles[i];
+                if (useOpacity) Brush.setPressure(p.pressure);
+                currentData.drawLayer.draw(p.x,p.y,color,currentData);
             }
 
             EventBus.trigger(EVENT.layerContentChanged);

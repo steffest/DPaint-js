@@ -37,8 +37,9 @@ let Text = (()=>{
         ImageFile.activateLayer(currentText.layerIndex);
         currentText.layer = ImageFile.getLayer(currentText.layerIndex);
         currentText.ctx = currentText.layer.getContext();
-        currentText.x = touchData.x;
-        currentText.y = touchData.y;
+        // text is rendered into the layer's own canvas -> layer-local coordinates
+        currentText.x = touchData.layerX;
+        currentText.y = touchData.layerY;
         currentText.text = "";
         currentText.fontSize = ToolOptions.getFontSize();
         currentText.ctx.font = currentText.fontSize + "px " + ToolOptions.getFont();

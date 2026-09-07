@@ -34,7 +34,9 @@ let Smudge = function(){
         touchData.isSmudging = true;
         touchData.drawLayer = ImageFile.getActiveLayer();
         ctx = touchData.drawLayer.getContext();
-        let {x,y} = touchData;
+        // smudging reads and writes the layer's own canvas -> layer-local coordinates
+        let x = touchData.layerX;
+        let y = touchData.layerY;
 
         lastX = x;
         lastY = y;
