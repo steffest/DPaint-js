@@ -7,6 +7,13 @@ import Modal, {DIALOG} from "./ui/modal.js";
 import Brush from "./ui/brush.js";
 import ClientApi from "./services/api.js";
 import PanelManager from "./ui/panelManager.js";
+import TimelinePanel from "./ui/toolPanels/timelinePanel.js";
+import {duplicateCanvas, releaseCanvas} from "./util/canvasUtils.js";
+import HistoryService from "./services/historyservice.js";
+import Generate from "./fileformats/generate.js";
+import visualScheduler from "./services/visualScheduler.js";
+import {createInputBarrier, barrierAction} from "./util/inputSampleBuffer.js";
+import Editor from "./ui/editor.js";
 
 let App = function(){
 	let me = {
@@ -283,6 +290,31 @@ let App = function(){
 	}
 	*/
 
+	window.createFrames = async function(count){
+		count = count || 1;
+		HistoryService.setEnabled(false);
+		try{
+			for (let i = 0; i < count; i++){
+				console.log("createFrames: adding frame " + (i + 1) + " of " + count);
+				ImageFile.activateFrame(ImageFile.getFrameCount() - 1);
+				await ImageFile.duplicateFrame();
+				// layers are ordered bottom to top: shift the bottom layer 1px down, each layer above 1px more
+				ImageFile.getActiveFrame().layers.forEach((layer, index) => {
+					let canvas = layer.getCanvas();
+					let ctx = layer.getContext();
+					let copy = duplicateCanvas(canvas, true);
+					ctx.clearRect(0, 0, canvas.width, canvas.height);
+					ctx.drawImage(copy, 0, index + 1);
+					releaseCanvas(copy);
+				});
+			}
+		}finally{
+			HistoryService.setEnabled(true);
+		}
+		console.log("createFrames: done, added " + count + " frames");
+		EventBus.trigger(EVENT.layerContentChanged);
+	}
+
 	// Expose modules for testing
 		if (typeof window !== 'undefined' && navigator.webdriver) {
 			window.Brush = Brush;
@@ -293,6 +325,15 @@ let App = function(){
 			window.COMMAND = COMMAND;
 			window.EVENT = EVENT;
 			window.PanelManager = PanelManager;
+			window.TimelinePanel = TimelinePanel;
+			window.Generate = Generate;
+			// Spec 016 visual scheduling / commit barriers (default-off wiring)
+			window.VisualScheduler = visualScheduler;
+			window.createInputBarrier = createInputBarrier;
+			window.barrierAction = barrierAction;
+			window.Editor = Editor;
+			window.Modal = Modal;
+			window.DIALOG = DIALOG;
 		}
 
 	return me;

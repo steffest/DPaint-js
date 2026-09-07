@@ -1,0 +1,361 @@
+// Timeline panel (spec 004). Scoped under the unique context class `.timeline-panel`,
+// which timelinePanel.js adds to the panel's own `.inner` element — so nothing here can
+// leak into another panel and no negation-selector collision hacks are needed (see
+// project/documentation/css-architecture.md).
+//
+// Geometry constants are mirrored in timelinePanel.js: cell 18px, row 22px, ruler 18px.
+// Keep the two in step. Row height and cell width are written as inline styles per element
+// (the frame scale is zoomable, see --timeline-cell-width), so the values here are only the
+// unzoomed defaults used by the ruler and the playhead.
+
+$timeline-cell-width: 18px;
+$timeline-ruler-height: 18px;
+$timeline-header-width: 132px;
+
+// content keyframe = accent A (the app's active colour), property keyframe = accent B
+$timeline-content-key: $active-color;
+$timeline-property-key: #59b6ff;
+$timeline-tween-line: #6d8a9c;
+$timeline-hold-line: #5a5a5a;
+$timeline-mask-key: #9fc8ff;
+
+.timeline-panel{
+
+  .paneltools{
+
+    .transport{
+      display: flex;
+      align-items: center;
+      flex-grow: 1;
+      min-width: 0;
+
+      label{
+        opacity: 0.7;
+        margin-left: 4px;
+      }
+
+      .rangeselectinline,
+      .frameselectinline{
+        display: flex;
+        align-items: center;
+        margin-left: 4px;
+        min-width: 0;
+
+        input[type="text"]{
+          padding: 0 4px;
+          width: 32px;
+          height: 19px;
+          margin-left: 4px;
+          font-size: 11px;
+        }
+      }
+
+      .rangeselectinline input[type="range"]{
+        width: 70px;
+        margin-left: 4px;
+      }
+    }
+
+    // "add track" reuses the generic add glyph; the tooltip disambiguates it
+    .button.addtrack{
+      background-image: url("../_img/add.svg");
+      opacity: 0.35;
+    }
+  }
+
+  .panelcontent{
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 24px;
+    bottom: 0;
+    overflow: auto;
+  }
+
+  // ── track headers: a fixed column that scrolls with the rows ──────────────────
+  .timeline-headers{
+    position: sticky;
+    left: 0;
+    float: left;
+    width: $timeline-header-width;
+    min-height: $timeline-ruler-height;
+    z-index: 2;
+    background-color: $panel-background-color;
+    border-right: 1px solid black;
+  }
+
+  .timeline-trackheader{
+    position: absolute;
+    left: 0;
+    right: 0;
+    display: flex;
+    align-items: center;
+    font-size: 12px;
+    color: $menu-text-color-dim;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.4);
+    cursor: pointer;
+
+    &.active{
+      background-color: $panel-background-active;
+      color: $menu-text-color-high;
+    }
+
+    &.ghost{
+      opacity: 0.3;
+    }
+
+    .eye,
+    .lock,
+    .maskflag{
+      width: 14px;
+      height: 14px;
+      margin-left: 3px;
+      flex-shrink: 0;
+      background-position: center center;
+      background-repeat: no-repeat;
+      background-size: contain;
+      opacity: 0.8;
+
+      &:hover{
+        opacity: 1;
+      }
+    }
+
+    .eye{
+      background-image: url("../_img/eye.svg");
+
+      &.off{
+        opacity: 0.25;
+      }
+    }
+
+    .lock{
+      background-image: url("../_img/lock_open.svg");
+      opacity: 0.3;
+
+      &.on{
+        background-image: url("../_img/lock_closed.svg");
+        opacity: 0.9;
+      }
+    }
+
+    // Marks the track as a mask for the track directly beneath it.
+    .maskflag{
+      background-image: url("../_img/layers_mask.svg");
+      opacity: 0.25;
+
+      &.on{
+        opacity: 1;
+      }
+
+      &.disabled{
+        opacity: 0.08;
+        cursor: default;
+      }
+    }
+
+    // A mask track reads as "attached to the row below": indented name, dashed underline.
+    &.masktrack{
+      border-bottom: 1px dashed rgba($timeline-mask-key, 0.5);
+      color: $timeline-mask-key;
+
+      .name{
+        font-style: italic;
+      }
+    }
+
+    .name{
+      margin-left: 5px;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
+
+    input.trackname{
+      margin-left: 5px;
+      width: 80px;
+      font-size: 11px;
+      padding: 0 3px;
+      background-color: #1c1c1c;
+      color: $menu-text-color;
+      border: 1px solid #7b7b7b;
+
+      &:focus{
+        outline: none;
+      }
+    }
+  }
+
+  // ── the grid: ruler on top, one row per track ─────────────────────────────────
+  .timeline-grid{
+    position: relative;
+    margin-left: $timeline-header-width;
+    min-height: $timeline-ruler-height;
+  }
+
+  .timeline-ruler{
+    position: relative;
+    height: $timeline-ruler-height;
+    border-bottom: 1px solid black;
+    cursor: pointer;
+  }
+
+  .timeline-tick{
+    position: absolute;
+    top: 0;
+    height: $timeline-ruler-height;
+    line-height: $timeline-ruler-height;
+    font-size: 9px;
+    text-align: center;
+    color: $menu-text-color-dim;
+    border-left: 1px solid rgba(255, 255, 255, 0.05);
+
+    &.major{
+      border-left: 1px solid rgba(255, 255, 255, 0.18);
+    }
+
+    &.beyond{
+      opacity: 0.4;
+    }
+  }
+
+  .timeline-playhead{
+    position: absolute;
+    top: 0;
+    // width is also set inline per zoom level; this is the unzoomed default
+    width: var(--timeline-cell-width, $timeline-cell-width);
+    background-color: rgba(177, 224, 15, 0.14);
+    border-left: 1px solid $active-color;
+    border-right: 1px solid rgba(177, 224, 15, 0.4);
+    pointer-events: none;
+    z-index: 3;
+  }
+
+  .timeline-row{
+    position: absolute;
+    left: 0;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.4);
+
+    &.active{
+      background-color: rgba(255, 255, 255, 0.03);
+    }
+
+    &.hidden{
+      opacity: 0.35;
+    }
+
+    // the mask track and the row it acts on are tinted as one pair
+    &.masktrack{
+      background-image: repeating-linear-gradient(
+        45deg,
+        rgba(255, 255, 255, 0.035) 0 3px,
+        transparent 3px 6px
+      );
+      border-bottom: 1px dashed rgba($timeline-mask-key, 0.45);
+    }
+
+    &.masked{
+      background-color: rgba(120, 180, 255, 0.05);
+    }
+  }
+
+  .timeline-cell{
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    border-left: 1px solid rgba(255, 255, 255, 0.05);
+    cursor: pointer;
+
+    // frames before a track's first key render nothing at all
+    &.empty{
+      background-color: rgba(0, 0, 0, 0.25);
+    }
+
+    // a held or spanned frame draws a thin centre line so the extent is visible
+    &.span:after,
+    &.hold:after{
+      content: "";
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 50%;
+      height: 1px;
+      background-color: $timeline-hold-line;
+    }
+
+    &.hold:after{
+      background-color: rgba(90, 90, 90, 0.5);
+    }
+
+    // a tween span is drawn brighter and thicker than a hold
+    &.tween:after{
+      background-color: $timeline-tween-line;
+      height: 2px;
+      margin-top: -1px;
+    }
+
+    // Sized from --timeline-dot-size so the dots shrink with the horizontal zoom
+    // (shift + wheel); the fallback matches the default frame width.
+    .dot{
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: var(--timeline-dot-size, 9px);
+      height: var(--timeline-dot-size, 9px);
+      margin-top: calc(var(--timeline-dot-size, 9px) / -2);
+      margin-left: calc(var(--timeline-dot-size, 9px) / -2);
+      border-radius: 50%;
+      box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.6);
+    }
+
+    // Content and property keys must be visually distinct (requirement): a FILLED dot in
+    // accent A for content, a HOLLOW dot in accent B for property keys.
+    &.contentkey .dot{
+      background-color: $timeline-content-key;
+    }
+
+    &.propertykey .dot{
+      background-color: $panel-background-color;
+      border: 2px solid $timeline-property-key;
+    }
+
+    // A multi-frame selection reads as one block: a tinted band with a bright edge at each
+    // end, so its extent is obvious even when every cell inside it is empty.
+    &.selected{
+      background-color: rgba(89, 182, 255, 0.22);
+      box-shadow: inset 0 1px 0 rgba(89, 182, 255, 0.55),
+                  inset 0 -1px 0 rgba(89, 182, 255, 0.55);
+    }
+
+    &.selected.selection-start{
+      box-shadow: inset 1px 0 0 $timeline-property-key,
+                  inset 0 1px 0 rgba(89, 182, 255, 0.55),
+                  inset 0 -1px 0 rgba(89, 182, 255, 0.55);
+    }
+
+    &.selected.selection-end{
+      box-shadow: inset -1px 0 0 $timeline-property-key,
+                  inset 0 1px 0 rgba(89, 182, 255, 0.55),
+                  inset 0 -1px 0 rgba(89, 182, 255, 0.55);
+    }
+
+    &.selected.selection-start.selection-end{
+      box-shadow: inset 1px 0 0 $timeline-property-key,
+                  inset -1px 0 0 $timeline-property-key,
+                  inset 0 1px 0 rgba(89, 182, 255, 0.55),
+                  inset 0 -1px 0 rgba(89, 182, 255, 0.55);
+    }
+
+    &.playhead{
+      background-color: rgba(255, 255, 255, 0.06);
+    }
+
+    &.dragging{
+      opacity: 0.5;
+    }
+
+    &:hover{
+      background-color: rgba(255, 255, 255, 0.09);
+    }
+  }
+}
