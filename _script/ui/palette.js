@@ -214,6 +214,11 @@ let Palette = function(){
         atari2600ntsc:{label: "Atari 2600 NTSC",platform:true,palette:"Atari-2600-NTSC.json"},
         atari:{label: "Atari GTIA",platform:true,palette:"Atari-GTIA.json"},
     };
+    // The Reduce Colors panel only offers the two palettes that describe the image itself.
+    // The preset palettes in paletteMap stay available through the Palettes chooser
+    // (paletteList.js), which is where picking a fixed palette belongs.
+    const REDUCE_PALETTE_OPTIONS = ["current","optimized"];
+
     var targetPalette = null;
 
     me.init = function(parent,paletteParent){
@@ -810,7 +815,7 @@ let Palette = function(){
                         applyReduce();
                     }
                 }},
-                Object.keys(paletteMap).map(key=>{
+                REDUCE_PALETTE_OPTIONS.map(key=>{
                     return $("option",{
                         value:key,
                         text:paletteMap[key].label,
@@ -1030,7 +1035,7 @@ let Palette = function(){
     me.openLocal = function(){
         var input = document.createElement('input');
         input.type = 'file';
-        input.accept = ".json,application/json,.png,image/png";
+        input.accept = ".json,application/json,.png,image/png,.txt,text/plain";
         input.onchange = function(e){
             let files = e.target.files;
             if (files.length){
@@ -1050,6 +1055,17 @@ let Palette = function(){
                             EventBus.trigger(EVENT.paletteChanged);
                         }
                     }
+                    reader.readAsText(file);
+                }else if (ext === "txt"){
+                    reader.onload = function(){
+                        let palette = parseAmigaTextPalette(reader.result);
+                        if (palette && palette.length){
+                            me.set(palette);
+                            EventBus.trigger(EVENT.paletteChanged);
+                        }else{
+                            console.warn("Selected text file doesn't contain a palette");
+                        }
+                    };
                     reader.readAsText(file);
                 }else if (ext === "png"){
                     reader.onload = function(){
@@ -1353,6 +1369,44 @@ let Palette = function(){
         EventBus.trigger(EVENT.paletteChanged);
         me.apply();
         EventBus.trigger(EVENT.colorDepthChanged);
+    }
+
+    // Counterpart of the ".palette.txt" file written next to raw bitplane exports:
+    // a brace-wrapped, comma-separated list of Amiga 12-bit colors, e.g. "{0X0FF,0X123}".
+    // Parsing is deliberately lenient - the braces, the "0X"/"$" prefix and any whitespace
+    // are optional - so hand-edited or source-pasted colour lists load too.
+    function parseAmigaTextPalette(text){
+        if (typeof text !== "string") return null;
+
+        // strip C/asm style comments so a colour table copied out of source code still parses
+        text = text.replace(/\/\*[\s\S]*?\*\//g,"").replace(/(^|\s)(\/\/|;).*/g,"$1");
+
+        let palette = [];
+        let tokens = text.split(/[\s,{}]+/);
+        for (let i = 0; i < tokens.length; i++){
+            let token = tokens[i];
+            if (!token) continue;
+            let match = /^(?:0[xX]|\$)?([0-9a-fA-F]+)$/.exec(token);
+            if (!match) return null;
+            let hex = match[1];
+            let color;
+            if (hex.length <= 3){
+                // 12-bit: one nibble per channel, scaled back to 8 bit (0xF -> 0xFF)
+                hex = hex.padStart(3,"0");
+                color = [0,1,2].map(c=>{
+                    let v = parseInt(hex[c],16);
+                    return (v<<4) | v;
+                });
+            }else if (hex.length <= 6){
+                hex = hex.padStart(6,"0");
+                color = [0,2,4].map(c=>parseInt(hex.substr(c,2),16));
+            }else{
+                return null;
+            }
+            palette.push(color);
+        }
+
+        return palette.length ? palette : null;
     }
 
     function parseIndexedPngPalette(buffer){

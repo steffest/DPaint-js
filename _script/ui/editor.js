@@ -3,7 +3,6 @@ import {$div} from "../util/dom.js";
 import EventBus from "../util/eventbus.js";
 import {COMMAND, EVENT} from "../enum.js";
 import EditPanel from "./editpanel.js";
-import ImageProcessing from "../util/imageProcessing.js";
 import ImageFile from "../image.js";
 import Selection from "./selection.js";
 import Palette from "./palette.js";
@@ -14,6 +13,11 @@ import Input from "./input.js";
 import HistoryService from "../services/historyservice.js";
 import Cursor from "./cursor.js";
 import ToolOptions from "./components/toolOptions.js";
+import MeshWarp from "../paintTools/meshWarp.js";
+import BoneTool from "../paintTools/boneTool.js";
+import VectorTool from "../paintTools/vectorTool.js";
+import {isVector} from "../util/layerUtils.js";
+import {cloneVector, vectorBounds, transformVector} from "../util/vectorUtils.js";
 import UI from "./ui.js";
 import UserSettings from "../userSettings.js";
 import PanelManager from "./panelManager.js";
@@ -190,33 +194,27 @@ var Editor = function(){
         });
         EventBus.on(COMMAND.ROTATE,function(){
             EventBus.trigger(COMMAND.CLEARSELECTION);
-            HistoryService.start(EVENT.imageHistory);
-            let currentFrame = ImageFile.getActiveFrame();
-            currentFrame.layers.forEach(layer=>{
-                ImageProcessing.rotate(layer.getCanvas());
-            })
-            let w = ImageFile.getCurrentFile().width;
-            ImageFile.getCurrentFile().width = ImageFile.getCurrentFile().height;
-            ImageFile.getCurrentFile().height = w;
-            HistoryService.end();
-            EventBus.trigger(EVENT.imageSizeChanged);
+            // rotates every cel of every track and swaps the document dimensions
+            ImageFile.rotate();
         });
         EventBus.on(COMMAND.CLEAR,function(){
             var s = Selection.get();
             let layer = ImageFile.getActiveLayer();
             if (!layer) return;
             HistoryService.start(EVENT.layerContentHistory);
+            // the selection is in document space, the layer context in the layer's own space
+            let clearOffset = ImageFile.getLayerOffset();
             if (s){
                 if (s.canvas || s.points){
                     let canvas = Selection.getCanvas();
                     let layerCtx = layer.getContext();
                     layerCtx.globalCompositeOperation = "destination-out";
-                    layerCtx.drawImage(canvas,0,0);
+                    layerCtx.drawImage(canvas,-clearOffset.x,-clearOffset.y);
                     layerCtx.globalCompositeOperation = "source-over";
                     releaseCanvas(canvas);
                 }else{
                     // rectangular selection
-                    layer.getContext().clearRect(s.left,s.top,s.width,s.height);
+                    layer.getContext().clearRect(s.left - clearOffset.x,s.top - clearOffset.y,s.width,s.height);
                 }
             }else{
                 layer.clear();
@@ -228,17 +226,10 @@ var Editor = function(){
         EventBus.on(COMMAND.CROP,function(){
             var s = Selection.get();
             if (s){
-                HistoryService.start(EVENT.imageHistory);
-                ImageFile.getCurrentFile().frames.forEach(frame=>{
-                    frame.layers.forEach(layer=>{
-                        layer.crop(s.left,s.top,s.width,s.height);
-                    })
-                });
-                ImageFile.getCurrentFile().width = s.width;
-                ImageFile.getCurrentFile().height = s.height;
+                // Non-destructive: the document window moves, layer pixels stay put and are
+                // clipped at the new bounds (spec 004 decision 4).
+                ImageFile.crop(s.left,s.top,s.width,s.height);
                 Selection.move(0,0,s.width,s.height);
-                HistoryService.end();
-                EventBus.trigger(EVENT.imageSizeChanged);
             }
         });
         EventBus.on(COMMAND.TRIM,()=>{
@@ -264,21 +255,72 @@ var Editor = function(){
             if (!box.w || !box.h) return;
             if (box.w === w && box.h === h && box.x === 0) return;
 
-            HistoryService.start(EVENT.imageHistory);
-
-            frame.layers.forEach(layer=>{
-                layer.crop(box.left,box.top,box.w,box.h);
-            });
-
-            ImageFile.getCurrentFile().width = box.w;
-            ImageFile.getCurrentFile().height = box.h;
-            HistoryService.end();
-            EventBus.trigger(EVENT.imageSizeChanged);
+            ImageFile.crop(box.left,box.top,box.w,box.h);
         })
 
         EventBus.on(COMMAND.TRANSFORMLAYER,()=>{
             resizer.setOnUpdate(undefined);
             touchData.transformLayer = undefined;
+            touchData.transformGroup = false;
+            touchData.transformVector = undefined;
+
+            let node = ImageFile.getActiveLayer();
+
+            // Free-transforming a VECTOR layer bakes into the GEOMETRY, not pixels: the resizer box
+            // maps to an affine (translate/scale/rotate) applied to every node + curve handle, so
+            // the shapes stay resolution-independent and re-rasterize crisp. Because a vector layer
+            // keeps VectorTool active (which owns canvas pointer events), we suspend that tool for
+            // the duration and re-enter it on commit/cancel via previousTool.
+            if (isVector(node) && node.vector){
+                let vb = vectorBounds(node.vector);
+                if (!vb || !vb.width || !vb.height) return;
+                let off = ImageFile.getLayerOffset();
+                let dbox = { x: vb.x + off.x, y: vb.y + off.y, w: vb.width, h: vb.height };
+
+                if (VectorTool.isActive()) VectorTool.commit();  // release canvas pointer routing
+
+                previousTool = currentTool;
+                currentTool = COMMAND.TRANSFORMLAYER;
+                resizer.init({
+                    x: dbox.x, y: dbox.y, width: dbox.w, height: dbox.h,
+                    rotation: 0, aspect: (dbox.w / dbox.h) || 1, canRotate: true
+                });
+                touchData.transformVector = node;
+                touchData.transformVectorSnapshot = cloneVector(node.vector);
+                touchData.transformVectorBox = dbox;
+                touchData.transformVectorResume = previousTool;
+                HistoryService.start(EVENT.imageHistory);
+                resizer.setOnUpdate(updateVectorTransform);
+                return;
+            }
+
+            // Free-transforming a GROUP does not bake pixels (spec 007): it drives the group's
+            // runtime scale/rotation (which the compositor applies on the fly and which animate
+            // through property keyframes). The resizer is seeded from the group's oriented box and
+            // its scale/rotation map straight back onto the group node via setLayerKeyProps.
+            let activeNode = ImageFile.getActiveLayer();
+            if (activeNode && activeNode.type === "group"){
+                let gbox = ImageFile.getGroupTransformBox();
+                if (!gbox) return;
+                previousTool = currentTool;
+                currentTool = COMMAND.TRANSFORMLAYER;
+                resizer.init({
+                    x: gbox.x,
+                    y: gbox.y,
+                    width: gbox.w,
+                    height: gbox.h,
+                    rotation: gbox.rotation,
+                    aspect: (gbox.w / gbox.h) || 1,
+                    canRotate: true
+                });
+                touchData.transformGroup = true;
+                touchData.transformGroupBox = gbox;
+                touchData.transformLayer = activeNode;
+                touchData.transformStartProps = ImageFile.getLayerKeyProps();
+                HistoryService.start(EVENT.keyPropsHistory);
+                resizer.setOnUpdate(updateGroupTransform);
+                return;
+            }
 
             let box = ImageFile.getLayerBoundingRect();
             if (!box.w || !box.h) return;
@@ -302,12 +344,60 @@ var Editor = function(){
             touchData.transformCanvas.height = box.h;
             let ctx = touchData.transformCanvas.getContext("2d");
             ctx.imageSmoothingEnabled = false;
-            ctx.drawImage(ImageFile.getActiveContext().canvas,box.x,box.y,box.w,box.h,0,0,box.w,box.h);
+            // box is in document coordinates; the layer canvas is in the layer's own space
+            let transformOffset = ImageFile.getLayerOffset();
+            ctx.drawImage(ImageFile.getActiveContext().canvas,
+                box.x - transformOffset.x,box.y - transformOffset.y,box.w,box.h,0,0,box.w,box.h);
 
             HistoryService.start(EVENT.layerContentHistory);
             touchData.transformLayer = ImageFile.getActiveLayer();
+            touchData.transformIsMove = false;
+            // the node's OWN animatable x/y (base value or property-key entry) at gesture start
+            touchData.transformStartProps = ImageFile.getLayerKeyProps();
             resizer.setOnUpdate(updateTransform);
         });
+
+        EventBus.on(COMMAND.MESHWARP,()=>{
+            if (MeshWarp.isActive()) return;
+            // commit any pending free-transform first
+            me.commit();
+            if (!MeshWarp.start()) return;
+            previousTool = currentTool;
+            currentTool = COMMAND.MESHWARP;
+        });
+
+        // Bone tools (spec 005). The three mode commands share one modal BoneTool bound to the
+        // active bone layer; they only switch its interaction mode. The toolbar starts the tool
+        // when a bone layer is activated and commits it when a pixel layer regains focus.
+        function activateBoneMode(mode){
+            if (!BoneTool.start()) return; // active layer is not a bone layer
+            BoneTool.setMode(mode);
+            currentTool = COMMAND.BONESELECT; // one canvas-routing bucket for all bone modes
+        }
+        EventBus.on(COMMAND.BONESELECT,()=>{ activateBoneMode("select"); });
+        EventBus.on(COMMAND.BONEADD,()=>{ activateBoneMode("add"); });
+        EventBus.on(COMMAND.BONETRANSFORM,()=>{ activateBoneMode("transform"); });
+        EventBus.on(COMMAND.BONERESET,()=>{ BoneTool.resetPose(); });
+        EventBus.on(COMMAND.BONEDELETE,()=>{ BoneTool.deleteSelected(); });
+
+        // Vector tools (spec 008). All sub-mode commands share one modal VectorTool bound to the
+        // active vector layer; they only switch its interaction mode. The toolbar starts the tool
+        // when a vector layer is activated and commits it when a pixel layer regains focus.
+        function activateVectorMode(mode){
+            if (!VectorTool.start()) return; // active layer is not a vector layer
+            VectorTool.setMode(mode);
+            currentTool = COMMAND.VECTORSELECT; // one canvas-routing bucket for all vector modes
+        }
+        EventBus.on(COMMAND.VECTORSELECT,()=>{ activateVectorMode("select"); });
+        // VECTORNODE folded into the unified Select/Edit tool; kept as an alias for old callers.
+        EventBus.on(COMMAND.VECTORNODE,()=>{ activateVectorMode("select"); });
+        EventBus.on(COMMAND.VECTORLINE,()=>{ activateVectorMode("line"); });
+        EventBus.on(COMMAND.VECTORRECT,()=>{ activateVectorMode("rect"); });
+        EventBus.on(COMMAND.VECTORCIRCLE,()=>{ activateVectorMode("circle"); });
+        EventBus.on(COMMAND.VECTORBLOB,()=>{ activateVectorMode("blob"); });
+        EventBus.on(COMMAND.VECTORFILL,()=>{ activateVectorMode("fill"); });
+        EventBus.on(COMMAND.VECTOROUTLINE,()=>{ activateVectorMode("outline"); });
+        EventBus.on(COMMAND.VECTORDELETE,()=>{ VectorTool.deleteSelected(); });
 
         EventBus.on(COMMAND.COLORMASK,(options)=>{
             if (options === true){
@@ -432,6 +522,17 @@ var Editor = function(){
             PanelManager.show("effects");
         })
         EventBus.on(EVENT.toolChanged,(tool)=>{
+            // Switching between bone modes keeps the tool session (and selection) alive; only
+            // committing when leaving bones entirely is handled by the bone command handlers below.
+            let boneTool = tool === COMMAND.BONESELECT || tool === COMMAND.BONEADD || tool === COMMAND.BONETRANSFORM;
+            if (boneTool && BoneTool.isActive()) return;
+            // Likewise, switching among vector sub-tools keeps the modal VectorTool (and its
+            // selection) alive; committing only happens when leaving vector mode entirely.
+            let vectorTool = tool === COMMAND.VECTORSELECT || tool === COMMAND.VECTORNODE
+                || tool === COMMAND.VECTORLINE || tool === COMMAND.VECTORRECT
+                || tool === COMMAND.VECTORCIRCLE || tool === COMMAND.VECTORBLOB
+                || tool === COMMAND.VECTORFILL || tool === COMMAND.VECTOROUTLINE;
+            if (vectorTool && VectorTool.isActive()) return;
             me.commit();
             Cursor.reset();
             if (tool === COMMAND.SELECT || tool === COMMAND.FLOODSELECT || tool === COMMAND.POLYGONSELECT){
@@ -456,107 +557,18 @@ var Editor = function(){
         })
 
         EventBus.on(COMMAND.FRAMES2LAYERS,()=>{
-            HistoryService.start(EVENT.imageHistory);
-            let frames = ImageFile.getCurrentFile().frames;
-            let canvases = [];
-            
-            // first pass: collect all frames as flattened canvases
-            frames.forEach((frame,index)=>{
-                canvases.push(ImageFile.getCanvas(index));
-            })
-
-            // second pass: add them as layers to the first frame
-            ImageFile.activateFrame(0);
-            let frame = ImageFile.getActiveFrame(); 
-            frame.layers = [];
-            
-            canvases.forEach((canvas,index)=>{
-                let name = "Frame " + (index+1);
-                let layerIndex = ImageFile.addLayer(index, name);
-                let layer = ImageFile.getLayer(layerIndex);
-                layer.drawImage(canvas);
-            });
-
-            // third pass: remove other frames
-            ImageFile.getCurrentFile().frames = [frame];
-            
-            HistoryService.end();
-            EventBus.trigger(EVENT.imageSizeChanged); 
-            EventBus.trigger(EVENT.layersChanged);
-            EventBus.trigger(EVENT.framesChanged);
+            // every BAKED timeline frame becomes a layer of a single content key
+            ImageFile.framesToLayers();
         })
 
         EventBus.on(COMMAND.LAYERS2FRAMES,()=>{
-            HistoryService.start(EVENT.imageHistory);
-            let frames = ImageFile.getCurrentFile().frames;
-            let newFrames = [];
-            
-            frames.forEach(frame=>{
-                if (frame.layers.length > 1){
-                    frame.layers.forEach(layer=>{
-                        let newFrame = {
-                            layers: [],
-                            activeLayerIndex: 0
-                        };
-                        newFrame.layers.push(layer);
-                        newFrames.push(newFrame);
-                    });
-                }else{
-                    newFrames.push(frame);
-                }
-            });
-            
-            ImageFile.getCurrentFile().frames = newFrames;
-            ImageFile.activateFrame(0);
-
-            HistoryService.end();
-            EventBus.trigger(EVENT.imageSizeChanged);
-            EventBus.trigger(EVENT.layersChanged);
-            EventBus.trigger(EVENT.framesChanged);
+            // every layer of the active cel becomes its own content key on the active track
+            ImageFile.layersToFrames();
         })
 
         EventBus.on(COMMAND.LAYERS2SHEET,()=>{
-            HistoryService.start(EVENT.imageHistory);
-            
-            // This operation is ONLY on the current frame
-            let frame = ImageFile.getActiveFrame();
-            let layers = frame.layers;
-            if (layers.length < 2) return;
-            
-            let w = ImageFile.getCurrentFile().width;
-            let h = ImageFile.getCurrentFile().height;
-            let newH = h * layers.length;
-            
-            let canvases = [];
-            layers.forEach(layer=>{
-                canvases.push(layer.getCanvas()); 
-            });
-            
-            // Resize image to hold all layers
-             canvases = [];
-             layers.forEach(layer=>{
-                 canvases.push(duplicateCanvas(layer.getCanvas(), true));
-             });
-             
-             ImageFile.getCurrentFile().height = newH;
-             ImageFile.resize({width: w, height: newH, anchor: "topleft"});
-             
-             let firstLayer = layers[0];
-             firstLayer.clear();
-             let ctx = firstLayer.getContext();
-             
-             canvases.forEach((c,i)=>{
-                 ctx.drawImage(c, 0, i * h);
-                 releaseCanvas(c);
-             });
-             
-             frame.layers = [firstLayer];
-             frame.activeLayerIndex = 0;
-             ImageFile.activateLayer(0);
-
-            HistoryService.end();
-            EventBus.trigger(EVENT.imageSizeChanged);
-            EventBus.trigger(EVENT.layersChanged);
+            // stacks the active cel's layers vertically into one taller layer
+            ImageFile.layersToSheet();
         })
 
     }
@@ -601,6 +613,21 @@ var Editor = function(){
     }
 
     me.commit = async function(){
+        if (BoneTool.isActive()){
+            BoneTool.commit();
+        }
+        if (VectorTool.isActive()){
+            VectorTool.commit();
+        }
+        if (MeshWarp.isActive()){
+            MeshWarp.commit();
+            // Enter keeps currentTool === MESHWARP → restore the previous tool.
+            // A tool switch already changed currentTool → leave the new tool in place.
+            if (currentTool === COMMAND.MESHWARP){
+                currentTool = undefined;
+                if (previousTool) EventBus.trigger(previousTool);
+            }
+        }
         if (currentTool === COMMAND.TRANSFORMLAYER){
             console.log("commit layer");
             resizer.commit();
@@ -617,12 +644,32 @@ var Editor = function(){
     }
 
     me.reset = function(){
+        if (BoneTool.isActive()){
+            BoneTool.cancel();
+            return;
+        }
+        if (VectorTool.isActive()){
+            VectorTool.cancel();
+            return;
+        }
+        if (MeshWarp.isActive()){
+            MeshWarp.cancel();
+            currentTool = undefined;
+            let p = previousTool;
+            previousTool = undefined;
+            EventBus.trigger(COMMAND.CLEARSELECTION);
+            if (p) EventBus.trigger(p);
+            return;
+        }
         if (currentTool === COMMAND.TRANSFORMLAYER){
+            let resume = touchData.transformVector ? touchData.transformVectorResume : undefined;
             resizer.commit();
             resetTransform();
             clearTransform();
             currentTool = undefined;
             HistoryService.neverMind();
+            // a vector transform suspended VectorTool — re-enter the sub-tool it came from
+            if (resume){ previousTool = undefined; EventBus.trigger(resume); }
         }
         EventBus.trigger(COMMAND.CLEARSELECTION);
     }
@@ -635,6 +682,11 @@ var Editor = function(){
             case "right": x=1; break;
             case "up": y=-1; break;
             case "down": y=1; break;
+        }
+        // Vector node mode: arrow keys nudge the selected node(s); Meta = coarse 10px step.
+        if (VectorTool.isActive()){
+            let step = Input.isMetaDown() ? 10 : 1;
+            if (VectorTool.nudge(x*step, y*step)) return;
         }
         if (Input.isMetaAndShiftDown()){
             switch (direction){
@@ -696,10 +748,89 @@ var Editor = function(){
         return (t === COMMAND.DRAW || t === COMMAND.SPRAY || t === COMMAND.ERASE);
     }
 
+    // A group free-transform (spec 007): translate the resizer box back into the group's
+    // scale/rotation and centre offset, written through the animatable property path. No pixels
+    // are copied — the compositor applies the transform on the fly.
+    function updateGroupTransform(){
+        let g = touchData.transformGroupBox;
+        let sp = touchData.transformStartProps;
+        if (!g || !sp) return;
+        let d = resizer.get();
+        let newCenterX = d.left + d.width / 2;
+        let newCenterY = d.top + d.height / 2;
+        let scaleX = g.baseW ? d.width / g.baseW : 1;
+        let scaleY = g.baseH ? d.height / g.baseH : 1;
+        ImageFile.setLayerKeyProps(undefined,{
+            // The group's own offset shifts by however far its content centre moved.
+            x: sp.x + (newCenterX - g.centerX),
+            y: sp.y + (newCenterY - g.centerY),
+            scaleX: scaleX,
+            scaleY: scaleY,
+            rotation: d.rotation
+        });
+    }
+
+    // A vector free-transform: map the resizer box to an affine and bake it into the GEOMETRY
+    // (nodes + curve handles), not pixels. Re-applied from the pristine snapshot on every update so
+    // the mapping is absolute (never cumulative). Move/scale/rotate all flow through here.
+    function updateVectorTransform(){
+        let layer = touchData.transformVector;
+        let snap = touchData.transformVectorSnapshot;
+        let b0 = touchData.transformVectorBox;
+        if (!layer || !snap || !b0) return;
+        let d = resizer.get();
+        let sx = b0.w ? d.width / b0.w : 1;
+        let sy = b0.h ? d.height / b0.h : 1;
+        let rad = (d.rotation || 0) * Math.PI / 180;
+        let cos = Math.cos(rad), sin = Math.sin(rad);
+        let cx = d.left + d.width / 2, cy = d.top + d.height / 2;
+        let off = ImageFile.getLayerOffset();  // geometry(layer) coords = document coords − offset
+
+        layer.vector = cloneVector(snap);
+        transformVector(layer.vector, (gx, gy)=>{
+            // geometry → document
+            let px = gx + off.x, py = gy + off.y;
+            // scale about the original box's top-left into the new box position/size
+            let qx = d.left + (px - b0.x) * sx;
+            let qy = d.top  + (py - b0.y) * sy;
+            // rotate about the new box centre
+            let rx = cx + (qx - cx) * cos - (qy - cy) * sin;
+            let ry = cy + (qx - cx) * sin + (qy - cy) * cos;
+            // document → geometry
+            return { x: rx - off.x, y: ry - off.y };
+        });
+        layer.vectorDirty = true;
+        layer.vectorRasterized = false;
+        EventBus.trigger(EVENT.vectorChanged);
+        EventBus.trigger(EVENT.layerContentChanged);
+    }
+
     async function updateTransform(final,onDone){
+        if (touchData.transformVector){ updateVectorTransform(); return; }
         if (!touchData.transformLayer) return;
+        // A group carries a runtime transform instead of pixels — never bake it.
+        if (touchData.transformGroup){ updateGroupTransform(); return; }
         console.log("update transform layer");
         let d = resizer.get();
+        let box = touchData.transformBox;
+
+        // Pure translation (no scale, no rotation): move the layer through its ANIMATABLE
+        // OFFSET instead of copying pixels. On a property key that writes props, so the move
+        // becomes part of the animation rather than a destructive edit (spec 004 decision 2).
+        if (!d.rotation && box && d.width === box.w && d.height === box.h && touchData.transformStartProps){
+            if (!touchData.transformIsMove){
+                touchData.transformIsMove = true;
+                // swap the pixel snapshot for a property snapshot, before the first write
+                HistoryService.neverMind();
+                HistoryService.start(EVENT.keyPropsHistory);
+            }
+            ImageFile.setLayerKeyProps(undefined,{
+                x: touchData.transformStartProps.x + (d.left - box.x),
+                y: touchData.transformStartProps.y + (d.top - box.y)
+            });
+            return;
+        }
+
         touchData.transformLayer.clear();
         if (d.width === 0 || d.height === 0) return;
         let ctx = touchData.transformLayer.getContext();
@@ -726,8 +857,9 @@ var Editor = function(){
             let w = d.width / rotateScaleX;
             let h = d.height / rotateScaleY;
 
-            let x = d.left + (d.width - w) / 2;
-            let y = d.top + (d.height - h) / 2;
+            let moveOffset = ImageFile.getLayerOffset();
+            let x = d.left - moveOffset.x + (d.width - w) / 2;
+            let y = d.top - moveOffset.y + (d.height - h) / 2;
 
             if (Palette.isLocked()){
                 // rotated is a WEBGL canvas
@@ -737,17 +869,20 @@ var Editor = function(){
 
             ctx.drawImage(rotated,x,y,w,h);
         }else{
+            let drawOffset = ImageFile.getLayerOffset();
+            let localLeft = d.left - drawOffset.x;
+            let localTop = d.top - drawOffset.y;
             if (d.rotation){
                 console.log("rotate " + d.rotation);
 
-                let dw = (d.left + d.width/2);
-                let dh = (d.top + d.height/2);
+                let dw = (localLeft + d.width/2);
+                let dh = (localTop + d.height/2);
                 ctx.translate(dw,dh);
                 ctx.rotate((d.rotation * Math.PI) / 180);
                 ctx.translate(-dw,-dh);
             }
 
-            ctx.drawImage(touchData.transformCanvas,d.left,d.top,d.width,d.height);
+            ctx.drawImage(touchData.transformCanvas,localLeft,localTop,d.width,d.height);
             ctx.setTransform(1, 0, 0, 1, 0, 0);
 
             if (angled && final && Palette.isLocked()){
@@ -758,11 +893,45 @@ var Editor = function(){
     }
 
     function resetTransform(){
+        // Cancelling a vector free-transform: restore the geometry snapshot (no pixels were touched).
+        if (touchData.transformVector){
+            let layer = touchData.transformVector;
+            if (touchData.transformVectorSnapshot){
+                layer.vector = cloneVector(touchData.transformVectorSnapshot);
+                layer.vectorDirty = true;
+                layer.vectorRasterized = false;
+                EventBus.trigger(EVENT.vectorChanged);
+                EventBus.trigger(EVENT.layerContentChanged);
+            }
+            return;
+        }
+        // Cancelling a group free-transform (spec 007): restore the transform props captured at
+        // gesture start (no pixels were touched).
+        if (touchData.transformGroup){
+            let sp = touchData.transformStartProps;
+            if (sp){
+                ImageFile.setLayerKeyProps(undefined,{
+                    x: sp.x, y: sp.y, scaleX: sp.scaleX, scaleY: sp.scaleY, rotation: sp.rotation
+                });
+            }
+            return;
+        }
+        if (touchData.transformIsMove){
+            // nothing was painted: just put the offset back
+            if (touchData.transformStartProps){
+                ImageFile.setLayerKeyProps(undefined,{
+                    x: touchData.transformStartProps.x,
+                    y: touchData.transformStartProps.y
+                });
+            }
+            return;
+        }
         touchData.transformLayer.clear();
         let ctx = touchData.transformLayer.getContext();
         let box = touchData.transformBox;
         ctx.imageSmoothingEnabled = false;
-        ctx.drawImage(touchData.transformCanvas,box.x,box.y,box.w,box.h);
+        let resetOffset = ImageFile.getLayerOffset();
+        ctx.drawImage(touchData.transformCanvas,box.x - resetOffset.x,box.y - resetOffset.y,box.w,box.h);
         ctx.setTransform(1, 0, 0, 1, 0, 0);
         EventBus.trigger(EVENT.layerContentChanged);
     }
@@ -771,6 +940,14 @@ var Editor = function(){
         touchData.transformBox = undefined;
         if (touchData.transformCanvas) releaseCanvas(touchData.transformCanvas);
         touchData.transformLayer = undefined;
+        touchData.transformIsMove = false;
+        touchData.transformStartProps = undefined;
+        touchData.transformGroup = false;
+        touchData.transformGroupBox = undefined;
+        touchData.transformVector = undefined;
+        touchData.transformVectorSnapshot = undefined;
+        touchData.transformVectorBox = undefined;
+        touchData.transformVectorResume = undefined;
     }
 
 

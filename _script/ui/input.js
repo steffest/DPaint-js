@@ -10,6 +10,7 @@ import Cursor from "./cursor.js";
 import UI from "./ui.js";
 import Palette from "./palette.js";
 import ToolOptions from "./components/toolOptions.js";
+import VectorTool from "../paintTools/vectorTool.js";
 
 var Input = function(){
 	let me = {}
@@ -350,7 +351,12 @@ var Input = function(){
 		switch (code){
 			case "delete":
 			case "backspace":
-				EventBus.trigger(COMMAND.CLEAR);
+				// on a vector layer, Delete removes the selected point/shape instead of clearing pixels
+				if (VectorTool.isActive()){
+					EventBus.trigger(COMMAND.VECTORDELETE);
+				}else{
+					EventBus.trigger(COMMAND.CLEAR);
+				}
 				break;
 			case "escape":
 				// TODO should we tie this to the selected tool?
@@ -419,7 +425,11 @@ var Input = function(){
 				}
 			}else{
 				switch (key){
-					case "a": EventBus.trigger(COMMAND.SELECTALL); break;
+					// on a vector layer, select all points & lines instead of the pixel rectangle
+					case "a":
+						if (VectorTool.isActive() && VectorTool.selectAll()) break;
+						EventBus.trigger(COMMAND.SELECTALL);
+						break;
 					case "b": EventBus.trigger(COMMAND.STAMP); break;
 					case "d": EventBus.trigger(COMMAND.DUPLICATELAYER); break;
 					case "e": EventBus.trigger(COMMAND.EFFECTS); break;
@@ -438,6 +448,9 @@ var Input = function(){
 					case "z": EventBus.trigger(COMMAND.UNDO); break;
 				}
 			}
+		}else if (VectorTool.isActive() && handleVectorToolKey(key)){
+			// on a vector layer the single-letter tool keys switch the vector SUB-tool (S/L/R/C/B/F/O)
+			// instead of the pixel tools; any key the vector map doesn't claim falls through below.
 		}else{
 			switch (key){
 				//case "a": EventBus.trigger(COMMAND.TOGGLEMASK); break;
@@ -452,7 +465,7 @@ var Input = function(){
 				case "i": EventBus.trigger(COMMAND.TOGGLEINVERT); break;
 				case "k": EventBus.trigger(COMMAND.COLORPICKER); break;
 				case "l": EventBus.trigger(COMMAND.LINE); break;
-				case "m": EventBus.trigger(COMMAND.SMUDGE); break;n
+				case "m": EventBus.trigger(COMMAND.SMUDGE); break;
 				case "n": EventBus.trigger(COMMAND.SPLITSCREEN); break;
 				case "o": EventBus.trigger(COMMAND.SPRAY); break;
 				case "p": EventBus.trigger(COMMAND.POLYGONSELECT); break;
@@ -476,6 +489,23 @@ var Input = function(){
 			}
 		}
 
+	}
+
+	// Vector-mode single-letter tool shortcuts. Mirrors the pixel-tool keys but switches the active
+	// VectorTool sub-mode (the command also re-highlights the matching toolbar button). Returns true
+	// when the key maps to a vector tool so the caller can skip the pixel-tool switch; false lets keys
+	// the vector tool doesn't use (undo, zoom, pan, colour-pick, …) fall through to the normal handler.
+	function handleVectorToolKey(key){
+		switch (key){
+			case "s": EventBus.trigger(COMMAND.VECTORSELECT); return true;  // Select / edit
+			case "l": EventBus.trigger(COMMAND.VECTORLINE); return true;    // Line
+			case "r": EventBus.trigger(COMMAND.VECTORRECT); return true;    // Rectangle
+			case "c": EventBus.trigger(COMMAND.VECTORCIRCLE); return true;  // Circle / ellipse
+			case "b": EventBus.trigger(COMMAND.VECTORBLOB); return true;    // Blob brush
+			case "f": EventBus.trigger(COMMAND.VECTORFILL); return true;    // Fill
+			case "o": EventBus.trigger(COMMAND.VECTOROUTLINE); return true; // Outline / stroke
+		}
+		return false;
 	}
 
 	function onKeyUp(e){
@@ -510,6 +540,12 @@ var Input = function(){
 
 		// Let editable elements handle paste natively (e.g. the filename field in dialogs).
 		if (e && isEditableTarget(e.target)) return;
+
+		// On a vector layer, if we hold an internal vector-point selection, paste it as a detached
+		// floating copy on the same layer (spec 014) instead of pasting a raster image.
+		if (VectorTool.isActive() && VectorTool.hasClipboard()){
+			if (VectorTool.pasteFloating()) return;
+		}
 
 		function pasteImage(blob){
 			let img = new Image();
@@ -580,6 +616,10 @@ var Input = function(){
 			if (e.target.tagName.toLowerCase() === "textarea") return;
 			if (e.target.closest("code")) return;
 		}
+
+		// On a vector layer, a point/line/shape selection copies into the internal vector clipboard
+		// (spec 014) so Cmd-V can duplicate it on the same layer. Skip the raster copy when it took.
+		if (VectorTool.isActive() && VectorTool.copySelection()) return;
 
 		let canvas = Selection.toCanvas() || ImageFile.getActiveContext().canvas;
 		if (canvas && ClipboardItem){

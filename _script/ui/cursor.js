@@ -3,6 +3,7 @@ import Eventbus from "../util/eventbus.js";
 import Input from "./input.js";
 import {COMMAND, EVENT} from "../enum.js";
 import Editor from "./editor.js";
+import VectorTool from "../paintTools/vectorTool.js";
 
 var Cursor = function(){
     var me = {}
@@ -39,6 +40,10 @@ var Cursor = function(){
     me.reset = function(){
         currentCursor = undefined;
         setCursor();
+    }
+
+    me.isCurrent = function(name){
+        return currentCursor === name;
     }
 
     me.override = function(name){
@@ -103,6 +108,13 @@ var Cursor = function(){
         }
 
         updateSelectionModifierCursor();
+
+        // On a vector layer, toggling Control over a line flips the action cursor between "bend the
+        // curve" and "add a point" — re-query it here so it updates without moving the mouse.
+        if (VectorTool.isActive()){
+            let vc = VectorTool.getHoverCursor(Input.isControlDown());
+            if (vc) me.set(vc); else me.reset();
+        }
     })
 
     Eventbus.on(EVENT.toolChanged,()=>{

@@ -1,12 +1,21 @@
 import * as StackBlur from "../util/stackBlur.js";
 
+// Canvas factory that works on the main thread (DOM) and inside a Worker (OffscreenCanvas),
+// so the exact same filter compute can run off the main thread (spec 016 phase 6 live wiring).
+function createFilterCanvas(w, h){
+    if (typeof document !== "undefined" && document.createElement){
+        const c = document.createElement("canvas");
+        c.width = w; c.height = h;
+        return c;
+    }
+    return new OffscreenCanvas(w, h);
+}
+
 // Detect ctx.filter support (absent in Safari / IOS). Load pixel fallback only when needed.
 const _canvasFilterSupported = (()=>{
-    const c = document.createElement('canvas');
-    c.width = c.height = 1;
+    const c = createFilterCanvas(1, 1);
     const ctx = c.getContext('2d');
-    const src = document.createElement('canvas');
-    src.width = src.height = 1;
+    const src = createFilterCanvas(1, 1);
     src.getContext('2d').fillRect(0, 0, 1, 1); // black pixel
     ctx.filter = 'brightness(100)';
     ctx.drawImage(src, 0, 0);
@@ -14,8 +23,12 @@ const _canvasFilterSupported = (()=>{
     return ctx.getImageData(0, 0, 1, 1).data[0] > 200;
 })();
 let _pixelFallback = null;
+// Resolves once the pixel fallback (loaded only when ctx.filter is unsupported) is ready.
+// Callers that run a filter immediately at startup — notably the filter worker, whose first
+// job can arrive before this dynamic import settles — await this before the first apply.
+let _ready = Promise.resolve();
 if (!_canvasFilterSupported) {
-    import('./effectsFallback.js').then(m => { _pixelFallback = m; });
+    _ready = import('./effectsFallback.js').then(m => { _pixelFallback = m; });
 }
 
 let Effects = function(){
@@ -240,6 +253,10 @@ let Effects = function(){
         return customFilters;
     }
 
+    // Await the pixel fallback if it is still loading (see _ready above). Resolves immediately
+    // when ctx.filter is supported or the fallback is already loaded.
+    me.ready = ()=> _ready;
+
    function applyFilters(){
         if (!doApply) return;
 
@@ -328,9 +345,7 @@ let Effects = function(){
         // Unsharp Mask implementation: Original + (Original - Blurred) * Amount
         
         // 1. Create blurred copy
-        let blurredCanvas = document.createElement("canvas");
-        blurredCanvas.width = w;
-        blurredCanvas.height = h;
+        let blurredCanvas = createFilterCanvas(w, h);
         let blurredCtx = blurredCanvas.getContext("2d");
         blurredCtx.drawImage(ctx.canvas, 0, 0);
         
@@ -389,9 +404,7 @@ let Effects = function(){
         }
 
         if (!maskCanvas){
-            maskCanvas = document.createElement("canvas");
-            maskCanvas.width = _src.width;
-            maskCanvas.height = _src.height;
+            maskCanvas = createFilterCanvas(_src.width, _src.height);
             let maskCtx = maskCanvas.getContext("2d");
             let maskData = _src.getContext("2d").getImageData(0,0,maskCanvas.width,maskCanvas.height);
             maskCtx.fillStyle = "black";

@@ -9,6 +9,8 @@ import Input from "./input.js";
 import Brush from "./brush.js";
 import UserSettings from "../userSettings.js";
 import Cursor from "./cursor.js";
+import CodeView from "./components/codeView.js";
+import {isVector} from "../util/layerUtils.js";
 
 var EditPanel = function(parent,type){
     var me = {};
@@ -25,6 +27,7 @@ var EditPanel = function(parent,type){
     let windowContainer;
     let windowCanvasList = [];
     let tileContainer;
+    let codeView;
     let toolPanel;
 
     let currentView = "editor";
@@ -45,6 +48,22 @@ var EditPanel = function(parent,type){
     }
     me.getResizer = function(){
         return canvas.getResizer();
+    }
+
+    // Spec 016 phase 2: default-off visual-scheduler toggle for the display canvas.
+    me.setVisualSchedulerEnabled = function(enabled){
+        return canvas.setVisualSchedulerEnabled(enabled);
+    }
+    me.isVisualSchedulerEnabled = function(){
+        return canvas.isVisualSchedulerEnabled();
+    }
+
+    // Spec 016 phase 11: default-off damage-clipped incremental main-display compositing.
+    me.setIncrementalDisplayEnabled = function(enabled){
+        return canvas.setIncrementalDisplayEnabled(enabled);
+    }
+    me.isIncrementalDisplayEnabled = function(){
+        return canvas.isIncrementalDisplayEnabled();
     }
 
     me.getIndex = function(){
@@ -231,6 +250,7 @@ var EditPanel = function(parent,type){
         viewport.classList.toggle("hidden",type !== "editor");
         if (windowContainer) windowContainer.classList.toggle("hidden",type !== "icons");
         if (tileContainer) tileContainer.classList.toggle("hidden",type !== "tiles");
+        if (codeView && type !== "code") codeView.hide();
 
         if (type === "icons"){
             if (!windowContainer) generateWindows();
@@ -242,6 +262,11 @@ var EditPanel = function(parent,type){
             if (!tileContainer) generateTiles();
             tileContainer.classList.remove("hidden");
             updateTiles();
+        }
+
+        if (type === "code"){
+            if (!codeView) codeView = CodeView(panel);
+            codeView.show();
         }
 
         EventBus.trigger(EVENT.previewModeChanged,type);
@@ -316,9 +341,13 @@ var EditPanel = function(parent,type){
         let b1 = $div("button info editor active","E",viewPanel,()=>{me.setView('editor')});
         let b2 = $div("button info icons","I",viewPanel,()=>{me.setView('icons')});
         let b3 = $div("button info tiles","T",viewPanel,()=>{me.setView('tiles')});
+        // "View as code" is only meaningful for a vector layer, so it is hidden until one is active
+        // (see refreshCodeButton below). Innerhtml is escaped so the "<>" label renders as text.
+        let b4 = $div("button info code hidden","&lt;&gt;",viewPanel,()=>{me.setView('code')});
         b1.info = "View in editor";
         b2.info = "Preview as icon";
         b3.info = "Preview as tile";
+        b4.info = "View as code";
 
         $div("button right","x",toolbar,()=>{
             EventBus.trigger(COMMAND.SPLITSCREEN);
@@ -328,7 +357,18 @@ var EditPanel = function(parent,type){
             b1.classList.toggle("active",mode === "editor");
             b2.classList.toggle("active",mode === "icons");
             b3.classList.toggle("active",mode === "tiles");
+            b4.classList.toggle("active",mode === "code");
         });
+
+        function refreshCodeButton(){
+            let vec = isVector(ImageFile.getActiveLayer());
+            b4.classList.toggle("hidden",!vec);
+            // Leaving the code view stranded on a non-vector layer would show empty text, so fall
+            // back to the editor when the active layer stops being a vector layer.
+            if (!vec && currentView === "code") me.setView("editor");
+        }
+        EventBus.on(EVENT.layersChanged,refreshCodeButton);
+        refreshCodeButton();
     }
 
     function generateWindows(){

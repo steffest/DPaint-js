@@ -2,6 +2,7 @@ import {$div,$link} from "../util/dom.js";
 import {COMMAND, EVENT, SETTING} from "../enum.js";
 import EventBus from "../util/eventbus.js";
 import UserSettings from "../userSettings.js";
+import ImageFile from "../image.js";
 
 let Menu = function(){
     let me = {}
@@ -10,6 +11,8 @@ let Menu = function(){
     let isMenuActive;
     let isMac = navigator.platform.toUpperCase().indexOf('MAC')>=0;
     let refs = {};
+    let groupDisabledItems = [];
+    let notInGroupDisabledItems = [];
     let panelSubMenu;   // the View ▸ Panels submenu container (populated by PanelManager)
 
     let items=[
@@ -58,21 +61,26 @@ let Menu = function(){
                 {label: "Color Picker",command: COMMAND.COLORPICKER,shortKey: "K"}
             ]},
         {label: "Layer", items:[
-                {label: "New",command: COMMAND.NEWLAYER},
-                {label: "New Group",command: COMMAND.NEWGROUP},
+                {label: "New", items:[
+                        {label: "Pixel layer",command: COMMAND.NEWLAYER},
+                        {label: "Vector Layer",command: COMMAND.NEWVECTORLAYER},
+                        {label: "Bone Layer",command: COMMAND.NEWBONELAYER},
+                        {label: "Group",command: COMMAND.NEWGROUP},
+                    ]},
                 {label: "Transform",items:[
                         {label: "Free Transform",command: COMMAND.TRANSFORMLAYER,shortKey: "T / V"},
-                        {label: "Flip Horizontal",command: COMMAND.FLIPHORIZONTAL},
-                        {label: "Flip Vertical",command: COMMAND.FLIPVERTICAL}
+                        {label: "Mesh Warp",command: COMMAND.MESHWARP,groupDisabled: true},
+                        {label: "Flip Horizontal",command: COMMAND.FLIPHORIZONTAL,groupDisabled: true},
+                        {label: "Flip Vertical",command: COMMAND.FLIPVERTICAL,groupDisabled: true}
                     ]},
                 {label: "Duplicate",command: COMMAND.DUPLICATELAYER,shortKey: "meta+D"},
-                {label: "Effects",command: COMMAND.EFFECTS,shortKey: "meta+E"},
+                {label: "Effects",groupDisabled: true,command: COMMAND.EFFECTS,shortKey: "meta+E"},
                 {label: "Move Up",command: COMMAND.LAYERUP},
                 {label: "Move Down",command: COMMAND.LAYERDOWN},
                 {label: "Merge Down",command: COMMAND.MERGEDOWN, shortKey: "meta+Shift+↓"},
-                {label: "Ungroup",command: COMMAND.UNGROUP},
-                {label: "Merge Group",command: COMMAND.MERGEGROUP},
-                {label: "Add Mask",items:[
+                {label: "Ungroup",notInGroupDisabled: true,command: COMMAND.UNGROUP},
+                {label: "Merge Group",notInGroupDisabled: true,command: COMMAND.MERGEGROUP},
+                {label: "Add Mask",groupDisabled: true,items:[
                         {label: "Show All",command: COMMAND.LAYERMASK, shortKey: "meta+Shift+A"},
                         {label: "Hide All",command: COMMAND.LAYERMASKHIDE, shortKey: "meta+Shift+H"},
                     ]},
@@ -178,6 +186,16 @@ let Menu = function(){
         });
     }
 
+    function updateGroupState(){
+        let active = ImageFile.getActiveLayer ? ImageFile.getActiveLayer() : undefined;
+        let path = ImageFile.getActiveLayerPath ? ImageFile.getActiveLayerPath() : [];
+        let isGroup = !!(active && active.type === "group");
+        let inGroup = isGroup || (Array.isArray(path) && path.length > 1);
+
+        groupDisabledItems.forEach(el => el.classList.toggle("disabled", isGroup));
+        notInGroupDisabledItems.forEach(el => el.classList.toggle("disabled", !inGroup));
+    }
+
     me.activateMenu = function(index){
         if(typeof activeMenu === "number" && activeMenu !== index) me.deActivateMenu(activeMenu);
 
@@ -187,6 +205,7 @@ let Menu = function(){
             if (item.element.classList.contains("active")){
                 activeMenu=index;
                 isMenuActive=true;
+                updateGroupState();
             }else{
                 isMenuActive=false;
             }
@@ -212,6 +231,7 @@ let Menu = function(){
     function buildMenuItem(item,parent){
         if (!item) return;
         let menuItem = $link("handle",item.label,parent,(e) =>{
+            if (menuItem.classList.contains("disabled")) return;
             if (item.command){
                 EventBus.trigger(item.command);
                 me.deActivateMenu();
@@ -221,6 +241,12 @@ let Menu = function(){
                 item.action();
             }
         });
+        if (item.groupDisabled){
+            groupDisabledItems.push(menuItem);
+        }
+        if (item.notInGroupDisabled){
+            notInGroupDisabledItems.push(menuItem);
+        }
         if (item.items){
             menuItem.classList.add("caret");
             menuItem.classList.add("menuitem");
@@ -309,6 +335,10 @@ let Menu = function(){
         setTimeout(()=>{
             if (refs[COMMAND.TOGGLESIDEPANEL]) refs[COMMAND.TOGGLESIDEPANEL].classList.toggle("checked",UserSettings.get("sidepanel"));
         },50)
+    });
+
+    EventBus.on(EVENT.layersChanged,()=>{
+        updateGroupState();
     });
 
     return me;

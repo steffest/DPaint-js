@@ -10,6 +10,7 @@ import {duplicateCanvas, releaseCanvas} from "../util/canvasUtils.js";
 import ImageProcessing from "../util/imageProcessing.js";
 import Modal from "./modal.js";
 import BrushPanel from "./toolPanels/brushPanel.js";
+import {isVector} from "../util/layerUtils.js";
 
 /*
 Brush Types:
@@ -176,6 +177,20 @@ var Brush = function(){
 
     let currentBrush =  Object.assign({},presets[0]);
 
+    // Selecting a brush also activates the tool that paints with it: on a vector layer that's the
+    // freehand Blob tool (the brush shape/size drive the blob outline); on a pixel layer it's Draw
+    // (unless Erase — which also uses the brush — is already active).
+    function activateBrushTool(){
+        if (isVector(ImageFile.getActiveLayer())){
+            EventBus.trigger(COMMAND.VECTORBLOB);
+            return;
+        }
+        let currentTool = Editor.getCurrentTool();
+        if (!(currentTool === COMMAND.DRAW || currentTool === COMMAND.ERASE)){
+            EventBus.trigger(COMMAND.DRAW);
+        }
+    }
+
 
     var brushCanvas = document.createElement("canvas");
     var brushBackCanvas = document.createElement("canvas");
@@ -189,11 +204,7 @@ var Brush = function(){
         for (var i = 0; i<10;i++){
             let b = $div("brush","",container,(e)=>{
                 let index = e.target.index || 0;
-                me.set("preset",index);
-                let currentTool = Editor.getCurrentTool();
-                if (!(currentTool === COMMAND.DRAW || currentTool === COMMAND.ERASE)){
-                    EventBus.trigger(COMMAND.DRAW);
-                }
+                me.set("preset",index); // me.set activates the right tool (Draw / Blob) for the active layer
             })
             let x = -(i % 5)*11 + "px";
             let y = (Math.floor(i / 5) * -11) + "px";
@@ -220,10 +231,7 @@ var Brush = function(){
     me.set = function(type,data){
         if (type === "preset" && typeof(data) === "number") {
 
-            let currentTool = Editor.getCurrentTool();
-            if (!(currentTool === COMMAND.DRAW || currentTool === COMMAND.ERASE)){
-                EventBus.trigger(COMMAND.DRAW);
-            }
+            activateBrushTool();
 
             if (data<10){
                 // these are the fixed presets from the toolbar
@@ -302,6 +310,17 @@ var Brush = function(){
         }
         currentBrush.width = w;
         currentBrush.height = h || w;
+        brushAlphaLayer = undefined;
+        generateBrush();
+        EventBus.trigger(EVENT.brushOptionsChanged);
+    }
+
+    // Switch the current brush between the two solid geometric shapes (used by the vector Blob
+    // option-bar toggle). Only "square"/"circle" are meaningful here; other types are left untouched.
+    me.setType = function(type){
+        if (type !== "square" && type !== "circle") return;
+        if (currentBrush.type === type) return;
+        currentBrush.type = type;
         brushAlphaLayer = undefined;
         generateBrush();
         EventBus.trigger(EVENT.brushOptionsChanged);
