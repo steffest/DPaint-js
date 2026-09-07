@@ -2,6 +2,8 @@ import EventBus from "../util/eventbus.js";
 import {COMMAND, EVENT} from "../enum.js";
 import ImageFile from "../image.js";
 import {duplicateCanvas} from "../util/canvasUtils.js";
+import {cloneVector} from "../util/vectorUtils.js";
+import {createPatchRecorder, applyPatches} from "../util/tilePatch.js";
 
 let HistoryService = function(){
     let me = {};
@@ -10,12 +12,30 @@ let HistoryService = function(){
     let history = [];
     let future = [];
     let currentHistory;
+    let enabled = true;
 
     // TODO: maybe add a "framehistory" type to store the current frame instead of the whole image?
 
+    me.setEnabled = function(state){
+        enabled = !!state;
+        if (!enabled) currentHistory = undefined;
+    }
+
+    // True while a start()/end() pair is open. Lets callers that would otherwise record a
+    // single-shot add() defer to the surrounding step (e.g. one entry per drag gesture
+    // instead of one per pointer move).
+    me.isRecording = function(){
+        return !!currentHistory;
+    }
+
     me.start = function(type,data){
+        if (!enabled) return;
         console.log("start his");
         currentHistory={type,data:{}};
+        // Which cel this step belongs to. The playhead (and the active track) may move before
+        // undo runs, so a layer step must not resolve its layer through "whatever is active
+        // now" — see ImageFile.getLayerInTarget (spec 004 design 3.9).
+        currentHistory.data.target = ImageFile.getHistoryTarget();
         let index = ImageFile.getActiveLayerIndex();
         // data may be a flat layer index (number) or a path array (number[]) pointing
         // into nested groups. Honour either so property history targets the right node.
@@ -24,7 +44,22 @@ let HistoryService = function(){
         switch (type){
             case EVENT.layerContentHistory:
                 currentHistory.data.layerIndex = index;
-                currentHistory.data.from = duplicateCanvas(ImageFile.getActiveContext().canvas,true);
+                // Spec 016 phase 5: instead of storing two full copies of the layer (a "from"
+                // and a "to" canvas), record only the 128×128 tiles that actually change.
+                // Capture the whole active layer's before-image now, split into tiles; end()
+                // reads it again and keeps just the tiles that differ. readRegion re-fetches the
+                // active context each call so a tool that swaps the layer canvas mid-step still
+                // diffs the right pixels.
+                {
+                    let startCtx = ImageFile.getActiveContext();
+                    let w = startCtx.canvas.width, h = startCtx.canvas.height;
+                    let recorder = createPatchRecorder({
+                        width: w, height: h,
+                        readRegion: (x,y,rw,rh)=> ImageFile.getActiveContext().getImageData(x,y,rw,rh).data
+                    });
+                    recorder.beforeWrite({x:0,y:0,width:w,height:h});
+                    currentHistory.data.recorder = recorder;
+                }
                 break;
             case EVENT.layerPropertyHistory:
                 currentHistory.data.layerIndex = index;
@@ -40,6 +75,24 @@ let HistoryService = function(){
                 // and it doesn't hold the current layer so future undo actions wont work ...
                 // FIXME
                 break;
+            case EVENT.vectorHistory:
+                // Fine-grained vector-layer step (spec 015): capture ONLY the edited layer's geometry
+                // (+ its timeline pose overlays when animating), not the whole document. `data` is the
+                // active layer PATH so a grouped vector layer resolves correctly; the target cel lets
+                // undo find the right layer after the playhead moved.
+                currentHistory.data.layerIndex = index;
+                currentHistory.data.from = captureVectorSnapshot(currentHistory.data.target, index);
+                break;
+            case EVENT.timelineHistory:
+                // Track/key STRUCTURE only. Content-key cels are captured by reference, so
+                // this is cheap: key and track operations never touch pixels, and a cel that
+                // a step removes stays alive through the snapshot and returns on undo.
+                currentHistory.data.from = ImageFile.cloneTimelineStructure();
+                break;
+            case EVENT.keyPropsHistory:
+                // One x/y/opacity edit on one layer, targeted at the key that owns it.
+                currentHistory.data.from = ImageFile.getKeyPropsTarget(index);
+                break;
             default:
                 console.error("History type " + type + " not handled");
         }
@@ -50,16 +103,35 @@ let HistoryService = function(){
             console.log("end his");
             switch (currentHistory.type){
                 case EVENT.layerContentHistory:
-                    currentHistory.data.to = duplicateCanvas(ImageFile.getActiveContext().canvas,true)
+                    if (currentHistory.data.recorder){
+                        // Diff against the before-image and keep only the changed tiles.
+                        let result = currentHistory.data.recorder.captureAfter();
+                        currentHistory.data.patches = result.patches;
+                        currentHistory.data.recorder = undefined;
+                    } else {
+                        // Fallback: no recorder was set up (should not happen for a start()/end()
+                        // pair) — keep the old full-canvas snapshot so undo still works.
+                        currentHistory.data.to = duplicateCanvas(ImageFile.getActiveContext().canvas,true);
+                    }
                     break;
                 case EVENT.layerPropertyHistory:
                     currentHistory.data.to = getLayerProperties(currentHistory.data.layerIndex);
                     break;
                 case EVENT.layerHistory:
-                    currentHistory.data.to = ImageFile.getLayer(currentHistory.data.layerIndex).clone();
+                    currentHistory.data.to = ImageFile
+                        .getLayerInTarget(currentHistory.data.target,currentHistory.data.layerIndex).clone();
                     break;
                 case EVENT.imageHistory:
                     currentHistory.data.to = ImageFile.clone();
+                    break;
+                case EVENT.vectorHistory:
+                    currentHistory.data.to = captureVectorSnapshot(currentHistory.data.target, currentHistory.data.layerIndex);
+                    break;
+                case EVENT.timelineHistory:
+                    currentHistory.data.to = ImageFile.cloneTimelineStructure();
+                    break;
+                case EVENT.keyPropsHistory:
+                    currentHistory.data.to = ImageFile.getKeyPropsTarget(currentHistory.data.layerIndex);
                     break;
             }
 
@@ -76,6 +148,7 @@ let HistoryService = function(){
     }
 
     me.add = function(type,from,to,layerIndex){
+        if (!enabled) return;
         let data = {from,to};
         if (layerIndex !== undefined) data.layerIndex = layerIndex;
         history.unshift({type,data});
@@ -87,6 +160,45 @@ let HistoryService = function(){
     me.clear = function(){
         history = [];
         future = [];
+    }
+
+    // ── vector-layer history (spec 015) ─────────────────────────────────────────────────
+    // A vector gesture only ever changes one layer's geometry (`layer.vector`) and — when editing on
+    // a timeline property key — that layer's pose overlays (`nodes`/`curves`). Snapshot just those,
+    // resolved through the step's target cel so undo hits the right layer after the playhead moved.
+    // `cloneVector` copies only the node/edge/region maps (no canvases); the overlay clone covers a
+    // single layer's active-track property keys — both far cheaper than an `ImageFile.clone()`.
+    function captureVectorSnapshot(target, ref){
+        let layer = ImageFile.getLayerInTarget(target, ref);
+        if (!layer) return null;
+        return {
+            vector: layer.vector ? cloneVector(layer.vector) : null,
+            overlay: ImageFile.cloneVectorOverlayState ? ImageFile.cloneVectorOverlayState(layer) : null
+        };
+    }
+    function applyVectorSnapshot(target, ref, snap){
+        if (!snap) return;
+        let layer = ImageFile.getLayerInTarget(target, ref);
+        if (layer && snap.vector){
+            // clone the stored snapshot into the layer so a later edit can't mutate the history entry
+            layer.vector = cloneVector(snap.vector);
+            layer.vectorDirty = true;
+            layer.vectorRasterized = false;
+            if (layer.markVectorDirty) layer.markVectorDirty();
+        }
+        if (snap.overlay && ImageFile.restoreVectorOverlayState) ImageFile.restoreVectorOverlayState(snap.overlay);
+        EventBus.trigger(EVENT.vectorChanged);
+        EventBus.trigger(EVENT.layerContentChanged);
+    }
+
+    // Spec 016 phase 5: put changed tiles back onto a layer. direction "undo" writes each
+    // tile's before-image, "redo" writes its after-image. Only the tiles a step actually
+    // touched are written; every other pixel is left as-is (it did not change in this step).
+    function applyRasterPatches(layer, patches, direction){
+        let ctx = layer.getContext();
+        applyPatches(patches, direction, (x,y,w,h,buf)=>{
+            ctx.putImageData(new ImageData(new Uint8ClampedArray(buf), w, h), x, y);
+        });
     }
 
     function getLayerProperties(index){
@@ -107,14 +219,22 @@ let HistoryService = function(){
             let target;
             switch (historyStep.type){
                 case EVENT.layerContentHistory:
-                    layer = ImageFile.getLayer(historyStep.data.layerIndex);
-                    layer.clear();
-                    layer.drawImage(historyStep.data.from);
+                    layer = ImageFile.getLayerInTarget(historyStep.data.target,historyStep.data.layerIndex);
+                    if (!layer) break;
+                    if (historyStep.data.patches){
+                        applyRasterPatches(layer, historyStep.data.patches, "undo");
+                    } else {
+                        layer.clear();
+                        layer.drawImage(historyStep.data.from);
+                    }
                     EventBus.trigger(EVENT.layerContentChanged);
                     break;
                 case EVENT.imageHistory:
                     ImageFile.restore(historyStep.data.from);
                     EventBus.trigger(COMMAND.CLEARSELECTION);
+                    break;
+                case EVENT.vectorHistory:
+                    applyVectorSnapshot(historyStep.data.target, historyStep.data.layerIndex, historyStep.data.from);
                     break;
                 case EVENT.layerPropertyHistory:
                     target = historyStep.data.from;
@@ -133,10 +253,17 @@ let HistoryService = function(){
                     EventBus.trigger(EVENT.layersChanged);
                     break;
                 case EVENT.layerHistory:
-                    layer = ImageFile.getLayer(historyStep.data.layerIndex);
+                    layer = ImageFile.getLayerInTarget(historyStep.data.target,historyStep.data.layerIndex);
+                    if (!layer) break;
                     layer.restore(historyStep.data.from);
                     EventBus.trigger(EVENT.layerContentChanged);
                     EventBus.trigger(EVENT.layersChanged);
+                    break;
+                case EVENT.timelineHistory:
+                    ImageFile.restoreTimelineStructure(historyStep.data.from);
+                    break;
+                case EVENT.keyPropsHistory:
+                    ImageFile.applyKeyProps(historyStep.data.from);
                     break;
                 default:
                     console.error("History type " + historyStep.type + " not handled");
@@ -158,14 +285,24 @@ let HistoryService = function(){
             //console.log(historyStep);
             switch (historyStep.type){
                 case EVENT.layerContentHistory:
-                    layer = (historyStep.data.layerIndex !== undefined ? ImageFile.getLayer(historyStep.data.layerIndex) : undefined) || ImageFile.getActiveLayer();
-                    layer.clear();
-                    layer.drawImage(historyStep.data.to);
+                    layer = (historyStep.data.layerIndex !== undefined
+                        ? ImageFile.getLayerInTarget(historyStep.data.target,historyStep.data.layerIndex)
+                        : undefined) || ImageFile.getActiveLayer();
+                    if (!layer) break;
+                    if (historyStep.data.patches){
+                        applyRasterPatches(layer, historyStep.data.patches, "redo");
+                    } else {
+                        layer.clear();
+                        layer.drawImage(historyStep.data.to);
+                    }
                     EventBus.trigger(EVENT.layerContentChanged);
                     break;
                 case EVENT.imageHistory:
                     ImageFile.restore(historyStep.data.to);
                     EventBus.trigger(COMMAND.CLEARSELECTION);
+                    break;
+                case EVENT.vectorHistory:
+                    applyVectorSnapshot(historyStep.data.target, historyStep.data.layerIndex, historyStep.data.to);
                     break;
                 case EVENT.layerPropertyHistory:
                     target = historyStep.data.to;
@@ -182,10 +319,17 @@ let HistoryService = function(){
                     EventBus.trigger(EVENT.layersChanged);
                     break;
                 case EVENT.layerHistory:
-                    layer = ImageFile.getLayer(historyStep.data.layerIndex);
+                    layer = ImageFile.getLayerInTarget(historyStep.data.target,historyStep.data.layerIndex);
+                    if (!layer) break;
                     layer.restore(historyStep.data.to);
                     EventBus.trigger(EVENT.layerContentChanged);
                     EventBus.trigger(EVENT.layersChanged);
+                    break;
+                case EVENT.timelineHistory:
+                    ImageFile.restoreTimelineStructure(historyStep.data.to);
+                    break;
+                case EVENT.keyPropsHistory:
+                    ImageFile.applyKeyProps(historyStep.data.to);
                     break;
                 default:
                     console.error("History type " + historyStep.type + " not handled");

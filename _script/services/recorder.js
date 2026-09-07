@@ -4,6 +4,7 @@ import ImageFile from "../image.js";
 import Palette from "../ui/palette.js";
 import {runWebGLQuantizer} from "../util/webgl-quantizer.js";
 import UserSettings from "../userSettings.js";
+import {compositeNodes} from "../util/layerUtils.js";
 
 let Recorder = (()=>{
     let me = {};
@@ -179,17 +180,10 @@ let Recorder = (()=>{
                     canvas.height = currentFile.height;
                     let ctx = canvas.getContext("2d");
 
-                    frame.layers.forEach((layer) => {
-                        if (layer.visible && layer.name.indexOf("_") !== 0) {
-                            ctx.globalAlpha = layer.opacity / 100;
-                            let blendMode = layer.blendMode || "normal";
-                            if (blendMode === "normal") blendMode = "source-over";
-                            ctx.globalCompositeOperation = blendMode;
-                            ctx.drawImage(layer.render(), 0, 0);
-                            ctx.globalAlpha = 1;
-                            ctx.globalCompositeOperation = "source-over";
-                        }
-                    });
+                    // Composite through the shared helper so per-layer offsets and the
+                    // resolved timeline overlay apply exactly as they do in getCanvas().
+                    let visible = frame.layers.filter(layer=>layer.visible && layer.name.indexOf("_") !== 0);
+                    compositeNodes(visible, ctx, ImageFile.getResolvedProps());
                     return canvas;
                 }
             }

@@ -25,9 +25,8 @@ let ClientApi = (()=>{
             }
 
             function getActiveFrame() {
-                const file = getCurrentFile();
-                // You'll want to track activeFrameIndex in your state; for now assume 0
-                return file?.frames?.[0];
+                // The "frame" is the governing cel of the active track at the playhead.
+                return window.ImageFile?.getActiveFrame?.();
             }
 
             function getActiveLayer() {
@@ -263,7 +262,7 @@ let ClientApi = (()=>{
                 getInfo() {
                     const f = getCurrentFile();
                     return { name: f?.name, width: f?.width, height: f?.height,
-                        frameCount: f?.frames?.length, layerCount: layers.getCount() };
+                        frameCount: window.ImageFile?.getFrameCount?.(), layerCount: layers.getCount() };
                 }
             };
 
@@ -271,8 +270,9 @@ let ClientApi = (()=>{
             // ─── 8. FRAMES / ANIMATION ───────────────────────────────────────────
 
             const frames = {
-                getAll() { return getCurrentFile()?.frames ?? []; },
-                getCount() { return this.getAll().length;  },
+                // Baked canvases, one per timeline frame (tweens included).
+                getAll() { return window.ImageFile?.getBakedFrames?.() ?? []; },
+                getCount() { return window.ImageFile?.getFrameCount?.() ?? 0;  },
 
                 setFPS(value) {
                     const inp = document.querySelector('.rangeselectinline input[type=range]');
