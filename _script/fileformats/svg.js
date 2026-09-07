@@ -202,12 +202,18 @@ let SVG = function(){
     // point. All closed subpaths of a filled element become a single compound region (first loop =
     // boundary, the rest = holes) rendered under the element's fill-rule — so an evenodd path's
     // inner subpaths cut holes instead of each filling solid. Strokes stay per-edge.
+    //
+    // A filled element implicitly closes each subpath for fill purposes (SVG fill spec), even
+    // without an explicit Z — so a path whose subpaths return to their start but omit Z (e.g. many
+    // exported icons) still fills. Stroking does NOT implicitly close, so an implicit fill-close
+    // edge is added without a stroke; only an explicit Z carries the stroke around it.
     function emitSubpaths(v, subpaths, matrix, paint){
         let scale = Math.sqrt(Math.abs(matrix[0]*matrix[3] - matrix[1]*matrix[2])) || 1;
         let stroke = paint.stroke ? {color: paint.stroke, width: (paint.strokeWidth || 1) * scale, smooth: false} : null;
         let loops = [];
         subpaths.forEach(sp=>{
             if (!sp.segs.length) return;
+            let fillClose = sp.closed || !!paint.fill;   // treat as a closed loop for fill
             let startP = apply(matrix, sp.start);
             let firstNode = addNode(v, startP.x, startP.y);
             let prevNode = firstNode;
@@ -215,17 +221,17 @@ let SVG = function(){
             sp.segs.forEach((seg, i)=>{
                 let toP = apply(matrix, seg.to);
                 let last = i === sp.segs.length - 1;
-                let closesToStart = sp.closed && last && dist(toP, startP) < 1e-6;
+                let closesToStart = fillClose && last && dist(toP, startP) < 1e-6;
                 let toNode = closesToStart ? firstNode : addNode(v, toP.x, toP.y);
                 let opts = {stroke: stroke};
                 if (seg.type === "C") opts.curve = {h1: apply(matrix, seg.c1), h2: apply(matrix, seg.c2)};
                 edgeIds.push(addEdge(v, prevNode.id, toNode.id, opts).id);
                 prevNode = toNode;
             });
-            if (sp.closed && prevNode.id !== firstNode.id){
-                edgeIds.push(addEdge(v, prevNode.id, firstNode.id, {stroke: stroke}).id);
+            if (fillClose && prevNode.id !== firstNode.id){
+                edgeIds.push(addEdge(v, prevNode.id, firstNode.id, {stroke: sp.closed ? stroke : null}).id);
             }
-            if (sp.closed && edgeIds.length >= 2) loops.push(edgeIds);
+            if (fillClose && edgeIds.length >= 2) loops.push(edgeIds);
         });
         if (paint.fill && loops.length){
             let id = newRegionId(v);
