@@ -15,6 +15,11 @@ const copyStaticPlugin = () => {
 export default defineConfig({
     base: "./",
     plugins: [copyStaticPlugin()],
+    // The filter worker (workers/filter.js) imports Effects, which dynamically imports its
+    // pixel fallback. Code-splitting a worker is only allowed with the ES module output format.
+    worker: {
+        format: 'es',
+    },
     build: {
         outDir: './dist',
         assetsDir: '',

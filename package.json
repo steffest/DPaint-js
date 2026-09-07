@@ -17,6 +17,11 @@
     "devDependencies": {
         "@playwright/test": "^1.58.2",
         "playwright": "^1.58.2",
+        "playwright-core": "^1.58.2",
         "vite": "^7.3.1"
+    },
+    "dependencies": {
+        "mp4-muxer": "^5.2.2",
+        "webm-muxer": "^5.1.4"
     }
 }

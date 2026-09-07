@@ -1,0 +1,32 @@
+<h2>Supported File Formats</h2>
+<p>
+    DPaint.js reads and writes to a bunch of common graphical file formats.
+</p>
+
+<h3>PNG</h3>
+<div>
+    Both 24-bit as 8-bit indexed PNGs are supported.<br>
+    Animated PNG is not supported, so when saving to PNG, only the current frame is saved.<br>
+    PNG files don't support layers, so the image is flattened before save.<br>
+    Transparency is supported, but how it's stored depends on the PNG type:
+    <ul>
+    <li>
+        <em>24-bit PNGs</em> retain full alpha transparency.<br><br>
+    </li>
+    <li>
+        <em>8-bit indexed PNGs</em> only support on/off (binary) transparency, not partial alpha:
+        fully transparent pixels are saved as transparent, everything else becomes opaque
+        (soft/anti-aliased edges are flattened).<br>
+        When transparency is present, how it's stored depends on the palette size:
+
+        <ul>
+            <li><b>&lt; 256 colors:</b> a dedicated transparent palette entry is added, so no image colors are affected.</li>
+            <li><b>= 256 colors (full palette):</b> there's no room for a new entry, so a palette index that no opaque pixel uses is reused for transparency. If every one of the 256 colors is used by an opaque pixel, transparency and that last color can't both be kept and the background color index is reused as a fallback.</li>
+        </ul>
+        With the <b>Optimize</b> palette option (the default), the palette is rebuilt from the colors actually used in the image on save, so a true-color image keeps its colors. Choose <b>Current</b> to write with the existing palette instead.
+
+    </li>
+</ul>
+
+</div>
+

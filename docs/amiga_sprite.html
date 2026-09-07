@@ -1,0 +1,196 @@
+<h2>Amiga Sprite</h2>
+<p>
+    DPaint.js can export images as Amiga hardware sprites.<br>
+    A hardware sprite is a small image the Amiga custom chips draw on top of the playfield, without any CPU work.
+    It is always <b>16 pixels wide</b> and uses <b>2 bitplanes</b>, which gives 4 color indices:
+    index 0 is transparent, indices 1, 2 and 3 are the sprite colors.
+</p>
+<p>
+    Pick <em>Amiga Sprite</em> in the Save dialog. The <em>Output</em> option decides what gets written:
+</p>
+<ul>
+    <li><b>Show code</b>: C source for one sprite, generated from the current frame. The result is shown in a dialog so you can copy/paste it into your project.</li>
+    <li><b>Binary file</b>: a Sprite Bank file (<code>.spr</code>) that contains one sprite per animation frame, ready to be loaded straight into CHIP RAM.</li>
+</ul>
+
+<h3>Requirements</h3>
+<ul>
+    <li>The image must be 16 pixels wide (narrower images are padded to the right).</li>
+    <li>Maximum height is 320 lines.</li>
+    <li>Maximum 4 colors, and they must be the <b>first 4 colors of the palette</b>: a sprite carries no palette of its own, its pixels are just indices 0-3. Colors outside those 4 entries are reported as an error instead of being silently dropped.</li>
+    <li>Transparent pixels become index 0.</li>
+</ul>
+<p>
+    If your palette has exactly 3 colors, DPaint.js adds the transparent entry in front of it, so the 3 colors become sprite colors 1, 2 and 3.
+</p>
+<p>
+    The hardware can also pair two sprites into a single 16 color one, see <em>Attached sprites</em> at the bottom of this page.
+</p>
+
+<h3>Show code</h3>
+<p>
+    The generated array is the exact memory layout the hardware expects: two control words, then two data words per line
+    (one for each bitplane), then two termination words.
+</p>
+<div class="box">
+<pre class="code">static UWORD __chip sprite[] = {
+  0x0000, 0x0000,
+  0x8000, 0x0000,
+  0xc000, 0x4000,
+  ...
+  0x0000, 0x0000
+};</pre>
+</div>
+<p>
+    The first two words hold the vertical start/stop position and are left at zero: fill them in at runtime
+    (usually through a <code>sprite_setPosition()</code> style helper) before handing the pointer to the copper.
+</p>
+
+<h3>Sprite Bank file format (.spr)</h3>
+<p>
+    The Sprite Bank stores several sprites in one file. The layout matches the memory layout the Amiga hardware needs,
+    so loading is a plain file read into CHIP RAM: no parsing, no relocation, no conversion.
+</p>
+<ul>
+    <li><b>Extension</b>: <code>.spr</code></li>
+    <li><b>Endianness</b>: big-endian (Motorola 68000)</li>
+    <li><b>Alignment</b>: everything is 16-bit word aligned</li>
+</ul>
+
+<h4>Header</h4>
+<p>The header size depends on the number of sprites.</p>
+<div class="box">
+<pre class="code">UWORD magic          <span class="string">/* 0x5350, ASCII "SP" */</span>
+UWORD numSprites     <span class="string">/* number of sprites in this bank */</span>
+ULONG offsets[numSprites]  <span class="string">/* byte offset of each sprite, from the start of the file */</span></pre>
+</div>
+<p>
+    The offsets are 32-bit, so a bank is not limited to 64KB. DPaint.js writes one sprite per animation frame,
+    in frame order, so <code>offsets[0]</code> is frame 1.
+</p>
+
+<h4>Sprite data block</h4>
+<p>Every sprite is stored as a ready-to-use hardware sprite:</p>
+<div class="box">
+<pre class="code">UWORD vstart_vstop_1   <span class="string">/* 0x0000, placeholder, overwritten when positioning the sprite */</span>
+UWORD vstart_vstop_2   <span class="string">/* 0x0000, placeholder */</span>
+UWORD data[height * 2] <span class="string">/* per line: bitplane 0 word, then bitplane 1 word */</span>
+UWORD end_1            <span class="string">/* 0x0000, hardware termination */</span>
+UWORD end_2            <span class="string">/* 0x0000, hardware termination */</span></pre>
+</div>
+<p>
+    Total size of one sprite is <code>2 + (height * 2) + 2</code> words. All sprites in a bank written by DPaint.js
+    have the same height (the image height), but the offset table means a reader never has to assume that.
+</p>
+
+<h4>Example: a 3 line sprite bank with 2 sprites</h4>
+<div class="box">
+<pre class="code">offset  bytes        meaning
+0000    53 50        magic "SP"
+0002    00 02        2 sprites
+0004    00 00 00 0C  sprite 0 starts at byte 12
+0008    00 00 00 1A  sprite 1 starts at byte 26
+000C    00 00 00 00  sprite 0: control words
+0010    80 00 00 00  line 0: plane 0 = 0x8000, plane 1 = 0x0000
+0014    40 00 C0 00  line 1
+0018    00 00 00 00  line 2
+001C    00 00 00 00  sprite 0: termination
+...</pre>
+</div>
+
+<h3>Reading a sprite bank on the Amiga</h3>
+<p>
+    Because the file needs no parsing, loading it is just a read into CHIP RAM plus a check on the magic number.
+</p>
+<div class="box">
+<pre class="code">struct SpriteBank {
+    UWORD magic;
+    UWORD numSprites;
+    <span class="string">/* ULONG offsets[] follows immediately */</span>
+};
+
+UWORD *getSpriteData(struct SpriteBank *bank, UWORD spriteIndex) {
+    ULONG *offsets;
+    if (!bank || bank->magic != 0x5350 || spriteIndex >= bank->numSprites) return 0;
+    offsets = (ULONG *)((UBYTE *)bank + sizeof(struct SpriteBank));
+    return (UWORD *)((UBYTE *)bank + offsets[spriteIndex]);
+}</pre>
+</div>
+<p>
+    The returned pointer can be used directly as a sprite pointer: set its position, point the copper at it, done.
+    Since each sprite is addressed through the offset table, sprites do not have to sit in fixed size blocks
+    and variable height sprites work without any extra bookkeeping.
+</p>
+
+<h3>Attached sprites (16 colors)</h3>
+<div class="warning">
+    DPaint.js does not export attached sprites yet: the exporter always writes 2 bitplane, 4 color sprites.
+    This section describes what the hardware does, so the format can grow into it later.
+</div>
+<p>
+    The 8 hardware sprites are wired together in fixed pairs: <b>0+1</b>, <b>2+3</b>, <b>4+5</b> and <b>6+7</b>.
+    Normally each pair shares one set of 3 colors plus transparent:
+</p>
+<table>
+    <tr><td class="top"><b>Sprite pair</b></td><td class="top"><b>Color registers used</b></td></tr>
+    <tr><td>0 and 1</td><td>17, 18, 19</td></tr>
+    <tr><td>2 and 3</td><td>21, 22, 23</td></tr>
+    <tr><td>4 and 5</td><td>25, 26, 27</td></tr>
+    <tr><td>6 and 7</td><td>29, 30, 31</td></tr>
+</table>
+<p>
+    Setting the <b>attach bit</b> on the odd sprite of a pair glues the two together into a single sprite that is
+    still 16 pixels wide, but now has <b>4 bitplanes</b> and therefore <b>16 color indices</b>. Index 0 stays
+    transparent, indices 1-15 map straight onto color registers 17-31, so an attached sprite has the whole
+    upper half of the palette to itself instead of 3 colors.
+</p>
+<p>
+    Attaching costs you a sprite: a pair that would otherwise draw two independent 4 color objects now draws one
+    16 color object. The DMA cost is the same either way.
+</p>
+
+<h4>Bitplane order</h4>
+<p>
+    The two sprites of the pair each supply 2 of the 4 bits per pixel:
+</p>
+<ul>
+    <li>the <b>even</b> sprite supplies bitplanes 0 and 1 (the low 2 bits of the color index)</li>
+    <li>the <b>odd</b> sprite supplies bitplanes 2 and 3 (the high 2 bits)</li>
+</ul>
+<p>
+    So a 16 color image is split over two completely normal sprite structures. Per line, the even sprite holds
+    <code>plane0, plane1</code> and the odd sprite holds <code>plane2, plane3</code> for the same 16 pixels:
+</p>
+<div class="box">
+<pre class="code">pixel color index (0-15)  =  bit3 bit2 bit1 bit0
+                              |    |    |    |
+       odd sprite, word 2  ---+    |    |    |
+       odd sprite, word 1  --------+    |    |
+      even sprite, word 2  -------------+    |
+      even sprite, word 1  ------------------+</pre>
+</div>
+
+<h4>The attach bit</h4>
+<p>
+    The attach bit lives in the second control word (<code>SPRxCTL</code>) of the <b>odd</b> sprite of the pair:
+    bit 7, so mask <code>0x0080</code>. Setting it on the even sprite has no effect. Both sprites must be given the
+    same vertical start/stop and the same horizontal position, otherwise the two halves drift apart and the result
+    is a mess of unrelated colors.
+</p>
+<div class="box">
+<pre class="code"><span class="string">/* both sprites of the pair get the same position ... */</span>
+sprite_setPosition(spriteEven, x, y, height);
+sprite_setPosition(spriteOdd,  x, y, height);
+
+<span class="string">/* ... and the odd one gets the attach bit in its second control word */</span>
+spriteOdd[1] |= 0x0080;</pre>
+</div>
+
+<h4>How this would fit the sprite bank</h4>
+<p>
+    Nothing in the <code>.spr</code> format blocks attached sprites: they are two ordinary sprite data blocks, so a
+    pair is simply two consecutive entries in the bank (even first, odd second) and the loader sets the attach bit
+    after loading. What is missing today is on the DPaint.js side: it would have to accept a 16 color, 16 pixel wide
+    image, split it into 4 bitplanes, and write planes 0-1 and planes 2-3 as two separate sprites - plus a way to
+    mark in the file which entries belong together.
+</p>
