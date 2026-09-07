@@ -97,6 +97,45 @@ body.hoverviewport{
       display: none;
     }
   }
+
+  // hovering a bone's shoulder line (the arrow's short edge) — drag to resize its action radius
+  &.cursor-boneradius{
+    cursor: move;
+  }
+
+  // Vector edit tool — keep the standard arrow pointer and float a small "action badge" next to it
+  // that reflects what the hovered target will do: move a point/shape, bend a line into a curve, or
+  // (with Ctrl) add a point on a line. The badge rides the .cursor element (positioned at the pointer
+  // by cursor.js on pointermove), mirroring how the selection tool shows its +/− badge. Glyphs live
+  // in _img/cursors/vector-*.svg. Draw sub-modes use the shared crosshair (cursor-draw) instead.
+  &.cursor-vector{
+    cursor: default;
+  }
+  &.cursor-vectormove,
+  &.cursor-vectoradd,
+  &.cursor-vectorcurve{
+    cursor: default;
+
+    .cursor{
+      display: block;
+      margin: 0;
+
+      &::after{
+        content: "";
+        position: absolute;
+        left: 14px;
+        top: 14px;
+        width: 16px;
+        height: 16px;
+        background-repeat: no-repeat;
+        background-position: center;
+        background-size: contain;
+      }
+    }
+  }
+  &.cursor-vectormove .cursor::after{ background-image: url("../_img/cursors/vector-move.svg"); }
+  &.cursor-vectoradd .cursor::after{ background-image: url("../_img/cursors/vector-add.svg"); }
+  &.cursor-vectorcurve .cursor::after{ background-image: url("../_img/cursors/vector-curve.svg"); }
 }
 
 /* cursors that also apply to main UI */

@@ -37,45 +37,6 @@
       left: 0;
       right: 0;
 
-      .frame{
-        width: 50px;
-        height: 50px;
-        border: 1px solid #626262;
-        margin: 1px;
-        position: absolute;
-        opacity: 0.8;
-
-        &:hover{
-          border: 1px solid white;
-          cursor: pointer;
-          opacity: 1;
-        }
-
-        .label{
-          position: absolute;
-          left: 0;
-          bottom: 0;
-          background-color: rgba(0, 0, 0, 0.5);
-          color: $menu-text-color;
-          font-size: 12px;
-          padding: 4px;
-        }
-
-        &.active{
-          box-shadow: 0 0 3px 1px rgba(255, 255, 255, 0.8);
-          opacity: 1;
-
-          .label{
-            color: #CCCCCC;
-            background-color: rgba(0, 0, 0, 0.7);
-          }
-        }
-
-        &.ghost{
-          opacity: 0.2;
-        }
-      }
-
       &.waiting{
         opacity: 0.7;
         pointer-events: none;
@@ -91,88 +52,6 @@
       font-weight: 100;
       padding: 2px;
       margin: 0;
-    }
-
-
-    &.frames{
-
-      .paneltools{
-        .frameselectinline{
-          display: flex;
-          width: 100%;
-
-          input[type="text"]{
-            padding: 0 4px;
-            width: 30px;
-            height: 19px;
-            margin-left: 4px;
-            margin-right: 2px;
-            font-size: 11px;
-          }
-        }
-
-        .framerange{
-          margin-left: 4px;
-          display: none;
-        }
-
-        .framecontrols{
-          display: none;
-          //position: absolute;
-          //left: 0;
-          //top: 25px;
-          //right: 0;
-
-          .rangeselectinline{
-            display: flex;
-            margin-left: 4px;
-            align-items: center;
-            width: 100%;
-
-            label{
-              opacity: 0.7;
-            }
-
-            input[type="text"]{
-              padding: 0 4px;
-              width: 30px;
-              height: 19px;
-              margin-left: 4px;
-              margin-right: 2px;
-              font-size: 11px;
-            }
-
-          }
-        }
-
-        &.multirow{
-          .framerange{
-            display: flex;
-          }
-          .framecontrols{
-            display: flex;
-          }
-        }
-      }
-
-
-      .panelcontent{
-        position: absolute;
-        left: 0;
-        right: 0;
-        top: 24px;
-        bottom: 0;
-        overflow: auto;
-        overflow-y: hidden;
-
-        &.multirow{
-          //top: 48px;
-        }
-
-        &.inactive{
-          pointer-events: none;
-        }
-      }
     }
 
 
@@ -311,7 +190,7 @@
       background-repeat: no-repeat;
       transform: rotate(90deg);
       transition: transform 0.2s ease-in-out;
-      opacity: 0.7;
+      @include caption-button;
     }
 
     .close{
@@ -322,7 +201,7 @@
       right: 0;
       top: 0;
       text-align: center;
-      cursor: pointer;
+      @include caption-button;
     }
 
     &.noicon{

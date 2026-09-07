@@ -652,11 +652,21 @@
     }
   }
 
+  // Bordered chrome + the toggle highlight used to come from `.modalwindow .inner .button`;
+  // the editor also renders in a free panel now, so it carries its own button look.
   .button.small{
+    @include button-chrome;
+    margin: 2px;
     line-height: 14px;
     font-size: 12px;
     padding: 2px 4px;
     text-align: center;
+
+    // active state of the "click a color next" actions (Swap / Spread / Pick)
+    &.highlight{
+      border: 1px solid #ded293;
+      color: #ded293;
+    }
 
     .contextmenu{
       position: absolute;

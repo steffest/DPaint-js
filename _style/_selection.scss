@@ -80,10 +80,7 @@
 
   svg{
     .white {
-      fill: none;
-      stroke: #FFF;
-      stroke-width: 1px;
-      vector-effect: non-scaling-stroke;
+      @include marching-ants-white;
     }
 
     .filled{
@@ -91,14 +88,8 @@
     }
 
     .ants {
-      fill: none;
-      stroke: #000;
-      stroke-width: 1px;
-      vector-effect: non-scaling-stroke;
-      stroke-dasharray: 4px;
-      animation: stroke 0.2s linear infinite;
+      @include marching-ants-black;
       /*shape-rendering: geometricPrecision;*/
-      stroke-dashoffset: 8px;
     }
 
     @keyframes stroke {

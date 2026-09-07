@@ -8,16 +8,24 @@ import ContextMenu from "../components/contextMenu.js";
 import Historyservice from "../../services/historyservice.js";
 import HistoryService from "../../services/historyservice.js";
 import Editor from "../editor.js";
-import {isGroup, resolveDropPath} from "../../util/layerUtils.js";
+import {isGroup, isBones, isVector, resolveDropPath} from "../../util/layerUtils.js";
+import Palette from "../palette.js";
+import Modal, {DIALOG} from "../modal.js";
 
 let LayerPanel = function(){
     let me = {};
     let contentPanel;
     let opacityRange;
     let blendSelect;
+    let toolsRow;
+    let dissolveRow;
+    let dissolveSelect;
+    let dissolveApply;
     let editPath;
     let currentDisplayList = [];
     let dragState;
+    let lastRowClick;
+    const DOUBLECLICK_TIME = 400;
 
     const ROW_HEIGHT = 23;
     const MARKER_HEIGHT = 13;   // end-group marker slot — shorter than a layer row
@@ -89,7 +97,7 @@ let LayerPanel = function(){
     ]
 
     me.generate = (parent)=>{
-        $(".paneltools.multirow",{parent:parent},
+        toolsRow = $(".paneltools.multirow",{parent:parent},
             $(".rangeselect",
                 {info: "Set transparency of active layer"},
                 $(".label","Opacity"),
@@ -103,13 +111,23 @@ let LayerPanel = function(){
                     ImageFile.setLayerBlendMode(blendSelect.value);
                 }})
             ),
+            // With a locked palette, blend modes are ignored (they produce colours outside the
+            // palette) and opacity is rendered as a dither stencil instead of an alpha blend.
+            // So this row takes the blend row's place and picks the stencil pattern, plus an
+            // Apply that bakes the pattern into the pixels (see ImageFile.applyDissolve).
+            dissolveRow = $(".dissolveselect",
+                $(".label","Dissolve"),
+                dissolveSelect = $("select",{oninput:()=>{
+                    ImageFile.setLayerDissolve(dissolveSelect.value);
+                }}),
+                dissolveApply = $(".apply",{
+                    onClick:()=>applyDissolve(),
+                    info:"Bake the dissolve pattern into the pixels so it survives unlocking the palette"
+                },"Apply")
+            ),
             $(".button.delete",{
                 onclick:()=>{EventBus.trigger(COMMAND.DELETELAYER);},
                 info:"Delete active layer"
-            }),
-            $(".button.addgroup",{
-                onclick:()=>{EventBus.trigger(COMMAND.NEWGROUP);},
-                info:"Add new group"
             }),
             $(".button.add",{
                 onclick:()=>{EventBus.trigger(COMMAND.NEWLAYER);},
@@ -121,6 +139,11 @@ let LayerPanel = function(){
         blendModes.forEach(mode=>{
             $elm("option",mode,blendSelect);
         });
+        ImageFile.getDissolvePatterns().forEach(pattern=>{
+            let option = $elm("option",pattern.label,dissolveSelect);
+            option.value = pattern.id;
+        });
+        updateLockedState();
     }
 
     // Builds a flat, top-down display list of the layer tree, honouring collapse state.
@@ -163,11 +186,19 @@ let LayerPanel = function(){
         let activePath = ImageFile.getActiveLayerPath() || [0];
         let activeKey = pathKey(activePath);
         let imageFile = ImageFile.getCurrentFile();
-        let frame = imageFile.frames[ImageFile.getActiveFrameIndex()];
+        // The layer tree shown is the ACTIVE TRACK's governing cel at the playhead (spec 004).
+        let frame = ImageFile.getActiveFrame();
+        if (!frame || !frame.layers) return;
 
         let displayList = buildDisplayList(frame.layers, [], 0, []);
         currentDisplayList = displayList;
         let rowCount = displayList.length;
+
+        // Only visualise per-layer types when the frame actually mixes in a special layer: if there
+        // is at least one bone or vector layer present, every non-group row gets a small type icon
+        // (solid square = pixel, circle outline = vector, diagonal bone = bone) so they read apart.
+        // An all-pixel frame stays icon-free (the type classes are simply not added).
+        let showLayerTypes = displayList.some(e => e.node && (isBones(e.node) || isVector(e.node)));
 
         displayList.forEach((entry, rowIndex)=>{
             // End-group marker: a non-draggable placeholder closing an expanded group.
@@ -188,12 +219,18 @@ let LayerPanel = function(){
             let node = entry.node;
             let path = entry.path;
             let group = isGroup(node);
+            let bone = isBones(node);
+            let vector = isVector(node);
+            let pixel = !group && !bone && !vector;
             let key = pathKey(path);
             let isActive = key === activeKey;
 
             let elm = $div(
                 "layer info"
                 + (group ? " layergroup" : "")
+                + (showLayerTypes && bone ? " bonelayer" : "")
+                + (showLayerTypes && vector ? " vectorlayer" : "")
+                + (showLayerTypes && pixel ? " pixellayer" : "")
                 + (isActive ? " active" : "")
                 + ((node.visible && !entry.ancestorHidden) ? "" : " hidden"),
                 null,
@@ -204,7 +241,12 @@ let LayerPanel = function(){
                         if (input) input.focus();
                         return;
                     }
+                    let now = performance.now();
+                    let isDoubleClick = lastRowClick && lastRowClick.key === key
+                        && (now - lastRowClick.time) < DOUBLECLICK_TIME;
+                    lastRowClick = isDoubleClick ? undefined : {key: key, time: now};
                     if (!isActive) ImageFile.activateLayer(path);
+                    if (isDoubleClick) renameLayer(path);
                 }
             );
             // Top-down: first display-list entry sits at the top.
@@ -245,10 +287,6 @@ let LayerPanel = function(){
             // Name label.
             $(".layername",{parent:elm}, node.name);
 
-            elm.onDoubleClick = ()=>{
-                renameLayer(path);
-            }
-
             elm.onDragStart = (e)=>{
                 if (elm.classList.contains('hasinput')) return;
                 beginDrag(rowIndex);
@@ -276,6 +314,12 @@ let LayerPanel = function(){
                     }});
 
                 items.push ({label: "Group Layers", command: COMMAND.NEWGROUP});
+
+                if (isVector(node)){
+                    items.push ({label: "Rasterize Layer", action: ()=>{
+                        EventBus.trigger(COMMAND.RASTERIZELAYER, path);
+                    }});
+                }
 
                 items.push ({label: node.locked ? "Unlock Layer" : "Lock Layer", action: ()=>{
                     Historyservice.start(EVENT.imageHistory);
@@ -366,8 +410,18 @@ let LayerPanel = function(){
             }
 
             if (isActive){
-                opacityRange.value = node.opacity;
                 blendSelect.value = node.blendMode;
+                // Show the RESOLVED opacity at the playhead (x/y and the group transform live
+                // in the Properties panel now). Never write back into a control the user is
+                // currently operating: writing to a key from a derived frame resolves to a
+                // different value at the playhead (decision 2 — the edit lands on the owning
+                // key), which would otherwise make the slider jump out from under the drag.
+                let keyProps = ImageFile.getLayerKeyProps(path);
+                if (keyProps){
+                    if (document.activeElement !== opacityRange) opacityRange.value = Math.round(keyProps.opacity);
+                }else if (document.activeElement !== opacityRange){
+                    opacityRange.value = node.opacity;
+                }
             }
         });
     }
@@ -509,6 +563,8 @@ let LayerPanel = function(){
         if (!dragState){ return; }
         let state = dragState;
         dragState = undefined;
+        // an actual drag is not the first half of a double click
+        if (state.moved) lastRowClick = undefined;
         // clear ghosts
         state.blockRows.forEach(i=>{
             let el = rowEl(i);
@@ -574,7 +630,59 @@ let LayerPanel = function(){
 
     }
 
-    EventBus.on(EVENT.layersChanged,me.list);
+    // Locked palette → show the dissolve row instead of the blend row. Only the class moves;
+    // both rows stay in the DOM so nothing has to be rebuilt.
+    function updateLockedState(){
+        if (!toolsRow) return;
+        let locked = Palette.isLockedGlobal();
+        toolsRow.classList.toggle("palettelocked",locked);
+        if (locked && dissolveSelect) dissolveSelect.value = ImageFile.getLayerDissolve();
+        if (locked && dissolveApply){
+            let plan = ImageFile.getDissolvePlan();
+            dissolveApply.classList.toggle("disabled",!plan.canApply);
+            dissolveApply.info = plan.canApply
+                ? (plan.animated
+                    ? "Bake the animated dissolve into " + plan.frameCount + " content keyframes"
+                    : "Bake the dissolve pattern into the pixels")
+                : (plan.comparison
+                    // "If lighter" is a comparison against the layers below, so there is
+                    // nothing per-layer to bake — say that rather than claiming the track is
+                    // fully opaque, which it may well not be.
+                    ? "An \"if lighter\" layer compares against the layers below it, so it cannot be baked into its own pixels"
+                    : "Nothing to bake: every layer on this track is fully opaque");
+        }
+    }
+
+    // Baking an ANIMATED dissolve has to turn the tween into one content keyframe per frame,
+    // which is a big, no-longer-editable change — so confirm that one first.
+    function applyDissolve(){
+        let plan = ImageFile.getDissolvePlan();
+        if (!plan.canApply) return;
+        if (!plan.animated){
+            ImageFile.applyDissolve();
+            return;
+        }
+        Modal.show(DIALOG.OPTION,{
+            title: "Apply Dissolve",
+            width: 360,
+            text: "Opacity is animated on track \"" + plan.trackName + "\". Baking the dissolve " +
+                "turns the tween into " + plan.frameCount + " content keyframes, one per frame. " +
+                "The animation keeps playing the same way, but the tween can no longer be edited.",
+            buttons:[
+                {label:"Bake " + plan.frameCount + " keyframes", onclick:()=>ImageFile.applyDissolve()},
+                {label:"Cancel"}
+            ]
+        });
+    }
+
+    EventBus.on(EVENT.layersChanged,()=>{
+        updateLockedState();
+        me.list();
+    });
+    EventBus.on(EVENT.paletteLockChanged,()=>{
+        updateLockedState();
+        me.list();
+    });
 
     return me;
 }();

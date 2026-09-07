@@ -9,6 +9,8 @@ import EffectDialog from "./components/effectDialog.js";
 import DitherDialog from "./components/ditherDialog.js";
 import OptionDialog from "./components/optionDialog.js";
 import TextOutputDialog from "./components/textOutputDialog.js";
+import PlanesDialog from "./components/planesDialog.js";
+import FrameRangeDialog from "./components/frameRangeDialog.js";
 import EventBus from "../util/eventbus.js";
 import {COMMAND, SETTING} from "../enum.js";
 
@@ -21,7 +23,9 @@ export let DIALOG={
     ABOUT: 6,
     DITHER: 7,
     OPTION:8,
-    TEXTOUTPUT:9
+    TEXTOUTPUT:9,
+    PLANES:10,
+    FRAMERANGE:11
 }
 
 var Modal = function(){
@@ -43,7 +47,9 @@ var Modal = function(){
         6: {title: "About", action: showAbout, position: [0,0],width:750,height:470},
         7: {title: "DitherPattern",  handler: DitherDialog, position: [0,0],width:662,height:326},
         8: {title: "Request", fuzzy: true, handler: OptionDialog, position: [0,0],width:300,height:"auto"},
-        9: {title: "Output", handler: TextOutputDialog, position: [0,0],width:300,height:220}
+        9: {title: "Output", handler: TextOutputDialog, position: [0,0],width:300,height:220},
+        10: {title: "Import Bitplanes", fuzzy: true, handler: PlanesDialog, position: [0,0],width:420,height:"auto"},
+        11: {title: "Open Animation", fuzzy: true, handler: FrameRangeDialog, position: [0,0],width:340,height:"auto"}
     }
 
     me.show = function(type,data){

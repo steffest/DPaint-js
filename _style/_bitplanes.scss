@@ -1,0 +1,19 @@
+// Bitplane viewer: reuses the .gallery list chrome, but its thumbs hold a live
+// <canvas> per plane rather than a background-image, so the panel can refresh
+// without encoding a PNG per plane.
+.bitplane-list{
+
+  .thumb{
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: black;
+
+    canvas{
+      max-width: 100%;
+      max-height: 100%;
+      image-rendering: pixelated;
+    }
+  }
+
+}

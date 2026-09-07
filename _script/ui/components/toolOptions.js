@@ -6,12 +6,16 @@ import BrushPanel from "../toolPanels/brushPanel.js";
 import Brush from "../brush.js";
 import DitherPanel from "../toolPanels/ditherPanel.js";
 import Text from "../../paintTools/text.js";
+import BoneTool from "../../paintTools/boneTool.js";
+import VectorTool from "../../paintTools/vectorTool.js";
 
 let ToolOptions = function(){
     let me = {}
     let smooth = false;
     let pixelPerfect    = false;
     let fill = false;
+    let gapClose = "small";   // vector Fill: weld gaps this big before flood-filling (none/small/medium/large)
+    let blobSmooth = 50;      // vector Blob: outline smoothness 0-100 (0 = raw polygon, 100 = very rounded)
     let lineSize = 1;
     let tolerance = 0;
     let floodSelectGlobal = false;
@@ -49,9 +53,29 @@ let ToolOptions = function(){
     let smudgeSelect;
     let fontOptionGroup;
     let fontSettings={};
+    let boneRadiusRange;
+    let boneRadiusValue;
+    let vectorNodeGroup;
+    let vnSquareBtn, vnSharpBtn, vnSmoothBtn, vnSplitBtn, vnJoinBtn;
+    let vectorGapGroup;
+    let vgNoneBtn, vgSmallBtn, vgMediumBtn, vgLargeBtn;
+    let blobGroup;
+    let blobCircleBtn, blobSquareBtn, blobSizeRange, blobSizeInput, blobSmoothRange, blobSmoothInput;
 
     me.isSmooth = ()=>{
         return smooth;
+    }
+
+    // Vector Fill: how big a gap in an outline the flood-fill may bridge before filling
+    // ("none" | "small" | "medium" | "large"). Consumed by VectorTool.fillAt (zoom-relative).
+    me.getGapClose = ()=>{
+        return gapClose;
+    }
+
+    // Vector Blob: outline smoothness 0-100. VectorTool.buildBlob maps it to the Catmull-Rom curve
+    // tension it fits along the traced outline (0 = straight polygon, 50 ≈ natural, 100 = very round).
+    me.getBlobSmoothness = ()=>{
+        return blobSmooth;
     }
 
     me.isPixelPerfect = ()=>{
@@ -205,10 +229,63 @@ let ToolOptions = function(){
                 options.appendChild(label("Font:"));
                 options.appendChild(fontSetting());
                 break;
+            case COMMAND.BONESELECT:
+                options.appendChild(label("Bones – Select:"));
+                options.appendChild(actionRadiusSetting());
+                options.appendChild(gridQualitySetting());
+                options.appendChild(stretchSetting());
+                options.appendChild(resetPoseButton());
+                break;
+            case COMMAND.BONEADD:
+                options.appendChild(label("Bones – Add:"));
+                options.appendChild(gridQualitySetting());
+                break;
+            case COMMAND.BONETRANSFORM:
+                options.appendChild(label("Bones – Transform:"));
+                options.appendChild(stretchSetting());
+                options.appendChild(resetPoseButton());
+                break;
+            case COMMAND.VECTORSELECT:
+            case COMMAND.VECTORNODE:
+                // The unified edit tool: the node option-bar (curve mode / split / join) applies
+                // to whatever point(s) are selected. VECTORNODE is kept as an alias of VECTORSELECT.
+                options.appendChild(label("Vector – Edit:"));
+                options.appendChild(vectorNodeSetting());
+                break;
+            case COMMAND.VECTORLINE:
+                options.appendChild(label("Vector – Line:"));
+                options.appendChild(smoothSetting());
+                options.appendChild(lineSetting());
+                break;
+            case COMMAND.VECTORRECT:
+                options.appendChild(label("Vector – Rectangle:"));
+                options.appendChild(fillSetting());
+                options.appendChild(lineSetting());
+                break;
+            case COMMAND.VECTORCIRCLE:
+                options.appendChild(label("Vector – Ellipse:"));
+                options.appendChild(fillSetting());
+                options.appendChild(smoothSetting());
+                options.appendChild(lineSetting());
+                break;
+            case COMMAND.VECTORBLOB:
+                options.appendChild(label("Vector – Blob:"));
+                options.appendChild(blobSetting());
+                break;
+            case COMMAND.VECTORFILL:
+                options.appendChild(label("Vector – Fill:"));
+                options.appendChild(smoothSetting());
+                options.appendChild(gapCloseSetting());
+                break;
+            case COMMAND.VECTOROUTLINE:
+                options.appendChild(label("Vector – Outline:"));
+                options.appendChild(smoothSetting());
+                options.appendChild(lineSetting());
+                break;
         }
 
         let activeLayer = ImageFile.getActiveLayer();
-        if (activeLayer.isMaskActive()){
+        if (activeLayer && activeLayer.isMaskActive && activeLayer.isMaskActive()){
             options.appendChild(maskSetting());
         }
         return options;
@@ -515,6 +592,215 @@ let ToolOptions = function(){
         return fontOptionGroup;
     }
 
+    // Bone-tool option controls. Rebuilt fresh on each toolChanged (getOptions clears the panel),
+    // so they reflect the currently selected bone / active bone layer rather than caching state.
+    function actionRadiusSetting(){
+        let wrap = $div("range");
+        $elm("label","Radius:",wrap);
+        let range = document.createElement("input");
+        range.type = "range";
+        range.min = 1;
+        range.max = 400;
+        range.value = Math.round(BoneTool.getSelectedActionRadius()) || 1;
+        wrap.appendChild(range);
+        let value = $elm("span",range.value,wrap);
+        range.oninput = function(){
+            value.innerText = range.value;
+            BoneTool.previewActionRadius(parseInt(range.value,10));
+        };
+        range.onchange = function(){
+            BoneTool.setActionRadius(parseInt(range.value,10));
+        };
+        // keep references so a live radius drag on the canvas (the shoulder-line handle) can push the
+        // new value back into this slider — see the bonesChanged sync listener below.
+        boneRadiusRange = range;
+        boneRadiusValue = value;
+        return wrap;
+    }
+
+    function gridQualitySetting(){
+        let wrap = $div("range");
+        $elm("label","Grid:",wrap);
+        let range = document.createElement("input");
+        range.type = "range";
+        range.min = 4;
+        range.max = 48;
+        let layer = ImageFile.getActiveLayer();
+        range.value = (layer && layer.gridQuality) || 16;
+        wrap.appendChild(range);
+        let value = $elm("span",range.value,wrap);
+        range.oninput = function(){
+            value.innerText = range.value;
+        };
+        range.onchange = function(){
+            let l = ImageFile.getActiveLayer();
+            if (l) l.gridQuality = parseInt(range.value,10);
+            // grid size is part of the deformer bind signature → re-composite rebinds automatically
+            EventBus.trigger(EVENT.bonesChanged);
+        };
+        return wrap;
+    }
+
+    // "Stretch bones" toggle: when on, dragging a bone's tip in Transform mode scales the bone
+    // axially (in addition to rotating). Reflects the single BoneTool.stretch flag, so it stays in
+    // sync whether shown next to the Select radius/grid controls or in the Transform panel.
+    function stretchSetting(){
+        let cb = $checkbox("Stretch bones","","info",(checked)=>{
+            BoneTool.setStretch(checked);
+        });
+        cb.info = "Dragging a bone's tip in Transform mode also stretches it";
+        cb.setState(BoneTool.getStretch());
+        return cb;
+    }
+
+    function resetPoseButton(){
+        let btn = $div("button apply","Reset Pose");
+        btn.info = "Reset all bones to their rest pose";
+        btn.onclick = ()=>{ EventBus.trigger(COMMAND.BONERESET); };
+        return btn;
+    }
+
+    // Node-tool option buttons: three curve modes (mutually exclusive) + split + join. Built once
+    // and re-shown on each toolChanged; their state tracks the live node selection via the
+    // vectorChanged listener below. Actions call straight through to VectorTool.
+    function vectorNodeSetting(){
+        if (!vectorNodeGroup){
+            vectorNodeGroup = $div("optionsgroup vectornode");
+            vnSquareBtn = nodeModeButton("square","▢","Corner point — straight edges, no curve");
+            vnSharpBtn  = nodeModeButton("sharp","◇","Curved point — independent tangent handles (cusp)");
+            vnSmoothBtn = nodeModeButton("smooth","◯","Smooth point — the two handles stay on one straight line");
+            vnSplitBtn = $div("button icon","✂");
+            vnSplitBtn.info = "Split the path at this point";
+            vnSplitBtn.onclick = ()=>{ if (vnSplitBtn.classList.contains("disabled")) return; VectorTool.splitSelectedNode(); updateVectorNode(); };
+            vnJoinBtn = $div("button icon","⋈");
+            vnJoinBtn.info = "Join the selected points into one (at their average position)";
+            vnJoinBtn.onclick = ()=>{ if (vnJoinBtn.classList.contains("disabled")) return; VectorTool.joinSelectedNodes(); updateVectorNode(); };
+            vectorNodeGroup.appendChild(vnSquareBtn);
+            vectorNodeGroup.appendChild(vnSharpBtn);
+            vectorNodeGroup.appendChild(vnSmoothBtn);
+            vectorNodeGroup.appendChild($div("optionsdivider"));
+            vectorNodeGroup.appendChild(vnSplitBtn);
+            vectorNodeGroup.appendChild(vnJoinBtn);
+        }
+        updateVectorNode();
+        return vectorNodeGroup;
+    }
+
+    function nodeModeButton(mode, glyph, info){
+        let b = $div("button icon", glyph);
+        b.info = info;
+        b.onclick = ()=>{ VectorTool.setSelectedNodeMode(mode); updateVectorNode(); };
+        return b;
+    }
+
+    // Vector Fill "Close gaps": four mutually-exclusive square icon buttons (none / small / medium /
+    // large), styled like the node-mode buttons. The chosen size scales the flood-fill's gap-welding
+    // tolerance (VectorTool reads it via ToolOptions.getGapClose). Built once and re-shown.
+    function gapCloseSetting(){
+        if (!vectorGapGroup){
+            vectorGapGroup = $div("optionsgroup vectorgap");
+            vectorGapGroup.appendChild(label("Close gaps:"));
+            vgNoneBtn   = gapButton("none",   "✕", "Don't close gaps — fill only fully-closed outlines");
+            vgSmallBtn  = gapButton("small",  "◦", "Close small gaps (a few pixels)");
+            vgMediumBtn = gapButton("medium", "○", "Close medium gaps");
+            vgLargeBtn  = gapButton("large",  "◯", "Close larger gaps");
+            vectorGapGroup.appendChild(vgNoneBtn);
+            vectorGapGroup.appendChild(vgSmallBtn);
+            vectorGapGroup.appendChild(vgMediumBtn);
+            vectorGapGroup.appendChild(vgLargeBtn);
+        }
+        updateGapClose();
+        return vectorGapGroup;
+    }
+
+    function gapButton(mode, glyph, info){
+        let b = $div("button icon", glyph);
+        b.info = info;
+        b.onclick = ()=>{ gapClose = mode; updateGapClose(); EventBus.trigger(EVENT.toolOptionsChanged); };
+        return b;
+    }
+
+    // Vector Blob option-bar: a brush-shape toggle (round / square) + a size slider. Both drive the
+    // global Brush (the same brush the toolbar presets set), which the blob tool stamps along the
+    // stroke. Built once, re-shown on each toolChanged, and kept in step with the live brush via the
+    // brushOptionsChanged listener below (so picking a toolbar preset updates these controls too).
+    function blobSetting(){
+        if (!blobGroup){
+            blobGroup = $div("optionsgroup vectorblob");
+            blobCircleBtn = $div("button icon","●");
+            blobCircleBtn.info = "Round brush";
+            blobCircleBtn.onclick = ()=>{ Brush.setType("circle"); updateBlob(); };
+            blobSquareBtn = $div("button icon","■");
+            blobSquareBtn.info = "Square brush";
+            blobSquareBtn.onclick = ()=>{ Brush.setType("square"); updateBlob(); };
+            blobGroup.appendChild(blobCircleBtn);
+            blobGroup.appendChild(blobSquareBtn);
+            blobGroup.appendChild($div("optionsdivider"));
+            let sizeRange = $div("range","",blobGroup);
+            $elm("label","Size:",sizeRange);
+            blobSizeRange = $input("range", Brush.get().width, sizeRange);
+            blobSizeRange.min = 1;
+            blobSizeRange.max = 100;
+            blobSizeInput = $elm("span", Brush.get().width + "px", sizeRange);
+            blobSizeRange.oninput = function(){
+                Brush.setSize(blobSizeRange.value);
+                blobSizeInput.innerText = blobSizeRange.value + "px";
+            };
+            blobGroup.appendChild($div("optionsdivider"));
+            let smoothRange = $div("range","",blobGroup);
+            $elm("label","Smooth:",smoothRange);
+            blobSmoothRange = $input("range", blobSmooth, smoothRange);
+            blobSmoothRange.min = 0;
+            blobSmoothRange.max = 100;
+            blobSmoothInput = $elm("span", blobSmooth + "%", smoothRange);
+            blobSmoothRange.oninput = function(){
+                blobSmooth = parseInt(blobSmoothRange.value, 10) || 0;
+                blobSmoothInput.innerText = blobSmooth + "%";
+                EventBus.trigger(EVENT.toolOptionsChanged);
+            };
+        }
+        updateBlob();
+        return blobGroup;
+    }
+
+    function updateBlob(){
+        if (!blobGroup) return;
+        let b = Brush.get();
+        let shape = b.type === "square" ? "square" : "circle";
+        blobCircleBtn.classList.toggle("active", shape === "circle");
+        blobSquareBtn.classList.toggle("active", shape === "square");
+        blobSizeRange.value = b.width;
+        blobSizeInput.innerText = b.width + "px";
+        if (blobSmoothRange){
+            blobSmoothRange.value = blobSmooth;
+            blobSmoothInput.innerText = blobSmooth + "%";
+        }
+    }
+
+    function updateGapClose(){
+        if (!vectorGapGroup) return;
+        vgNoneBtn.classList.toggle("active", gapClose === "none");
+        vgSmallBtn.classList.toggle("active", gapClose === "small");
+        vgMediumBtn.classList.toggle("active", gapClose === "medium");
+        vgLargeBtn.classList.toggle("active", gapClose === "large");
+    }
+
+    function updateVectorNode(){
+        if (!vectorNodeGroup) return;
+        let m = VectorTool.isActive && VectorTool.isActive() && VectorTool.getMode();
+        let inNode = m === "select" || m === "node";  // unified edit tool
+        let ids = inNode ? VectorTool.getSelectedNodes() : [];
+        let count = ids.length;
+        // the whole group only appears once at least one node is selected
+        vectorNodeGroup.style.display = count ? "" : "none";
+        let mode = count ? VectorTool.getSelectedNodeMode() : null;
+        vnSquareBtn.classList.toggle("active", mode === "square");
+        vnSharpBtn.classList.toggle("active", mode === "sharp");
+        vnSmoothBtn.classList.toggle("active", mode === "smooth");
+        vnSplitBtn.classList.toggle("disabled", count !== 1);
+        vnJoinBtn.classList.toggle("disabled", count < 2);
+    }
+
     function label(text){
         let label = document.createElement("span");
         label.className = "tool";
@@ -532,6 +818,32 @@ let ToolOptions = function(){
         mask = !mask;
         if (window.override) mask=false;
         EventBus.trigger(EVENT.layerContentChanged);
+    });
+
+    // Live-sync the Radius slider while the user drags the bone's shoulder-line handle on the canvas.
+    // bonesChanged fires (throttled) during that drag; reflect the selected bone's current radius so
+    // the slider and its read-out track the drag. Cheap and idempotent when the slider drives itself.
+    // Keep the node-tool buttons in step with the live vector selection (which changes without a
+    // toolChanged, so the options panel is not rebuilt). Cheap and idempotent.
+    EventBus.on(EVENT.vectorChanged,()=>{
+        if (vectorNodeGroup && vectorNodeGroup.isConnected) updateVectorNode();
+    });
+
+    // Keep the Blob option-bar (shape toggle + size) in step with the live brush, so choosing a
+    // toolbar preset — or resizing the brush elsewhere — is reflected while the Blob tool is showing.
+    EventBus.on(EVENT.brushOptionsChanged,()=>{
+        if (blobGroup && blobGroup.isConnected) updateBlob();
+    });
+
+    EventBus.on(EVENT.bonesChanged,()=>{
+        if (!boneRadiusRange || !boneRadiusRange.isConnected) return;
+        let r = Math.round(BoneTool.getSelectedActionRadius());
+        if (!r) return;
+        let v = String(r);
+        if (boneRadiusRange.value !== v){
+            boneRadiusRange.value = v;
+            if (boneRadiusValue) boneRadiusValue.innerText = v;
+        }
     });
 
     return me;

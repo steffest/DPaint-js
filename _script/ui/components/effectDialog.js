@@ -10,6 +10,8 @@ import SyntaxEdit from "./syntaxEdit.js";
 import Palette from "../palette.js";
 import ImageProcessing from "../../util/imageProcessing.js";
 import HistoryService from "../../services/historyservice.js";
+import {createFilterSession} from "../../services/filterSession.js";
+import {createPixelJobQueue, JOB_PRIORITY} from "../../services/pixelJobs.js";
 
 var EffectDialog = function() {
     let me = {};
@@ -22,7 +24,191 @@ var EffectDialog = function() {
     let mainPanel;
     let ditherWarning;
 
+    // While the panel is open we re-render when the active layer changes so the UI reflects the
+    // current layer (a pixel layer gets the full editor, a group/vector only the hint). Track the
+    // container + the layer we last rendered for, and whether the panel is currently shown.
+    let currentContainer;
+    let renderedLayer;
+    let panelOpen = false;
+
+    // Spec 016 phase 6: the General-effects tab is driven through a real filterSession.
+    // Slider changes bump a session version and dispatch a job that renders the effect from
+    // the immutable `currentSource` into a private output canvas; the accepted preview is
+    // blitted to the layer for display, and Apply commits that exact output. The compute runs
+    // in a real Worker on an OffscreenCanvas (createPixelJobQueue + workers/filter.js) so heavy
+    // effects do not block the main thread; when Worker/OffscreenCanvas are unavailable it
+    // falls back to a synchronous in-process job. The Alchemy tab and the palette-lock path
+    // keep their own flow.
+    let session;
+    let params = {};
+    let jobSeq = 0;
+
+    // One persistent worker queue for the whole module, created lazily on first use. `null`
+    // means the worker path is unavailable and submitJob uses the synchronous fallback.
+    let filterQueue;
+    function getFilterQueue(){
+        if (filterQueue === undefined){
+            filterQueue = null;
+            if (typeof Worker !== "undefined" && typeof OffscreenCanvas !== "undefined"){
+                try {
+                    filterQueue = createPixelJobQueue({
+                        createWorker: () => new Worker(new URL("../../workers/filter.js", import.meta.url), {type: "module"})
+                    });
+                } catch (e){
+                    console.warn("filter worker unavailable, using synchronous filters", e);
+                    filterQueue = null;
+                }
+            }
+        }
+        return filterQueue;
+    }
+
+    // Wrap the worker's raw ImageData reply into the {canvas, byteSize, close()} output shape
+    // the session and displayPreview/commitOutput expect.
+    function wrapWorkerOutput(raw){
+        let c = document.createElement("canvas");
+        c.width = raw.width;
+        c.height = raw.height;
+        c.getContext("2d").putImageData(new ImageData(new Uint8ClampedArray(raw.buffer), raw.width, raw.height), 0, 0);
+        return { canvas: c, byteSize: raw.width * raw.height * 4, close(){ c.width = c.height = 0; } };
+    }
+
+    // Render the effect for a parameter set from currentSource into a target 2d context,
+    // reusing the exact Effects transforms the sliders use.
+    function renderEffect(p, targetCtx){
+        Effects.hold();
+        Effects.clear();
+        Effects.setSrcTarget(currentSource, targetCtx);
+        if (p.brightness != null) Effects.setBrightness(p.brightness);
+        if (p.contrast != null) Effects.setContrast(p.contrast);
+        if (p.saturation != null) Effects.setSaturation(p.saturation);
+        if (p.hue != null) Effects.setHue(p.hue);
+        if (p.blur != null) Effects.setBlur(p.blur);
+        if (p.sharpen != null) Effects.setSharpen(p.sharpen);
+        if (p.texture != null) Effects.setTexture(p.texture);
+        if (p.dehaze != null) Effects.setDehaze(p.dehaze);
+        if (p.sepia != null) Effects.setSepia(p.sepia);
+        if (p.invert != null) Effects.setInvert(p.invert);
+        if (p.red != null) Effects.setColorBalance("red", p.red);
+        if (p.green != null) Effects.setColorBalance("green", p.green);
+        if (p.blue != null) Effects.setColorBalance("blue", p.blue);
+        Effects.apply();
+    }
+
+    // Build a fresh output canvas for a parameter set (an owned session output).
+    function makeOutput(p){
+        let c = document.createElement("canvas");
+        c.width = currentSource.width;
+        c.height = currentSource.height;
+        renderEffect(p, c.getContext("2d"));
+        return { canvas: c, byteSize: c.width * c.height * 4, close(){ c.width = c.height = 0; } };
+    }
+
+    // Blit an accepted preview onto the live layer (for display) + the small preview canvas.
+    function displayPreview(output){
+        if (!output) return;
+        if (livePreview){
+            let t = ImageFile.getActiveLayer().getContext();
+            t.clearRect(0,0,t.canvas.width,t.canvas.height);
+            t.drawImage(output.canvas,0,0);
+            EventBus.trigger(EVENT.layerContentChanged);
+        }
+        let pctx = previewCanvas.getContext("2d");
+        pctx.clearRect(0,0,previewCanvas.width,previewCanvas.height);
+        pctx.drawImage(output.canvas,0,0);
+    }
+
+    // The session's job runner. Uses the worker queue when available, else a synchronous
+    // in-process fallback. Both deliver the result through the same session callbacks and
+    // return the { id, cancel() } handle the session tracks by id.
+    function submitJob(request){
+        let queue = getFilterQueue();
+        if (queue){
+            if (typeof navigator !== "undefined" && navigator.webdriver) window.__lastFilterJobMode = "worker";
+            return submitJobWorker(queue, request);
+        }
+        if (typeof navigator !== "undefined" && navigator.webdriver) window.__lastFilterJobMode = "sync";
+        return submitJobSync(request);
+    }
+
+    // Worker path: transfer a fresh copy of the source pixels to the worker, which runs the
+    // exact same Effects recipe on an OffscreenCanvas and posts the result buffer back.
+    function submitJobWorker(queue, request){
+        let id = ++jobSeq;
+        let kind = request.kind;
+        let w = currentSource.width;
+        let h = currentSource.height;
+        // getImageData returns a fresh buffer, so transferring it does not touch currentSource.
+        let imgData = currentSource.getContext("2d").getImageData(0,0,w,h);
+        let buffer = imgData.data.buffer;
+        let handle = queue.submit({
+            kind: "filter",
+            priority: kind === "apply" ? JOB_PRIORITY.apply : JOB_PRIORITY.preview,
+            payload: { width: w, height: h, buffer: buffer, params: request.params || {} },
+            transfer: [buffer],
+            reserveBytes: w * h * 4 * 3,
+            onResult: (raw)=>{
+                if (!session) return;
+                let output = wrapWorkerOutput(raw);
+                if (kind === "apply"){
+                    session.onApplyResult(id, output);
+                } else {
+                    let accepted = session.onPreviewResult(id, output);
+                    if (accepted) displayPreview(session.getPreviewOutput());
+                }
+            },
+            onError: (err)=>{
+                if (session) session.onJobError(id, err);
+            }
+        });
+        return { id, cancel(){ try { handle.cancel(); } catch (e) {} } };
+    }
+
+    // Synchronous fallback: preview/apply work runs on the main thread and the result is
+    // delivered a microtask later, so the session has recorded the running job before its
+    // result arrives (matching the async worker contract without a worker).
+    function submitJobSync(request){
+        let id = ++jobSeq;
+        let cancelled = false;
+        queueMicrotask(()=>{
+            if (cancelled || !session) return;
+            let output = makeOutput(request.params || {});
+            if (request.kind === "apply"){
+                session.onApplyResult(id, output);
+            } else {
+                let accepted = session.onPreviewResult(id, output);
+                if (accepted) displayPreview(session.getPreviewOutput());
+            }
+        });
+        return { id, cancel(){ cancelled = true; } };
+    }
+
+    // Atomic commit: bake the exact output onto the layer, bake locked-palette dithering if
+    // any, then close the open history step.
+    function commitOutput(output){
+        let t = ImageFile.getActiveLayer().getContext();
+        t.clearRect(0,0,t.canvas.width,t.canvas.height);
+        t.drawImage(output.canvas,0,0);
+        Effects.clear();
+        releaseCanvas(currentSource);
+        currentSource = undefined;
+        if (Palette.isLockedGlobal()) Palette.apply(true,true);
+        EventBus.trigger(EVENT.layerContentChanged);
+        HistoryService.end();
+        modalRef.hide();
+    }
+
+    function setParam(key,value){
+        params[key] = value;
+        if (session) session.setParams(Object.assign({},params));
+    }
+
+    let modalRef;
+
     me.render = function (container,modal) {
+        modalRef = modal;
+        currentContainer = container;
+        panelOpen = true;
         if (!previewCanvas){
             previewCanvas = document.createElement("canvas");
             previewCanvas.width = 200;
@@ -33,6 +219,23 @@ var EffectDialog = function() {
 
         container.innerHTML = "";
         mainPanel = $div("effects-editor","",container);
+
+        // Guards run before the tabs so a non-pixel layer shows only the hint, no empty tab bar.
+        // No active layer yet (e.g. opened before an image exists) → nothing to preview.
+        let activeLayer = ImageFile.getActiveLayer();
+        // Remember which layer this render is for, so the layersChanged handler can tell an
+        // actual layer switch apart from unrelated layer events (rename, reorder, ...).
+        renderedLayer = activeLayer;
+        if (!activeLayer){
+            $div("hint","No image to apply effects to.",mainPanel);
+            return;
+        }
+        // A group or vector layer has no paintable raster context (getActiveContext() returns
+        // undefined). Effects operate on pixels, so bail out rather than crash HistoryService.start.
+        if (!ImageFile.getActiveContext()){
+            $div("hint","Select a pixel layer to apply effects.",mainPanel);
+            return;
+        }
 
         let tabs = $div("tabs","",mainPanel);
         let generalTab = $div("tab active","General",tabs,()=>{
@@ -55,14 +258,18 @@ var EffectDialog = function() {
 
         let sliders = $div("sliders active","",mainPanel);
 
-        // No active layer yet (e.g. opened before an image exists) → nothing to preview.
-        let activeLayer = ImageFile.getActiveLayer();
-        if (!activeLayer){
-            $div("hint","No image to apply effects to.",mainPanel);
-            return;
-        }
         currentSource = duplicateCanvas(activeLayer.getCanvas(),true);
         HistoryService.start(EVENT.layerContentHistory);
+
+        // Fresh session for this dialog opening. sourceId/generation are constant here
+        // (single-threaded, one source), so every synchronous result is acceptable.
+        params = {};
+        session = createFilterSession({
+            submitJob,
+            commit: commitOutput,
+            reserveHistory: () => true
+        });
+        session.open({ sourceId: "effect", generation: 0, paletteRev: 0, maskRev: 0, params: {} });
 
         Effects.setSrcTarget(currentSource,previewCanvas.getContext("2d"))
 
@@ -70,45 +277,19 @@ var EffectDialog = function() {
         // with palette lock on, the live preview then includes the reduce-panel dithering
         EventBus.trigger(EVENT.effectPreviewChanged,true);
 
-        createSlider(sliders,"Brightness",0,-50,50,(value)=>{
-            Effects.setBrightness(value); update();
-        });
-        createSlider(sliders,"Contrast",0,-50,50,(value)=>{
-            Effects.setContrast(value); update();
-        });
-        createSlider(sliders,"Saturation",0,-50,50,(value)=>{
-            Effects.setSaturation(value); update();
-        });
-        createSlider(sliders,"Hue",0,-180,180,(value)=>{
-            Effects.setHue(value); update();
-        });
-        createSlider(sliders,"Blur",0,0,100,(value)=>{
-            Effects.setBlur(value); update();
-        });
-        createSlider(sliders,"Sharpen",0,0,100,(value)=>{
-            Effects.setSharpen(value); update();
-        });
-        createSlider(sliders,"Texture",0,0,100,(value)=>{
-            Effects.setTexture(value); update();
-        });
-        createSlider(sliders,"Dehaze",0,0,100,(value)=>{
-            Effects.setDehaze(value); update();
-        });
-        createSlider(sliders,"Sepia",0,0,100,(value)=>{
-            Effects.setSepia(value); update();
-        });
-        createSlider(sliders,"Invert",0,0,100,(value)=>{
-            Effects.setInvert(value); update();
-        });
-        createSlider(sliders,"Cyan/Red",0,-100,100,(value)=>{
-            Effects.setColorBalance("red",value); update();
-        });
-        createSlider(sliders,"Magenta/Green",0,-100,100,(value)=>{
-            Effects.setColorBalance("green",value); update();
-        });
-        createSlider(sliders,"Yellow/Blue",0,-100,100,(value)=>{
-            Effects.setColorBalance("blue",value); update();
-        });
+        createSlider(sliders,"Brightness",0,-50,50,(value)=>setParam("brightness",value));
+        createSlider(sliders,"Contrast",0,-50,50,(value)=>setParam("contrast",value));
+        createSlider(sliders,"Saturation",0,-50,50,(value)=>setParam("saturation",value));
+        createSlider(sliders,"Hue",0,-180,180,(value)=>setParam("hue",value));
+        createSlider(sliders,"Blur",0,0,100,(value)=>setParam("blur",value));
+        createSlider(sliders,"Sharpen",0,0,100,(value)=>setParam("sharpen",value));
+        createSlider(sliders,"Texture",0,0,100,(value)=>setParam("texture",value));
+        createSlider(sliders,"Dehaze",0,0,100,(value)=>setParam("dehaze",value));
+        createSlider(sliders,"Sepia",0,0,100,(value)=>setParam("sepia",value));
+        createSlider(sliders,"Invert",0,0,100,(value)=>setParam("invert",value));
+        createSlider(sliders,"Cyan/Red",0,-100,100,(value)=>setParam("red",value));
+        createSlider(sliders,"Magenta/Green",0,-100,100,(value)=>setParam("green",value));
+        createSlider(sliders,"Yellow/Blue",0,-100,100,(value)=>setParam("blue",value));
 
 
         /* alchemy */
@@ -143,7 +324,11 @@ var EffectDialog = function() {
         p.appendChild(previewCanvas);
         $checkbox("Preview",previewPanel,"",checked=>{
             livePreview = checked;
-            update();
+            if (codePanel){
+                update(); // Alchemy tab keeps the old live-preview behaviour
+            } else if (checked && session){
+                session.setParams(Object.assign({},params)); // re-show the General preview
+            }
         },livePreview);
 
         ditherWarning = $div("ditherwarning","",previewPanel);
@@ -151,42 +336,41 @@ var EffectDialog = function() {
 
         let buttons = $div("buttons","",mainPanel);
         $div("button ghost left","Reset",buttons,()=>{
-            Effects.hold();
             effects.forEach(slider=>{
                 slider.value = 0;
                 slider.oninput();
             });
-            Effects.apply();
+            params = {};
+            if (session) session.setParams({});
         });
         $div("button ghost","Cancel",buttons,()=>{
+            if (session) session.cancel();
             let t = ImageFile.getActiveLayer().getContext();
             t.clearRect(0,0,t.canvas.width,t.canvas.height);
-            t.drawImage(currentSource,0,0);
+            if (currentSource) t.drawImage(currentSource,0,0);
             Effects.clear();
             modal.hide();
-            releaseCanvas(currentSource);
+            if (currentSource) releaseCanvas(currentSource);
+            currentSource = undefined;
             EventBus.trigger(EVENT.layerContentChanged);
             HistoryService.neverMind();
         });
         $div("button primary","Apply",buttons,()=>{
             if (codePanel){
-
+                // Alchemy recipe: the result is already drawn live on the layer; just close
+                // the history step and bake any locked-palette dithering.
+                Effects.clear();
+                if (currentSource) releaseCanvas(currentSource);
+                currentSource = undefined;
+                modal.hide();
+                if (Palette.isLockedGlobal()) Palette.apply(true,true);
+                EventBus.trigger(EVENT.layerContentChanged);
+                HistoryService.end();
             }else{
-                let t = ImageFile.getActiveLayer().getContext();
-                Effects.setSrcTarget(currentSource,t);
-                Effects.apply();
+                // General effects: commit the exact session output (commitOutput closes the
+                // history step + hides the modal once the apply job resolves).
+                session.apply();
             }
-            Effects.clear();
-            releaseCanvas(currentSource);
-            modal.hide();
-
-            if (Palette.isLockedGlobal()){
-                // bake the locked-palette reduction (including the reduce-panel dither
-                // settings) into the layer; history is captured by the session below
-                Palette.apply(true,true);
-            }
-            EventBus.trigger(EVENT.layerContentChanged);
-            HistoryService.end();
         });
 
         Effects.clear();
@@ -344,8 +528,47 @@ var EffectDialog = function() {
 
     // called by modal on every close (Apply, Cancel and the close button)
     me.onClose = function(){
+        panelOpen = false;
         EventBus.trigger(EVENT.effectPreviewChanged,false);
     }
+
+    // Discard an in-progress effect that is bound to `renderedLayer` (the previously active pixel
+    // layer): the live preview draws onto that layer, so restore its original pixels from
+    // currentSource, drop the session and abandon the open history step. A no-op when the last
+    // render bailed early (group/vector/no image) since none of those resources were created.
+    function abandonPending(){
+        if (session){ try { session.cancel(); } catch(e){} }
+        session = undefined;
+        if (currentSource){
+            let t = renderedLayer && renderedLayer.getContext ? renderedLayer.getContext() : undefined;
+            if (t){
+                t.clearRect(0,0,t.canvas.width,t.canvas.height);
+                t.drawImage(currentSource,0,0);
+            }
+            releaseCanvas(currentSource);
+            currentSource = undefined;
+            Effects.clear();
+            HistoryService.neverMind();
+            EventBus.trigger(EVENT.layerContentChanged);
+        }
+    }
+
+    // Keep the panel in sync with the active layer: switching layers while it is open re-runs the
+    // pixel-layer check so the editor / hint matches the current layer. Only react to an actual
+    // active-layer switch; layersChanged also fires for rename, reorder, opacity, etc.
+    let switchingLayer = false;
+    EventBus.on(EVENT.layersChanged,()=>{
+        if (switchingLayer) return;
+        if (!panelOpen || !currentContainer) return;
+        if (ImageFile.getActiveLayer() === renderedLayer) return;
+        switchingLayer = true;
+        try {
+            abandonPending();
+            me.render(currentContainer,modalRef);
+        } finally {
+            switchingLayer = false;
+        }
+    });
 
     function updateDitherWarning(){
         if (!ditherWarning) return;

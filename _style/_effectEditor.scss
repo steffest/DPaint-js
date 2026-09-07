@@ -8,6 +8,15 @@
   top: 0;
   bottom: 0;
 
+  // Placeholder shown when there's no pixel layer to apply effects to. Give it breathing
+  // room so it doesn't crowd the panel header (no tab bar renders in this state).
+  .hint{
+    padding: 14px 16px;
+    font-size: 12px;
+    line-height: 16px;
+    opacity: 0.8;
+  }
+
   .tabs{
     position: absolute;
     left: 5px;

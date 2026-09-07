@@ -64,6 +64,10 @@
           right: 0;
           border-left: 1px solid black;
         }
+
+        &.hidden{
+          display: none;
+        }
       }
 
       .toolpanel{
@@ -80,6 +84,50 @@
 
           .optionsgroup{
             display: flex;
+          }
+
+          .optionsgroup.vectornode,
+          .optionsgroup.vectorgap{
+            align-items: center;
+
+            .button{
+              display: inline-flex;
+              align-items: center;
+              justify-content: center;
+              width: 18px;
+              height: 16px;
+              margin-right: 2px;
+              font-size: 13px;
+              line-height: 1;
+              color: $menu-text-color;
+              background-color: #181818;
+              border: 1px solid #626262;
+              border-radius: 2px;
+              cursor: pointer;
+              user-select: none;
+
+              &:hover{
+                background-color: #2a2a2a;
+              }
+
+              &.active{
+                color: #000;
+                background-color: $menu-text-color;
+                border-color: $menu-text-color;
+              }
+
+              &.disabled{
+                opacity: 0.35;
+                pointer-events: none;
+              }
+            }
+
+            .optionsdivider{
+              width: 1px;
+              height: 14px;
+              margin: 0 5px;
+              background-color: #626262;
+            }
           }
 
           .flex{
@@ -148,7 +196,8 @@
 
     .viewport,
     .windowContainer,
-    .tileContainer{
+    .tileContainer,
+    .codeView{
       position: absolute;
       top: 21px;
       left: 0;
@@ -160,6 +209,165 @@
 
       &.hidden{
         display: none;
+      }
+    }
+
+    // "View as code": the active vector layer's SVG in a plain text editor. Column layout so the
+    // "Invalid SVG" warning header sits above a textarea that fills the rest of the panel.
+    .codeView{
+      flex-direction: column;
+      overflow: hidden;
+      background-color: $button-background-dark;
+
+      // Options toolbar directly below the panel's view buttons: line-wrap toggle + decimals spinner.
+      .codeView-toolbar{
+        flex: 0 0 auto;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 3px 6px;
+        border-bottom: 1px solid black;
+        color: $menu-text-color;
+        font-size: 12px;
+        background-color: $button-background-dark;
+
+        .codeView-toolbar-group{
+          display: flex;
+          align-items: center;
+          gap: 5px;
+        }
+
+        .checkbox{
+          font-size: 12px;
+          label span{
+            padding-left: 14px;
+            &:before{
+              width: 10px;
+              height: 10px;
+            }
+          }
+        }
+
+        input[type=number]{
+          width: 42px;
+          color: $menu-text-color;
+          background-color: #181818;
+          border: 1px solid #626262;
+          font-size: 11px;
+          padding: 1px 2px;
+          &:focus{
+            outline: none;
+          }
+        }
+      }
+
+      .codeView-warning{
+        display: flex;
+        align-items: center;
+        padding: 3px 6px;
+        font-size: 12px;
+        color: #000;
+        background-color: $active-color-dim;
+
+        &.hidden{
+          display: none;
+        }
+
+        .codeView-warning-icon{
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 14px;
+          height: 14px;
+          margin-right: 6px;
+          font-weight: bold;
+          font-size: 11px;
+          line-height: 1;
+          color: $active-color-dim;
+          background-color: #000;
+          border-radius: 50%;
+        }
+      }
+
+      // Editor stack: a coloured (read-only) <pre> and the real, transparent <textarea> on top of
+      // it, overlaid pixel-for-pixel so the colouring shows through the text the user edits.
+      .codeView-input{
+        position: relative;
+        flex: 1 1 auto;
+        overflow: hidden;
+      }
+
+      .codeView-highlight,
+      .codeView-editor{
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        margin: 0;
+        padding: 6px 8px;
+        border: none;
+        box-sizing: border-box;
+        font-family: "Consolas", "Monaco", monospace;
+        font-size: 12px;
+        line-height: 1.4;
+        white-space: pre;
+        tab-size: 2;
+        overflow: auto;
+
+        &.wrap{
+          white-space: pre-wrap;
+          word-break: break-all;
+          overflow-x: hidden;
+        }
+      }
+
+      // The colour layer, behind the textarea and never interactive.
+      .codeView-highlight{
+        z-index: 0;
+        pointer-events: none;
+        overflow: hidden;
+        color: $menu-text-color-high;
+        background-color: $button-background-dark;
+
+        code{
+          font: inherit;
+          white-space: inherit;
+          word-break: inherit;
+        }
+
+        // Path line(s) representing the current canvas selection.
+        .codeView-hl{
+          background-color: rgba(255, 210, 92, 0.28);
+          border-radius: 2px;
+        }
+
+        // SVG/XML token colours.
+        .tok-tag{ color: #4ec9b0; }
+        .tok-attr{ color: #9cdcfe; }
+        .tok-value{ color: #ce9178; }
+        .tok-punct{ color: #808080; }
+        .tok-comment{ color: #6a9955; font-style: italic; }
+        .tok-decl{ color: #808080; }
+      }
+
+      // The editable layer on top: transparent text/background so the colour layer shows through,
+      // but a visible caret and selection.
+      .codeView-editor{
+        z-index: 1;
+        resize: none;
+        color: transparent;
+        background-color: transparent;
+        caret-color: $menu-text-color-high;
+        -webkit-text-fill-color: transparent;
+
+        &::selection{
+          background-color: rgba(255, 255, 255, 0.22);
+        }
+
+        &:focus{
+          outline: none;
+        }
       }
     }
 
@@ -263,6 +471,45 @@
       pointer-events: none;
     }
 
+  }
+
+  // "vector"-display-mode layers rendered as TRUE vector shapes (spec 008). Like .vectoroverlay it
+  // lives in the zoomed container with the document as its viewBox, so its <path>s scale crisply
+  // with zoom for free — a real vector layer, only rasterized on export. Sits just above the base
+  // composite (which leaves these layers out on screen) and below the editing handles; view-only.
+  .vectorshapes{
+    position: absolute;
+    z-index: 2;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    overflow: visible;
+  }
+
+  // Crisp, zoom-independent vector-editing handles (spec 008). Sits above both canvases inside the
+  // zoomed container; SVG keeps lines and dots vector-sharp at any zoom while non-scaling strokes /
+  // zoom-compensated radii hold them at a constant on-screen size.
+  .vectoroverlay{
+    position: absolute;
+    z-index: 3;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    overflow: visible;
+
+    // Rubber-band marquee: match the raster selection's white underlay + animated black "marching
+    // ants" (shared mixins in _var.scss) instead of a filled blue box, so a selection reads the same
+    // on vector and pixel layers.
+    .marquee-white{
+      @include marching-ants-white;
+    }
+    .marquee-ants{
+      @include marching-ants-black;
+    }
   }
 
 }

@@ -1,0 +1,1228 @@
+// Free / dockable tool-panel chrome + content.
+//
+// Owns the `.free-panel` root: caption bar, content area (.inner), per-panel-type content
+// (info/frames/grid/color/layers/reduce), collapse, and the generic form controls inside a
+// panel. Applies in ANY render path (docked left/right/bottom, floating) — container
+// POSITIONING lives in _sidepanel.scss / _dockpanel.scss / _bottompanel.scss; this file is
+// container-agnostic content/chrome only.
+//
+// (Extracted from _sidepanel.scss; root renamed .panel -> .free-panel to remove the
+// cascade collision with editor/dialog form roots that also carried a `panel` token.)
+
+.free-panel{
+
+    // Chrome elements are DIRECT children of the panel (panelView builds caption/inner/
+    // sizer on the panel root). Scope with `>` so generic chrome rules never bleed into
+    // editor forms nested inside .inner (palette/effects reuse .caption/.inner/etc.).
+    > .inner{
+      position: absolute;
+      top: 22px;
+      bottom: 0;
+      overflow: auto;
+      // base content text colour. Editors that render here (palette/effects/preferences)
+      // used to inherit this from `.modalwindow .inner`; defining it once on the free-panel
+      // content area means they no longer each re-declare it.
+      color: $menu-text-color;
+      left: 0;
+      right: 0;
+
+      small{
+        font-size: 11px;
+        color: $dimmed-text-color;
+        text-align: center;
+        margin-top: 20px;
+        display: block;
+      }
+
+      dl{
+        margin: 0;
+        padding: 0;
+        border-bottom: 1px solid #4d4d4d;
+        display: flex;
+        dt,
+        dd{
+          display: inline-block;
+          color: $dimmed-text-color;
+          font-size: 11px;
+          padding: 3px 5px;
+          margin: 0;
+          background-color: rgba(255, 255, 255, 0.05);
+          width: 60px;
+        }
+
+        dt{
+          min-width: 60px;
+        }
+
+        dd{
+          opacity: 0.7;
+          width: 100%;
+        }
+      }
+
+      .layer{
+        padding: 5px;
+        color: $menu-text-color;
+        border-bottom: 1px solid #626262;
+        font-size: 12px;
+        user-select: none;
+        position: absolute;
+        left: 0;
+        right: 0;
+        height: 23px;
+
+        // Rows nested inside an expanded group. The box starts at this group's own left
+        // border (--row-indent - 3px), so the element, its highlight and its bottom
+        // separator all begin there. The box border-left is this group's rail; the rails
+        // of any enclosing groups are painted in the strip to the left by ::before, from
+        // the --ancestor-rails background set in JS (see railLayers).
+        &.nested{
+          left: calc(var(--row-indent, 0px) - 3px);
+          padding-left: 4px;
+          border-left: 1px solid #7d7d7d;
+
+          &::before{
+            content: "";
+            position: absolute;
+            top: 0;
+            bottom: -1px;
+            // span from the panel's left edge up to this row's left border
+            left: calc(-1 * (var(--row-indent, 0px) - 2px));
+            width: calc(var(--row-indent, 0px) - 3px);
+            background: var(--ancestor-rails, none);
+            pointer-events: none;
+          }
+        }
+
+        &.active{
+          background-color: rgba(255, 255, 255, 0.1);
+          color: white;
+
+          .mask{
+            &:after{
+              background-color: #46484A;
+            }
+          }
+        }
+
+        &:hover{
+          cursor: pointer;
+        }
+
+        &.ghost,
+        &.hidden{
+          opacity: 0.4;
+          .eye{
+            opacity: 0.4;
+          }
+        }
+
+        &.locked{
+          // lock now prevents DRAWING (enforced in canvas.js), not panel interaction —
+          // the row stays clickable so it can be selected, unlocked, reordered, etc.
+          .lock{
+            cursor: pointer;
+          }
+        }
+
+        .more{
+          position: absolute;
+          right: 4px;
+          top: 3px;
+          width: 16px;
+          height: 16px;
+          background-image: url("../_img/more.svg");
+          background-size: contain;
+          background-repeat: no-repeat;
+          opacity: 0.5;
+
+          &:hover{
+            opacity: 1;
+          }
+        }
+
+        .eye{
+          position: absolute;
+          right: 24px;
+          // the original eye glyph, rendered smaller than its 16px box so it reads finer/lighter;
+          // top nudged to keep it vertically centred where the 16px eye sat.
+          top: 9px;
+          width: 12px;
+          height: 12px;
+          background-image: url("../_img/eye.svg");
+          background-size: contain;
+          background-repeat: no-repeat;
+          opacity: 0.7;
+        }
+
+        .lock{
+          position: absolute;
+          right: 44px;
+          top: 3px;
+          width: 16px;
+          height: 16px;
+          background-image: url("../_img/lock_closed.svg");
+          background-size: contain;
+          background-repeat: no-repeat;
+          opacity: 0.7;
+        }
+
+        .mask{
+          position: absolute;
+          right: 47px;
+          top: 4px;
+          width: 16px;
+          height: 16px;
+          border: 1px solid #C7C8C8;
+          background-color: #C7C8C8;
+          text-align: center;
+
+          &:after{
+            content: "";
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            width: 14px;
+            height: 14px;
+            border-radius: 7px;
+            margin: -7px 0 0 -7px;
+            background-color: #313335;
+          }
+
+          &.active{
+            border: 1px solid $active-color;
+            background-color: $active-color;
+            box-shadow: 0 0 2px yellow;
+          }
+
+          &.disabled{
+            pointer-events: none;
+
+            &:before{
+              content: "";
+              position: absolute;
+              z-index: 10;
+              left: -4px;
+              transform: rotate(-45deg);
+              top: 6px;
+              width: 22px;
+              height: 2px;
+              background-color: orange;
+            }
+          }
+        }
+
+        .layerindent{
+          display: inline-block;
+          height: 1px;
+          vertical-align: middle;
+        }
+
+        .layername{
+          display: inline-block;
+          vertical-align: middle;
+          line-height: 13px;
+        }
+
+        // Layer-type markers. layerPanel.js tags every non-group row with its type class ONLY when
+        // the frame contains at least one bone or vector layer, so the types read apart at a glance:
+        // a solid square for pixel layers, an unfilled circle for vector layers and a diagonal bone
+        // for bone layers. Groups carry no icon; an all-pixel frame gets none either. All three icons
+        // share one 12px box (white SVG, dimmed like the other row glyphs) before the name.
+        &.pixellayer,
+        &.vectorlayer,
+        &.bonelayer{
+          .layername::before{
+            content: "";
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            margin-right: 4px;
+            vertical-align: middle;
+            background-repeat: no-repeat;
+            background-position: center center;
+            background-size: contain;
+            opacity: 0.7;
+          }
+        }
+        // The solid square reads heavier than the circle/bone outlines, so shrink the glyph within
+        // its 12px box (the box stays 12px so all three icons align).
+        &.pixellayer .layername::before{ background-image: url("../_img/square_fill.svg"); background-size: 8px 8px; }
+        &.vectorlayer .layername::before{ background-image: url("../_img/circle.svg"); }
+        &.bonelayer .layername::before{ background-image: url("../_img/bone.svg"); }
+
+        &.layergroup{
+          font-weight: bold;
+
+          .layercollapse{
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            margin-right: 2px;
+            vertical-align: middle;
+            background-image: url("../_img/caret.svg");
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center center;
+            opacity: 0.7;
+            cursor: pointer;
+            // caret.svg points right (▶). Expanded → rotate to point down (▼);
+            // collapsed → point right (▶).
+            transform: rotate(90deg);
+
+            &.collapsed{
+              transform: rotate(0deg);
+            }
+
+            &:hover{
+              opacity: 1;
+            }
+          }
+        }
+
+        input[type="text"]{
+          position: absolute;
+          z-index: 10;
+          left: 0;
+          top: 0;
+          font-size: 12px;
+          right: 0;
+        }
+      }
+
+      // End-group marker: a short, non-interactive placeholder closing an expanded group.
+      // Occupies a normal row slot (keeps drag math uniform) but renders only a small
+      // "group end" bracket so it reads as a boundary, not a layer. Not a .layer, so it
+      // is excluded from layer counts/selectors.
+      .endgroup{
+        position: absolute;
+        left: 0;
+        right: 0;
+        // Match MARKER_HEIGHT so the ancestor guide rails (painted full-height on the
+        // marker) connect without a gap to the rows above and below.
+        height: 13px;
+        cursor: default;
+        pointer-events: none;
+
+        &.hidden{
+          opacity: 0.4;
+        }
+
+        .endgroupline{
+          position: absolute;
+          // Left edge sits on this group's own rail (k*INDENT_PX - 3, same formula as
+          // setGuideRails), so the deepest rail flows straight down into the closing
+          // bracket while the ancestor rails pass through the marker behind it.
+          left: calc(var(--endgroup-indent, 0px) - 3px);
+          right: 0;
+          height: 6px;
+          border-left: 1px solid #7d7d7d;
+          border-bottom: 1px solid #7d7d7d;
+          border-bottom-left-radius: 3px;
+          opacity: 0.7;
+        }
+      }
+
+      .frame{
+        width: 50px;
+        height: 50px;
+        border: 1px solid #626262;
+        margin: 1px;
+        position: absolute;
+        opacity: 0.8;
+
+        &:hover{
+          border: 1px solid white;
+          cursor: pointer;
+          opacity: 1;
+        }
+
+        .label{
+          position: absolute;
+          left: 0;
+          bottom: 0;
+          background-color: rgba(0, 0, 0, 0.5);
+          color: $menu-text-color;
+          font-size: 12px;
+          padding: 4px;
+        }
+
+        &.active{
+          box-shadow: 0 0 3px 1px rgba(255, 255, 255, 0.8);
+          opacity: 1;
+
+          .label{
+            color: #CCCCCC;
+            background-color: rgba(0, 0, 0, 0.7);
+          }
+        }
+
+        &.ghost{
+          opacity: 0.2;
+        }
+      }
+
+      &.waiting{
+        opacity: 0.7;
+        pointer-events: none;
+        filter: brightness(0.5);
+        cursor: wait;
+      }
+
+    }
+
+    h2{
+      font-size: 14px;
+      color: $menu-text-color;
+      font-weight: 100;
+      padding: 2px;
+      margin: 0;
+    }
+
+    &.info{
+      .button.refresh{
+        position: absolute;
+        right: 3px;
+        top: 40px;
+        width: 14px;
+        height: 14px;
+        background-image: url("../_img/cycle.svg");
+        background-size: contain;
+        background-repeat: no-repeat;
+        opacity: 0.5;
+
+        &:hover{
+          cursor: pointer;
+          opacity: 1;
+        }
+      }
+    }
+
+    &.collapsed{
+      > .caption{
+        i{
+          transform: rotate(0deg);
+        }
+      }
+
+      > .inner,
+      > .sizer{
+        display: none;
+      }
+    }
+
+    .paneltools{
+      border-bottom: 1px solid rgba(0, 0, 0, 0.7);
+      background-color: $button-background-medium;
+      display: flex;
+      justify-content: flex-end;
+      font-size: 12px;
+      color: $menu-text-color;
+      position: relative;
+
+      &.multirow{
+        height: 47px;
+      }
+
+      .button{
+        height: 20px;
+        width: 20px;
+        margin-left: 2px;
+        font-size: 12px;
+        line-height: 20px;
+        border: none;
+        background-color: #282A2C;
+        background-image: url("../_img/add.svg");
+        background-position: center center;
+        background-repeat: no-repeat;
+        background-size: contain;
+        opacity: 0.5;
+        flex-shrink: 0;
+
+        &.delete{
+          background-image: url("../_img/trashcan.svg");
+        }
+
+        &.addgroup{
+          background-image: url("../_img/folder.svg");
+        }
+
+        &.play{
+          background-image: url("../_img/play.svg");
+          &.paused{
+            background-image: url("../_img/pause.svg");
+          }
+        }
+
+        &:hover{
+          cursor: pointer;
+          opacity: 1;
+        }
+      }
+
+      .rangeselect{
+        position: absolute;
+        left: 4px;
+        top: 4px;
+        right: 44px;
+        font-size: 11px;
+        color: #9d9c9c;
+
+        input{
+          position: absolute;
+          margin: 0 0 0 4px;
+          height: 17px;
+          left: 40px;
+          top: 0;
+          right: 0;
+          width: auto;
+
+          &::-webkit-slider-thumb,
+          &::-moz-range-thumb{
+            margin-top: -6px;
+            width: 8px;
+            height: 12px;
+            background: #9d9d9d;
+            border: 1px solid rgba(50, 50, 50, 0.7);
+          }
+          &::-moz-range-thumb{
+            width: 6px;
+            height: 10px;
+          }
+        }
+      }
+
+      .blendselect{
+        position: absolute;
+        left: 4px;
+        top: 25px;
+        right: 0;
+        color: #9d9c9c;
+
+        .label{
+          line-height: 19px;
+        }
+
+        select{
+          position: absolute;
+          right: 4px;
+          top: 0;
+          height: 19px;
+          left: 40px;
+          background-color: #181818;
+          color: #888888;
+          border: 1px solid #7b7b7b;
+
+          &:focus{
+            outline: none;
+          }
+        }
+      }
+
+      // Dissolve settings replace the blend row while the palette is locked: blend modes are
+      // ignored there, and opacity becomes a dither stencil instead of an alpha blend.
+      .dissolveselect{
+        display: none;
+        position: absolute;
+        left: 4px;
+        top: 25px;
+        right: 4px;
+        align-items: center;
+        color: #9d9c9c;
+
+        .label{
+          line-height: 19px;
+          flex-shrink: 0;
+        }
+
+        select{
+          height: 19px;
+          margin-left: 6px;
+          flex-grow: 1;
+          min-width: 0;
+          background-color: #181818;
+          color: #888888;
+          border: 1px solid #7b7b7b;
+
+          &:focus{
+            outline: none;
+          }
+        }
+
+        .apply{
+          flex-shrink: 0;
+          margin-left: 4px;
+          height: 19px;
+          line-height: 17px;
+          padding: 0 6px;
+          font-size: 11px;
+          color: $menu-text-color-dim;
+          border: 1px solid #6a6a6a;
+          background-color: $button-background-medium;
+
+          &:hover{
+            cursor: pointer;
+            color: $menu-text-color;
+            border-color: #8c8c8c;
+            background-color: #232323;
+          }
+
+          &.disabled{
+            opacity: 0.35;
+            pointer-events: none;
+          }
+        }
+      }
+
+      // the swap: blend out, dissolve in
+      &.palettelocked{
+        .blendselect{
+          display: none;
+        }
+
+        .dissolveselect{
+          display: flex;
+        }
+      }
+    }
+
+    &.brush,
+    &.grid{
+      color: $menu-text-color;
+      font-size: 12px;
+
+      label{
+        opacity: 0.7;
+        line-height: 19px;
+        padding: 0 4px;
+        width: 110px;
+      }
+
+      .rangeselect{
+        display: flex;
+        margin-bottom: 3px;
+
+        input[type="text"]{
+          padding: 0 4px;
+          width: 30px;
+          height: 19px;
+          margin-left: 4px;
+          margin-right: 2px;
+          font-size: 11px;
+        }
+
+      }
+
+      .dither{
+        display: flex;
+
+      }
+
+      .patterns{
+        display: flex;
+        width: 140%;;
+
+        .pattern{
+            width: 100%;
+            height: 20px;
+            margin-right: 2px;
+            border: 1px solid black;
+            background-color: #808080;
+            background-size: contain;
+
+            &.invert.hasPattern{
+              filter: invert(1);
+              border: 1px solid white;
+              background-color: #A0A0A0;
+              opacity: 0.5;
+
+              &.active{
+                border-color: #600fe0;
+                box-shadow: 0 0 2px blue;
+                opacity: 0.9;
+              }
+
+            }
+
+            &.p1{
+              background-image: url("../_img/patterns/dots.png");
+            }
+
+            &.p2{
+              background-image: url("../_img/patterns/cross.png");
+            }
+
+            &.p3{
+              background-image: url("../_img/patterns/grid.png");
+            }
+
+            &:last-of-type{
+              margin-right: 0;
+              background-color: transparent;
+              background-image: url("../_img/caret.svg");
+              background-repeat: no-repeat;
+              background-position: center center;
+              opacity: 0.5;
+              &:hover{
+                background-color: transparent;
+                opacity: 1;
+              }
+            }
+
+            &:hover{
+              cursor: pointer;
+              background-color: white;
+
+              &.invert.hasPattern{
+                background-color: white;
+                opacity: 1;
+              }
+            }
+
+
+          &.active{
+            border-color: $active-color;
+            box-shadow: 0 0 2px yellow;
+          }
+
+        }
+      }
+
+      .presets{
+        .subcaption{
+          background-color: $button-background-dark;
+          color: $menu-text-color;
+          padding: 3px 5px 3px 5px;
+          font-size: 12px;
+          margin-top: 2px;
+        }
+
+        .preset{
+          height: 25px;
+          background-image: url("../_img/brushes/preview/1.png");
+          background-size: 100% 100%;
+          border-bottom: 1px solid black;
+          filter: brightness(0.8);
+
+          &:hover{
+            cursor: pointer;
+            filter: none;
+          }
+        }
+      }
+
+
+    }
+
+    &.color{
+      > .inner{
+        overflow: hidden;
+      }
+      .colorpicker{
+        height: 120px;
+        width: 100%;
+        overflow: hidden;
+
+        canvas{
+          border-right: 1px solid black;
+        }
+        canvas:last-of-type{
+          border-left: 1px solid black;
+          margin-left: 4px;
+        }
+
+        .dot{
+          position: absolute;
+          pointer-events: none;
+          width: 10px;
+          height: 10px;
+          border: 2px solid white;
+          border-radius: 50%;
+          margin: -5px 0 0 -5px;
+          left: 119px;
+          top: 0;
+          box-shadow: 0 0 1px 1px rgba(0, 0, 0, 0.7), inset 0 0 0 1px rgba(0, 0, 0, 0.5);
+        }
+
+        .line{
+          position: absolute;
+          pointer-events: none;
+          width: 0;
+          height: 0;
+          border-bottom: 5px solid transparent;
+          border-top: 5px solid transparent;
+          border-right: 5px solid white;
+          left: 144px;
+          filter: drop-shadow(0px 0px 2px black);
+          top: 0;
+          margin-top: -5px;
+
+          &:before{
+            content: "";
+            position: absolute;
+            left: -20px;
+            top: -5px;
+            width: 0;
+            height: 0;
+            border-bottom: 5px solid transparent;
+            border-top: 5px solid transparent;
+            border-left: 5px solid white;
+          }
+        }
+      }
+    }
+
+    &.layers{
+      // two tool rows: opacity and blend (the animatable x/y moved to the Properties panel)
+      .paneltools.multirow{
+        height: 47px;
+      }
+
+      .panelcontent{
+        position: absolute;
+        left: 0;
+        right: 0;
+        top: 47px;
+        bottom: 0;
+        overflow: auto;
+      }
+    }
+
+    // Properties panel (spec 007): the animatable transform of the active node. The first row
+    // (.layerkeyprops) shows the track name and X/Y for any layer; the .grouptransform rows show
+    // W/H (one row) and Rotation (its own row) and are present only when a group is active.
+    // Everything is right-aligned. On the X/Y row, `overridden` (blue) marks values from a
+    // property key and `tweening` (dashed) marks interpolated ones (spec 004 3.8). On a transform
+    // field, `.nondefault` (orange + reset icon) marks a component that is off its default.
+    &.properties{
+      .layerkeyprops,
+      .grouptransform{
+        position: relative;           // anchor for the absolutely-placed Smooth toggle
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;    // right-align labels + boxes
+        color: #9d9c9c;
+        font-size: 11px;
+        padding: 3px 6px;
+
+        .activetrack{
+          flex-grow: 1;
+          overflow: hidden;
+          white-space: nowrap;
+          text-overflow: ellipsis;
+          opacity: 0.7;
+        }
+
+        input[type="text"]{
+          width: 34px;
+          height: 17px;
+          padding: 0 3px;
+          font-size: 11px;
+          background-color: #181818;
+          color: #888888;
+          border: 1px solid #7b7b7b;
+
+          &:focus{
+            outline: none;
+          }
+        }
+
+        &.overridden{
+          input[type="text"]{
+            border-color: #59b6ff;
+            color: #cfe8ff;
+          }
+        }
+
+        &.tweening{
+          input[type="text"]{
+            border-style: dashed;
+          }
+        }
+      }
+
+      // A single field: label, value box, then a reset-icon slot on the right. The slot is always
+      // reserved so the boxes line up in columns across rows; the icon is only revealed (and the
+      // box outlined orange) when the field is off its default.
+      .transformfield{
+        display: flex;
+        align-items: center;
+
+        // Fixed-width, right-aligned label keeps single-char labels (X/W, Y/H) a constant width so
+        // their boxes align vertically; a longer label ("Rotation") just grows to the left.
+        .label{
+          min-width: 14px;
+          text-align: right;
+          margin-left: 6px;
+          margin-right: 2px;
+          opacity: 0.7;
+        }
+
+        .resetprop{
+          width: 12px;
+          height: 12px;
+          margin-left: 3px;
+          flex-shrink: 0;
+          background-image: url("../_img/cycle.svg");
+          background-size: contain;
+          background-position: center center;
+          background-repeat: no-repeat;
+          opacity: 0.6;
+          visibility: hidden;
+          cursor: pointer;
+
+          &:hover{
+            opacity: 1;
+          }
+        }
+
+        // Off-default: reveal the reset icon and outline the box in orange.
+        &.nondefault{
+          .resetprop{
+            visibility: visible;
+          }
+          input[type="text"]{
+            border-color: #ff9f1a;
+            color: #ffd9a8;
+          }
+        }
+
+      }
+
+      // Smooth toggle (the app checkbox component) shares the Rotation row, but its checkbox box
+      // is lined up with the left column (X above / W below) and the "Smooth" label reads to the
+      // LEFT of the box. Because the rows are right-aligned, that column's input box sits a fixed
+      // distance in from the row's right content edge: one full field (label 14 + margins 8 +
+      // input 34 + reset 15 = 71px) plus the right column's input-left offset (reset 15 + input
+      // 34 = 49px) = 120px. The box is 10px wide and drawn on the RIGHT of the label, so pinning
+      // the element's right edge 110px in from the content edge (right: 116px = 110 + the row's
+      // 6px padding) lands the box's left border on the 120px column. The element is out of flow
+      // so Rotation keeps its own right-aligned column; the label sits well to the left of it.
+      .checkbox.smooth-toggle{
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        right: 116px;
+        margin: 0;
+        display: flex;
+        align-items: center;
+
+        label span{
+          padding: 2px 14px 2px 0;   // reserve the 10px box (+ small gap) on the RIGHT
+          opacity: 0.7;
+
+          &:before{
+            left: auto;              // move the box from the left of the label to the right
+            right: 0;
+          }
+        }
+      }
+
+      // Vector-layer-only row: the "Display" mode selector. A fixed-width label then the select box,
+      // shown only when a vector layer is active.
+      .vectorprops{
+        display: flex;
+        align-items: center;
+        color: #9d9c9c;
+        font-size: 11px;
+        padding: 3px 6px;
+
+        .label{
+          width: 44px;
+          flex: 0 0 auto;
+        }
+
+        .vectordisplay-select{
+          flex: 1 1 auto;
+          min-width: 0;
+          background-color: #2b2b2b;
+          color: #cfcfcf;
+          border: 1px solid #000;
+          font-size: 11px;
+          padding: 1px 2px;
+        }
+      }
+
+      // Vector-selection style row: the selected line's / shape's colour + width, and (for a shape)
+      // its fill colour. Each block is a label, a clickable colour swatch and — for the line — a
+      // width slider with a px readout. Laid out left-to-right, wrapping if the panel is narrow.
+      .vectorprops.vectorstyle{
+        justify-content: flex-start;
+        flex-wrap: wrap;
+
+        .styleblock{
+          display: flex;
+          align-items: center;
+          margin-right: 12px;
+
+          .label{
+            width: auto;
+            margin-right: 5px;
+            opacity: 0.7;
+          }
+
+          input[type="range"]{
+            width: 56px;
+            height: 6px;
+            margin: 0 4px;
+          }
+
+          .value{
+            min-width: 26px;
+            opacity: 0.7;
+          }
+        }
+
+        // Clickable colour chip (its native colour input is hidden inside it). A missing colour
+        // shows a small red slash on a transparent field.
+        .vectorswatch{
+          width: 20px;
+          height: 14px;
+          border: 1px solid #7b7b7b;
+          border-radius: 2px;
+          cursor: pointer;
+          position: relative;
+
+          &.nofill{
+            background-image: linear-gradient(45deg, transparent 44%, #d24 44%, #d24 56%, transparent 56%);
+          }
+        }
+      }
+    }
+
+    > .sizer{
+        position: absolute;
+        right: 0;
+        bottom: 0;
+        left: 0;
+        height: 4px;
+        background-color: transparent;
+        cursor: row-resize;
+        z-index: 100;
+
+      &:hover:before{
+        content: "";
+        position: absolute;
+        left: 0;
+        bottom: 0;
+        right: 0;
+        height: 2px;
+        background-color: rgba(0, 0, 0, 0.5);
+      }
+    }
+
+  > .caption{
+    background-color: $button-background-dark;
+    color: $menu-text-color;
+    padding: 3px 5px 3px 16px;
+    font-size: 12px;
+    position: absolute;
+    top: 0;
+    right: 0;
+    left: 0;
+    width: unset;
+    height: 21px;
+    border: none;
+    border-bottom: 1px solid black;
+    justify-content: flex-start;
+    user-select: none;
+
+    i{
+      position: absolute;
+      left: 0;
+      top: 2px;
+      width: 16px;
+      height: 16px;
+      background-image: url("../_img/caret.svg");
+      background-size: contain;
+      background-repeat: no-repeat;
+      transform: rotate(90deg);
+      transition: transform 0.2s ease-in-out;
+      @include caption-button;
+    }
+
+    .close{
+      position: absolute;
+      height: 20px;
+      width: 20px;
+      line-height: 20px;
+      right: 0;
+      top: 0;
+      text-align: center;
+      @include caption-button;
+    }
+
+    &.noicon{
+      padding-left: 5px;
+    }
+  }
+
+
+  // ── Generic form / control styling (subpanels, selects, sliders, buttons) ──
+  // Scoped under `.free-panel`; editor forms (palette/effects) no longer carry a panel
+  // chrome class, so no collision guard is needed.
+  .subpanel{
+    color: $menu-text-color;
+    padding: 4px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.5);
+    position: relative;
+
+    .label{
+      opacity: 0.7;
+      font-size: 12px;
+      margin-bottom: 4px;
+    }
+
+    .value{
+      position: absolute;
+      right: 4px;
+      top: 4px;
+    }
+
+    .button.square{
+      width: 16px;
+      min-width:  16px;
+      height: 20px;
+      border: 1px solid black;
+      text-align: center;
+      line-height: 20px;
+      font-size: 12px;
+      border-right: none;
+      position: relative;
+
+      &:after{
+        content: "";
+        position: absolute;
+        left: 0;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        background-image:  url("../_img/caret.svg");
+        background-position: center center;
+        background-repeat: no-repeat;
+        opacity:  0.5;
+      }
+
+      &:hover{
+        cursor: pointer;
+        &:after{
+          opacity: 1;
+        }
+      }
+      &.prev:after{
+        transform: rotate(180deg);
+      }
+    }
+
+    select{
+      color: $menu-text-color;
+      width: 100%;
+      border: 1px solid black;
+      background-color: transparent;
+      margin: 4px 0;
+
+      &:focus{
+        outline: none;
+      }
+
+      &:disabled{
+        opacity: 0.4;
+      }
+    }
+
+    &.flex{
+        display: flex;
+        align-items: center;
+
+        .label{
+            margin-bottom: 0;
+            margin-right: 4px;
+            min-width: 55px;
+        }
+
+        select{
+            margin: 0;
+        }
+
+        .value{
+          position: relative;
+          margin-left: 4px;
+          right: unset;
+          top: unset;
+        }
+
+        &.condensed{
+          padding: 0 4px;
+
+          .label{
+            min-width: 64px;
+          }
+
+          input[type=text]{
+            font-size: 12px;
+            border: 1px solid black;
+            background-color: #1c1c1c;
+            color: #8f8f8f;
+            padding: 2px 4px;
+          }
+        }
+    }
+
+    &.hidden{
+      display:  none;
+    }
+  }
+
+
+  input[type=range] {
+    width: 100%;
+  }
+
+
+  .button.full{
+    color: $menu-text-color-dim;
+    text-align: center;
+    border: 1px solid black;
+    line-height: 16px;
+    font-size: 12px;
+    margin: 4px;
+    background-color: $button-background-medium;
+    &:hover{
+      cursor: pointer;
+      color: $menu-text-color;
+      background-color: $button-background-dark;
+
+    }
+
+    &.disabled{
+      opacity: 0.4;
+      pointer-events: none;
+    }
+  }
+
+  .buttonrow{
+    display: flex;
+
+    .button.full{
+      flex: 1;
+      margin: 4px 2px;
+
+      &:first-child{
+        margin-left: 4px;
+      }
+
+      &:last-child{
+        margin-right: 4px;
+      }
+    }
+  }
+
+  textarea{
+    border: 1px solid black;
+    background-color: #1c1c1c;
+    color: #8f8f8f;
+    text-wrap: nowrap;
+    font-size: 11px;
+  }
+}

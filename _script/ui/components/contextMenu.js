@@ -14,6 +14,13 @@ let ContextMenu = (()=>{
 
         menu.innerHTML = "";
         items.forEach(item=>{
+            // An item may be `disabled`: it stays visible (so the available operations are
+            // discoverable) but does nothing and renders dimmed.
+            if (item.disabled){
+                let elm = $div("contextmenuitem disabled",item.label,menu);
+                elm.setAttribute("aria-disabled","true");
+                return;
+            }
             $div("contextmenuitem",item.label,menu,()=>{
                 if (item.command) EventBus.trigger(item.command);
                 if (item.action) item.action();
@@ -25,6 +32,19 @@ let ContextMenu = (()=>{
         menu.style.left = position.x + "px";
         menu.style.top = position.y + "px";
         menu.classList.add("active");
+
+        // Keep the menu on screen: now that it's laid out we can measure it and nudge it
+        // back inside the viewport when it would overflow the right/bottom edge.
+        const margin = 4;
+        let rect = menu.getBoundingClientRect();
+        let x = position.x;
+        let y = position.y;
+        if (rect.right > window.innerWidth) x -= (rect.right - window.innerWidth + margin);
+        if (rect.bottom > window.innerHeight) y -= (rect.bottom - window.innerHeight + margin);
+        x = Math.max(margin, x);
+        y = Math.max(margin, y);
+        if (x !== position.x) menu.style.left = x + "px";
+        if (y !== position.y) menu.style.top = y + "px";
     }
 
     me.hide = ()=>{

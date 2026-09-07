@@ -9,6 +9,7 @@ import {duplicateCanvas, releaseCanvas, outLineCanvas} from "../../util/canvasUt
 import Color from "../../util/color.js";
 import ToolOptions from "./toolOptions.js";
 import Palette from "../palette.js";
+import {computeFloodRegion} from "../../util/fillKernel.js";
 
 /*
     SelectBox follows changes in the selection.
@@ -262,6 +263,11 @@ let SelectBox = ((editor,resizer)=>{
 
 
     me.floodSelect = function(canvas,point,fillColor){
+        // Spec 016 phase 3 (R4): the connectivity walk now runs in the pure span
+        // kernel (util/fillKernel.js) instead of an inline hash-set + shift() queue.
+        // The matching predicate is byte-identical (exact 4-channel match, else
+        // Euclidean RGBA distance <= tolerance*2), so the painted result is
+        // unchanged; only the traversal is faster and bounded.
         let isFloodFill = !!fillColor;
         let useGlobalFloodSelect = !isFloodFill && ToolOptions.useFloodSelectGlobal();
         fillColor = fillColor||[0,0,0];
@@ -274,78 +280,35 @@ let SelectBox = ((editor,resizer)=>{
         let c = duplicateCanvas(canvas).getContext("2d");
         let target = c.getImageData(0,0,w,h);
 
-        let done = {};
-        let check = [];
-        let ind = getIndex(point);
-        let color = getColor(ind);
+        let startIndex = point.y*w + point.x;
+        let region = computeFloodRegion({
+            data: imageData.data,
+            width: w,
+            height: h,
+            startIndex: startIndex,
+            tolerance: tolerance,
+            connectivity: 4,
+            global: useGlobalFloodSelect
+        });
 
-        if (useGlobalFloodSelect){
-            let max = w*h;
-            for (let i = 0;i<max;i++){
-                if (matchesColor(getColor(i),color)) put(i);
-            }
-        }else{
-            put(ind);
-            while (check.length){
-                let i = check.shift();
-                let x = i%w;
-                let y = (i-x)/w;
-                if (x>0) checkIndex(i-1);
-                if (x<w-1) checkIndex(i+1);
-                if (y>0) checkIndex(i-w);
-                if (y<h-1) checkIndex(i+w);
+        let matched = region.matched;
+        for (let i=0;i<matched.length;i++){
+            if (matched[i]){
+                target.data[i*4] = fillColor[0];
+                target.data[i*4 + 1] = fillColor[1];
+                target.data[i*4 + 2] = fillColor[2];
+                target.data[i*4 + 3] = 255;
             }
         }
 
         c.putImageData(target,0,0);
         return c.canvas;
-
-        function getColor(index){
-            index *= 4;
-            let r = imageData.data[index];
-            let g = imageData.data[index+1];
-            let b = imageData.data[index+2];
-            let a = imageData.data[index+3];
-            if (index>=imageData.data.length){
-                console.error("invalid index " + index)
-            }else{
-                return Color.toHex([r,g,b,a]);
-            }
-
-        }
-
-        function getIndex(p) {
-            return p.y*w + p.x;
-        }
-
-        function checkIndex(ind){
-            if (!done[ind]){
-                if (matchesColor(getColor(ind),color)) put(ind);
-            }
-        }
-
-        function matchesColor(candidate,targetColor){
-            let passed = candidate === targetColor;
-            if (!passed && tolerance){
-                let distance = Color.distance(candidate,targetColor);
-                passed = distance <= tolerance*2;
-            }
-            return passed;
-        }
-
-        function put(ind){
-            target.data[ind*4] = fillColor[0];
-            target.data[ind*4 + 1] = fillColor[1];
-            target.data[ind*4 + 2] = fillColor[2];
-            target.data[ind*4 + 3] = 255;
-            done[ind] = true;
-            check.push(ind)
-        }
     }
 
 
     me.colorSelect = function(color){
-        let canvas = ImageFile.getActiveLayer().getCanvas();
+        // selections live in DOCUMENT space, so read the layer projected into it
+        let canvas = ImageFile.getActiveLayerDocCanvas();
 
         let w = canvas.width;
         let h = canvas.height;
@@ -375,7 +338,7 @@ let SelectBox = ((editor,resizer)=>{
     }
 
     me.colorSelectNotInPalette = function(){
-        let canvas = ImageFile.getActiveLayer().getCanvas();
+        let canvas = ImageFile.getActiveLayerDocCanvas();
         let palette = Palette.get();
 
         let w = canvas.width;
@@ -416,7 +379,7 @@ let SelectBox = ((editor,resizer)=>{
     }
 
     me.alphaSelect = function(){
-        let canvas = ImageFile.getActiveLayer().getCanvas();
+        let canvas = ImageFile.getActiveLayerDocCanvas();
 
         let w = canvas.width;
         let h = canvas.height;

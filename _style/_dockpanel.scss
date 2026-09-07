@@ -1,0 +1,329 @@
+// Free-panel docking containers.
+//
+// .dockcontainer hosts `.free-panel` elements whose shared chrome (.caption / .inner /
+// .sizer) lives in _panel.scss. This partial only sets per-side positioning + the floating
+// layer. Hidden until .active (a container with no visible panels collapses to zero
+// footprint — R7).
+
+.dockcontainer{
+  display: none;
+
+  &.active{
+    display: block;
+  }
+
+  // The resize sizer sits in a thin strip at the container edge that the editor canvas
+  // can overlap; raise it (and give it a hover hit area) so it receives the pointerdown.
+  .panelsizer{
+    z-index: 400;
+  }
+
+  // left mirrors the legacy side panel position (left: 70px from _sidepanel.scss)
+  &.dock-left{
+    // inherits left/top/bottom from the shared rule
+  }
+
+  // right: symmetric to left, anchored to the right edge
+  &.dock-right{
+    left: auto;
+    right: 0;
+
+    .panelsizer{
+      left: -4px;
+      right: auto;
+    }
+  }
+
+  // bottom: full width above the status bar
+  &.dock-bottom{
+    left: 70px;
+    right: 0;
+    top: auto;
+    bottom: 20px;
+    height: 130px;
+
+    .panelcontainer{
+      // panels stack horizontally; positioned individually by DockContainer.layout()
+    }
+
+    // panels in the bottom container are positioned with explicit left/width
+    .free-panel{
+      top: 0;
+      bottom: 0;
+      right: auto;
+
+      // bottom panels stack horizontally → the per-panel sizer resizes WIDTH from the
+      // right edge (col-resize), not height from the bottom edge.
+      > .sizer{
+        left: auto;
+        right: 0;
+        top: 0;
+        bottom: 0;
+        width: 4px;
+        height: auto;
+        cursor: col-resize;
+
+        &:hover:before{
+          left: auto;
+          right: 0;
+          top: 0;
+          bottom: 0;
+          width: 2px;
+          height: auto;
+        }
+      }
+    }
+
+    // resize sizer sits on the top edge
+    .panelsizer{
+      top: -4px;
+      bottom: auto;
+      left: 0;
+      right: 0;
+      width: auto;
+      height: 4px;
+      cursor: row-resize;
+
+      &:hover:before{
+        top: 0;
+        bottom: auto;
+        left: 0;
+        right: 0;
+        width: auto;
+        height: 2px;
+      }
+    }
+
+    // A collapsed bottom panel is a narrow vertical bar (COLLAPSED_HEIGHT wide, full
+    // height). The caption fills the bar; children are laid out top→bottom: caret, then
+    // the rotated title, then the close button. Only the TEXT is rotated (writing-mode);
+    // the icon/close stay upright and absolutely positioned so nothing overlaps.
+    .free-panel.collapsed{
+      > .caption{
+        // fill the whole vertical bar; no horizontal title-bar padding
+        top: 0;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: auto;
+        width: auto;
+        padding: 0;
+        border-bottom: none;
+        // title text flows downward in the centre column, clearing caret (top) + close (bottom)
+        writing-mode: vertical-rl;
+        text-orientation: mixed;
+        text-align: left;          // = "top" once vertical
+        padding-top: 20px;
+        padding-bottom: 22px;
+        box-sizing: border-box;
+        white-space: nowrap;
+        overflow: hidden;
+
+        > i{
+          // caret centred at the top of the bar (points right when collapsed)
+          top: 3px;
+          left: 50%;
+          margin-left: -8px;
+          transform: rotate(0deg);
+        }
+
+        // the ⋮ "more" button doesn't fit a 21px-wide bar; right-click still opens the menu
+        > .more{
+          display: none;
+        }
+
+        > .close{
+          // close pinned to the bottom of the bar, centred horizontally
+          top: auto;
+          bottom: 0;
+          left: 0;
+          right: 0;
+          width: 100%;
+        }
+      }
+    }
+  }
+}
+
+// Snap indicator: shown while dragging a panel near a container edge, previewing the
+// dock target. Single pre-created element; only position/size mutate during a drag.
+.snap-indicator{
+  position: absolute;
+  display: none;
+  z-index: 900;
+  pointer-events: none;
+  background-color: rgba(80, 160, 255, 0.18);
+  border: 2px solid rgba(80, 160, 255, 0.9);
+  box-sizing: border-box;
+
+  &.active{
+    display: block;
+  }
+}
+
+// Insertion line: shown alongside the snap indicator, marking the exact slot the dragged
+// panel takes within the target container (the reorder preview). Sits above the indicator
+// so it stays readable over the highlight fill.
+.snap-insert-line{
+  position: absolute;
+  display: none;
+  z-index: 901;
+  pointer-events: none;
+  // white against the indicator's blue fill, so the slot reads at a glance
+  background-color: #ffffff;
+  box-shadow: 0 0 6px 2px rgba(80, 160, 255, 0.9);
+  box-sizing: border-box;
+
+  &.active{
+    display: block;
+  }
+}
+
+// A panel being dragged is dimmed in place until drop.
+.dockcontainer .free-panel.ghost,
+.floatlayer .free-panel.ghost{
+  opacity: 0.4;
+}
+
+// caption drag affordance
+.dockcontainer .caption,
+.floatlayer .caption{
+  cursor: move;
+}
+
+// "more"/options affordance in the caption
+.caption .more{
+  position: absolute;
+  right: 20px;
+  top: 0;
+  height: 20px;
+  width: 18px;
+  line-height: 20px;
+  text-align: center;
+  @include caption-button;
+
+  &:before{
+    content: "\22EE"; // vertical ellipsis
+  }
+}
+
+// Floating layer: transparent overlay; only its panels capture pointer events.
+.floatlayer{
+  position: absolute;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+  z-index: 500;
+
+  // Structural: floating panels are DIRECT children of `.floatlayer`. They are not inside
+  // the .sidepanel/.dockcontainer chrome selector group, so the floating-window
+  // caption/close/inner/sizer + resize styling is defined here for `.floatlayer`'s own
+  // panels only (`>` keeps it off any nested .free-panel a panel's content might contain).
+  > .free-panel{
+    position: absolute;
+    pointer-events: auto;
+    width: 240px;
+    height: 260px;
+    min-width: 140px;
+    min-height: 80px;
+    border: 1px solid black;
+    background-color: $panel-background-color;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.5);
+    // Establish a stacking context per floating panel so inner z-indexed bits (e.g. the
+    // resize grip) stay WITHIN this panel and can't paint over a panel in front of it.
+    isolation: isolate;
+
+    > .caption{
+      background-color: $button-background-dark;
+      color: $menu-text-color;
+      padding: 3px 5px 3px 16px;
+      font-size: 12px;
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 21px;
+      border: none;
+      border-bottom: 1px solid black;
+      box-sizing: border-box;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      user-select: none;
+      cursor: move;
+
+      > i{
+        position: absolute;
+        left: 0;
+        top: 2px;
+        width: 16px;
+        height: 16px;
+        background-image: url("../_img/caret.svg");
+        background-size: contain;
+        background-repeat: no-repeat;
+        transform: rotate(90deg);
+        transition: transform 0.2s ease-in-out;
+        @include caption-button;
+      }
+
+      > .close{
+        position: absolute;
+        height: 20px;
+        width: 20px;
+        line-height: 20px;
+        right: 0;
+        top: 0;
+        text-align: center;
+        @include caption-button;
+      }
+    }
+
+    // .inner fills the panel below the 22px caption, giving absolutely-positioned panel
+    // content (palette/effects forms) a sized context.
+    > .inner{
+      position: absolute;
+      top: 22px;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      overflow: auto;
+    }
+
+    // per-panel .sizer is not used for floating panels; the corner resize handle is.
+    > .sizer{
+      display: none;
+    }
+
+    // corner resize handle (bottom-right) — drag to resize the floating panel
+    > .float-resize{
+      position: absolute;
+      right: 0;
+      bottom: 0;
+      width: 14px;
+      height: 14px;
+      cursor: nwse-resize;
+      z-index: 2;
+      background:
+        linear-gradient(135deg, transparent 0 50%, rgba(255,255,255,0.5) 50% 60%, transparent 60% 70%, rgba(255,255,255,0.5) 70% 80%, transparent 80%);
+    }
+
+    &.collapsed{
+      height: auto !important;
+      > .inner,
+      > .float-resize{
+        display: none;
+      }
+      > .caption i{
+        transform: rotate(0deg);
+      }
+    }
+
+    // while dragged as a real window: raise above other floats + a heavier shadow
+    &.dragging{
+      box-shadow: 0 6px 24px rgba(0, 0, 0, 0.6);
+      cursor: move;
+    }
+  }
+}

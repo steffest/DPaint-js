@@ -26,6 +26,9 @@ var SaveDialog = function(){
         palette: "optimized",
         iconType: "colorIcon",
         spriteFormat: "code",
+        gifMode: "animation",
+        videoFormat: "mp4",
+        videoScale: 1,
         compression: true  // Default to compressed for ANIM files
     };
     let UIelm = {};
@@ -114,12 +117,51 @@ var SaveDialog = function(){
                 'application/octet-stream': ['.psd'],
             }
         },
+        SVG:{
+            description: 'SVG Vector',
+            extension: 'svg',
+            generator: 'SVG',
+            accept: {
+                'image/svg+xml': ['.svg'],
+            }
+        },
         GIF:{
             description: 'GIF Image',
             generator: "GIF",
             extension: 'gif',
             accept: {
                 'image/gif': ['.gif'],
+            },
+            // Same .gif either way; only the description follows the "Output" option.
+            variantKey: "gifMode",
+            variants: {
+                animation: {description: 'GIF Animation'},
+                frame: {description: 'GIF Image'}
+            }
+        },
+        VIDEO:{
+            description: 'MP4 Video',
+            generator: "VIDEO",
+            extension: 'mp4',
+            accept: {
+                'video/mp4': ['.mp4'],
+            },
+            variantKey: "videoFormat",
+            variants: {
+                mp4: {
+                    description: 'MP4 Video',
+                    extension: 'mp4',
+                    accept: {
+                        'video/mp4': ['.mp4'],
+                    }
+                },
+                webm: {
+                    description: 'WebM Video',
+                    extension: 'webm',
+                    accept: {
+                        'video/webm': ['.webm'],
+                    }
+                }
             }
         },
         PCX:{
@@ -233,7 +275,9 @@ var SaveDialog = function(){
                                                 renderButton("json","DPaint.JSON","The internal format of Dpaint. All features supported","DPAINTJS"),
                                                 renderButton("png","PNG Image","Full color and transparency, no layers, current frame only.","PNG"),
                                                 renderButton("psd","PSD Image","Basic layered PSD export, current frame only.","PSD"),
+                                                renderButton("svg","SVG Vector","Vector layers as true SVG paths, pixel layers embedded, current frame only.","SVG"),
                                                 renderButton("gif","GIF Img/anim","Max 256 colors, no layers, animation supported.","GIF"),
+                                                renderButton("video","Video","MP4 or WebM video, timeline animation supported.","VIDEO"),
                                                 renderButton("jpg","JPG Image","Full color, no transparency, no layers, current frame only. LOSSY!","JPG"),
                                                 renderButton("pcx","PCX Image","indexed or true color, no layers, no transparency, current frame only.","PCX"),
                                                 renderButton("iff","Amiga IFF","Maximum 256 colors, current frame only.","IFF"),
@@ -283,7 +327,38 @@ var SaveDialog = function(){
                         ),
                         $(".optionspanel.GIF",
                             $(".content",
-                                ""
+                                // Hidden for a single-frame document, where the two are the
+                                // same file -- see setSaveType.
+                                UIelm.gifOutput = $(".group",
+                                    $("label","Output"),
+                                    $(".options",
+                                        {key:"gifMode"},
+                                        $(".option.selected",{value:"animation",onClick:selectOption},"Animation",$(".tooltip.left",$("div","One GIF frame per timeline frame."),$("div","Frame delay follows the timeline fps."))),
+                                        $(".option",{value:"frame",onClick:selectOption},"Frame",$(".tooltip.left",$("div","A still image of the frame under the playhead.")))
+                                    )
+                                )
+                            )
+                        ),
+                        $(".optionspanel.VIDEO",
+                            $(".content",
+                                $(".group",
+                                    $("label","Format"),
+                                    $(".options.inline",
+                                        {key:"videoFormat"},
+                                        $(".option.selected",{value:"mp4",onClick:selectOption},"MP4",$(".tooltip.left",$("div","H.264 / MP4 video container."),$("div","Widely compatible with players and browsers."))),
+                                        $(".option",{value:"webm",onClick:selectOption},"WebM",$(".tooltip.left",$("div","VP9 / WebM video container.")))
+                                    )
+                                ),
+                                $(".group",
+                                    $("label","Scale"),
+                                    $(".options.inline",
+                                        {key:"videoScale"},
+                                        $(".option.selected",{value:1,onClick:selectOption},"1x",$(".tooltip.left",$("div","Original size (no scaling)."))),
+                                        $(".option",{value:2,onClick:selectOption},"2x",$(".tooltip.left",$("div","2x nearest-neighbor scaling."))),
+                                        $(".option",{value:3,onClick:selectOption},"3x",$(".tooltip.left",$("div","3x nearest-neighbor scaling."))),
+                                        $(".option",{value:4,onClick:selectOption},"4x",$(".tooltip.left",$("div","4x nearest-neighbor scaling.")))
+                                    )
+                                )
                             )
                         ),
                         $(".optionspanel.DPAINTJS",
@@ -578,6 +653,12 @@ var SaveDialog = function(){
             });
         }
 
+        // Animation vs Frame is only a choice when there is more than one frame to choose
+        // between; with a single frame both write the same file.
+        if (type === "GIF" && UIelm.gifOutput){
+            UIelm.gifOutput.classList.toggle("disabled",!ImageFile.hasMultipleFrames());
+        }
+
         if (type === "PCX" && UIelm.pcxInfo) {
             let fmt = Generate.pcxFormat(ImageFile.getCanvas());
             UIelm.pcxInfo.textContent = fmt.label;
@@ -809,7 +890,7 @@ var SaveDialog = function(){
         if (outputType === "text"){
             let output = [];
             output.push("static UWORD imagelist[] = {");
-            let frameCount = ImageFile.getCurrentFile().frames.length;
+            let frameCount = ImageFile.getFrameCount();
             console.error(frameCount)
 
             for (let frame = 0; frame < frameCount; frame++){
@@ -837,7 +918,7 @@ var SaveDialog = function(){
             let image = ImageFile.getCanvas();
             let w = image.width;
             let h = image.height;
-            let frameCount = ImageFile.getCurrentFile().frames.length;
+            let frameCount = ImageFile.getFrameCount();
 
             let size = w * h * 2 * frameCount;
 

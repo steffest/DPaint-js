@@ -251,6 +251,52 @@
       }
     }
 
+    // Which frames to take when opening a multi-frame file. Shares the .panel.form layout
+    // with the other small dialogs; only the info line needs its own rule.
+    .framerangedialog{
+      .info{
+        padding: 4px 10px 0;
+        min-height: 14px;
+        font-size: 11px;
+        color: $menu-text-color-dim;
+      }
+    }
+
+    .planesdialog{
+      .checkbox{
+        display: inline-block;
+        margin: 4px 0 0 88px;
+      }
+
+      .info{
+        padding: 4px 10px;
+        min-height: 14px;
+        font-size: 11px;
+
+        &.warning{
+          color: #ded293;
+        }
+      }
+
+      .preview{
+        margin: 0 10px;
+        padding: 4px;
+        height: 180px;
+        border: 1px solid black;
+        background-color: #1a1a1a;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+
+        canvas{
+          max-width: 100%;
+          max-height: 100%;
+          image-rendering: pixelated;
+        }
+      }
+    }
+
     .lock{
       position: absolute;
       height: 33px;

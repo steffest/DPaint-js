@@ -211,6 +211,35 @@
       background-size: 90% 90%;
     }
 
+    // The vector "Edit" and the identical bone "Select & edit" tools both use an outlined
+    // mouse-pointer icon instead of the old ◤ glyph.
+    &.vectorselect,
+    &.boneselect{
+      background-image: url("../_img/pointer.svg");
+      background-size: 75% 75%;
+    }
+
+    // Vector shape tools reuse the pixel-mode icons (line / rectangle / ellipse / fill) so the
+    // toolbar reads the same in both modes. Their filled-shape variants are swapped in by the
+    // `.fill` rule at the bottom, exactly like the pixel circle/square.
+    &.vectorline{
+      background-image: url("../_img/line.svg");
+      background-size: 80% 80%;
+    }
+
+    &.vectorcircle{
+      background-image: url("../_img/circle.svg");
+    }
+
+    &.vectorrect{
+      background-image: url("../_img/square.svg");
+    }
+
+    &.vectorfill{
+      background-image: url("../_img/fill.svg");
+      background-size: 90% 90%;
+    }
+
     &.undo{
       background-image: url("../_img/undo.svg");
       background-size: 60% 60%;
@@ -225,6 +254,38 @@
       &.disabled{
         opacity: 0.2;
       }
+    }
+
+    // Bone and vector tools use text glyphs rather than SVG icons, so they need a readable font size.
+    &.group-bone,
+    &.group-vector{
+      font-size: 18px;
+      line-height: 30px;
+    }
+  }
+
+  // Tool-group switching: pixel tools while a pixel layer is active, bone tools while a bone
+  // layer is active, vector tools while a vector layer is active (toggled by the `bone-mode` /
+  // `vector-mode` class on the toolbar in toolbar.js). Utility buttons (split, pan, picker, zoom,
+  // undo, redo) carry no group and stay visible in every mode.
+  .group-bone,
+  .group-vector{
+    display: none;
+  }
+  &.bone-mode{
+    .group-pixel{
+      display: none;
+    }
+    .group-bone{
+      display: block;
+    }
+  }
+  &.vector-mode{
+    .group-pixel{
+      display: none;
+    }
+    .group-vector{
+      display: block;
     }
   }
 
@@ -501,11 +562,13 @@
 
   &.fill{
     .button{
-      &.circle{
+      &.circle,
+      &.vectorcircle{
         background-image: url("../_img/circle_fill.svg");
       }
 
-      &.square{
+      &.square,
+      &.vectorrect{
         background-image: url("../_img/square_fill.svg");
       }
     }
