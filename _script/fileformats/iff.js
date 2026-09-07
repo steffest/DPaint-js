@@ -1801,7 +1801,8 @@ const IFF = (function () {
         // ---Pre-calculate all frame planes to avoid double work ---
         let allPlanes = [];
         for (let i=0; i<frames.length; i++) {
-             let curCanvas = ImageFile.getCanvas(i);
+             // `frames` is the baked canvas list handed in by the caller (design 3.10)
+             let curCanvas = frames[i];
              // Create a temporary canvas and quantize it to the quantizePalette (with EHB if needed)
              let tempCanvas = document.createElement('canvas');
              tempCanvas.width = w;

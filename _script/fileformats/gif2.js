@@ -2,7 +2,6 @@ import BinaryStream from "../util/binarystream.js";
 import Palette from "../ui/palette.js";
 import LZW from "../util/lzw.js";
 import ImageFile from "../image.js";
-import {buildColorLookup, duplicateCanvas} from "../util/canvasUtils.js";
 
 const GIF = (()=>{
     const me = {};
@@ -68,35 +67,29 @@ const GIF = (()=>{
                             console.log("Application Extension Found");
                             block.size = file.readUbyte();
                             block.app = file.readString(11);
+                            let subBlockSize = file.readUbyte();
                             if (block.app === "NETSCAPE2.0") {
-                                let subBlockSize = file.readUbyte();
-                                if (subBlockSize >= 3) {
-                                    file.jump(1);
-                                    img.loopCount = file.readShort();
-                                    file.jump(subBlockSize - 3);
-                                } else {
-                                    file.jump(subBlockSize);
-                                }
-                                skipSubBlocks();
+                                file.jump(1);
+                                img.loopCount = file.readShort();
+                                file.readUbyte(); //block terminator
                             } else {
-                                skipSubBlocks();
+                                file.jump(subBlockSize);
+                                file.readUbyte(); //block terminator
                             }
                             break;
                         case 0xFE:
-                            //Comment Extension
-                            console.log("Comment Extension found, skipping");
-                            skipSubBlocks();
-                            break;
                         case 0x01:
-                            //Plain Text Extension
-                            console.log("Plain Text Extension found, skipping");
-                            block.size = file.readUbyte();
-                            file.jump(block.size);
-                            skipSubBlocks();
+                            //0xFE: Comment Extension
+                            //0x01: Plain Text Extension
+                            // ignore for now
+                            console.log("Comment Extension found, skipping");
+                            file.jump(1);
+                            let size = file.readUbyte();
+                            file.jump(size);
+                            file.readUbyte(); //block terminator
                             break;
                         default:
-                            console.error("Unknown GIF block label: " + block.label + ", skipping");
-                            skipSubBlocks();
+                            console.error("Unknown GIF block label: " + block.label);
                     }
                     break;
                 case 0x2C:
@@ -141,10 +134,6 @@ const GIF = (()=>{
                     if (img.transparentColorFlag){
                         frame.transparentColorIndex = img.transparentColorIndex;
                     }
-                    // The Graphic Control Extension belongs to the image that follows it, so
-                    // its disposal method is this frame's, not the file's. Keeping it here is
-                    // what lets toFrames() treat frames with different disposals correctly.
-                    frame.disposalMethod = img.disposalMethod || 0;
                     img.frames.push(frame);
 
                     break;
@@ -156,14 +145,6 @@ const GIF = (()=>{
                     console.error("Unknown GIF block: ", block);
             }
             return block;
-        }
-
-        function skipSubBlocks() {
-            let size;
-            do {
-                size = file.readUbyte();
-                file.jump(size);
-            } while (size > 0 && !file.isEOF());
         }
 
         let block = parseBlock();
@@ -199,7 +180,6 @@ const GIF = (()=>{
         // gifs should have at least one frame
         if (data && data.frames && data.frames.length) {
             img = [];
-            let restorePoint;
             data.frames.forEach((frame,index) => {
                 let frameCanvas = GIF.toCanvas(frame);
 
@@ -207,36 +187,17 @@ const GIF = (()=>{
                 canvas.width = data.width;
                 canvas.height = data.height;
                 let ctx = canvas.getContext("2d");
-
-                // A frame's disposal method says what to do with ITS OWN AREA after it has
-                // been shown, so what sits under frame N is decided by frame N-1's method:
-                //
-                //   0 / 1  leave it in place
-                //   2      restore its area to the background. Only that frame's RECTANGLE is
-                //          cleared — most animations are a full first frame followed by small
-                //          sub-rectangles, and clearing the whole screen for each one wipes
-                //          the animation down to a few stray patches. It is cleared to
-                //          transparent rather than painted with the background colour, which
-                //          is what browsers do for a GIF89a that declares a transparent index.
-                //   3      restore what was on screen before that frame was drawn, which has
-                //          to be remembered as we go (it is not frame 0).
-                if (index > 0){
-                    let previous = data.frames[index-1];
-                    let disposal = previous.disposalMethod || 0;
-                    if (disposal === 3){
-                        if (restorePoint) ctx.drawImage(restorePoint, 0, 0);
-                    }else{
-                        ctx.drawImage(img[index-1], 0, 0);
-                        if (disposal === 2){
-                            ctx.clearRect(previous.left || 0, previous.top || 0,
-                                previous.width || data.width, previous.height || data.height);
-                        }
-                    }
+                ctx.fillStyle = frame.palette[data.bgColorIndex || 0];
+                if (data.disposalMethod === 0 || data.disposalMethod === 1){
+                    if (index>0) ctx.drawImage(img[index-1], 0, 0);
                 }
-
-                // "restore to previous" refers to the state before THIS frame is drawn, so
-                // capture it here, while the canvas still holds only what came before.
-                if ((frame.disposalMethod || 0) === 3) restorePoint = duplicateCanvas(canvas,true);
+                if (data.disposalMethod === 2){
+                    // restore to background color
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                }
+                if (data.disposalMethod === 3){
+                    if (index>0) ctx.drawImage(img[0], 0, 0);
+                }
 
                 ctx.drawImage(frameCanvas, frame.left || 0, frame.top || 0);
                 img.push(canvas);
@@ -252,41 +213,72 @@ const GIF = (()=>{
     }
 
 
-    me.write = function(canvas, options) {
+    function hasTransparentPixels(canvas) {
+        let imageData = canvas.getContext("2d").getImageData(0, 0, canvas.width, canvas.height);
+        let pixels = imageData.data;
+        
+        for (let i = 3; i < pixels.length; i += 4) {
+            if (pixels[i] === 0) { // fully transparent pixel found
+                return true;
+            }
+        }
+        return false;
+    }
+
+    function generateIndexedPixelsWithTransparency(canvas, palette, transparentIndex) {
+        let w = canvas.width;
+        let h = canvas.height;
+        let imageData = canvas.getContext("2d").getImageData(0, 0, w, h);
+        let pixels = imageData.data;
+        let indexedPixels = new Uint8Array(w * h);
+        
+        for (let y = 0; y < h; y++) {
+            for (let x = 0; x < w; x++) {
+                let i = (y * w + x) * 4;
+                let r = pixels[i];
+                let g = pixels[i + 1];
+                let b = pixels[i + 2];
+                let a = pixels[i + 3];
+                
+                if (a === 0) {
+                    // Fully transparent pixel
+                    indexedPixels[y * w + x] = transparentIndex;
+                } else {
+                    // Find closest color in palette
+                    let colorIndex = Palette.getColorIndex([r, g, b], true);
+                    indexedPixels[y * w + x] = colorIndex;
+                }
+            }
+        }
+        
+        return indexedPixels;
+    }
+
+    me.write = function(canvas) {
         // write GIF file
         // https://www.w3.org/Graphics/GIF/spec-gif89a.txt
 
         // An array argument is the baked frame list from ImageFile.getBakedFrames():
         // already-resolved composites, so use them as they are.
-        options = options || {};
         let frames = Array.isArray(canvas) ? canvas.slice() : [canvas];
 
-        // Which timeline frame each entry came from. The indexed pixels are re-derived per
-        // frame through ImageFile.generateIndexedPixels(frameIndex), so a caller writing a
-        // single frame that is NOT frame 0 (Save as GIF -> "Frame") has to say which one it
-        // is, or frame 0 would be encoded instead.
-        let frameIndices = options.frameIndices || frames.map((frame,index)=>index);
-
-        // TODO: set loop count in UI
-        // TODO: set frame delay in UI
+        // Check if any frame has transparent pixels
+        let hasTransparency = frames.some(frame => hasTransparentPixels(frame));
 
         // GIF delays are in 1/100 s; derive them from the timeline frame rate.
         let delayTime = 0;
         if (frames.length > 1) delayTime = Math.max(1, Math.round(100 / ImageFile.getFps()));
 
         let encodedFrames = [];
-        // A copy: Palette.apply() below can rewrite the live palette mid-export, and the
-        // colour table we write has to match the indices we encode.
-        let palette = Palette.get().slice();
+        let palette = Palette.get();
+        let transparentIndex = null;
 
-        // Anything the composite leaves fully transparent — the area a mask track conceals,
-        // a layer that does not cover the whole document, a frame before a track's first key
-        // — needs a palette slot of its own, declared as the transparent colour index in
-        // every frame's Graphic Control Extension. Without it those pixels land on some
-        // arbitrary index and come out as whatever colour sits there.
-        let transparentIndex = frames.some(hasTransparentPixels)
-            ? pickTransparentIndex(frames, palette)
-            : -1;
+        // Add transparent color to palette if needed
+        if (hasTransparency) {
+            palette = [...palette]; // clone palette
+            palette.push([0, 0, 0]); // add transparent color as last entry
+            transparentIndex = palette.length - 1;
+        }
 
         let colorDepth = 1;
         while (1 << colorDepth < palette.length) colorDepth++;
@@ -294,12 +286,12 @@ const GIF = (()=>{
         let colorCount = 1 << colorDepth;
 
         frames.forEach((frame,index)=>{
-            let frameIndex = frameIndices[index];
-            ImageFile.activateFrame(frameIndex);
-            if (Palette.isLocked()){
-                Palette.apply();
+            let pixels;
+            if (hasTransparency) {
+                pixels = generateIndexedPixelsWithTransparency(frame, palette, transparentIndex);
+            } else {
+                pixels = ImageFile.generateIndexedPixels(index,true);
             }
-            let pixels = ImageFile.generateIndexedPixels(frameIndex,true,transparentIndex);
             encodedFrames.push(LZW.encode(pixels,frame.width, frame.height, colorDepth));
         });
 
@@ -359,12 +351,9 @@ const GIF = (()=>{
             file.writeUbyte(0xF9); //graphic control label
             file.writeUbyte(0x04); //block size
 
-            let transp = transparentIndex >= 0 ? 1 : 0;
-            // Disposal 2 ("restore to background") is required once transparency is in play:
-            // with disposal 0 the previous frame stays on screen under this frame's
-            // transparent pixels, so a moving mask smears its old position across the
-            // animation instead of revealing the background.
-            let disp = transparentIndex >= 0 ? 2 : 0;
+            let transp = hasTransparency ? 1 : 0;
+            let disp = hasTransparency ? 2 : 0; // force clear if using transparent color
+
             disp <<= 2;
 
             // packed fields
@@ -375,7 +364,7 @@ const GIF = (()=>{
             file.writeUbyte(packed);
 
             file.writeWord(delayTime); //delay time x 1/100 sec
-            file.writeUbyte(transparentIndex >= 0 ? transparentIndex : 0); //transparent color index
+            file.writeUbyte(transparentIndex || 0); //transparent color index
             file.writeUbyte(0); //block terminator
 
 
@@ -412,50 +401,6 @@ const GIF = (()=>{
 
         return file.buffer;
 
-    }
-
-    // The palette slot to write fully transparent pixels as, in order of preference:
-    //
-    //   1. an index no OPAQUE pixel uses — costs nothing and keeps the colour table exactly
-    //      the size the user's palette is, which matters when the palette is locked to a
-    //      hardware set: a 32-colour document should still come back as 32 colours.
-    //   2. a dedicated appended entry, when every palette colour is actually in use and there
-    //      is room below 256. Nothing in the image is affected, the table just grows by one.
-    //   3. the background colour index, as a last resort. With a full 256-colour palette where
-    //      every colour is in use, transparency and that one colour cannot both be
-    //      represented, so opaque pixels of that colour do go transparent.
-    //
-    // Appends to `palette` in place when it takes branch 2.
-    function pickTransparentIndex(frames, palette){
-        let usedByOpaque = new Uint8Array(palette.length);
-        let lookup = buildColorLookup(palette);
-        frames.forEach(frame=>{
-            let data = frame.getContext("2d").getImageData(0,0,frame.width,frame.height).data;
-            for (let i = 0; i < data.length; i += 4){
-                if (data[i+3]) usedByOpaque[lookup(data[i],data[i+1],data[i+2])] = 1;
-            }
-        });
-        for (let i = 0; i < usedByOpaque.length; i++){
-            if (!usedByOpaque[i]) return i;
-        }
-        if (palette.length < 256){
-            palette.push([0,0,0]);
-            return palette.length - 1;
-        }
-        console.warn("GIF: palette is full and every colour is in use; transparent pixels will take the background colour");
-        return typeof Palette.getBackColorIndex === "function" ? Palette.getBackColorIndex() : 0;
-    }
-
-    function hasTransparentPixels(canvas) {
-        let imageData = canvas.getContext("2d").getImageData(0, 0, canvas.width, canvas.height);
-        let pixels = imageData.data;
-
-        for (let i = 3; i < pixels.length; i += 4) {
-            if (pixels[i] === 0) { // fully transparent pixel found
-                return true;
-            }
-        }
-        return false;
     }
 
     return me;

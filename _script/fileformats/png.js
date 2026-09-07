@@ -10,6 +10,7 @@
 
 import BinaryStream from "../util/binarystream.js";
 import Palette from "../ui/palette.js";
+import {buildColorLookup} from "../util/canvasUtils.js";
 import crc32 from "../util/crc32.js";
 
 import zlib_closure from "../util/zlib.js";
@@ -189,19 +190,6 @@ let IndexedPng = function(){
     // Build a fast exact-match color->palette-index lookup. First match wins (same as
     // Array.findIndex), and unmatched colors fall back to index 0 - matching the old
     // Palette.getColorIndex(color, true) behaviour, but against the palette being written.
-    function buildColorLookup(paletteColors){
-        let map = new Map();
-        for (let i = 0; i < paletteColors.length; i++){
-            let c = paletteColors[i];
-            let key = c[0] + "," + c[1] + "," + c[2];
-            if (!map.has(key)) map.set(key, i);
-        }
-        return (r, g, b) => {
-            let idx = map.get(r + "," + g + "," + b);
-            return idx === undefined ? 0 : idx;
-        };
-    }
-
     function getDataChunk(w, h, indices){
         // indices already holds one palette index per pixel.
         // put scanline filter method in first byte of each scanline,

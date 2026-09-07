@@ -8,6 +8,8 @@ import IndexedPng from "./png.js";
 import GIF from "./gif.js";
 import PSD from "./psd.js";
 import PCX from "./pcx.js";
+import Video from "./video.js";
+import SVG from "./svg.js";
 import BinaryStream from "../util/binarystream.js";
 
 function rleCompress(bytes) {
@@ -61,7 +63,7 @@ let Generate = function(){
         };
         if (config.maxColors){
             let colors = ImageProcessing.getColors(ImageFile.getCanvas(),config.maxColors).length;
-            if (ImageFile.getCurrentFile().frames.length>1 && config.checkAllFrames){
+            if (ImageFile.hasMultipleFrames() && config.checkAllFrames){
                 colors = Math.max(colors,ImageProcessing.getColors(ImageFile.getCanvas(1),config.maxColors).length);
             }
             if (colors > config.maxColors){
@@ -122,9 +124,13 @@ let Generate = function(){
             case "PNG8":
                 return me.png8(options);
             case "GIF":
-                return me.gif();
+                return me.gif(options);
+            case "VIDEO":
+                return await me.video(options);
             case "PCX":
                 return me.pcx(options);
+            case "SVG":
+                return me.svg(options);
             case "DPAINT":
                 return me.dPaint();
             case "DPAINTINDEXED":
@@ -177,7 +183,9 @@ let Generate = function(){
             }
         }
         
-        let frames = ImageFile.getCurrentFile().frames;
+        // Every animation exporter consumes BAKED frames: fully resolved composites of the
+        // whole timeline, so tweens and multiple tracks come out correctly (design 3.10).
+        let frames = ImageFile.getBakedFrames();
         // console.log("Generating ANIM from " + frames.length + " frames");
 
         let buffer = IFF.writeAnim(frames, options); 
@@ -287,13 +295,7 @@ let Generate = function(){
         };
     }
 
-    // --- Amiga hardware sprites ------------------------------------------------
-    // An Amiga hardware sprite is 16 pixels wide and always built from 2 bitplanes:
-    // color index 0 is transparent, 1-3 are the sprite colors. Two output flavours:
-    //  - "code"  : C source for the current frame only
-    //  - "binary": a Sprite Bank (.spr) file holding one sprite per frame
-    // See project/documentation/amiga-sprite.md for the binary layout.
-    // TODO: support for 16 color (AGA attached) sprites
+    // TODO: support for 16 color attached sprites
     const SPRITE_WIDTH = 16;
     const SPRITE_MAX_HEIGHT = 320;
     const SPRITE_COLORS = 4;
@@ -338,8 +340,7 @@ let Generate = function(){
     // that can be loaded straight into CHIP RAM without any parsing.
     me.spriteBank=()=>{
         let title = "Save as Amiga Sprite";
-        let frames = ImageFile.getCurrentFile().frames || [];
-        let canvases = frames.map((frame,index)=>ImageFile.getCanvas(index)).filter(Boolean);
+        let canvases = ImageFile.getBakedFrames();
 
         if (!canvases.length){
             return {
@@ -500,7 +501,8 @@ let Generate = function(){
         };
     }
 
-    me.gif=()=>{
+    me.gif=(options)=>{
+        options = options || {};
         let maxColors = 256;
         let check = me.validate({
             maxColors: maxColors
@@ -513,10 +515,79 @@ let Generate = function(){
             }
         }
 
-        let buffer = GIF.write(ImageFile.getCurrentFile().frames);
+        // "frame" writes a still GIF of the frame under the playhead; "animation" (the
+        // default) writes every timeline frame.
+        let buffer;
+        if (options.gifMode === "frame"){
+            let frameIndex = ImageFile.getActiveFrameIndex();
+            buffer = GIF.write([ImageFile.getCanvas(frameIndex)],{frameIndices:[frameIndex]});
+        }else{
+            buffer = GIF.write(ImageFile.getBakedFrames());
+        }
         return {
             result: "ok",
             file: new Blob([buffer], {type: "application/octet-stream"})
+        };
+    }
+
+    me.video = async (options) => {
+        options = options || {};
+        let title = "Save as Video";
+        if (!ImageFile.getFrameCount()) {
+            return {
+                result: "error",
+                title: title,
+                messages: ["There are no frames to export."],
+                buttons: [{label: "OK"}]
+            };
+        }
+
+        try {
+            let blob;
+            // Bounded, revision-isolated path (spec 016 phase 10): freeze the revision and stream
+            // one composited frame at a time. Only usable when WebCodecs is available (no
+            // re-iterable fallback); otherwise fall back to the eager baked-frame array.
+            if (Video.canStream && Video.canStream()){
+                let snapshot = ImageFile.createExportFrameSnapshot();
+                let frames = ImageFile.iterateExportFrames(snapshot);
+                blob = await Video.write(frames, options);
+            }else{
+                let canvases = ImageFile.getBakedFrames();
+                if (!canvases || !canvases.length){
+                    return {
+                        result: "error",
+                        title: title,
+                        messages: ["There are no frames to export."],
+                        buttons: [{label: "OK"}]
+                    };
+                }
+                blob = await Video.write(canvases, options);
+            }
+            return {
+                result: "ok",
+                file: blob
+            };
+        } catch (err) {
+            console.error("Video export failed:", err);
+            return {
+                result: "error",
+                title: title,
+                messages: ["Video export failed: " + (err && err.message ? err.message : err)],
+                buttons: [{label: "OK"}]
+            };
+        }
+    }
+
+    // Hybrid SVG of the active frame (spec 009): vector layers as true <path> geometry, pixel
+    // layers as embedded base64 PNG. The frame walk / rasterize decisions live in
+    // ImageFile.getSvgExportModel; SVG.write only serializes.
+    me.svg=()=>{
+        let file = ImageFile.getCurrentFile();
+        let model = ImageFile.getSvgExportModel(ImageFile.getActiveFrameIndex());
+        let svg = SVG.write(model, file.width, file.height);
+        return {
+            result: "ok",
+            file: new Blob([svg], {type: "image/svg+xml"})
         };
     }
 
@@ -562,7 +633,7 @@ let Generate = function(){
         if (indexed && exportResult.errorCount){
             let pixels = " pixel";
             if (exportResult.errorCount>1) pixels += "s";
-            result.messages = [exportResult.errorCount + pixels + " could not be converted to index colors because there was no matching color found in the palette."];
+            result.messages = [exportResult.errorCount + pixels + " had no exact match in the palette and were written as the nearest palette color."];
             result.result = "warning";
         }
         result.file = new Blob([JSON.stringify(exportResult)], { type: 'application/json' });
