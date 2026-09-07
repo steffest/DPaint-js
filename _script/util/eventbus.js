@@ -8,13 +8,18 @@ let EventBus = function(){
         active = false;
     }
     me.release = function(){
-        let keys = Object.keys(buffer);
-        console.log("releasing " + keys.length + " event(s)")
-        keys.forEach(key=>{
-            me.trigger(key,buffer[key]);
-        });
+        // Reopen the bus and take the buffer BEFORE replaying: me.trigger() re-buffers while
+        // `active` is false, so replaying first and clearing afterwards threw every held event
+        // away instead of delivering it. That is how opening an animation ended up with all
+        // its frames in the document but only the first one drawn in the timeline.
+        let held = buffer;
         buffer = {};
         active = true;
+        let keys = Object.keys(held);
+        console.log("releasing " + keys.length + " event(s)")
+        keys.forEach(key=>{
+            me.trigger(key,held[key]);
+        });
     }
 
     me.trigger = function(action,context){

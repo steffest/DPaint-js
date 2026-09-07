@@ -4,6 +4,7 @@ import Palette from "../ui/palette.js";
 import ImageFile from "../image.js";
 import Color from "./color.js";
 import { runWebGLQuantizer } from "./webgl-quantizer.js";
+import { SRGB_TO_RGB } from "./colorConversionTables.js";
 
 var ImageProcessing = function(){
 	var me = {};
@@ -274,7 +275,8 @@ var ImageProcessing = function(){
 			let r = c[0];
 			let g = c[1];
 			let b = c[2];
-			mixedColors.push({ r: r, g: g, b: b, TrueRed: SrgbToRgb(r), TrueGreen: SrgbToRgb(g), TrueBlue: SrgbToRgb(b) });
+			// integer palette bytes -> exact Float64 table (design §6, R4)
+			mixedColors.push({ r: r, g: g, b: b, TrueRed: SRGB_TO_RGB[r], TrueGreen: SRGB_TO_RGB[g], TrueBlue: SRGB_TO_RGB[b] });
 		}
 
 
@@ -313,9 +315,12 @@ var ImageProcessing = function(){
 				var Blue = data.data[pixelIndex + 2];
 				var alpha = data.data[pixelIndex + 3];
 
-				var TrueRed = SrgbToRgb(Red);
-				var TrueGreen = SrgbToRgb(Green);
-				var TrueBlue = SrgbToRgb(Blue);
+				// source bytes are integers 0..255 -> exact Float64 table (design §6, R4).
+				// The ordered-Bayer branch below overwrites these with the scalar
+				// formula because its inputs are fractional and must stay exact.
+				var TrueRed = SRGB_TO_RGB[Red];
+				var TrueGreen = SRGB_TO_RGB[Green];
+				var TrueBlue = SRGB_TO_RGB[Blue];
 
 				if (ditherPattern && ditherPattern.length>16){
 					// Bayer / Ordered Dither

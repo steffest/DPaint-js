@@ -1,3 +1,5 @@
+import metrics from "./performanceMetrics.js";
+
 const bayerMatrix = [
     0, 32, 8, 40, 2, 34, 10, 42,
     48, 16, 56, 24, 50, 18, 58, 26,
@@ -414,7 +416,13 @@ function runWebGLQuantizer(canvas, palette, dither, ditherPatternImage, ditherAm
     ctx.drawImage(glCanvas, 0, 0);
 
     let t1 = perf.now();
-    console.log("WebGL quantization took " + (t1 - t0) + " milliseconds.");
+    // Hot-path timing is opt-in only (spec 016 R1.1): no per-invocation console
+    // output in normal runs; the duration is retained in the metrics ring when
+    // diagnostics are enabled.
+    metrics.record('quantize', t1 - t0);
+    if (metrics.isEnabled()) {
+        console.log("WebGL quantization took " + (t1 - t0) + " milliseconds.");
+    }
     return true;
 }
 
