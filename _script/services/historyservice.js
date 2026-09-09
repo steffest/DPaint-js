@@ -28,6 +28,13 @@ let HistoryService = function(){
         return !!currentHistory;
     }
 
+    me.notifyLayerExpanded = function(layer){
+        if (currentHistory && currentHistory.type === EVENT.layerContentHistory && !currentHistory.data.expandedLayerFrom){
+            currentHistory.data.expandedLayerFrom = layer.clone();
+            currentHistory.data.recorder = undefined;
+        }
+    }
+
     me.start = function(type,data){
         if (!enabled) return;
         console.log("start his");
@@ -83,6 +90,13 @@ let HistoryService = function(){
                 currentHistory.data.layerIndex = index;
                 currentHistory.data.from = captureVectorSnapshot(currentHistory.data.target, index);
                 break;
+            case EVENT.vectorGroupHistory:
+                // Spec 018: a multi-layer vector gesture (move/delete spanning several sibling
+                // layers) as ONE undo step. `data` is the array of layer paths touched, active layer
+                // first — capture each one's own snapshot via the spec 015 per-layer helper.
+                currentHistory.data.refs = data;
+                currentHistory.data.from = data.map(ref => captureVectorSnapshot(currentHistory.data.target, ref));
+                break;
             case EVENT.timelineHistory:
                 // Track/key STRUCTURE only. Content-key cels are captured by reference, so
                 // this is cheap: key and track operations never touch pixels, and a cel that
@@ -92,6 +106,13 @@ let HistoryService = function(){
             case EVENT.keyPropsHistory:
                 // One x/y/opacity edit on one layer, targeted at the key that owns it.
                 currentHistory.data.from = ImageFile.getKeyPropsTarget(index);
+                break;
+            case EVENT.keyPropsGroupHistory:
+                // A multi-layer free-transform move (Layer panel multi-select, spec-less follow-up
+                // to vectorGroupHistory): `data` is the array of layer paths touched, active layer
+                // first — capture each one's own key-props snapshot.
+                currentHistory.data.refs = data;
+                currentHistory.data.from = data.map(ref => ImageFile.getKeyPropsTarget(ref));
                 break;
             default:
                 console.error("History type " + type + " not handled");
@@ -103,7 +124,10 @@ let HistoryService = function(){
             console.log("end his");
             switch (currentHistory.type){
                 case EVENT.layerContentHistory:
-                    if (currentHistory.data.recorder){
+                    if (currentHistory.data.expandedLayerFrom){
+                        let l = ImageFile.getLayerInTarget(currentHistory.data.target, currentHistory.data.layerIndex) || ImageFile.getActiveLayer();
+                        currentHistory.data.to = l ? l.clone() : undefined;
+                    } else if (currentHistory.data.recorder){
                         // Diff against the before-image and keep only the changed tiles.
                         let result = currentHistory.data.recorder.captureAfter();
                         currentHistory.data.patches = result.patches;
@@ -127,11 +151,18 @@ let HistoryService = function(){
                 case EVENT.vectorHistory:
                     currentHistory.data.to = captureVectorSnapshot(currentHistory.data.target, currentHistory.data.layerIndex);
                     break;
+                case EVENT.vectorGroupHistory:
+                    currentHistory.data.to = currentHistory.data.refs.map(ref =>
+                        captureVectorSnapshot(currentHistory.data.target, ref));
+                    break;
                 case EVENT.timelineHistory:
                     currentHistory.data.to = ImageFile.cloneTimelineStructure();
                     break;
                 case EVENT.keyPropsHistory:
                     currentHistory.data.to = ImageFile.getKeyPropsTarget(currentHistory.data.layerIndex);
+                    break;
+                case EVENT.keyPropsGroupHistory:
+                    currentHistory.data.to = currentHistory.data.refs.map(ref => ImageFile.getKeyPropsTarget(ref));
                     break;
             }
 
@@ -221,7 +252,9 @@ let HistoryService = function(){
                 case EVENT.layerContentHistory:
                     layer = ImageFile.getLayerInTarget(historyStep.data.target,historyStep.data.layerIndex);
                     if (!layer) break;
-                    if (historyStep.data.patches){
+                    if (historyStep.data.expandedLayerFrom){
+                        layer.restore(historyStep.data.expandedLayerFrom);
+                    } else if (historyStep.data.patches){
                         applyRasterPatches(layer, historyStep.data.patches, "undo");
                     } else {
                         layer.clear();
@@ -235,6 +268,10 @@ let HistoryService = function(){
                     break;
                 case EVENT.vectorHistory:
                     applyVectorSnapshot(historyStep.data.target, historyStep.data.layerIndex, historyStep.data.from);
+                    break;
+                case EVENT.vectorGroupHistory:
+                    historyStep.data.refs.forEach((ref, i) =>
+                        applyVectorSnapshot(historyStep.data.target, ref, historyStep.data.from[i]));
                     break;
                 case EVENT.layerPropertyHistory:
                     target = historyStep.data.from;
@@ -265,6 +302,9 @@ let HistoryService = function(){
                 case EVENT.keyPropsHistory:
                     ImageFile.applyKeyProps(historyStep.data.from);
                     break;
+                case EVENT.keyPropsGroupHistory:
+                    historyStep.data.from.forEach(record => ImageFile.applyKeyProps(record));
+                    break;
                 default:
                     console.error("History type " + historyStep.type + " not handled");
             }
@@ -289,7 +329,9 @@ let HistoryService = function(){
                         ? ImageFile.getLayerInTarget(historyStep.data.target,historyStep.data.layerIndex)
                         : undefined) || ImageFile.getActiveLayer();
                     if (!layer) break;
-                    if (historyStep.data.patches){
+                    if (historyStep.data.expandedLayerFrom && historyStep.data.to){
+                        layer.restore(historyStep.data.to);
+                    } else if (historyStep.data.patches){
                         applyRasterPatches(layer, historyStep.data.patches, "redo");
                     } else {
                         layer.clear();
@@ -303,6 +345,10 @@ let HistoryService = function(){
                     break;
                 case EVENT.vectorHistory:
                     applyVectorSnapshot(historyStep.data.target, historyStep.data.layerIndex, historyStep.data.to);
+                    break;
+                case EVENT.vectorGroupHistory:
+                    historyStep.data.refs.forEach((ref, i) =>
+                        applyVectorSnapshot(historyStep.data.target, ref, historyStep.data.to[i]));
                     break;
                 case EVENT.layerPropertyHistory:
                     target = historyStep.data.to;
@@ -330,6 +376,9 @@ let HistoryService = function(){
                     break;
                 case EVENT.keyPropsHistory:
                     ImageFile.applyKeyProps(historyStep.data.to);
+                    break;
+                case EVENT.keyPropsGroupHistory:
+                    historyStep.data.to.forEach(record => ImageFile.applyKeyProps(record));
                     break;
                 default:
                     console.error("History type " + historyStep.type + " not handled");

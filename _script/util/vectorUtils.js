@@ -18,6 +18,7 @@ export function emptyVectorData(){
         nextNodeId: 1,
         nextEdgeId: 1,
         nextRegionId: 1,
+        nextTextId: 1,
         // How the layer is rendered / edited (Properties panel "Display" selector). One of
         // VECTOR_DISPLAY_MODES — see getDisplayMode() for the legacy `snapToPixel` migration:
         //   "sharp"  — pixel-art: nodes snap to the grid, raster is 1-bit (no anti-aliasing).
@@ -29,6 +30,7 @@ export function emptyVectorData(){
         nodes: {},
         edges: {},
         regions: {},
+        texts: {},
         style: {
             stroke: { color: "#000000", width: 1, smooth: false },
             fill: { color: "#000000" }
@@ -51,6 +53,7 @@ export function getDisplayMode(vector){
 export function newNodeId(v){ return "N" + (v.nextNodeId++); }
 export function newEdgeId(v){ return "E" + (v.nextEdgeId++); }
 export function newRegionId(v){ return "R" + (v.nextRegionId++); }
+export function newTextId(v){ return "T" + (v.nextTextId++); }
 
 // Adds a node at (x,y) and returns it. Callers that want snap-merging should call snapNode first.
 export function addNode(v, x, y){
@@ -81,6 +84,23 @@ function cloneStroke(s){
     return { color: s.color, width: s.width, smooth: !!s.smooth };
 }
 
+function cloneTextEntry(text){
+    if (!text) return null;
+    return {
+        id: text.id,
+        x: text.x,
+        y: text.y,
+        text: text.text || "",
+        font: text.font || "Arial",
+        fontSize: text.fontSize == null ? 32 : text.fontSize,
+        scale: text.scale == null ? 1 : text.scale,
+        fill: text.fill === undefined ? "#000000" : text.fill,
+        strokeColor: text.strokeColor || null,
+        strokeWidth: text.strokeWidth == null ? 0 : text.strokeWidth,
+        align: text.align || "left"
+    };
+}
+
 // Deep-clones a vector document. Sibling of cloneArmature() in ui/layer.js — used by the layer's
 // clone()/restore() (so undo + native save round-trip the geometry) and by the tool for a
 // cancel-snapshot. Everything here is plain data; no canvases are copied.
@@ -91,10 +111,12 @@ export function cloneVector(v){
         nextNodeId: v.nextNodeId || 1,
         nextEdgeId: v.nextEdgeId || 1,
         nextRegionId: v.nextRegionId || 1,
+        nextTextId: v.nextTextId || 1,
         displayMode: getDisplayMode(v),
         nodes: {},
         edges: {},
         regions: {},
+        texts: {},
         style: {
             stroke: cloneStroke((v.style && v.style.stroke) || {}),
             fill: { color: (v.style && v.style.fill && v.style.fill.color) || "#000000" }
@@ -126,6 +148,9 @@ export function cloneVector(v){
             fillRule: r.fillRule || "nonzero",
             fill: r.fill ? { color: r.fill.color, smooth: !!r.fill.smooth } : null
         };
+    }
+    for (let id in v.texts || {}){
+        out.texts[id] = cloneTextEntry(v.texts[id]);
     }
     return out;
 }
@@ -218,6 +243,104 @@ export function poseVectorNodes(v, nodeMap){
     return poseVector(v, nodeMap, null);
 }
 
+function normalizeTextAlign(align){
+    return (align === "center" || align === "right") ? align : "left";
+}
+
+// The rendered/measured size is fontSize × scale: fontSize is the user-set property-panel value,
+// scale is a separate multiplier applied only by the free-transform tool (so resizing the text's
+// on-canvas box via the transform handles never rewrites the fontSize field).
+export function effectiveFontSize(text){
+    let size = (text && text.fontSize != null) ? +text.fontSize : 32;
+    let scale = (text && text.scale != null) ? +text.scale : 1;
+    return Math.max(1, size * (isFinite(scale) && scale > 0 ? scale : 1));
+}
+
+export function vectorTextFont(text){
+    let size = Math.max(1, Math.round(effectiveFontSize(text)));
+    let font = (text && text.font) || "Arial";
+    return size + "px " + font;
+}
+
+let textMeasureCtx = (typeof document !== "undefined")
+    ? document.createElement("canvas").getContext("2d")
+    : null;
+
+// `caretIndex` (character offset into text.text) is optional; when given, `caretX` is measured at
+// that offset instead of at the end of the string, so an editing caret can sit mid-word.
+export function measureVectorText(text, ctx, caretIndex){
+    text = text || {};
+    let fontSize = Math.max(1, effectiveFontSize(text));
+    let value = text.text || "";
+    let align = normalizeTextAlign(text.align);
+    ctx = ctx || textMeasureCtx;
+    let width = 0;
+    let caretOffset = null;
+    let ascent = fontSize * 0.8;
+    let descent = fontSize * 0.2;
+    if (ctx){
+        ctx.save();
+        ctx.font = vectorTextFont(text);
+        ctx.textBaseline = "alphabetic";
+        let m = ctx.measureText(value || "M");
+        width = value ? m.width : 0;
+        if (typeof m.actualBoundingBoxAscent === "number" && m.actualBoundingBoxAscent > 0) ascent = m.actualBoundingBoxAscent;
+        if (typeof m.actualBoundingBoxDescent === "number" && m.actualBoundingBoxDescent >= 0) descent = m.actualBoundingBoxDescent;
+        if (caretIndex != null){
+            let idx = Math.max(0, Math.min(value.length, caretIndex));
+            caretOffset = idx > 0 ? ctx.measureText(value.slice(0, idx)).width : 0;
+        }
+        ctx.restore();
+    }
+    let startX = text.x || 0;
+    if (align === "center") startX -= width / 2;
+    if (align === "right") startX -= width;
+    let minWidth = Math.max(4, fontSize * 0.2);
+    return {
+        width: width,
+        ascent: ascent,
+        descent: descent,
+        boxX: startX,
+        boxY: (text.y || 0) - ascent,
+        boxWidth: Math.max(width, minWidth),
+        boxHeight: ascent + descent,
+        caretX: startX + (caretOffset == null ? width : caretOffset),
+        align: align
+    };
+}
+
+export function vectorTextBounds(text, pad, ctx, caretIndex){
+    let m = measureVectorText(text, ctx, caretIndex);
+    pad = pad || 0;
+    return {
+        x: m.boxX - pad,
+        y: m.boxY - pad,
+        width: m.boxWidth + pad * 2,
+        height: m.boxHeight + pad * 2,
+        caretX: m.caretX,
+        ascent: m.ascent,
+        descent: m.descent
+    };
+}
+
+export function drawVectorText(ctx, text){
+    if (!ctx || !text) return;
+    ctx.save();
+    ctx.font = vectorTextFont(text);
+    ctx.textBaseline = "alphabetic";
+    ctx.textAlign = normalizeTextAlign(text.align);
+    if (text.fill) {
+        ctx.fillStyle = text.fill;
+        ctx.fillText(text.text || "", text.x, text.y);
+    }
+    if (text.strokeColor && (text.strokeWidth || 0) > 0){
+        ctx.strokeStyle = text.strokeColor;
+        ctx.lineWidth = text.strokeWidth * ((text.scale == null ? 1 : text.scale) || 1);
+        ctx.strokeText(text.text || "", text.x, text.y);
+    }
+    ctx.restore();
+}
+
 // ── basic geometry ───────────────────────────────────────────────────────────────
 
 export function dist(ax, ay, bx, by){
@@ -267,6 +390,222 @@ export function splitCubic(p0, h1, h2, p3, t){
 
 function lerp(a, b, t){
     return { x: a.x + (b.x - a.x)*t, y: a.y + (b.y - a.y)*t };
+}
+
+// ── stroke → fill offsetting (curve-preserving) ─────────────────────────────────────
+// Builds ONE closed ring of arcs — {p0,p3,h1,h2,isCurve}, the same shape vectorBoolean.js's rings
+// use — that is the exact analytic outline of `edge` stroked at width 2*radius with round caps:
+// the edge offset to each side, closed with two semicircular caps. Used by "Lines to Fills"
+// (vectorTool.js) instead of a rasterize-then-trace pass, so the result keeps real bezier arcs
+// instead of flattening everything into a polygon.
+//
+// A round cap at one end is exactly "the disc of radius `radius` centered at that endpoint", and
+// the offset band + its two end caps together are exactly the Minkowski sum of the edge with that
+// disc (a "stadium" shape) — the standard technique for dilating a curve by a disc.
+//
+// A cubic edge has no exact offset curve in general — each recursively-subdivided piece (via
+// splitCubic, stopping once its own tangent doesn't turn more than `tolDeg` end to end) is offset
+// with the Tiller–Hanson approximation (move each control point along the LOCAL normal at its own
+// parameter), which stays visually indistinguishable from the true offset at that piece size.
+// Returns null for a degenerate (zero-length straight) edge.
+export function edgeStrokeRing(v, edge, radius, tolDeg){
+    let g = edgeGeometry(v, edge);
+    let p = offsetEdgePieces(g, radius, tolDeg);
+    if (!p) return null;
+    let ring = [];
+    p.leftPieces.forEach(a=>ring.push(a));
+    buildCapArcs(p.trueEnd, p.tEnd, radius).forEach(a=>ring.push(a));
+    for (let i = p.rightPieces.length - 1; i >= 0; i--) ring.push(reverseStrokeArc(p.rightPieces[i]));
+    buildCapArcs(p.trueStart, { x: -p.tStart.x, y: -p.tStart.y }, radius).forEach(a=>ring.push(a));
+    return ring;
+}
+
+// The offset-to-each-side pieces of one (already oriented) edge geometry `g` — shared by
+// edgeStrokeRing (a single edge, capped at both its own ends) and strokeChainRing (many edges in a
+// row, joined at each shared vertex instead). Returns null for a degenerate (zero-length straight)
+// edge. `tStart`/`tEnd` are g's own unit tangents; `trueStart`/`trueEnd` are g's own (un-offset)
+// endpoints, needed as the centre of a cap or join arc at that vertex.
+function offsetEdgePieces(g, radius, tolDeg){
+    tolDeg = tolDeg || 12;
+    let leftPieces = [], rightPieces = [], tStart, tEnd;
+    if (g.isCurve){
+        tStart = cubicStartTangent(g.p0, g.h1, g.h2, g.p3);
+        tEnd = cubicEndTangent(g.p0, g.h1, g.h2, g.p3);
+        subdivideAndOffset(g.p0, g.h1, g.h2, g.p3, radius, tolDeg, leftPieces, 0);
+        subdivideAndOffset(g.p0, g.h1, g.h2, g.p3, -radius, tolDeg, rightPieces, 0);
+    } else {
+        let dx = g.p3.x - g.p0.x, dy = g.p3.y - g.p0.y, len = Math.hypot(dx, dy);
+        if (len < 1e-9) return null;
+        tStart = tEnd = { x: dx/len, y: dy/len };
+        let n = { x: -tStart.y, y: tStart.x };
+        leftPieces.push({ p0: addVec(g.p0, scaleVec(n, radius)), p3: addVec(g.p3, scaleVec(n, radius)), h1: null, h2: null, isCurve: false });
+        rightPieces.push({ p0: addVec(g.p0, scaleVec(n, -radius)), p3: addVec(g.p3, scaleVec(n, -radius)), h1: null, h2: null, isCurve: false });
+    }
+    return { leftPieces, rightPieces, tStart, tEnd, trueStart: g.p0, trueEnd: g.p3 };
+}
+
+// Orients edge `e` so its geometry runs a→b (forward=true) or b→a (forward=false).
+export function orientedEdgeGeometry(v, e, forward){
+    let g = edgeGeometry(v, e);
+    if (forward) return g;
+    return { p0: g.p3, p3: g.p0, h1: g.isCurve ? g.h2 : null, h2: g.isCurve ? g.h1 : null, isCurve: g.isCurve };
+}
+
+// A circular arc of radius `radius` about `center`, from the point at unit-direction u0 to the one
+// at unit-direction u1 — ANY sweep angle (unlike quarterArc's fixed 90°), via the standard one-cubic
+// approximation (K = 4/3·tan(sweep/4), sweep taken the SHORT rotational way from u0 to u1). Used for
+// the round JOIN between two consecutive edges of a stroked chain (strokeChainRing) at a bend of
+// whatever angle that bend actually is — including near-zero, where it correctly degenerates to a
+// near-zero-length connector instead of the ambiguous "two independent semicircles that merely
+// touch" a fixed-180° cap on each of two SEPARATE edges would produce at a (near-)continuous
+// tangent (a touch a boolean union can't reliably merge — vectorBoolean's own documented
+// tangential-touch limitation).
+function arcOfAngle(center, radius, u0, u1){
+    let cross = u0.x*u1.y - u0.y*u1.x, dotp = u0.x*u1.x + u0.y*u1.y;
+    let theta = Math.atan2(cross, dotp);
+    let k = (4/3) * Math.tan(Math.abs(theta)/4);
+    let sense = theta >= 0 ? 1 : -1;
+    let rot = (p)=> sense > 0 ? { x: -p.y, y: p.x } : { x: p.y, y: -p.x };
+    let tan0 = rot(u0), tan1 = rot(u1);
+    return {
+        p0: { x: center.x + u0.x*radius, y: center.y + u0.y*radius },
+        p3: { x: center.x + u1.x*radius, y: center.y + u1.y*radius },
+        h1: { x: center.x + radius*u0.x + k*radius*tan0.x, y: center.y + radius*u0.y + k*radius*tan0.y },
+        h2: { x: center.x + radius*u1.x - k*radius*tan1.x, y: center.y + radius*u1.y - k*radius*tan1.y },
+        isCurve: true
+    };
+}
+
+// Offsets a whole connected CHAIN of edges — `steps`: [{edge, forward}], already grouped by the
+// caller into one same-colour, same-width, maximally-connected run — into its stroked outline, with
+// a proper round JOIN (arcOfAngle, sized to each bend's own turn angle) at every internal vertex
+// instead of independent per-edge end caps meeting there. An OPEN chain (a path with two loose
+// ends) offsets into ONE closed ring (a round cap, buildCapArcs, at each true end). A CLOSED chain
+// (a loop) has no open end to cap — its stroke is an annulus, so this returns TWO independent closed
+// rings (the two offset sides), each already closed via its own wrap-around join; a downstream union
+// with the shape's own fill (same colour) turns that hole solid, same as it would for a real pen.
+// Returns an array of rings (1 for an open chain, 2 for a closed one), or null if every step in the
+// chain was degenerate.
+export function strokeChainRing(v, steps, radius, closed, tolDeg){
+    let per = steps.map(s=>offsetEdgePieces(orientedEdgeGeometry(v, s.edge, s.forward), radius, tolDeg)).filter(Boolean);
+    if (!per.length) return null;
+
+    let left = [], right = [];
+    for (let i = 0; i < per.length; i++){
+        left.push.apply(left, per[i].leftPieces);
+        right.push.apply(right, per[i].rightPieces);
+        if (!closed && i === per.length - 1) continue;
+        let next = per[(i + 1) % per.length];
+        let node = per[i].trueEnd;
+        let nL0 = { x: -per[i].tEnd.y, y: per[i].tEnd.x };
+        let nL1 = { x: -next.tStart.y, y: next.tStart.x };
+        if (dist(nL0.x, nL0.y, nL1.x, nL1.y) > 1e-6) left.push(arcOfAngle(node, radius, nL0, nL1));
+        let nR0 = { x: -nL0.x, y: -nL0.y }, nR1 = { x: -nL1.x, y: -nL1.y };
+        if (dist(nR0.x, nR0.y, nR1.x, nR1.y) > 1e-6) right.push(arcOfAngle(node, radius, nR0, nR1));
+    }
+
+    let reversedRight = [];
+    for (let i = right.length - 1; i >= 0; i--) reversedRight.push(reverseStrokeArc(right[i]));
+
+    if (closed) return [ left, reversedRight ];
+
+    let ring = left.slice();
+    let lastEnd = per[per.length - 1];
+    ring.push.apply(ring, buildCapArcs(lastEnd.trueEnd, lastEnd.tEnd, radius));
+    ring.push.apply(ring, reversedRight);
+    let firstStart = per[0];
+    ring.push.apply(ring, buildCapArcs(firstStart.trueStart, { x: -firstStart.tStart.x, y: -firstStart.tStart.y }, radius));
+    return [ ring ];
+}
+
+function addVec(a, b){ return { x: a.x + b.x, y: a.y + b.y }; }
+function scaleVec(a, s){ return { x: a.x * s, y: a.y * s }; }
+
+// Unit tangent at a cubic's own t=0 / t=1, falling back through the remaining control points for
+// a degenerate (coincident) handle so a tangent is always produced for a non-degenerate edge.
+function cubicStartTangent(p0, h1, h2, p3){
+    let d = { x: h1.x - p0.x, y: h1.y - p0.y };
+    if (Math.hypot(d.x, d.y) < 1e-9) d = { x: h2.x - p0.x, y: h2.y - p0.y };
+    if (Math.hypot(d.x, d.y) < 1e-9) d = { x: p3.x - p0.x, y: p3.y - p0.y };
+    let len = Math.hypot(d.x, d.y) || 1;
+    return { x: d.x/len, y: d.y/len };
+}
+function cubicEndTangent(p0, h1, h2, p3){
+    let d = { x: p3.x - h2.x, y: p3.y - h2.y };
+    if (Math.hypot(d.x, d.y) < 1e-9) d = { x: p3.x - h1.x, y: p3.y - h1.y };
+    if (Math.hypot(d.x, d.y) < 1e-9) d = { x: p3.x - p0.x, y: p3.y - p0.y };
+    let len = Math.hypot(d.x, d.y) || 1;
+    return { x: d.x/len, y: d.y/len };
+}
+
+// Tiller–Hanson offset of one cubic piece: each control point moves along the normal AT ITS OWN
+// end of the piece (p0/h1 use the start normal, h2/p3 use the end normal).
+function offsetCubicPiece(p0, h1, h2, p3, radius){
+    let t0 = cubicStartTangent(p0, h1, h2, p3), t1 = cubicEndTangent(p0, h1, h2, p3);
+    let n0 = scaleVec({ x: -t0.y, y: t0.x }, radius), n1 = scaleVec({ x: -t1.y, y: t1.x }, radius);
+    return { p0: addVec(p0, n0), h1: addVec(h1, n0), h2: addVec(h2, n1), p3: addVec(p3, n1), isCurve: true };
+}
+
+// Recursively halves (p0,h1,h2,p3) via splitCubic until each piece's own start/end tangent doesn't
+// turn more than tolDeg, then pushes its Tiller–Hanson offset (at `radius`, negative for the other
+// side) into `out`, in forward (p0→p3) order. Depth-capped like the sibling flatten routines.
+function subdivideAndOffset(p0, h1, h2, p3, radius, tolDeg, out, depth){
+    let t0 = cubicStartTangent(p0, h1, h2, p3), t1 = cubicEndTangent(p0, h1, h2, p3);
+    let cos = Math.max(-1, Math.min(1, t0.x*t1.x + t0.y*t1.y));
+    let turn = Math.acos(cos) * 180 / Math.PI;
+    if (turn <= tolDeg || depth > 12){
+        out.push(offsetCubicPiece(p0, h1, h2, p3, radius));
+        return;
+    }
+    let s = splitCubic(p0, h1, h2, p3, 0.5);
+    subdivideAndOffset(s.left.p0, s.left.h1, s.left.h2, s.left.p3, radius, tolDeg, out, depth+1);
+    subdivideAndOffset(s.right.p0, s.right.h1, s.right.h2, s.right.p3, radius, tolDeg, out, depth+1);
+}
+
+// A 90° bezier arc of `radius` about `center`, from the point at unit-direction u0 to the point at
+// unit-direction u1 = rotate90(u0) — the same magic-constant construction buildEllipse (in
+// vectorTool.js) uses per quadrant of a full circle, generalised to an arbitrary starting angle.
+const ARC_K = 0.5522847498307936;
+function quarterArc(center, radius, u0, u1){
+    return {
+        p0: { x: center.x + u0.x*radius, y: center.y + u0.y*radius },
+        p3: { x: center.x + u1.x*radius, y: center.y + u1.y*radius },
+        h1: { x: center.x + radius*(u0.x + ARC_K*u1.x), y: center.y + radius*(u0.y + ARC_K*u1.y) },
+        h2: { x: center.x + radius*(u1.x + ARC_K*u0.x), y: center.y + radius*(u1.y + ARC_K*u0.y) },
+        isCurve: true
+    };
+}
+
+// A round cap at `center`, bulging outward toward unit direction `dir` (the direction of travel
+// continuing PAST that end of the edge) — two quarter-arcs forming a semicircle from the "left"
+// offset point (center + radius·leftNormal(dir)) to the "right" one (center − radius·leftNormal),
+// passing through the outward point (center + radius·dir).
+function buildCapArcs(center, dir, radius){
+    let n = { x: -dir.y, y: dir.x };
+    let negN = { x: -n.x, y: -n.y };
+    return [ quarterArc(center, radius, n, dir), quarterArc(center, radius, dir, negN) ];
+}
+
+// A full-circle disc of `radius` about `center`, as 4 quarter-arcs (the same construction, one full
+// turn instead of half) — the round JOIN at a node where two or more stroked edges meet. Used by
+// "Lines to Fills" (vectorTool.js) alongside edgeStrokeRing's per-edge capsules: two edges that meet
+// with a (near-)continuous tangent — e.g. adjacent quadrant edges of a circle — offset into caps
+// that only TOUCH there rather than genuinely overlap (a degenerate case vectorBoolean's boolean
+// clip doesn't merge, per its documented tangential-touch limitation); this disc, folded into the
+// same union, guarantees a real 2-D overlap at every shared node regardless of the turn angle — and
+// is exactly the standard definition of a round join (a disc of radius = half the stroke width,
+// centred on the joint) even where the natural per-edge overlap would have been enough on its own.
+export function strokeJointDisc(center, radius){
+    let dirs = [ {x:1,y:0}, {x:0,y:1}, {x:-1,y:0}, {x:0,y:-1} ];
+    let arcs = [];
+    for (let i = 0; i < 4; i++) arcs.push(quarterArc(center, radius, dirs[i], dirs[(i+1)%4]));
+    return arcs;
+}
+
+function reverseStrokeArc(arc){
+    return arc.isCurve
+        ? { p0: arc.p3, p3: arc.p0, h1: arc.h2, h2: arc.h1, isCurve: true }
+        : { p0: arc.p3, p3: arc.p0, h1: null, h2: null, isCurve: false };
 }
 
 // Flattens an edge to a polyline of {x,y,t} vertices (t = parameter along the edge in [0,1]).
@@ -833,13 +1172,15 @@ export function vectorSelectionIds(v, sel, selectedNodes){
 
     let nodeIds = new Set(primary);
     edgeIds.forEach(eid=>{ let e = v.edges[eid]; if (e){ nodeIds.add(e.a); nodeIds.add(e.b); } });
+    let textIds = new Set();
+    if (sel.textId && v.texts && v.texts[sel.textId]) textIds.add(sel.textId);
 
-    return { primaryNodeIds: primary, nodeIds: nodeIds, edgeIds: edgeIds, regionIds: regionIds };
+    return { primaryNodeIds: primary, nodeIds: nodeIds, edgeIds: edgeIds, regionIds: regionIds, textIds: textIds };
 }
 
 // True when a resolved selection (from vectorSelectionIds) references no geometry at all.
 export function isEmptyVectorSelection(ids){
-    return !ids || (!ids.nodeIds.size && !ids.edgeIds.size && !ids.regionIds.size);
+    return !ids || (!ids.nodeIds.size && !ids.edgeIds.size && !ids.regionIds.size && !(ids.textIds && ids.textIds.size));
 }
 
 // Builds a NEW vector document holding only the given nodes/edges/regions (deep-cloned) — the copy
@@ -853,10 +1194,12 @@ export function subsetVector(v, ids){
         nextNodeId: src.nextNodeId,
         nextEdgeId: src.nextEdgeId,
         nextRegionId: src.nextRegionId,
+        nextTextId: src.nextTextId,
         displayMode: src.displayMode,
         nodes: {},
         edges: {},
         regions: {},
+        texts: {},
         style: src.style
     };
     ids.nodeIds.forEach(id=>{ if (src.nodes[id]) out.nodes[id] = src.nodes[id]; });
@@ -870,6 +1213,7 @@ export function subsetVector(v, ids){
         let loops = [r.boundary || []].concat(r.holes || []);
         if (loops.every(loop=>loop.every(eid=>out.edges[eid]))) out.regions[id] = r;
     });
+    (ids.textIds || new Set()).forEach(id=>{ if (src.texts && src.texts[id]) out.texts[id] = src.texts[id]; });
     return out;
 }
 
@@ -881,7 +1225,7 @@ export function subsetVector(v, ids){
 // Returns { nodeMap, edgeMap, regionMap } mapping each src id to the fresh dst id it became, so a
 // caller (e.g. floating paste) can select/track exactly the geometry it just added.
 export function appendVector(dst, src, dx, dy){
-    if (!src) return { nodeMap: {}, edgeMap: {}, regionMap: {} };
+    if (!src) return { nodeMap: {}, edgeMap: {}, regionMap: {}, textMap: {} };
     dx = dx || 0; dy = dy || 0;
     let nodeMap = {}, edgeMap = {};
     for (let id in src.nodes){
@@ -916,7 +1260,39 @@ export function appendVector(dst, src, dx, dy){
         };
         regionMap[id] = rid;
     }
-    return { nodeMap: nodeMap, edgeMap: edgeMap, regionMap: regionMap };
+    let textMap = {};
+    for (let id in src.texts || {}){
+        let text = src.texts[id];
+        let tid = newTextId(dst);
+        dst.texts[tid] = cloneTextEntry(Object.assign({}, text, { id: tid, x: text.x + dx, y: text.y + dy }));
+        textMap[id] = tid;
+    }
+    return { nodeMap: nodeMap, edgeMap: edgeMap, regionMap: regionMap, textMap: textMap };
+}
+
+// An edge about to be deleted can also bound a NEIGHBOURING region that stays behind (e.g. a line
+// drawn across a fill splits it into two faces sharing that edge, per `splitFilledRegions`). Simply
+// deleting it would tear that surviving region's loop open — same fill, missing outline segment. So
+// before deleting, any such edge is cloned in place and the clone swapped into the surviving
+// region's loop(s), auto-closing it along the old seam. `excludeRegionIds` are the regions being cut
+// alongside it, so their own (about-to-vanish) use of the edge doesn't count as "surviving".
+function discloseSharedEdge(v, eid, excludeRegionIds){
+    let e = v.edges[eid];
+    if (!e) return;
+    let survivorLoops = [];
+    for (let rid in v.regions){
+        if (excludeRegionIds.has(rid)) continue;
+        let region = v.regions[rid];
+        [region.boundary].concat(region.holes || []).forEach(loop=>{
+            if (loop && loop.includes(eid)) survivorLoops.push(loop);
+        });
+    }
+    if (!survivorLoops.length) return;
+    let clone = addEdge(v, e.a, e.b, {
+        curve: e.curve ? { h1: { x: e.curve.h1.x, y: e.curve.h1.y }, h2: { x: e.curve.h2.x, y: e.curve.h2.y } } : null,
+        stroke: cloneStroke(e.stroke)
+    });
+    survivorLoops.forEach(loop=>{ loop.splice(loop.indexOf(eid), 1, clone.id); });
 }
 
 // Removes the selected geometry from v IN PLACE — the source side of Cut-To-Layer on a vector layer.
@@ -925,12 +1301,15 @@ export function appendVector(dst, src, dx, dy){
 // like deleteNode does). Shared endpoint nodes that other geometry still uses survive; ones left
 // orphaned, and any now-empty regions, are pruned.
 export function removeVectorSelection(v, ids){
+    ids.edgeIds.forEach(eid=> discloseSharedEdge(v, eid, ids.regionIds));
     ids.edgeIds.forEach(eid=>{ if (v.edges[eid]) deleteEdge(v, eid); });
     ids.primaryNodeIds.forEach(nid=>{
+        edgesAtNode(v, nid).forEach(eid=> discloseSharedEdge(v, eid, ids.regionIds));
         edgesAtNode(v, nid).forEach(eid=>{ if (v.edges[eid]) deleteEdge(v, eid); });
         delete v.nodes[nid];
     });
     ids.regionIds.forEach(id=>{ delete v.regions[id]; });
+    (ids.textIds || new Set()).forEach(id=>{ if (v.texts) delete v.texts[id]; });
     dropOrphanNodes(v);
     dropEmptyRegions(v);
 }
@@ -1292,7 +1671,8 @@ export function closeGaps(v, tol){
 // ── whole-document transform (free-transform tool) ─────────────────────────────────
 
 // Tight bounding box of the geometry in LAYER coords, {x,y,width,height} — nodes plus the
-// flattened extent of every curve (so a bezier that bulges past its endpoints is included).
+// flattened extent of every curve (so a bezier that bulges past its endpoints is included), plus
+// every text object's on-canvas box (so Free Transform's resizer wraps text too).
 // Returns null for an empty document.
 export function vectorBounds(v){
     if (!v) return null;
@@ -1307,13 +1687,22 @@ export function vectorBounds(v){
         let e = v.edges[id];
         if (e.curve){ flattenEdge(v, e, 0.5).forEach(p=>acc(p.x, p.y)); }
     }
+    for (let id in v.texts || {}){
+        let box = vectorTextBounds(v.texts[id]);
+        acc(box.x, box.y);
+        acc(box.x + box.width, box.y + box.height);
+    }
     if (!has) return null;
     return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
 }
 
 // Applies a point-mapping function fn(x,y)->{x,y} to every mutable coordinate of the geometry:
-// each node and each curve's two tangent handles. Regions reference edges/nodes so they follow
-// for free. Mutates v in place — callers pass a fresh clone when they need an undoable snapshot.
+// each node and each curve's two tangent handles, plus every text object's anchor + a uniform
+// `scale` multiplier (kept separate from `fontSize` — see effectiveFontSize). The local scale is
+// recovered by sampling fn's Jacobian magnitude at the anchor, so it works for the resizer's
+// scale-about-box-plus-rotate mapping without the caller having to pass the factor explicitly.
+// Regions reference edges/nodes so they follow for free. Mutates v in place — callers pass a fresh
+// clone when they need an undoable snapshot.
 export function transformVector(v, fn){
     if (!v) return;
     for (let id in v.nodes){
@@ -1327,6 +1716,41 @@ export function transformVector(v, fn){
             e.curve.h1 = fn(e.curve.h1.x, e.curve.h1.y);
             e.curve.h2 = fn(e.curve.h2.x, e.curve.h2.y);
         }
+    }
+    for (let id in v.texts || {}){
+        let t = v.texts[id];
+        let eps = 1;
+        let p0 = fn(t.x, t.y);
+        let px = fn(t.x + eps, t.y);
+        let py = fn(t.x, t.y + eps);
+        let dx = Math.hypot(px.x - p0.x, px.y - p0.y);
+        let dy = Math.hypot(py.x - p0.x, py.y - p0.y);
+        let localScale = (dx + dy) / (2 * eps);
+        t.x = p0.x; t.y = p0.y;
+        if (isFinite(localScale) && localScale > 0){
+            t.scale = (t.scale == null ? 1 : t.scale) * localScale;
+        }
+    }
+}
+
+// Spec 018: like transformVector, but restricted to a SUBSET of nodes (a Free Transform scoped to
+// the current vector-tool selection, possibly spanning several layers) — only the listed node ids and
+// the near handle of every curved edge incident to one of them are remapped through fn; every other
+// node/edge/text is left untouched. No text handling (cross-layer selection never includes text).
+export function transformVectorSubset(v, nodeIds, fn){
+    if (!v || !nodeIds || !nodeIds.length) return;
+    let idSet = new Set(nodeIds);
+    idSet.forEach(id=>{
+        let n = v.nodes[id];
+        if (!n) return;
+        let p = fn(n.x, n.y);
+        n.x = p.x; n.y = p.y;
+    });
+    for (let id in v.edges){
+        let e = v.edges[id];
+        if (!e || !e.curve) continue;
+        if (idSet.has(e.a) && e.curve.h1) e.curve.h1 = fn(e.curve.h1.x, e.curve.h1.y);
+        if (idSet.has(e.b) && e.curve.h2) e.curve.h2 = fn(e.curve.h2.x, e.curve.h2.y);
     }
 }
 
@@ -1583,6 +2007,9 @@ export function rasterizeVector(vector, ctx, w, h){
         if (!edge.stroke) continue;
         strokeEdge(vector, ctx, edge);
     }
+    for (let id in vector.texts || {}){
+        drawVectorText(ctx, vector.texts[id]);
+    }
     ctx.restore();
 
     // pixel-art finish: make every partially-covered edge pixel fully opaque or fully gone, so the
@@ -1712,6 +2139,23 @@ export function getVectorSvgShapes(vector){
         let edge = vector.edges[id];
         if (!edge.stroke) continue;
         ops.push({ d: edgePathData(vector, edge), stroke: edge.stroke.color, width: edge.stroke.width || 1 });
+    }
+    for (let id in vector.texts || {}){
+        let text = vector.texts[id];
+        let scale = text.scale == null ? 1 : text.scale;
+        ops.push({
+            kind: "text",
+            id: id,
+            x: text.x,
+            y: text.y,
+            text: text.text || "",
+            font: text.font || "Arial",
+            fontSize: effectiveFontSize(text),
+            fill: text.fill || null,
+            stroke: text.strokeColor || null,
+            width: (text.strokeWidth == null ? 0 : text.strokeWidth) * scale,
+            align: normalizeTextAlign(text.align)
+        });
     }
     return ops;
 }

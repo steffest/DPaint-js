@@ -331,11 +331,9 @@ let Recorder = (()=>{
         console.log("Frame captured");
     };
 
-    // Event handlers
-    EventBus.on(COMMAND.RECORDINGSTART, me.startRecording);
-    EventBus.on(COMMAND.RECORDINGSTOP, me.stopAndDownload);
-    EventBus.on(COMMAND.RECORDINGEXPORT, me.stopAndDownload);
-    
+    // COMMAND.RECORDINGSTART/STOP/EXPORT are wired in app.js, which lazily loads this module on
+    // first use instead of registering these handlers eagerly here.
+
     // Capture frames on history changes (undo points)
     EventBus.on(EVENT.historyChanged, () => {
         if (isRecording) {
