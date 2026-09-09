@@ -10,6 +10,7 @@ import PSD from "./psd.js";
 import PCX from "./pcx.js";
 import Video from "./video.js";
 import SVG from "./svg.js";
+import PDF from "./pdf.js";
 import BinaryStream from "../util/binarystream.js";
 
 function rleCompress(bytes) {
@@ -131,6 +132,8 @@ let Generate = function(){
                 return me.pcx(options);
             case "SVG":
                 return me.svg(options);
+            case "PDF":
+                return me.pdf(options);
             case "DPAINT":
                 return me.dPaint();
             case "DPAINTINDEXED":
@@ -588,6 +591,19 @@ let Generate = function(){
         return {
             result: "ok",
             file: new Blob([svg], {type: "image/svg+xml"})
+        };
+    }
+
+    // Single-page PDF of the current frame (spec 020): one FlateDecode-compressed image
+    // XObject, current frame only, no vector content. See docs/pdf_support.md.
+    me.pdf=(options)=>{
+        let currentFile = ImageFile.getCurrentFile();
+        let frame = ImageFile.getActiveFrame();
+        let canvas = ImageFile.getCanvas();
+        let buffer = PDF.write(frame, currentFile.width, currentFile.height, canvas, options);
+        return {
+            result: "ok",
+            file: new Blob([buffer], {type: "application/pdf"})
         };
     }
 

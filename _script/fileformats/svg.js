@@ -1,4 +1,4 @@
-import {getVectorSvgShapes, emptyVectorData, addNode, addEdge, newRegionId} from "../util/vectorUtils.js";
+import {getVectorSvgShapes, emptyVectorData, addNode, addEdge, newRegionId, newTextId, vectorTextBounds} from "../util/vectorUtils.js";
 
 const SVGNS = "http://www.w3.org/2000/svg";
 const XLINKNS = "http://www.w3.org/1999/xlink";
@@ -42,7 +42,7 @@ let SVG = function(){
                 let shapes = getVectorSvgShapes(op.vector);
                 if (!shapes.length) break;
                 lines.push(indent + "<g" + containerAttrs(op) + ">");
-                shapes.forEach(shape=>lines.push(indent + "  " + pathElement(shape)));
+                shapes.forEach(shape=>lines.push(indent + "  " + shapeElement(shape)));
                 lines.push(indent + "</g>");
                 break;
         }
@@ -51,7 +51,14 @@ let SVG = function(){
     // One <path> — a fill, a stroke, or both — matching canvas.js drawVectorShapes. A combined
     // fill+stroke path (a filled shape with a uniform outline) is written as a single element so it
     // re-imports as one shape (its fill stays bound to its outline) rather than splitting apart.
-    function pathElement(shape){
+    function shapeElement(shape){
+        if (shape.kind === "text"){
+            let fill = shape.fill || "none";
+            let stroke = shape.stroke ? ' stroke="' + shape.stroke + '"' : "";
+            let strokeWidth = shape.stroke ? ' stroke-width="' + shape.width + '"' : "";
+            let anchor = shape.align === "center" ? "middle" : (shape.align === "right" ? "end" : "start");
+            return '<text x="' + shape.x + '" y="' + shape.y + '" font-family="' + escapeAttr(shape.font) + '" font-size="' + shape.fontSize + '" text-anchor="' + anchor + '" fill="' + fill + '"' + stroke + strokeWidth + '>' + escapeText(shape.text || "") + '</text>';
+        }
         if (shape.fill){
             let rule = (shape.fillRule && shape.fillRule !== "nonzero") ? ' fill-rule="' + shape.fillRule + '"' : "";
             if (shape.stroke){
@@ -99,7 +106,17 @@ let SVG = function(){
                 if (spec) layers.push(spec);
                 continue;
             }
-            // shape or <g>: flatten its geometry into the current vector accumulator
+            // a top-level <g>: its own vector layer, so sibling groups don't merge together
+            if (tag === "g"){
+                flush();
+                acc = emptyVectorData();
+                acc.displayMode = "vector";
+                accMeta = {name: child.getAttribute("id") || null, opacity: opacityOf(child), blend: blendOf(child)};
+                walk(acc, child, rootMatrix, rootPaint, gradients);
+                flush();
+                continue;
+            }
+            // bare shape: flatten into the current vector accumulator
             if (!acc){
                 acc = emptyVectorData();
                 acc.displayMode = "vector";
@@ -184,7 +201,10 @@ let SVG = function(){
                 emitSubpaths(v, [{start:pts[0], segs:segs, closed: tag === "polygon"}], m, p);
                 return;
             }
-            // text/use/image-in-group and anything else: skipped (documented)
+            case "text":
+                emitText(v, el, m, p);
+                return;
+            // use/image-in-group and anything else: skipped (documented)
         }
     }
 
@@ -246,7 +266,35 @@ let SVG = function(){
     }
 
     function hasContent(v){
-        return Object.keys(v.edges).length > 0 || Object.keys(v.regions).length > 0;
+        return Object.keys(v.edges).length > 0 || Object.keys(v.regions).length > 0 || Object.keys(v.texts || {}).length > 0;
+    }
+
+    function emitText(v, el, matrix, paint){
+        let value = (el.textContent || "").replace(/\r/g, "");
+        if (!value.length) return;
+        let sizeProp = getProp(el, "font-size");
+        let fontSize = parseFloat(sizeProp);
+        if (isNaN(fontSize) || fontSize <= 0) fontSize = 32;
+        let family = getProp(el, "font-family") || "Arial";
+        family = family.replace(/^['"]|['"]$/g, "");
+        let anchor = getProp(el, "text-anchor");
+        let align = anchor === "middle" ? "center" : (anchor === "end" ? "right" : "left");
+        let pos = apply(matrix, { x: num(el, "x"), y: num(el, "y") });
+        let scale = Math.sqrt(Math.abs(matrix[0] * matrix[3] - matrix[1] * matrix[2])) || 1;
+        let id = newTextId(v);
+        v.texts[id] = {
+            id: id,
+            x: pos.x,
+            y: pos.y,
+            text: value,
+            font: family,
+            fontSize: fontSize * scale,
+            scale: 1,
+            fill: paint.fill,
+            strokeColor: paint.stroke || null,
+            strokeWidth: paint.stroke ? (paint.strokeWidth || 1) * scale : 0,
+            align: align
+        };
     }
 
     // ── path `d` parsing ──────────────────────────────────────────────────────────────
@@ -503,9 +551,22 @@ let SVG = function(){
             if (l.kind === "image"){ maxX = Math.max(maxX, l.x + l.width); maxY = Math.max(maxY, l.y + l.height); }
             else if (l.kind === "vector"){
                 for (let id in l.vector.nodes){ let nd = l.vector.nodes[id]; maxX = Math.max(maxX, nd.x); maxY = Math.max(maxY, nd.y); }
+                for (let id in l.vector.texts || {}){
+                    let box = vectorTextBounds(l.vector.texts[id]);
+                    maxX = Math.max(maxX, box.x + box.width);
+                    maxY = Math.max(maxY, box.y + box.height);
+                }
             }
         });
         return {width: maxX, height: maxY};
+    }
+
+    function escapeAttr(text){
+        return String(text).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
+    }
+
+    function escapeText(text){
+        return String(text).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
     }
 
     // A top-level <image> → pixel-layer spec (position from its x/y and any transform translate).
