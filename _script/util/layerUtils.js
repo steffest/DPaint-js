@@ -222,6 +222,9 @@ export function compositeNodes(nodes, ctx, props, options) {
             return;
         }
 
+        let destX = effective.x + (node.canvasX || 0);
+        let destY = effective.y + (node.canvasY || 0);
+
         if (dissolve) {
             if (effective.opacity <= 0) return;
             let rendered = deformed || node.render(props, renderOptions);
@@ -234,7 +237,7 @@ export function compositeNodes(nodes, ctx, props, options) {
             // (its holes do not come from the opacity at all).
             let comparison = isDissolveComparison(node.dissolve);
             if (effective.opacity >= 100 && dissolveFollowsOpacity(node.dissolve)) {
-                ctx.drawImage(rendered, effective.x, effective.y);
+                ctx.drawImage(rendered, destX, destY);
             } else {
                 // The stencil has to be punched into the node in isolation, before it meets
                 // the layers below — otherwise the holes would cut through those too.
@@ -242,10 +245,10 @@ export function compositeNodes(nodes, ctx, props, options) {
                 let stencilCtx = stencilled.getContext("2d");
                 // Resolved here, and in this order: the comparison picks the candidate pixels
                 // against the layers below, then the opacity stencil thins them out.
-                if (comparison) applyIfLighter(stencilCtx, ctx, effective.x, effective.y);
+                if (comparison) applyIfLighter(stencilCtx, ctx, destX, destY);
                 applyDissolve(stencilCtx, effective.opacity, node.dissolve,
-                    nodeOriginX, nodeOriginY);
-                ctx.drawImage(stencilled, effective.x, effective.y);
+                    nodeOriginX + (node.canvasX || 0), nodeOriginY + (node.canvasY || 0));
+                ctx.drawImage(stencilled, destX, destY);
                 releaseCanvas(stencilled);
             }
             return;
@@ -254,7 +257,7 @@ export function compositeNodes(nodes, ctx, props, options) {
         ctx.globalAlpha = effective.opacity / 100;
         let blend = node.blendMode || "normal";
         ctx.globalCompositeOperation = blend === "normal" ? "source-over" : blend;
-        ctx.drawImage(deformed || node.render(props, renderOptions), effective.x, effective.y);
+        ctx.drawImage(deformed || node.render(props, renderOptions), destX, destY);
         ctx.globalAlpha = 1;
         ctx.globalCompositeOperation = "source-over";
     });
@@ -376,6 +379,22 @@ export function parentOf(nodes, path) {
     let node = nodes[path[0]];
     if (!isGroup(node)) return undefined;
     return parentOf(node.layers, path.slice(1));
+}
+
+// Every OTHER vector layer sharing `path`'s immediate parent (same group's layers[] array, or both
+// at document root) that is visible and not locked — the candidate set for spec 018's cross-layer
+// vector selection. Re-run at the start of every gesture; never cached.
+export function eligibleVectorSiblings(nodes, path) {
+    let p = parentOf(nodes, path);
+    if (!p) return [];
+    let base = path.slice(0, -1);
+    let out = [];
+    p.parent.forEach((node, i) => {
+        if (i === p.index) return;
+        if (!isVector(node) || !node.visible || node.locked) return;
+        out.push({ node, path: base.concat(i) });
+    });
+    return out;
 }
 
 export function insertAtPath(nodes, path, node) {

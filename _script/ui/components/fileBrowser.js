@@ -6,7 +6,7 @@ import EventBus from "../../util/eventbus.js";
 import {COMMAND} from "../../enum.js";
 import BinaryStream from "../../util/binarystream.js";
 import IFF from "../../fileformats/iff.js";
-import SaveDialog from "./saveDialog.js";
+import {setCurrentFileHandle} from "../currentFileHandle.js";
 import Generate from "../../fileformats/generate.js";
 import PanelManager from "../panelManager.js";
 
@@ -119,7 +119,7 @@ let FileBrowser = function(){
         currentFile = file;
         let f = Adf.readFileAtSector(file.sector,true);
         ImageFile.handleBinary(f.content.buffer,file.name,"file",true);
-        SaveDialog.setFile(file);
+        setCurrentFileHandle(file);
     }
 
     EventBus.on(COMMAND.SAVEFILETOADF,([currentFile,name])=>{
@@ -141,7 +141,7 @@ let FileBrowser = function(){
                         // update current file in dpaint.js
                         let f = Adf.readFileAtSector(sector,false);
                         currentFile=f;
-                        SaveDialog.setFile(f);
+                        setCurrentFileHandle(f);
                         Modal.hide();
                     }
                 });

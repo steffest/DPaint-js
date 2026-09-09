@@ -548,25 +548,72 @@
           width: 148px;
           margin: 4px 0 0 12px;
 
-          &.red::-webkit-slider-runnable-track {
-            background: linear-gradient(90deg, #000000 0%, #c40202 100%);
-            border: none;
+          // Plain (non-HSV) RGB tracks: a single gradient (not a stacked "fill" layer on top
+          // of a base one - that doesn't composite on this pseudo-element, see rangeFill.js)
+          // that ramps from black up to rangeFill.js's --slider-color - the actual color the
+          // slider's own value represents - exactly at the thumb, then drops straight back
+          // to black for the remainder of the track.
+          // Note: webkit and moz pseudo-elements are kept in separate rules - a plain
+          // selector list isn't "forgiving", so mixing an unrecognized vendor pseudo-element
+          // into the same comma list as a recognized one invalidates the whole rule in that
+          // browser, silently dropping every selector in it.
+          &.red:not(.hsv)::-webkit-slider-runnable-track,
+          &.green:not(.hsv)::-webkit-slider-runnable-track,
+          &.blue:not(.hsv)::-webkit-slider-runnable-track {
+            background: linear-gradient(90deg,
+              #000 0%,
+              var(--slider-color, #000) var(--range-fill-end, 0%),
+              #000 var(--range-fill-end, 0%),
+              #000 100%
+            );
           }
+          &.red:not(.hsv)::-moz-range-track,
+          &.green:not(.hsv)::-moz-range-track,
+          &.blue:not(.hsv)::-moz-range-track {
+            background: linear-gradient(90deg,
+              #000 0%,
+              var(--slider-color, #000) var(--range-fill-end, 0%),
+              #000 var(--range-fill-end, 0%),
+              #000 100%
+            );
+          }
+
+          &.red:not(.hsv)::-webkit-slider-thumb {
+            background: #f00;
+          }
+          &.green:not(.hsv)::-webkit-slider-thumb {
+            background: #0f0;
+          }
+          &.blue:not(.hsv)::-webkit-slider-thumb {
+            background: #00f;
+          }
+          &.red:not(.hsv)::-moz-range-thumb {
+            background: #f00;
+          }
+          &.green:not(.hsv)::-moz-range-thumb {
+            background: #0f0;
+          }
+          &.blue:not(.hsv)::-moz-range-thumb {
+            background: #00f;
+          }
+
           &.red.hsv::-webkit-slider-runnable-track{
             background: linear-gradient(90deg, #FF3A00 0%, #F0FF00 20%, #00FF1D 40%, #0007FF 60%, #FF00F1 80%, #FA0505 100%);
-          }
-          &.green::-webkit-slider-runnable-track {
-            background: linear-gradient(90deg, #000000 0%, #00a402 100%);
-            border: none;
           }
           &.green.hsv::-webkit-slider-runnable-track{
             background: linear-gradient(90deg, #000000 0%, #c40202 100%);
           }
-          &.blue::-webkit-slider-runnable-track {
-            background: linear-gradient(90deg, #000000 0%, #085db9 100%);
-            border: none;
-          }
           &.blue.hsv::-webkit-slider-runnable-track{
+            background: linear-gradient(90deg, #000000 0%, #FFFFFF 100%);
+          }
+
+          &.red.hsv::-moz-range-track{
+            background: linear-gradient(90deg, #FF3A00 0%, #F0FF00 20%, #00FF1D 40%, #0007FF 60%, #FF00F1 80%, #FA0505 100%);
+          }
+          &.green.hsv::-moz-range-track{
+            background: linear-gradient(90deg, #000000 0%, #c40202 100%);
+          }
+          &.blue.hsv::-moz-range-track{
             background: linear-gradient(90deg, #000000 0%, #FFFFFF 100%);
           }
         }

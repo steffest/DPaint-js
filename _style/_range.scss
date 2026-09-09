@@ -1,9 +1,61 @@
+// Default look for every <input type=range>: a rounded bar (dark gray fill, lighter gray
+// border) with a circular thumb sized to fit exactly inside the bar. The thumb reuses the
+// border color and turns white on hover. The track is "filled" with a translucent white
+// overlay between --range-fill-start and --range-fill-end (kept in sync by
+// _script/util/rangeFill.js): for most sliders that's 0%-to-thumb (left edge to thumb), but
+// for bipolar sliders (min < 0 < max, e.g. Hue, Brightness/Contrast/Saturation, the
+// Cyan-Red/Magenta-Green/Yellow-Blue sliders) it's the neutral zero point to the thumb, so
+// the fill grows outward from center instead of from the left edge. Either way it reads as
+// a lighter tint on a flat track and as a brightened tint on any colored/gradient track (see
+// _effectEditor.scss / _paletteEditor.scss).
+// Component-specific partials (panel, bottompanel, timeline, ...) may resize the bar/thumb
+// but should keep this same track/thumb/fill structure.
+
+$range-track-height: 7px;
+$range-thumb-size: 8px; // track height + 2 * border, so the circle sits flush in the bar
+$range-track-color: #1c1c1c;
+$range-track-border: #383838;
+$range-thumb-color: #aaa;
+$range-thumb-hover-color: #ddd;
+$range-fill-color: #666;
+
+// Composable "filled track" background: an opaque gray overlay between --range-fill-start
+// and --range-fill-end, stacked on top of whatever base color/gradient the slider variant
+// needs and blended with `screen` (rather than plain alpha compositing). Screen brightens
+// per-channel (1-(1-base)(1-fill)) instead of mixing toward flat gray, so it reads as a
+// genuine "brightening" of the base color/gradient - most visible on saturated colored
+// tracks (hue, sepia, cyan/magenta/yellow, ...), which stay vivid instead of washing pale.
+@mixin range-fill($base, $fill-color: $range-fill-color){
+  background: linear-gradient(to right,
+    transparent 0%,
+    transparent var(--range-fill-start, 0%),
+    $fill-color var(--range-fill-start, 0%),
+    $fill-color var(--range-fill-end, 0%),
+    transparent var(--range-fill-end, 0%)
+  ), #{$base};
+  background-blend-mode:screen;
+}
+
+@mixin range-thumb($size: $range-thumb-size, $color: $range-thumb-color, $border-color: $range-track-border){
+  width: $size;
+  height: $size;
+  border-radius: 50%;
+  background: $color;
+  border: none;
+  cursor: pointer;
+  box-sizing: border-box;
+}
+
 input[type=range] {
   margin: 0;
   background-color: transparent;
   -webkit-appearance: none;
+  appearance: none;
   box-sizing: border-box;
   height: 21px;
+  --range-percent: 0%;
+  --range-fill-start: 0%;
+  --range-fill-end: 0%;
 }
 input[type=range]:focus {
   outline: none;
@@ -12,40 +64,43 @@ input[type=range]:disabled {
   opacity: 0.3;
 }
 input[type=range]::-webkit-slider-runnable-track {
-  background: #c8c8c8;
-  border: 1px solid #010101;
+  @include range-fill($range-track-color);
+  border: 1px solid $range-track-border;
+  border-radius: calc(#{$range-track-height} / 2 + 1px);
   width: 100%;
-  height: 2px;
+  height: $range-track-height;
   cursor: pointer;
 }
 input[type=range]::-webkit-slider-thumb {
-  margin-top: -8.6px;
-  width: 8px;
-  height: 16px;
-  background: #c8c8c8;
-  border: 1px solid rgba(50, 50, 50, 0.7);
-  cursor: pointer;
   -webkit-appearance: none;
+  margin-top: -1px;
+  @include range-thumb;
+}
+input[type=range]:hover::-webkit-slider-thumb {
+  background: $range-thumb-hover-color;
 }
 input[type=range]:focus::-webkit-slider-runnable-track {
-  background: #d5d5d5;
+  border-color: lighten($range-track-border, 10%);
 }
 input[type=range]::-moz-range-track {
-  background: #c8c8c8;
-  border: 1px solid #010101;
+  @include range-fill($range-track-color);
+  border: 1px solid $range-track-border;
+  border-radius: calc(#{$range-track-height} / 2 + 1px);
   width: 100%;
-  height: 0;
-  margin-top: -2px;
+  height: $range-track-height;
   cursor: pointer;
 }
+input[type=range]::-moz-range-progress {
+  // Firefox exposes the filled portion natively; keep it transparent so the JS-driven
+  // --range-percent overlay above (shared with webkit) is the single source of truth.
+  background: transparent;
+  border-radius: calc(#{$range-track-height} / 2 + 1px);
+}
 input[type=range]::-moz-range-thumb {
-  width: 6px;
-  height: 14px;
-  background: #c8c8c8;
-  border: 1px solid rgba(50, 50, 50, 0.7);
-  border-radius: 0;
-  cursor: pointer;
-  margin-top: -2px;
+  @include range-thumb;
+}
+input[type=range]:hover::-moz-range-thumb {
+  background: $range-thumb-hover-color;
 }
 input[type=range]::-ms-track {
   background: transparent;
@@ -53,29 +108,21 @@ input[type=range]::-ms-track {
   border-width: 8px 0;
   color: transparent;
   width: 100%;
-  height: 2px;
+  height: $range-track-height;
   cursor: pointer;
 }
 input[type=range]::-ms-fill-lower {
-  background: #bbbbbb;
-  border: 1px solid #010101;
+  background: $range-fill-color;
+  border: 1px solid $range-track-border;
 }
 input[type=range]::-ms-fill-upper {
-  background: #c8c8c8;
-  border: 1px solid #010101;
+  background: $range-track-color;
+  border: 1px solid $range-track-border;
 }
 input[type=range]::-ms-thumb {
-  width: 8px;
-  height: 16px;
-  background: #c8c8c8;
-  border: 1px solid rgba(50, 50, 50, 0.7);
-  cursor: pointer;
+  @include range-thumb;
   margin-top: 0;
 }
-input[type=range]:focus::-ms-fill-lower {
-  background: #c8c8c8;
-}
 input[type=range]:focus::-ms-fill-upper {
-  background: #d5d5d5;
+  background: lighten($range-track-color, 5%);
 }
-

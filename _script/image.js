@@ -1,6 +1,5 @@
 import FileDetector from "./fileformats/detect.js";
 import AmigaIcon from "./fileformats/amigaIcon.js";
-import SVG from "./fileformats/svg.js";
 import EventBus from "./util/eventbus.js";
 import {COMMAND,EVENT} from "./enum.js";
 import Historyservice from "./services/historyservice.js";
@@ -10,24 +9,27 @@ import PanelManager from "./ui/panelManager.js";
 import NativePanels from "./ui/nativePanels.js";
 import {duplicateCanvas, indexPixelsToPalette, releaseCanvas} from "./util/canvasUtils.js";
 import Palette from "./ui/palette.js";
-import SaveDialog from "./ui/components/saveDialog.js";
+import {setCurrentFileHandle} from "./ui/currentFileHandle.js";
 import HistoryService from "./services/historyservice.js";
 import ImageProcessing from "./util/imageProcessing.js";
 import Brush from "./ui/brush.js";
 import storage from "./util/storage.js";
 import {DuplicateName} from "./util/textUtils.js";
-import Recorder from "./services/recorder.js";
+import {getRecorderIfLoaded} from "./services/recorderLoader.js";
 import {createEditService} from "./services/editService.js";
 import {runWebGLQuantizer} from "./util/webgl-quantizer.js";
-import {compositeNodes, resolveLayerPath, flatIndex, pathFromFlatIndex, isGroup, isBones, isVector, parentOf, removeAtPath, insertAtPath, moveAtPath, isLockedInTree, resolvedOffset, effectiveProps, hasGroupTransform, getOpaqueBounds, groupTransformMatrix, matIdentity, matMultiply, matTranslate, matApply, matInvert} from "./util/layerUtils.js";
+import {compositeNodes, resolveLayerPath, flatIndex, pathFromFlatIndex, isGroup, isBones, isVector, parentOf, removeAtPath, insertAtPath, moveAtPath, isLockedInTree, resolvedOffset, effectiveProps, hasGroupTransform, getOpaqueBounds, groupTransformMatrix, matIdentity, matMultiply, matTranslate, matApply, matInvert, eligibleVectorSiblings} from "./util/layerUtils.js";
 import {DISSOLVE_PATTERNS, DEFAULT_DISSOLVE_PATTERN, isDissolvePattern, isDissolveComparison,
     dissolveFollowsOpacity, applyDissolve} from "./util/dissolveUtils.js";
-import {getDisplayMode, VECTOR_DISPLAY_MODES, appendVector, emptyVectorData, getVectorSvgShapeSources, poseVector} from "./util/vectorUtils.js";
+import {getDisplayMode, VECTOR_DISPLAY_MODES, appendVector, emptyVectorData, getVectorSvgShapeSources, poseVector,
+    addNode, addEdge, newRegionId} from "./util/vectorUtils.js";
+import {booleanCombine as booleanCombineVectors} from "./util/vectorBoolean.js";
 import {timelineLength, keyAt, previousKey, nextKey, governingContentKey, contentKeys,
     propertyKeysGovernedBy, resolveTrackState, keyState, celBaseState, canInsertPropertyKey,
     canTween, insertKey, removeKey, moveKey, moveKeys} from "./util/timelineUtils.js";
 import {createFrameCache, makeFrameKey, RENDER_VARIANT} from "./services/frameCache.js";
 import {createExportSnapshot, iterateFrames} from "./services/exportSnapshot.js";
+import {getCustomFonts, restoreCustomFonts} from "./util/fonts.js";
 
 let ImageFile = function(){
     let me = {};
@@ -688,8 +690,8 @@ let ImageFile = function(){
             let cx = c ? c.getContext("2d",{willReadFrequently:true}) : undefined;
             if (!cx) return false;
             let local = matApply(matInvert(m), point);
-            let lx = Math.floor(local.x);
-            let ly = Math.floor(local.y);
+            let lx = Math.floor(local.x) - (node.canvasX || 0);
+            let ly = Math.floor(local.y) - (node.canvasY || 0);
             if (lx < 0 || ly < 0 || lx >= c.width || ly >= c.height) return false;
             return cx.getImageData(lx,ly,1,1).data[3] > 0;
         }
@@ -1224,6 +1226,16 @@ let ImageFile = function(){
         return resolvedOffset(frame.layers, path, me.getResolvedProps());
     };
 
+    // Spec 018: every OTHER vector layer sharing `ref`'s immediate parent group that is visible and
+    // not locked — the candidate set for cross-layer vector selection. Re-resolved fresh on every
+    // call (never cached), so a visibility/lock toggle takes effect on the very next gesture.
+    me.getEligibleVectorSiblings = function(ref){
+        let frame = currentFrame();
+        let path = typeof ref === "undefined" ? activeLayerPath : toPath(ref);
+        if (!frame || !path) return [];
+        return eligibleVectorSiblings(frame.layers, path);
+    };
+
     // The full local→document affine matrix for a layer, folding in every ancestor group's
     // offset AND runtime transform (spec 007 decision 2 — full inverse mapping). For a plain
     // layer with no transformed ancestor this reduces to a pure translation, identical to
@@ -1277,7 +1289,9 @@ let ImageFile = function(){
         if (!layer) return undefined;
         let source = layer.getCanvas();
         let m = me.getLayerMatrix(ref);
-        let identity = m.a === 1 && m.b === 0 && m.c === 0 && m.d === 1 && !m.e && !m.f;
+        let canvasX = layer.canvasX || 0;
+        let canvasY = layer.canvasY || 0;
+        let identity = m.a === 1 && m.b === 0 && m.c === 0 && m.d === 1 && !m.e && !m.f && !canvasX && !canvasY;
         if (identity && source.width === currentFile.width && source.height === currentFile.height){
             return source;
         }
@@ -1287,7 +1301,7 @@ let ImageFile = function(){
         let ctx = canvas.getContext("2d",{willReadFrequently:true});
         ctx.imageSmoothingEnabled = false;
         ctx.setTransform(m.a, m.b, m.c, m.d, m.e, m.f);
-        ctx.drawImage(source, 0, 0);
+        ctx.drawImage(source, canvasX, canvasY);
         ctx.setTransform(1, 0, 0, 1, 0, 0);
         return canvas;
     };
@@ -1339,7 +1353,7 @@ let ImageFile = function(){
         // no transformed ancestor the matrix is a pure translation, so this returns exactly the
         // old {x+offset, y+offset, w, h}. Corners rounded outward to whole pixels.
         let m = me.getLayerMatrix(ref);
-        let x0 = pix.x[0], y0 = pix.y[0];
+        let x0 = pix.x[0] + (layer.canvasX || 0), y0 = pix.y[0] + (layer.canvasY || 0);
         let corners = [
             {x: x0,     y: y0},
             {x: x0 + w, y: y0},
@@ -2320,10 +2334,12 @@ let ImageFile = function(){
 
     // Standalone .svg for the active vector layer's GEOMETRY alone (layer offset/opacity/blend are
     // layer properties, not part of the shapes, so they are left at neutral values). Returns null
-    // when the active layer is not a vector layer.
-    me.getActiveVectorSvg = function(){
+    // when the active layer is not a vector layer. svg.js (~30KB) is only needed for this "view as
+    // code" round-trip and full SVG import/export, so it's loaded on first use rather than eagerly.
+    me.getActiveVectorSvg = async function(){
         if (!isVector(activeLayer) || !activeLayer.vector) return null;
         let model = [{kind:"vector", x:0, y:0, opacity:1, blend:"normal", vector: activeLayer.vector}];
+        let SVG = (await import("./fileformats/svg.js")).default;
         return SVG.write(model, currentFile.width, currentFile.height);
     };
 
@@ -2339,10 +2355,11 @@ let ImageFile = function(){
     // of getActiveVectorSvg (every vector run in the document is flattened into this one layer, the
     // layer's display mode is preserved). Wrapped in a single undo step. Returns false and changes
     // nothing when the active layer is not a vector layer or the text is not a valid SVG document.
-    me.setActiveVectorFromSvg = function(svgText){
+    me.setActiveVectorFromSvg = async function(svgText){
         if (!isVector(activeLayer)) return false;
         let parsed;
         try {
+            let SVG = (await import("./fileformats/svg.js")).default;
             parsed = SVG.parse(svgText);
         } catch (e){
             return false;
@@ -2731,6 +2748,11 @@ let ImageFile = function(){
         if (currentFile.colorRange) struct.image.colorRange = currentFile.colorRange;
         if (currentFile.meta) struct.image.meta = clonePlainData(currentFile.meta);
 
+        // Embed any user-loaded vector-text fonts so text set in them still renders (and can
+        // still be "Convert to Shape"-d) after reloading this file - see util/fonts.js.
+        let customFonts = getCustomFonts();
+        if (customFonts.length) struct.customFonts = customFonts;
+
         return struct;
     };
 
@@ -2758,6 +2780,10 @@ let ImageFile = function(){
     }
 
     me.restore = function(data){
+        // Before any layer (and its vector text) is rebuilt, so font-name lookups resolve.
+        restoreCustomFonts(data.customFonts);
+        if (data.customFonts && data.customFonts.length) EventBus.trigger(EVENT.fontListChanged);
+
         let image = data.image;
         currentFile.width = image.width;
         currentFile.height = image.height;
@@ -3009,6 +3035,7 @@ let ImageFile = function(){
             if (ext === "png") detectType = true;
             if (ext === "psd") detectType = true;
             if (ext === "pcx") detectType = true;
+            if (ext === "pdf") detectType = true;
             if (ext === "planes") detectType = true;
             if (ext === "json") isText = true;
             if (ext === "svg") isText = true;
@@ -3056,7 +3083,7 @@ let ImageFile = function(){
             } else {
                 reader.readAsDataURL(file);
             }
-            SaveDialog.setFile();
+            setCurrentFileHandle();
         }
     }
     me.handleUpload = handleUpload;
@@ -3351,7 +3378,7 @@ let ImageFile = function(){
 
     function newFile(image,fileName,type,originalData,meta){
         Historyservice.clear();
-        Recorder.clear();
+        getRecorderIfLoaded()?.clear();
         cachedImage = undefined;
         resetLayerIds();
         EventBus.trigger(COMMAND.CLEARSELECTION);
@@ -3383,12 +3410,18 @@ let ImageFile = function(){
         activeFrameIndex = 0;
         activeLayerIndex = 0;
         activeLayerPath = [0];
+        // Hold layersChanged until activeLayer points at the new layer — addLayer() fires it
+        // synchronously, and listeners (e.g. Toolbar's pixel/vector mode switch) read
+        // getActiveLayer() off that event, which would otherwise still return the layer from
+        // the file we're replacing.
+        EventBus.hold();
         addLayer();
         activeLayer = currentFrame().layers[0];
         activeLayer.clear();
         if (image) {
             activeLayer.getContext().drawImage(image, 0, 0);
         }
+        EventBus.release();
         EventBus.trigger(EVENT.imageSizeChanged);
         if (["classicIcon","colorIcon","PNGIcon"].includes(type)){
             PanelManager.reveal("icon", true);
@@ -3422,7 +3455,7 @@ let ImageFile = function(){
 
     function newFileFromLayers(sourceLayers,image,fileName,type,originalData,meta){
         Historyservice.clear();
-        Recorder.clear();
+        getRecorderIfLoaded()?.clear();
         cachedImage = undefined;
         resetLayerIds();
         EventBus.trigger(COMMAND.CLEARSELECTION);
@@ -3792,6 +3825,7 @@ let ImageFile = function(){
     me.importSVG = async function(text, fileName){
         let parsed;
         try {
+            let SVG = (await import("./fileformats/svg.js")).default;
             parsed = SVG.parse(text);
         } catch (e){
             console.error("SVG import failed:", e);
@@ -3968,6 +4002,107 @@ let ImageFile = function(){
         EventBus.trigger(EVENT.layersChanged);
         EventBus.trigger(EVENT.imageContentChanged);
         return merged;
+    };
+
+    // Boolean-combines two SIBLING vector layers' geometry into ONE new vector layer that replaces
+    // both (Layer panel tool-options buttons, shown when exactly 2 vector layers are multi-
+    // selected). Higher index in the shared parent array composites later (see compositeNodes:
+    // "bottom of the array first"), so the higher one is "front". mode is one of:
+    //   "union"          — either layer's opaque area
+    //   "intersect"      — only the overlap
+    //   "frontMinusBack" — front's area minus whatever back covers
+    //   "backMinusFront" — back's area minus whatever front covers
+    // The vector data model has one flat fill colour per region (no raster blend), so the result
+    // always takes a single colour — the same simplification real Pathfinder tools make: front's
+    // fill wins except for backMinusFront, where only back's own shape (and so its own colour)
+    // survives.
+    //
+    // Unlike a rasterize-then-trace approach, this is a real vector clip (vectorBoolean.js):
+    // wherever a shape's edge is untouched by the cut, its ORIGINAL curve data (control points and
+    // all) survives byte-identical in the result; only the new boundary the cut itself introduces
+    // is fresh geometry. See vectorBoolean.js's own header comment for how (a Weiler–Atherton-style
+    // clip generalised to cubic-bezier edges, exact split via de Casteljau at the crossing points).
+    me.combineVectorLayers = function(pathA, pathB, mode){
+        let frame = currentFrame();
+        let pA = parentOf(frame.layers, pathA);
+        let pB = parentOf(frame.layers, pathB);
+        if (!pA || !pB || pA.parent !== pB.parent) return false;
+        let nodeA = pA.parent[pA.index];
+        let nodeB = pB.parent[pB.index];
+        if (!isVector(nodeA) || !isVector(nodeB)) return false;
+
+        let frontIsA = pA.index > pB.index;
+        let frontNode = frontIsA ? nodeA : nodeB;
+        let backNode  = frontIsA ? nodeB : nodeA;
+        let frontPath = frontIsA ? pathA : pathB;
+
+        let w = currentFile.width, h = currentFile.height;
+        let frontOff = me.getLayerOffset(frontPath);
+        let backOff  = me.getLayerOffset(frontIsA ? pathB : pathA);
+
+        let result = booleanCombineVectors(frontNode.vector, frontOff, backNode.vector, backOff, mode);
+        if (!result || !result.regions.length) return false;
+
+        function firstFillColor(node){
+            let regions = node.vector && node.vector.regions;
+            if (!regions) return undefined;
+            for (let id in regions){ if (regions[id].fill) return regions[id].fill.color; }
+            return undefined;
+        }
+        let resultColor = mode === "backMinusFront"
+            ? (firstFillColor(backNode) || firstFillColor(frontNode))
+            : (firstFillColor(frontNode) || firstFillColor(backNode));
+        if (!resultColor) resultColor = Palette.getDrawColor();
+
+        let sharp = getDisplayMode(frontNode.vector) === "sharp";
+
+        let v = emptyVectorData();
+        v.displayMode = frontNode.vector.displayMode || "vector";
+
+        // `arcs` is a closed loop of {p0,p3,h1,h2,isCurve} in document space (arc i's p3 === arc
+        // i+1's p0) — build it into real nodes/edges, keeping curve data exactly as computed.
+        let makeLoopEdges = (arcs)=>{
+            let e = [];
+            let firstNode = addNode(v, arcs[0].p0.x, arcs[0].p0.y);
+            let prevNode = firstNode;
+            for (let i = 0; i < arcs.length; i++){
+                let arc = arcs[i];
+                let nextNode = (i === arcs.length - 1) ? firstNode : addNode(v, arc.p3.x, arc.p3.y);
+                let curve = arc.isCurve ? { h1: { x: arc.h1.x, y: arc.h1.y }, h2: { x: arc.h2.x, y: arc.h2.y } } : null;
+                e.push(addEdge(v, prevNode.id, nextNode.id, { curve, stroke: null }).id);
+                prevNode = nextNode;
+            }
+            return e;
+        };
+
+        result.regions.forEach(rgn=>{
+            let id = newRegionId(v);
+            v.regions[id] = {
+                id,
+                boundary: makeLoopEdges(rgn.boundary),
+                holes: rgn.holes.map(makeLoopEdges),
+                fillRule: "evenodd",
+                fill: { color: resultColor, smooth: !sharp }
+            };
+        });
+
+        let combinedLayer = Layer.makeVector(w, h, DuplicateName("Combined", frame.layers));
+        combinedLayer.vector = v;
+
+        // Replace both originals with the combined layer, at the FRONT layer's slot. front's index
+        // is always the higher of the two (that's the definition of "front" above) — remove the
+        // lower (back) index first, which shifts front's index down by one, then overwrite that
+        // now-correct slot with the combined layer.
+        let parentArr = pA.parent;
+        let frontIndex = frontIsA ? pA.index : pB.index;
+        let backIndex  = frontIsA ? pB.index : pA.index;
+        parentArr.splice(backIndex, 1);
+        parentArr.splice(frontIndex - 1, 1, combinedLayer);
+
+        me.activateLayer(frontPath.slice(0, -1).concat(frontIndex - 1));
+        EventBus.trigger(EVENT.layersChanged);
+        EventBus.trigger(EVENT.imageContentChanged);
+        return true;
     };
 
     function moveLayer(from,to){
@@ -4228,8 +4363,8 @@ let ImageFile = function(){
         // render() returns unshifted content, so draw it at the offset DIFFERENCE: the result
         // must land where the merged layer showed it, expressed in belowLayer's local space.
         belowLayer.drawImage(layer.render(),
-            (layer.x || 0) - (belowLayer.x || 0),
-            (layer.y || 0) - (belowLayer.y || 0)); // render() composites a group; returns canvas for a leaf
+            (layer.x || 0) - (belowLayer.x || 0) + (layer.canvasX || 0),
+            (layer.y || 0) - (belowLayer.y || 0) + (layer.canvasY || 0)); // render() composites a group; returns canvas for a leaf
         ctx.globalAlpha = 1;
         ctx.globalCompositeOperation = "source-over";
         p.parent.splice(p.index, 1);
@@ -4630,6 +4765,17 @@ let ImageFile = function(){
         HistoryService.end();
     });
 
+    EventBus.on(COMMAND.COMBINEVECTORLAYERS, function(options){
+        if (!options || !options.pathA || !options.pathB || !options.mode) return;
+        HistoryService.start(EVENT.imageHistory);
+        let changed = me.combineVectorLayers(options.pathA, options.pathB, options.mode);
+        if (changed){
+            HistoryService.end();
+        }else{
+            HistoryService.neverMind();
+        }
+    });
+
     EventBus.on(COMMAND.GROUPLAYERS, function(paths){
         HistoryService.start(EVENT.imageHistory);
         me.groupLayers(paths || [activeLayerPath]);
@@ -4709,6 +4855,8 @@ let ImageFile = function(){
                 // applied a second time when the flattened layer is drawn
                 layer.x = 0;
                 layer.y = 0;
+                layer.canvasX = 0;
+                layer.canvasY = 0;
             }
             me.activateLayer(0);
             EventBus.trigger(EVENT.imageContentChanged);

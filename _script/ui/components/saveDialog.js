@@ -11,11 +11,11 @@ import Color from "../../util/color.js";
 import BinaryStream from "../../util/binarystream.js";
 import ImageProcessing from "../../util/imageProcessing.js";
 import UserSettings from "../../userSettings.js";
+import {setCurrentFileHandle, getCurrentFileHandle} from "../currentFileHandle.js";
 
 var SaveDialog = function(){
     let me ={};
     let nameInput;
-    let currentFile;
     let container;
     let mainPanel;
     let imageinfo;
@@ -123,6 +123,14 @@ var SaveDialog = function(){
             generator: 'SVG',
             accept: {
                 'image/svg+xml': ['.svg'],
+            }
+        },
+        PDF:{
+            description: 'PDF Document',
+            extension: 'pdf',
+            generator: 'PDF',
+            accept: {
+                'application/pdf': ['.pdf'],
             }
         },
         GIF:{
@@ -276,6 +284,7 @@ var SaveDialog = function(){
                                                 renderButton("png","PNG Image","Full color and transparency, no layers, current frame only.","PNG"),
                                                 renderButton("psd","PSD Image","Basic layered PSD export, current frame only.","PSD"),
                                                 renderButton("svg","SVG Vector","Vector layers as true SVG paths, pixel layers embedded, current frame only.","SVG"),
+                                                renderButton("pdf","PDF Document","Single page raster image, no layers, current frame only.","PDF"),
                                                 renderButton("gif","GIF Img/anim","Max 256 colors, no layers, animation supported.","GIF"),
                                                 renderButton("video","Video","MP4 or WebM video, timeline animation supported.","VIDEO"),
                                                 renderButton("jpg","JPG Image","Full color, no transparency, no layers, current frame only. LOSSY!","JPG"),
@@ -539,7 +548,7 @@ var SaveDialog = function(){
     }
 
     me.setFile = function (file){
-        currentFile = file;
+        setCurrentFileHandle(file);
     }
 
     function toggleOptionPanel(e){
@@ -833,6 +842,7 @@ var SaveDialog = function(){
             PSD: "PSD",
             IFF: "IFF",
             PCX: "PCX",
+            PDF: "PDF",
             classicIcon: "ICO",
             colorIcon: "ICO",
             PNGIcon: "ICO",
@@ -964,7 +974,7 @@ var SaveDialog = function(){
     }
 
     function writeADF(){
-        EventBus.trigger(COMMAND.SAVEFILETOADF,[currentFile,getFileName()]);
+        EventBus.trigger(COMMAND.SAVEFILETOADF,[getCurrentFileHandle(),getFileName()]);
     }
 
 

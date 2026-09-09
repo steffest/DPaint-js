@@ -2,7 +2,7 @@ import {$div, $checkbox, $input, $elm} from "../../util/dom.js";
 import EventBus from "../../util/eventbus.js";
 import {EVENT} from "../../enum.js";
 import ImageFile from "../../image.js";
-import VectorTool from "../../paintTools/vectorTool.js";
+import {getVectorToolIfLoaded} from "../../paintTools/vectorToolLoader.js";
 
 // "View as code" split-panel view (spec: code view for vector layers). Shows the ACTIVE vector
 // layer's geometry as standalone SVG text in a plain text editor and keeps both sides in sync:
@@ -105,9 +105,9 @@ let CodeView = function(parent){
         highlight.scrollLeft = editor.scrollLeft;
     }
 
-    function applyToLayer(){
+    async function applyToLayer(){
         applyingFromCode = true;
-        let ok = ImageFile.setActiveVectorFromSvg(editor.value);
+        let ok = await ImageFile.setActiveVectorFromSvg(editor.value);
         applyingFromCode = false;
         warning.classList.toggle("hidden",ok);
     }
@@ -200,8 +200,9 @@ let CodeView = function(parent){
         highlightedLines = new Set();
         if (!lineMap) return;
 
+        let VectorTool = getVectorToolIfLoaded();
         let edges = new Set(), nodes = new Set(), regions = new Set();
-        let sel = VectorTool.getSelection ? VectorTool.getSelection() : null;
+        let sel = VectorTool && VectorTool.getSelection ? VectorTool.getSelection() : null;
         if (sel){
             if (sel.edgeId) edges.add(sel.edgeId);
             if (sel.regionId) regions.add(sel.regionId);
@@ -209,11 +210,11 @@ let CodeView = function(parent){
             if (sel.handle && sel.handle.edgeId) edges.add(sel.handle.edgeId);
         }
         // Multi-line selection is only surfaced through getSelectionInfo (comma-joined edge ids).
-        let info = VectorTool.getSelectionInfo ? VectorTool.getSelectionInfo() : null;
+        let info = VectorTool && VectorTool.getSelectionInfo ? VectorTool.getSelectionInfo() : null;
         if (info && info.kind === "edge" && info.id != null){
             String(info.id).split(",").forEach(e=>{ e = e.trim(); if (e) edges.add(e); });
         }
-        (VectorTool.getSelectedNodes ? VectorTool.getSelectedNodes() : []).forEach(n=>nodes.add(n));
+        (VectorTool && VectorTool.getSelectedNodes ? VectorTool.getSelectedNodes() : []).forEach(n=>nodes.add(n));
 
         regions.forEach(r=>{ if (lineMap.regionMap[r] != null) highlightedLines.add(lineMap.regionMap[r]); });
         edges.forEach(e=>{ (lineMap.edgeMap[e] || []).forEach(i=>highlightedLines.add(i)); });
@@ -222,8 +223,8 @@ let CodeView = function(parent){
 
     // Re-render the editor text from the active vector layer. No-op when the active layer is not a
     // vector layer (the panel is switched away from code view in that case, see editpanel.js).
-    me.refresh = function(){
-        let svg = ImageFile.getActiveVectorSvg();
+    me.refresh = async function(){
+        let svg = await ImageFile.getActiveVectorSvg();
         if (svg == null) return;
         let text = limitDecimals(svg);
         editor.value = text;

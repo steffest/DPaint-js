@@ -10,10 +10,10 @@ import PanelManager from "./ui/panelManager.js";
 import TimelinePanel from "./ui/toolPanels/timelinePanel.js";
 import {duplicateCanvas, releaseCanvas} from "./util/canvasUtils.js";
 import HistoryService from "./services/historyservice.js";
-import Generate from "./fileformats/generate.js";
 import visualScheduler from "./services/visualScheduler.js";
 import {createInputBarrier, barrierAction} from "./util/inputSampleBuffer.js";
 import Editor from "./ui/editor.js";
+import {ensureRecorder} from "./services/recorderLoader.js";
 
 let App = function(){
 	let me = {
@@ -50,9 +50,12 @@ let App = function(){
 				}).catch((err)=>{});
 			}
 		}else{
-			// show about dialog on first run
+			// show about dialog on first run — skip (and retry next load) if the user has
+			// already opened some other dialog (e.g. Save) in the meantime, so this delayed
+			// popup can't clobber it
 			if (window.localStorage.getItem("dp_about")!=="true"){
 				setTimeout(()=>{
+					if (Modal.isVisible()) return;
 					EventBus.trigger(COMMAND.ABOUT);
 					window.localStorage.setItem("dp_about","true");
 				},200);
@@ -107,6 +110,16 @@ let App = function(){
 			import("./ui/components/uae.js").then(UAE=>{
 				UAE.default.preview();
 			});
+		});
+
+		EventBus.on(COMMAND.RECORDINGSTART,()=>{
+			ensureRecorder().then(r=>r.startRecording());
+		});
+		EventBus.on(COMMAND.RECORDINGSTOP,()=>{
+			ensureRecorder().then(r=>r.stopAndDownload());
+		});
+		EventBus.on(COMMAND.RECORDINGEXPORT,()=>{
+			ensureRecorder().then(r=>r.stopAndDownload());
 		});
 
 		EventBus.on(COMMAND.TOGGLEGALLERY,(andOpen)=>{
@@ -326,7 +339,10 @@ let App = function(){
 			window.EVENT = EVENT;
 			window.PanelManager = PanelManager;
 			window.TimelinePanel = TimelinePanel;
-			window.Generate = Generate;
+			// generate.js (and every export-format writer under it) is otherwise only reached via
+			// dynamic import, so pull it in the same way here instead of a top-level static import
+			// that would drag the whole export stack into the main bundle just for this test hook.
+			import("./fileformats/generate.js").then(Generate=>{ window.Generate = Generate.default || Generate; });
 			// Spec 016 visual scheduling / commit barriers (default-off wiring)
 			window.VisualScheduler = visualScheduler;
 			window.createInputBarrier = createInputBarrier;

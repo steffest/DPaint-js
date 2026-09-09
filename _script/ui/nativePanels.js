@@ -11,11 +11,34 @@ import TimelinePanel from "./toolPanels/timelinePanel.js";
 import BrushPanel from "./toolPanels/brushPanel.js";
 import ColorPicker from "./components/colorPicker.js";
 import GridPanel from "./toolPanels/gridPanel.js";
-import PaletteDialog from "./components/paletteDialog.js";
-import EffectDialog from "./components/effectDialog.js";
-import Gallery from "./components/gallery.js";
-import BitPlanes from "./components/bitplanes.js";
-import FileBrowser from "./components/fileBrowser.js";
+
+// These five panels are already `lazy:true` (content only rendered on first reveal, see
+// panelManager.js), but their component modules were still imported eagerly here, at
+// nativePanels.js module scope — which is itself static from image.js from app.js, so they
+// ended up in the main bundle anyway. lazyModule() defers the import() itself to that same
+// first-reveal moment and caches the resolved module for every render/onHide after that.
+//
+// The loader MUST be `()=>import("literal/path.js")` with the path written out at each call
+// site, not a path string forwarded into a shared `import(path)` — Rollup can only rewrite a
+// dynamic import to its built chunk when it sees a literal argument; a variable produces a build
+// that looks fine (the chunk still gets emitted) but 404s at runtime because the unrewritten
+// original relative path is requested instead of the hashed chunk file.
+function lazyModule(loader){
+    let mod, loading;
+    return {
+        get: ()=>mod,
+        ensure: ()=>{
+            if (mod) return Promise.resolve(mod);
+            if (!loading) loading = loader().then(m=>{ mod = m.default || m; return mod; });
+            return loading;
+        }
+    };
+}
+let paletteDialogModule = lazyModule(()=>import("./components/paletteDialog.js"));
+let effectDialogModule = lazyModule(()=>import("./components/effectDialog.js"));
+let galleryModule = lazyModule(()=>import("./components/gallery.js"));
+let bitPlanesModule = lazyModule(()=>import("./components/bitplanes.js"));
+let fileBrowserModule = lazyModule(()=>import("./components/fileBrowser.js"));
 
 // NativePanels — registers the built-in panels (Info, Layers, Brush, Color, Grid,
 // Reduce, Frames, Amiga Icon, Preferences) with the PanelManager. The content-producing
@@ -244,29 +267,29 @@ let NativePanels = (function(){
         manager.register({
             id:"palette", label:"Palette Editor", defaultContainer:"floating", defaultOrder:0,
             defaultVisible:false, lazy:true, rerenderOnShow:true, floatSize:{w:450,h:340},
-            content:(inner, host)=>{ PaletteDialog.render(inner, host); },
-            onHide:()=>{ if (PaletteDialog.onClose) PaletteDialog.onClose(); }
+            content:(inner, host)=>{ paletteDialogModule.ensure().then(PaletteDialog=>PaletteDialog.render(inner, host)); },
+            onHide:()=>{ let PaletteDialog = paletteDialogModule.get(); if (PaletteDialog && PaletteDialog.onClose) PaletteDialog.onClose(); }
         });
         manager.register({
             id:"effects", label:"Effects", defaultContainer:"floating", defaultOrder:1,
             defaultVisible:false, lazy:true, rerenderOnShow:true, floatSize:{w:500,h:590},
-            content:(inner, host)=>{ EffectDialog.render(inner, host); },
-            onHide:()=>{ if (EffectDialog.onClose) EffectDialog.onClose(); }
+            content:(inner, host)=>{ effectDialogModule.ensure().then(EffectDialog=>EffectDialog.render(inner, host)); },
+            onHide:()=>{ let EffectDialog = effectDialogModule.get(); if (EffectDialog && EffectDialog.onClose) EffectDialog.onClose(); }
         });
         manager.register({
             id:"gallery", label:"Gallery", defaultContainer:"right", defaultOrder:9,
             defaultVisible:false, lazy:true, height:400, floatSize:{w:170,h:500},
-            content:(inner)=>{ Gallery.generate(inner); }
+            content:(inner)=>{ galleryModule.ensure().then(Gallery=>Gallery.generate(inner)); }
         });
         manager.register({
             id:"bitplanes", label:"BitPlanes", defaultContainer:"right", defaultOrder:10,
             defaultVisible:false, lazy:true, rerenderOnShow:true, height:400, floatSize:{w:170,h:500},
-            content:(inner)=>{ BitPlanes.generate(inner); }
+            content:(inner)=>{ bitPlanesModule.ensure().then(BitPlanes=>BitPlanes.generate(inner)); }
         });
         manager.register({
             id:"adf", label:"File Browser", defaultContainer:"right", defaultOrder:11,
             defaultVisible:false, lazy:true, height:400, floatSize:{w:200,h:500},
-            content:(inner)=>{ FileBrowser.generate(inner); }
+            content:(inner)=>{ fileBrowserModule.ensure().then(FileBrowser=>FileBrowser.generate(inner)); }
         });
 
 

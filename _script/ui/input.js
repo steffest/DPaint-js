@@ -10,7 +10,9 @@ import Cursor from "./cursor.js";
 import UI from "./ui.js";
 import Palette from "./palette.js";
 import ToolOptions from "./components/toolOptions.js";
-import VectorTool from "../paintTools/vectorTool.js";
+import {getVectorToolIfLoaded} from "../paintTools/vectorToolLoader.js";
+import LayerPanel from "./toolPanels/layerPanel.js";
+import {isGroup} from "../util/layerUtils.js";
 
 var Input = function(){
 	let me = {}
@@ -291,7 +293,9 @@ var Input = function(){
 	}
 
 	function onKeyDown(e){
+		let VectorTool = getVectorToolIfLoaded();
 		let code = limitKeyCode(e.code);
+		let rawKey = e.key;
 		let key = e.key;
 		if (key) key = key.toLowerCase();
 
@@ -300,7 +304,12 @@ var Input = function(){
 		if (me.isAltDown() && !e.altKey) modifierKeyUp("alt");
 		if (keyDown["meta"] && !e.metaKey) modifierKeyUp("meta");
 
-		if (Editor.getCurrentTool() !== COMMAND.TEXT){
+		// Skip the global copy/paste interception below entirely while something is capturing keys
+		// for its own text editing (the raster Text tool, the vector Text tool's caret editing, a
+		// modal, a select box, …) — otherwise isMetaDown() (which treats bare Shift as "meta" too,
+		// see below) steals Shift+C/V/X (or Ctrl+C/V/X) as Copy/Paste before the active handler ever
+		// sees the keystroke, so typing an uppercase C/V/X into a text object silently does nothing.
+		if (!activeKeyHandler){
 			if (Input.isMetaDown()){
 				if (code === "keyc" || code === "keyx" || code === "keyv"){
 					// If an editable element (input/textarea/code) is focused, let the browser
@@ -343,7 +352,10 @@ var Input = function(){
 
 
 		if (activeKeyHandler){
-			let handled = activeKeyHandler(code,key);
+			// rawKey keeps the OS/layout-resolved case (so Shift+C arrives as "C", not lowercased
+			// away like `key`) — text-editing handlers (vector/pixel text tools) need it to type the
+			// actual character the user pressed instead of guessing case off an unrelated modifier.
+			let handled = activeKeyHandler(code,key,rawKey);
 			if (handled) return;
 		}
 
@@ -352,7 +364,7 @@ var Input = function(){
 			case "delete":
 			case "backspace":
 				// on a vector layer, Delete removes the selected point/shape instead of clearing pixels
-				if (VectorTool.isActive()){
+				if (VectorTool?.isActive()){
 					EventBus.trigger(COMMAND.VECTORDELETE);
 				}else{
 					EventBus.trigger(COMMAND.CLEAR);
@@ -415,6 +427,7 @@ var Input = function(){
 				switch (key){
 					case "a": EventBus.trigger(COMMAND.LAYERMASK); break;
 					case "f": EventBus.trigger(COMMAND.FLATTEN); break;
+					case "g": if (isGroup(ImageFile.getActiveLayer())) EventBus.trigger(COMMAND.UNGROUP); break;
 					case "h": EventBus.trigger(COMMAND.LAYERMASKHIDE); break;
 					case "i": EventBus.trigger(COMMAND.INVERTSELECTION); break;
 					case "l": EventBus.trigger(COMMAND.TOSELECTION); break;
@@ -427,13 +440,13 @@ var Input = function(){
 				switch (key){
 					// on a vector layer, select all points & lines instead of the pixel rectangle
 					case "a":
-						if (VectorTool.isActive() && VectorTool.selectAll()) break;
+						if (VectorTool?.isActive() && VectorTool.selectAll()) break;
 						EventBus.trigger(COMMAND.SELECTALL);
 						break;
 					case "b": EventBus.trigger(COMMAND.STAMP); break;
 					case "d": EventBus.trigger(COMMAND.DUPLICATELAYER); break;
 					case "e": EventBus.trigger(COMMAND.EFFECTS); break;
-					case "g": EventBus.trigger(COMMAND.TOGGLEGRID); break;
+					case "g": EventBus.trigger(COMMAND.GROUPLAYERS, LayerPanel.getSelectedPaths()); break;
 					case "i": EventBus.trigger(COMMAND.IMPORTLAYER); break;
 					case "j": EventBus.trigger(COMMAND.TOLAYER); break;
 					case "k": EventBus.trigger(COMMAND.CUTTOLAYER); break;
@@ -448,7 +461,7 @@ var Input = function(){
 					case "z": EventBus.trigger(COMMAND.UNDO); break;
 				}
 			}
-		}else if (VectorTool.isActive() && handleVectorToolKey(key)){
+		}else if (VectorTool?.isActive() && handleVectorToolKey(key)){
 			// on a vector layer the single-letter tool keys switch the vector SUB-tool (S/L/R/C/B/F/O)
 			// instead of the pixel tools; any key the vector map doesn't claim falls through below.
 		}else{
@@ -504,6 +517,7 @@ var Input = function(){
 			case "b": EventBus.trigger(COMMAND.VECTORBLOB); return true;    // Blob brush
 			case "f": EventBus.trigger(COMMAND.VECTORFILL); return true;    // Fill
 			case "o": EventBus.trigger(COMMAND.VECTOROUTLINE); return true; // Outline / stroke
+			case "t": EventBus.trigger(COMMAND.VECTORTEXT); return true;    // Text
 		}
 		return false;
 	}
@@ -543,7 +557,8 @@ var Input = function(){
 
 		// On a vector layer, if we hold an internal vector-point selection, paste it as a detached
 		// floating copy on the same layer (spec 014) instead of pasting a raster image.
-		if (VectorTool.isActive() && VectorTool.hasClipboard()){
+		let VectorTool = getVectorToolIfLoaded();
+		if (VectorTool?.isActive() && VectorTool.hasClipboard()){
 			if (VectorTool.pasteFloating()) return;
 		}
 
@@ -619,7 +634,7 @@ var Input = function(){
 
 		// On a vector layer, a point/line/shape selection copies into the internal vector clipboard
 		// (spec 014) so Cmd-V can duplicate it on the same layer. Skip the raster copy when it took.
-		if (VectorTool.isActive() && VectorTool.copySelection()) return;
+		if (getVectorToolIfLoaded()?.isActive() && getVectorToolIfLoaded().copySelection()) return;
 
 		let canvas = Selection.toCanvas() || ImageFile.getActiveContext().canvas;
 		if (canvas && ClipboardItem){

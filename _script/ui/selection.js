@@ -6,7 +6,7 @@ import HistoryService from "../services/historyservice.js"
 import {duplicateCanvas, outLineCanvas} from "../util/canvasUtils.js";
 import {isVector} from "../util/layerUtils.js";
 import {deleteNodesWhere, keepNodesInside, cloneVector, vectorSelectionIds, isEmptyVectorSelection, subsetVector, removeVectorSelection} from "../util/vectorUtils.js";
-import VectorTool from "../paintTools/vectorTool.js";
+import {getVectorToolIfLoaded} from "../paintTools/vectorToolLoader.js";
 
 /*
 Selection holds the data of the current selected pixels.
@@ -295,7 +295,8 @@ let Selection = function(){
     function toVectorLayer(andCut, sourceLayer){
         // The vector tool's selection is the primary source (only reliable when it is actually the
         // active tool on this layer).
-        let vsel = VectorTool.isActive() ? vectorSelectionIds(sourceLayer.vector, VectorTool.getSelection(), VectorTool.getSelectedNodes()) : null;
+        let VectorTool = getVectorToolIfLoaded();
+        let vsel = VectorTool?.isActive() ? vectorSelectionIds(sourceLayer.vector, VectorTool.getSelection(), VectorTool.getSelectedNodes()) : null;
         let useVectorSel = vsel && !isEmptyVectorSelection(vsel);
 
         if (!useVectorSel && !currentSelection) return; // nothing selected → nothing to copy

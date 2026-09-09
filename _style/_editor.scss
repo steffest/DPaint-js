@@ -1,7 +1,9 @@
 .splitpanel{
   position: absolute;
   top: 27px;
-  left: 70px;
+  // Sidepanel sits at $toolbar-width + $panel-gap; add another $panel-gap so the
+  // sidepanel↔editor gap matches the toolbar↔sidepanel gap.
+  left: $toolbar-width + $panel-gap * 2;
   right: 0;
   bottom: 22px;
 
@@ -9,7 +11,7 @@
     position: absolute;
     top: 0;
     bottom: 0;
-    width: calc(50% - 4px);
+    width: calc(50% - #{$panel-gap} / 2);
     border: 1px solid black;
 
     &:first-of-type{
@@ -87,7 +89,9 @@
           }
 
           .optionsgroup.vectornode,
-          .optionsgroup.vectorgap{
+          .optionsgroup.vectorgap,
+          .optionsgroup.vectorcombine,
+          .optionsgroup.vectorfont{
             align-items: center;
 
             .button{
@@ -120,6 +124,14 @@
                 opacity: 0.35;
                 pointer-events: none;
               }
+
+              // Icon-only variants: an SVG glyph instead of a text/unicode character.
+              &.loadfont{
+                background-image: url("../_img/folder.svg");
+                background-position: center center;
+                background-repeat: no-repeat;
+                background-size: 60% 60%;
+              }
             }
 
             .optionsdivider{
@@ -127,6 +139,43 @@
               height: 14px;
               margin: 0 5px;
               background-color: #626262;
+            }
+          }
+
+          .optionsgroup.expandfill{
+            align-items: center;
+
+            input[type=range]{
+              width: 100px;
+            }
+
+            .button{
+              display: inline-flex;
+              width: auto;
+              flex-shrink: 0;
+              align-items: center;
+              justify-content: center;
+              padding: 0 12px;
+              height: 18px;
+              margin-left: 6px;
+              font-size: 11px;
+              line-height: 1;
+              white-space: nowrap;
+              color: $menu-text-color;
+              background-color: #181818;
+              border: 1px solid #626262;
+              border-radius: 2px;
+              cursor: pointer;
+              user-select: none;
+
+              &:hover{
+                background-color: #2a2a2a;
+              }
+
+              &.apply{
+                color: $active-color;
+                border-color: $active-color;
+              }
             }
           }
 
@@ -155,22 +204,9 @@
           }
 
           input[type=range] {
-            margin: 0 4px 0 4px;
-            width: 40px;
-            height: 6px;
-          }
-
-          input[type=range]::-webkit-slider-thumb {
-            margin-top: -7px;
-            width: 8px;
-            height: 14px;
-          }
-
-          input[type=range]::-webkit-slider-runnable-track {
-            background: #010101;
-            height: 3px;
-            margin-top: -2px;
-            cursor: pointer;
+            width: 50px;
+            height: 12px;
+            margin: 0 4px;
           }
 
           label{

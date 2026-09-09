@@ -17,6 +17,11 @@ var Resizer = function(editor){
     let touchData = {};
     let aspectRatio = 1;
     let canRotate = false;
+    // Whole-pixel snapping is right for a raster layer (the box maps to pixel resampling), but a
+    // vector layer in "smooth"/"vector" display mode keeps sub-pixel precision everywhere else
+    // (docToGeoAt et al) — callers pass round:false there so Free Transform doesn't quietly harden
+    // every move/scale to the grid. Defaults to true (the pre-existing raster-layer behaviour).
+    let roundToPixel = true;
 
     me.init = function(options){
         options = options || {};
@@ -29,19 +34,20 @@ var Resizer = function(editor){
         }
         canRotate = !!options.canRotate;
         sizeBox.classList.toggle("canrotate",canRotate);
+        roundToPixel = options.round !== false;
         previousSize = undefined;
         currentSize = undefined;
 
         setSize(options.x,options.y,options.width,options.height,options.rotation,options.silent);
     }
 
-    function setSize(x,y,w,h,rotation,silent){
+    function setSize(x,y,w,h,rotation,silent,dotIndex){
         previousSize = Object.assign({},currentSize);
         currentSize = {
-            left: Math.round(x),
-            top: Math.round(y),
-            width: Math.round(w),
-            height: Math.round(h),
+            left: roundToPixel ? Math.round(x) : x,
+            top: roundToPixel ? Math.round(y) : y,
+            width: roundToPixel ? Math.round(w) : w,
+            height: roundToPixel ? Math.round(h) : h,
             rotation: rotation
         }
         if (!rotation){
@@ -52,7 +58,15 @@ var Resizer = function(editor){
         if (!silent){
             EventBus.trigger(EVENT.sizerChanged,{
                 from: previousSize,
-                to: currentSize
+                to: currentSize,
+                // Which handle drove this change (8 = whole-box move, 0-7 = a resize handle),
+                // undefined for anything not driven by an actual pointer drag (init, arrow-key
+                // nudge, the shift-aspect-lock replay below). selectbox.js's ctrl-drag pixel
+                // move/resize needs this to tell "a move" from "a resize" reliably — inferring it
+                // from from/to deltas alone is ambiguous (a single-axis resize handle leaves the
+                // other axis, or a momentarily-stationary frame leaves both, looking identical to
+                // a move).
+                dotIndex: dotIndex
             });
         }
     }
@@ -146,6 +160,7 @@ var Resizer = function(editor){
             }
             dot.onDragEnd = function(x,y){
                 sizeBox.classList.remove("hot");
+                EventBus.trigger(EVENT.sizerEndChange);
             }
             dot.index = i;
             dots.push(dot);
@@ -207,6 +222,7 @@ var Resizer = function(editor){
         }
         sizeBox.onDragEnd = function(x,y){
             sizeBox.classList.remove("hot");
+            EventBus.trigger(EVENT.sizerEndChange);
         }
     }
 
@@ -231,8 +247,7 @@ var Resizer = function(editor){
                 h = currentSize.height;
                 w = h * ar;
             }
-            w = Math.round(w);
-            h = Math.round(h);
+            if (roundToPixel){ w = Math.round(w); h = Math.round(h); }
             currentSize.width = w;
             currentSize.height = h;
         }
@@ -346,7 +361,7 @@ var Resizer = function(editor){
                 break;
         }
 
-        setSize(l,t,w,h,currentSize?currentSize.rotation:0);
+        setSize(l,t,w,h,currentSize?currentSize.rotation:0,false,dot.index);
 
     }
 

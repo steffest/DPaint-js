@@ -6,7 +6,7 @@ import Palette from "../palette.js";
 import EventBus from "../../util/eventbus.js";
 import {EVENT} from "../../enum.js";
 import Color from "../../util/color.js";
-import PaletteDialog from "./paletteDialog.js";
+import {setPaletteClickAction, clearPaletteClickAction} from "../paletteClickAction.js";
 
 let ColorRange = function(){
     let me = {};
@@ -73,7 +73,7 @@ let ColorRange = function(){
                             canvas.classList.toggle("active");
                             if (canvas.classList.contains("active")){
                                 deActivateRange();
-                                PaletteDialog.setPaletteClickAction("rangefrom");
+                                setPaletteClickAction("rangefrom");
                                 currentRange = index;
                                 canvas.classList.add("active");
                                 rangeContainer.classList.add("active");
@@ -81,7 +81,7 @@ let ColorRange = function(){
                                 Input.setDragElement(dupe,true);
                                 EventBus.trigger(EVENT.colorRangeChanged);
                             }else{
-                                PaletteDialog.clearPaletteClickAction();
+                                clearPaletteClickAction();
                             }
                         }
                     });
@@ -126,7 +126,7 @@ let ColorRange = function(){
                 r.classList.remove("active")
                 r.querySelector("canvas").classList.remove("active")
             }
-            PaletteDialog.clearPaletteClickAction();
+            clearPaletteClickAction();
         }
         EventBus.trigger(EVENT.colorRangeChanged);
     }

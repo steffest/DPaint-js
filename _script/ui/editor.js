@@ -13,14 +13,15 @@ import Input from "./input.js";
 import HistoryService from "../services/historyservice.js";
 import Cursor from "./cursor.js";
 import ToolOptions from "./components/toolOptions.js";
-import MeshWarp from "../paintTools/meshWarp.js";
-import BoneTool from "../paintTools/boneTool.js";
-import VectorTool from "../paintTools/vectorTool.js";
+import {ensureMeshWarp, getMeshWarpIfLoaded} from "../paintTools/meshWarpLoader.js";
+import {ensureBoneTool, getBoneToolIfLoaded} from "../paintTools/boneToolLoader.js";
+import {ensureVectorTool, getVectorToolIfLoaded} from "../paintTools/vectorToolLoader.js";
 import {isVector} from "../util/layerUtils.js";
-import {cloneVector, vectorBounds, transformVector} from "../util/vectorUtils.js";
+import {cloneVector, vectorBounds, transformVector, transformVectorSubset, getDisplayMode} from "../util/vectorUtils.js";
 import UI from "./ui.js";
 import UserSettings from "../userSettings.js";
 import PanelManager from "./panelManager.js";
+import LayerPanel from "./toolPanels/layerPanel.js";
 
 var Editor = function(){
     var me = {};
@@ -119,7 +120,9 @@ var Editor = function(){
 
 
         EventBus.on(EVENT.panelUIChanged,function(){
-            container.style.left = (PanelManager.getDockWidth("left") + 70) + "px";
+            // Sidepanel starts at 68px (toolbar 64px + 4px gap); add another 4px gap so the
+            // sidepanel↔editor edge matches the toolbar↔sidepanel gap (see $panel-gap in _var.scss).
+            container.style.left = (PanelManager.getDockWidth("left") + 68 + 4) + "px";
             container.style.right = PanelManager.getDockWidth("right") + "px";
             container.style.bottom = (PanelManager.getDockHeight() + 22) + "px";
         });
@@ -259,10 +262,13 @@ var Editor = function(){
         })
 
         EventBus.on(COMMAND.TRANSFORMLAYER,()=>{
+            let VectorTool = getVectorToolIfLoaded();
             resizer.setOnUpdate(undefined);
             touchData.transformLayer = undefined;
             touchData.transformGroup = false;
             touchData.transformVector = undefined;
+            touchData.transformVectorSelection = undefined;
+            touchData.transformMultiPaths = undefined;
 
             let node = ImageFile.getActiveLayer();
 
@@ -272,18 +278,83 @@ var Editor = function(){
             // keeps VectorTool active (which owns canvas pointer events), we suspend that tool for
             // the duration and re-enter it on commit/cancel via previousTool.
             if (isVector(node) && node.vector){
+                // The resizer box normally snaps to whole document pixels (right, for a raster
+                // layer's pixel grid) — but a vector layer's geometry is only ever hardened to that
+                // grid in "sharp" (pixel-art) display mode; "smooth"/"vector" keep sub-pixel precision
+                // everywhere else the tool touches geometry (docToGeoAt et al), so Free Transform must
+                // match that here too instead of quietly rounding every move/scale.
+                let round = getDisplayMode(node.vector) === "sharp";
+
+                // Spec 018: when the vector tool has an active selection — on the active layer, on an
+                // eligible sibling layer, or spanning several layers — Free Transform is scoped to
+                // exactly that selection instead of the whole document, so the box wraps just the
+                // selected points/lines/shape and dragging it moves every touched layer together.
+                // With nothing selected it falls through to the existing whole-document behaviour.
+                let scope = VectorTool?.isActive() ? VectorTool.getFreeTransformScope() : null;
+                if (scope){
+                    let b = scope.bounds;
+                    if (!b.width || !b.height) return;
+
+                    if (VectorTool.isActive()) VectorTool.commit();  // release canvas pointer routing
+
+                    previousTool = currentTool;
+                    currentTool = COMMAND.TRANSFORMLAYER;
+                    resizer.init({
+                        x: b.x, y: b.y, width: b.width, height: b.height,
+                        rotation: 0, aspect: (b.width / b.height) || 1, canRotate: true, round: round
+                    });
+                    let target = ImageFile.getHistoryTarget();
+                    touchData.transformVectorSelection = scope.groups.map(g=>{
+                        let l = ImageFile.getLayerInTarget(target, g.path);
+                        return { path: g.path, layer: l, nodeIds: g.nodeIds, snapshot: cloneVector(l.vector) };
+                    });
+                    touchData.transformVectorBox = b;
+                    touchData.transformVectorResume = previousTool;
+                    HistoryService.start(EVENT.imageHistory);
+                    resizer.setOnUpdate(updateVectorSelectionTransform);
+                    return;
+                }
+
+                // No vector-tool point/line selection, but several WHOLE vector layers are
+                // multi-selected in the Layer panel (shift-click range): reuse the spec-018
+                // selection-scoped machinery, just with every group covering its layer's entire
+                // geometry (no nodeIds) instead of a node subset — see updateVectorSelectionTransform.
+                if (LayerPanel.hasMultiSelection()){
+                    let vectorPaths = LayerPanel.getSelectedPaths().filter(p => isVector(ImageFile.getLayer(p)));
+                    if (vectorPaths.length > 1){
+                        let combined = combinedVectorLayersBounds(vectorPaths);
+                        if (combined){
+                            if (VectorTool?.isActive()) VectorTool.commit();  // release canvas pointer routing
+
+                            previousTool = currentTool;
+                            currentTool = COMMAND.TRANSFORMLAYER;
+                            let b = combined.bounds;
+                            resizer.init({
+                                x: b.x, y: b.y, width: b.width, height: b.height,
+                                rotation: 0, aspect: (b.width / b.height) || 1, canRotate: true, round: round
+                            });
+                            touchData.transformVectorSelection = combined.groups;
+                            touchData.transformVectorBox = b;
+                            touchData.transformVectorResume = previousTool;
+                            HistoryService.start(EVENT.imageHistory);
+                            resizer.setOnUpdate(updateVectorSelectionTransform);
+                            return;
+                        }
+                    }
+                }
+
                 let vb = vectorBounds(node.vector);
                 if (!vb || !vb.width || !vb.height) return;
                 let off = ImageFile.getLayerOffset();
                 let dbox = { x: vb.x + off.x, y: vb.y + off.y, w: vb.width, h: vb.height };
 
-                if (VectorTool.isActive()) VectorTool.commit();  // release canvas pointer routing
+                if (VectorTool?.isActive()) VectorTool.commit();  // release canvas pointer routing
 
                 previousTool = currentTool;
                 currentTool = COMMAND.TRANSFORMLAYER;
                 resizer.init({
                     x: dbox.x, y: dbox.y, width: dbox.w, height: dbox.h,
-                    rotation: 0, aspect: (dbox.w / dbox.h) || 1, canRotate: true
+                    rotation: 0, aspect: (dbox.w / dbox.h) || 1, canRotate: true, round: round
                 });
                 touchData.transformVector = node;
                 touchData.transformVectorSnapshot = cloneVector(node.vector);
@@ -346,47 +417,70 @@ var Editor = function(){
             ctx.imageSmoothingEnabled = false;
             // box is in document coordinates; the layer canvas is in the layer's own space
             let transformOffset = ImageFile.getLayerOffset();
+            let activeLayer = ImageFile.getActiveLayer();
             ctx.drawImage(ImageFile.getActiveContext().canvas,
-                box.x - transformOffset.x,box.y - transformOffset.y,box.w,box.h,0,0,box.w,box.h);
+                box.x - transformOffset.x - (activeLayer?.canvasX || 0),box.y - transformOffset.y - (activeLayer?.canvasY || 0),box.w,box.h,0,0,box.w,box.h);
 
             HistoryService.start(EVENT.layerContentHistory);
             touchData.transformLayer = ImageFile.getActiveLayer();
             touchData.transformIsMove = false;
             // the node's OWN animatable x/y (base value or property-key entry) at gesture start
             touchData.transformStartProps = ImageFile.getLayerKeyProps();
+
+            // Multiple layers selected in the Layer panel (shift-click range): Free Transform still
+            // shows/resizes the box around the ACTIVE layer only, but a pure translate (arrow keys or
+            // a plain drag, see updateTransform) carries every OTHER selected layer along by the same
+            // delta, each through its own animatable x/y.
+            touchData.transformMultiPaths = undefined;
+            if (LayerPanel.hasMultiSelection()){
+                let activeKey = ImageFile.getActiveLayerPath().join(",");
+                let others = LayerPanel.getSelectedPaths().filter(p => p.join(",") !== activeKey);
+                if (others.length){
+                    touchData.transformMultiPaths = others.map(p => ({path: p, startProps: ImageFile.getLayerKeyProps(p)}));
+                }
+            }
+
             resizer.setOnUpdate(updateTransform);
         });
 
         EventBus.on(COMMAND.MESHWARP,()=>{
-            if (MeshWarp.isActive()) return;
+            if (getMeshWarpIfLoaded()?.isActive()) return;
             // commit any pending free-transform first
             me.commit();
-            if (!MeshWarp.start()) return;
-            previousTool = currentTool;
-            currentTool = COMMAND.MESHWARP;
+            ensureMeshWarp().then(MeshWarp=>{
+                if (!MeshWarp.start()) return;
+                previousTool = currentTool;
+                currentTool = COMMAND.MESHWARP;
+            });
         });
 
         // Bone tools (spec 005). The three mode commands share one modal BoneTool bound to the
         // active bone layer; they only switch its interaction mode. The toolbar starts the tool
         // when a bone layer is activated and commits it when a pixel layer regains focus.
+        // BoneTool loads on first use — see `_script/paintTools/boneToolLoader.js`.
         function activateBoneMode(mode){
-            if (!BoneTool.start()) return; // active layer is not a bone layer
-            BoneTool.setMode(mode);
-            currentTool = COMMAND.BONESELECT; // one canvas-routing bucket for all bone modes
+            ensureBoneTool().then(BoneTool=>{
+                if (!BoneTool.start()) return; // active layer is not a bone layer
+                BoneTool.setMode(mode);
+                currentTool = COMMAND.BONESELECT; // one canvas-routing bucket for all bone modes
+            });
         }
         EventBus.on(COMMAND.BONESELECT,()=>{ activateBoneMode("select"); });
         EventBus.on(COMMAND.BONEADD,()=>{ activateBoneMode("add"); });
         EventBus.on(COMMAND.BONETRANSFORM,()=>{ activateBoneMode("transform"); });
-        EventBus.on(COMMAND.BONERESET,()=>{ BoneTool.resetPose(); });
-        EventBus.on(COMMAND.BONEDELETE,()=>{ BoneTool.deleteSelected(); });
+        EventBus.on(COMMAND.BONERESET,()=>{ getBoneToolIfLoaded()?.resetPose(); });
+        EventBus.on(COMMAND.BONEDELETE,()=>{ getBoneToolIfLoaded()?.deleteSelected(); });
 
         // Vector tools (spec 008). All sub-mode commands share one modal VectorTool bound to the
         // active vector layer; they only switch its interaction mode. The toolbar starts the tool
         // when a vector layer is activated and commits it when a pixel layer regains focus.
+        // VectorTool loads on first use — see `_script/paintTools/vectorToolLoader.js`.
         function activateVectorMode(mode){
-            if (!VectorTool.start()) return; // active layer is not a vector layer
-            VectorTool.setMode(mode);
-            currentTool = COMMAND.VECTORSELECT; // one canvas-routing bucket for all vector modes
+            ensureVectorTool().then(VectorTool=>{
+                if (!VectorTool.start()) return; // active layer is not a vector layer
+                VectorTool.setMode(mode);
+                currentTool = COMMAND.VECTORSELECT; // one canvas-routing bucket for all vector modes
+            });
         }
         EventBus.on(COMMAND.VECTORSELECT,()=>{ activateVectorMode("select"); });
         // VECTORNODE folded into the unified Select/Edit tool; kept as an alias for old callers.
@@ -397,7 +491,10 @@ var Editor = function(){
         EventBus.on(COMMAND.VECTORBLOB,()=>{ activateVectorMode("blob"); });
         EventBus.on(COMMAND.VECTORFILL,()=>{ activateVectorMode("fill"); });
         EventBus.on(COMMAND.VECTOROUTLINE,()=>{ activateVectorMode("outline"); });
-        EventBus.on(COMMAND.VECTORDELETE,()=>{ VectorTool.deleteSelected(); });
+        EventBus.on(COMMAND.VECTORTEXT,()=>{ activateVectorMode("text"); });
+        EventBus.on(COMMAND.VECTORDELETE,()=>{ getVectorToolIfLoaded()?.deleteSelected(); });
+        EventBus.on(COMMAND.SHAPELINESTOFILL,()=>{ getVectorToolIfLoaded()?.linesToFills(); });
+        EventBus.on(COMMAND.SHAPEEXPANDFILL,()=>{ getVectorToolIfLoaded()?.startExpandFill(); });
 
         EventBus.on(COMMAND.COLORMASK,(options)=>{
             if (options === true){
@@ -525,14 +622,15 @@ var Editor = function(){
             // Switching between bone modes keeps the tool session (and selection) alive; only
             // committing when leaving bones entirely is handled by the bone command handlers below.
             let boneTool = tool === COMMAND.BONESELECT || tool === COMMAND.BONEADD || tool === COMMAND.BONETRANSFORM;
-            if (boneTool && BoneTool.isActive()) return;
+            if (boneTool && getBoneToolIfLoaded()?.isActive()) return;
             // Likewise, switching among vector sub-tools keeps the modal VectorTool (and its
             // selection) alive; committing only happens when leaving vector mode entirely.
             let vectorTool = tool === COMMAND.VECTORSELECT || tool === COMMAND.VECTORNODE
                 || tool === COMMAND.VECTORLINE || tool === COMMAND.VECTORRECT
                 || tool === COMMAND.VECTORCIRCLE || tool === COMMAND.VECTORBLOB
-                || tool === COMMAND.VECTORFILL || tool === COMMAND.VECTOROUTLINE;
-            if (vectorTool && VectorTool.isActive()) return;
+                || tool === COMMAND.VECTORFILL || tool === COMMAND.VECTOROUTLINE
+                || tool === COMMAND.VECTORTEXT;
+            if (vectorTool && getVectorToolIfLoaded()?.isActive()) return;
             me.commit();
             Cursor.reset();
             if (tool === COMMAND.SELECT || tool === COMMAND.FLOODSELECT || tool === COMMAND.POLYGONSELECT){
@@ -595,8 +693,10 @@ var Editor = function(){
             EventBus.trigger(EVENT.UIresize);
 
         }else{
-            panels[0].setWidth("calc(50% - 4px)");
-            panels[1].setWidth("calc(50% - 4px)");
+            // Each panel shrinks by half the shared $panel-gap (see _var.scss) so the visible
+            // gap between the two panels equals $panel-gap, not double it.
+            panels[0].setWidth("calc(50% - 2px)");
+            panels[1].setWidth("calc(50% - 2px)");
             panels[1].show();
             divider.style.left = "";
             divider.style.display = "block";
@@ -613,13 +713,16 @@ var Editor = function(){
     }
 
     me.commit = async function(){
-        if (BoneTool.isActive()){
+        let BoneTool = getBoneToolIfLoaded();
+        let VectorTool = getVectorToolIfLoaded();
+        let MeshWarp = getMeshWarpIfLoaded();
+        if (BoneTool?.isActive()){
             BoneTool.commit();
         }
-        if (VectorTool.isActive()){
+        if (VectorTool?.isActive()){
             VectorTool.commit();
         }
-        if (MeshWarp.isActive()){
+        if (MeshWarp?.isActive()){
             MeshWarp.commit();
             // Enter keeps currentTool === MESHWARP → restore the previous tool.
             // A tool switch already changed currentTool → leave the new tool in place.
@@ -644,15 +747,18 @@ var Editor = function(){
     }
 
     me.reset = function(){
-        if (BoneTool.isActive()){
+        let BoneTool = getBoneToolIfLoaded();
+        let VectorTool = getVectorToolIfLoaded();
+        let MeshWarp = getMeshWarpIfLoaded();
+        if (BoneTool?.isActive()){
             BoneTool.cancel();
             return;
         }
-        if (VectorTool.isActive()){
+        if (VectorTool?.isActive()){
             VectorTool.cancel();
             return;
         }
-        if (MeshWarp.isActive()){
+        if (MeshWarp?.isActive()){
             MeshWarp.cancel();
             currentTool = undefined;
             let p = previousTool;
@@ -662,7 +768,7 @@ var Editor = function(){
             return;
         }
         if (currentTool === COMMAND.TRANSFORMLAYER){
-            let resume = touchData.transformVector ? touchData.transformVectorResume : undefined;
+            let resume = (touchData.transformVector || touchData.transformVectorSelection) ? touchData.transformVectorResume : undefined;
             resizer.commit();
             resetTransform();
             clearTransform();
@@ -684,7 +790,8 @@ var Editor = function(){
             case "down": y=1; break;
         }
         // Vector node mode: arrow keys nudge the selected node(s); Meta = coarse 10px step.
-        if (VectorTool.isActive()){
+        let VectorTool = getVectorToolIfLoaded();
+        if (VectorTool?.isActive()){
             let step = Input.isMetaDown() ? 10 : 1;
             if (VectorTool.nudge(x*step, y*step)) return;
         }
@@ -805,7 +912,82 @@ var Editor = function(){
         EventBus.trigger(EVENT.layerContentChanged);
     }
 
+    // Document-space union of the opaque geometry bounds of several WHOLE vector layers (Layer
+    // panel multi-selection, not a vector-tool point/line selection). Returns null when none of the
+    // paths resolve to a non-empty vector layer. `groups` matches the shape
+    // updateVectorSelectionTransform expects, minus `nodeIds` — its absence means "transform the
+    // layer's entire geometry" (see below).
+    function combinedVectorLayersBounds(paths){
+        let target = ImageFile.getHistoryTarget();
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        let groups = [];
+        paths.forEach(path=>{
+            let layer = ImageFile.getLayerInTarget(target, path);
+            if (!layer || !layer.vector) return;
+            // Only reject a layer with NO geometry at all (vectorBounds returns null) — unlike the
+            // single-layer fallback below, a layer whose own bounds are zero-area (e.g. a single
+            // point) still contributes a real position to the UNION box, so it isn't skipped here.
+            let vb = vectorBounds(layer.vector);
+            if (!vb) return;
+            let off = ImageFile.getLayerOffset(path);
+            let x = vb.x + off.x, y = vb.y + off.y;
+            if (x < minX) minX = x;
+            if (y < minY) minY = y;
+            if (x + vb.width > maxX) maxX = x + vb.width;
+            if (y + vb.height > maxY) maxY = y + vb.height;
+            groups.push({ path, layer, snapshot: cloneVector(layer.vector) });
+        });
+        if (groups.length < 2) return null;
+        let width = maxX - minX, height = maxY - minY;
+        if (!width || !height) return null; // every point across every selected layer coincides
+        return { bounds: { x: minX, y: minY, width, height }, groups };
+    }
+
+    // Spec 018: a SELECTION-scoped vector free-transform, possibly spanning several layers. Same
+    // box→affine mapping as updateVectorTransform, applied once per touched layer (each resolving its
+    // own offset), but only to that layer's selected node ids (transformVectorSubset) instead of the
+    // whole document — UNLESS the group carries no `nodeIds` (a Layer-panel multi-selection of whole
+    // vector layers, see combinedVectorLayersBounds), in which case the layer's entire geometry moves
+    // via transformVector. Re-applied from each layer's pristine snapshot every update, same as the
+    // whole-document case.
+    function updateVectorSelectionTransform(){
+        let groups = touchData.transformVectorSelection;
+        let b0 = touchData.transformVectorBox;
+        if (!groups || !b0) return;
+        let d = resizer.get();
+        let sx = b0.width ? d.width / b0.width : 1;
+        let sy = b0.height ? d.height / b0.height : 1;
+        let rad = (d.rotation || 0) * Math.PI / 180;
+        let cos = Math.cos(rad), sin = Math.sin(rad);
+        let cx = d.left + d.width / 2, cy = d.top + d.height / 2;
+
+        groups.forEach(g=>{
+            if (!g.layer) return;
+            let off = ImageFile.getLayerOffset(g.path);
+            g.layer.vector = cloneVector(g.snapshot);
+            let mapFn = (gx, gy)=>{
+                let px = gx + off.x, py = gy + off.y;
+                let qx = d.left + (px - b0.x) * sx;
+                let qy = d.top + (py - b0.y) * sy;
+                let rx = cx + (qx - cx) * cos - (qy - cy) * sin;
+                let ry = cy + (qx - cx) * sin + (qy - cy) * cos;
+                return { x: rx - off.x, y: ry - off.y };
+            };
+            if (g.nodeIds){
+                transformVectorSubset(g.layer.vector, g.nodeIds, mapFn);
+            }else{
+                // Whole-layer group (Layer panel multi-selection) — move every node/curve/text.
+                transformVector(g.layer.vector, mapFn);
+            }
+            g.layer.vectorDirty = true;
+            g.layer.vectorRasterized = false;
+        });
+        EventBus.trigger(EVENT.vectorChanged);
+        EventBus.trigger(EVENT.layerContentChanged);
+    }
+
     async function updateTransform(final,onDone){
+        if (touchData.transformVectorSelection){ updateVectorSelectionTransform(); return; }
         if (touchData.transformVector){ updateVectorTransform(); return; }
         if (!touchData.transformLayer) return;
         // A group carries a runtime transform instead of pixels — never bake it.
@@ -818,16 +1000,33 @@ var Editor = function(){
         // OFFSET instead of copying pixels. On a property key that writes props, so the move
         // becomes part of the animation rather than a destructive edit (spec 004 decision 2).
         if (!d.rotation && box && d.width === box.w && d.height === box.h && touchData.transformStartProps){
+            let hasMulti = touchData.transformMultiPaths && touchData.transformMultiPaths.length;
             if (!touchData.transformIsMove){
                 touchData.transformIsMove = true;
                 // swap the pixel snapshot for a property snapshot, before the first write
                 HistoryService.neverMind();
-                HistoryService.start(EVENT.keyPropsHistory);
+                if (hasMulti){
+                    let allPaths = [ImageFile.getActiveLayerPath().slice()]
+                        .concat(touchData.transformMultiPaths.map(entry => entry.path));
+                    HistoryService.start(EVENT.keyPropsGroupHistory, allPaths);
+                }else{
+                    HistoryService.start(EVENT.keyPropsHistory);
+                }
             }
+            let dx = d.left - box.x;
+            let dy = d.top - box.y;
             ImageFile.setLayerKeyProps(undefined,{
-                x: touchData.transformStartProps.x + (d.left - box.x),
-                y: touchData.transformStartProps.y + (d.top - box.y)
+                x: touchData.transformStartProps.x + dx,
+                y: touchData.transformStartProps.y + dy
             });
+            if (hasMulti){
+                touchData.transformMultiPaths.forEach(entry=>{
+                    ImageFile.setLayerKeyProps(entry.path,{
+                        x: entry.startProps.x + dx,
+                        y: entry.startProps.y + dy
+                    });
+                });
+            }
             return;
         }
 
@@ -858,8 +1057,8 @@ var Editor = function(){
             let h = d.height / rotateScaleY;
 
             let moveOffset = ImageFile.getLayerOffset();
-            let x = d.left - moveOffset.x + (d.width - w) / 2;
-            let y = d.top - moveOffset.y + (d.height - h) / 2;
+            let x = d.left - moveOffset.x - (touchData.transformLayer?.canvasX || 0) + (d.width - w) / 2;
+            let y = d.top - moveOffset.y - (touchData.transformLayer?.canvasY || 0) + (d.height - h) / 2;
 
             if (Palette.isLocked()){
                 // rotated is a WEBGL canvas
@@ -870,8 +1069,8 @@ var Editor = function(){
             ctx.drawImage(rotated,x,y,w,h);
         }else{
             let drawOffset = ImageFile.getLayerOffset();
-            let localLeft = d.left - drawOffset.x;
-            let localTop = d.top - drawOffset.y;
+            let localLeft = d.left - drawOffset.x - (touchData.transformLayer?.canvasX || 0);
+            let localTop = d.top - drawOffset.y - (touchData.transformLayer?.canvasY || 0);
             if (d.rotation){
                 console.log("rotate " + d.rotation);
 
@@ -893,6 +1092,19 @@ var Editor = function(){
     }
 
     function resetTransform(){
+        // Cancelling a SELECTION-scoped vector free-transform (spec 018): restore each touched layer's
+        // geometry snapshot (no pixels were touched).
+        if (touchData.transformVectorSelection){
+            touchData.transformVectorSelection.forEach(g=>{
+                if (!g.layer || !g.snapshot) return;
+                g.layer.vector = cloneVector(g.snapshot);
+                g.layer.vectorDirty = true;
+                g.layer.vectorRasterized = false;
+            });
+            EventBus.trigger(EVENT.vectorChanged);
+            EventBus.trigger(EVENT.layerContentChanged);
+            return;
+        }
         // Cancelling a vector free-transform: restore the geometry snapshot (no pixels were touched).
         if (touchData.transformVector){
             let layer = touchData.transformVector;
@@ -924,6 +1136,14 @@ var Editor = function(){
                     y: touchData.transformStartProps.y
                 });
             }
+            if (touchData.transformMultiPaths){
+                touchData.transformMultiPaths.forEach(entry=>{
+                    ImageFile.setLayerKeyProps(entry.path,{
+                        x: entry.startProps.x,
+                        y: entry.startProps.y
+                    });
+                });
+            }
             return;
         }
         touchData.transformLayer.clear();
@@ -946,8 +1166,10 @@ var Editor = function(){
         touchData.transformGroupBox = undefined;
         touchData.transformVector = undefined;
         touchData.transformVectorSnapshot = undefined;
+        touchData.transformVectorSelection = undefined;
         touchData.transformVectorBox = undefined;
         touchData.transformVectorResume = undefined;
+        touchData.transformMultiPaths = undefined;
     }
 
 

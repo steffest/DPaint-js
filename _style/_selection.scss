@@ -34,6 +34,13 @@
   }
 }
 
+// Ctrl held over the selection body (select tool): dragging now cuts/moves the pixel content
+// instead of just the marquee (selectbox.js) — flag it with a scissors cursor. Toggled on body
+// (not just .sizebox) in cursor.js, but only actually shows while hovering .sizebox itself.
+body.selection-cut .sizebox{
+  cursor: url("../_img/cursors/scissors.svg") 12 12, move;
+}
+
 .selectbox{
   position: absolute;
   display: none;

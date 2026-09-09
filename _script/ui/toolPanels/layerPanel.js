@@ -27,6 +27,14 @@ let LayerPanel = function(){
     let lastRowClick;
     const DOUBLECLICK_TIME = 400;
 
+    // Shift-click multi-selection (range, within one parent group only). `selectedPaths` holds
+    // every path in the live range (active layer included) once a range spans 2+ rows, else it's
+    // empty. `rangeAnchorPath` is the last PLAIN-clicked row, which shift-click extends the range
+    // from (standard Explorer/Photoshop behaviour — the anchor never moves on a shift-click,
+    // only on a plain click).
+    let selectedPaths = [];
+    let rangeAnchorPath;
+
     const ROW_HEIGHT = 23;
     const MARKER_HEIGHT = 13;   // end-group marker slot — shorter than a layer row
     const INDENT_PX = 14;
@@ -171,6 +179,30 @@ let LayerPanel = function(){
         return path.join(",");
     }
 
+    function parentKey(path){
+        return path.slice(0,-1).join(",");
+    }
+
+    // All sibling paths (same immediate parent as `anchorPath`) visually between `anchorPath`
+    // and `targetPath`, inclusive — the shift-click range. Returns null when the two rows don't
+    // share a parent (nothing sane to select, so the caller falls back to a plain click).
+    function computeRange(anchorPath, targetPath){
+        if (parentKey(anchorPath) !== parentKey(targetPath)) return null;
+        let anchorRow = currentDisplayList.findIndex(e => !e.endGroup && pathKey(e.path) === pathKey(anchorPath));
+        let targetRow = currentDisplayList.findIndex(e => !e.endGroup && pathKey(e.path) === pathKey(targetPath));
+        if (anchorRow < 0 || targetRow < 0) return null;
+        let lo = Math.min(anchorRow, targetRow);
+        let hi = Math.max(anchorRow, targetRow);
+        let scope = parentKey(anchorPath);
+        let range = [];
+        for (let i = lo; i <= hi; i++){
+            let entry = currentDisplayList[i];
+            if (entry.endGroup) continue;
+            if (parentKey(entry.path) === scope) range.push(entry.path);
+        }
+        return range;
+    }
+
     // DOM-id-safe encoding of a path (no commas, which complicate querySelector).
     function pathId(path){
         return "layer-" + path.join("-");
@@ -193,6 +225,13 @@ let LayerPanel = function(){
         let displayList = buildDisplayList(frame.layers, [], 0, []);
         currentDisplayList = displayList;
         let rowCount = displayList.length;
+
+        // Drop any selected/anchor path that no longer resolves in the current tree (layer
+        // deleted, grouped away, undo, frame switch, …) rather than trust stale indices.
+        let liveKeys = new Set(displayList.filter(e => !e.endGroup).map(e => pathKey(e.path)));
+        selectedPaths = selectedPaths.filter(p => liveKeys.has(pathKey(p)));
+        if (selectedPaths.length < 2) selectedPaths = [];
+        if (rangeAnchorPath && !liveKeys.has(pathKey(rangeAnchorPath))) rangeAnchorPath = undefined;
 
         // Only visualise per-layer types when the frame actually mixes in a special layer: if there
         // is at least one bone or vector layer present, every non-group row gets a small type icon
@@ -224,6 +263,7 @@ let LayerPanel = function(){
             let pixel = !group && !bone && !vector;
             let key = pathKey(path);
             let isActive = key === activeKey;
+            let isMultiSelected = selectedPaths.some(p => pathKey(p) === key);
 
             let elm = $div(
                 "layer info"
@@ -232,10 +272,11 @@ let LayerPanel = function(){
                 + (showLayerTypes && vector ? " vectorlayer" : "")
                 + (showLayerTypes && pixel ? " pixellayer" : "")
                 + (isActive ? " active" : "")
+                + (isMultiSelected ? " selected" : "")
                 + ((node.visible && !entry.ancestorHidden) ? "" : " hidden"),
                 null,
                 contentPanel,
-                ()=>{
+                (e)=>{
                     if (elm.classList.contains('hasinput')){
                         let input = elm.querySelector("input");
                         if (input) input.focus();
@@ -245,6 +286,17 @@ let LayerPanel = function(){
                     let isDoubleClick = lastRowClick && lastRowClick.key === key
                         && (now - lastRowClick.time) < DOUBLECLICK_TIME;
                     lastRowClick = isDoubleClick ? undefined : {key: key, time: now};
+
+                    let range = (e && e.shiftKey && rangeAnchorPath) ? computeRange(rangeAnchorPath, path) : null;
+                    if (range){
+                        selectedPaths = range;
+                        if (!isActive) ImageFile.activateLayer(path);
+                        me.list();
+                        return;
+                    }
+
+                    rangeAnchorPath = path;
+                    selectedPaths = [];
                     if (!isActive) ImageFile.activateLayer(path);
                     if (isDoubleClick) renameLayer(path);
                 }
@@ -313,7 +365,7 @@ let LayerPanel = function(){
                     renameLayer(path);
                     }});
 
-                items.push ({label: "Group Layers", command: COMMAND.NEWGROUP});
+                items.push ({label: "Group Layers", action: ()=>EventBus.trigger(COMMAND.GROUPLAYERS, me.getSelectedPaths())});
 
                 if (isVector(node)){
                     items.push ({label: "Rasterize Layer", action: ()=>{
@@ -674,6 +726,18 @@ let LayerPanel = function(){
             ]
         });
     }
+
+    // Current multi-selection as an array of paths, active layer included — falls back to just
+    // the active layer's own path when no shift-click range is live. Consumed by Ctrl/Cmd+G
+    // (group selected layers) and by the Free Transform tool (moving every selected layer
+    // together with the arrow keys).
+    me.getSelectedPaths = function(){
+        return selectedPaths.length ? selectedPaths.map(p => p.slice()) : [ImageFile.getActiveLayerPath().slice()];
+    };
+
+    me.hasMultiSelection = function(){
+        return selectedPaths.length > 1;
+    };
 
     EventBus.on(EVENT.layersChanged,()=>{
         updateLockedState();

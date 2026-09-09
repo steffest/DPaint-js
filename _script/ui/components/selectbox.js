@@ -10,6 +10,8 @@ import Color from "../../util/color.js";
 import ToolOptions from "./toolOptions.js";
 import Palette from "../palette.js";
 import {computeFloodRegion} from "../../util/fillKernel.js";
+import HistoryService from "../../services/historyservice.js";
+import {isVector} from "../../util/layerUtils.js";
 
 /*
     SelectBox follows changes in the selection.
@@ -620,7 +622,12 @@ let SelectBox = ((editor,resizer)=>{
         }
     }
 
+    EventBus.on(EVENT.sizerEndChange,()=>{
+        endPixelFloat();
+    });
+
     function cleanUp(){
+        endPixelFloat();
         selectionPoints = [];
         selectionTransform = undefined;
         if (dots){
@@ -645,6 +652,100 @@ let SelectBox = ((editor,resizer)=>{
             selecting = false;
             me.endPolySelect();
         }
+    }
+
+    // Ctrl-drag on the selection body or on a resize handle (move/scale selected pixels, not just
+    // the marquee): conceptually "cut, transform, merge back" in one drag. The layer pixels under
+    // the selection are lifted into a floating buffer ONCE (at the drag's start position/size) and
+    // the source pixels are cleared to transparent there ONCE too — that "background" snapshot
+    // never changes afterwards. Every subsequent frame just redraws background + floating,
+    // remapped to the live drag rect, so the hole only ever exists at the original position/size,
+    // never at any position/size passed through mid-drag. Both are baked back into the layer as
+    // one history step when the drag commits (on drag end, or earlier if Ctrl is released first).
+    let pixelFloat;
+
+    function startPixelFloat(selection){
+        let layer = ImageFile.getActiveLayer();
+        if (!layer || layer.locked || layer.type === "group" || isVector(layer)) return;
+        if (!selection.width || !selection.height) return;
+        let layerCtx = layer.getContext();
+        let offset = ImageFile.getLayerOffset();
+        let w = ImageFile.getCurrentFile().width;
+        let h = ImageFile.getCurrentFile().height;
+
+        let mask = selectionToCanvas(selection, w, h);
+        let original = duplicateCanvas(layerCtx.canvas, true);
+
+        let floating = document.createElement("canvas");
+        floating.width = layerCtx.canvas.width;
+        floating.height = layerCtx.canvas.height;
+        let fctx = floating.getContext("2d");
+        fctx.drawImage(original,0,0);
+        fctx.globalCompositeOperation = "destination-in";
+        fctx.drawImage(mask,-offset.x,-offset.y);
+        fctx.globalCompositeOperation = "source-over";
+
+        let background = document.createElement("canvas");
+        background.width = layerCtx.canvas.width;
+        background.height = layerCtx.canvas.height;
+        let bctx = background.getContext("2d");
+        bctx.drawImage(original,0,0);
+        bctx.globalCompositeOperation = "destination-out";
+        bctx.drawImage(mask,-offset.x,-offset.y);
+        bctx.globalCompositeOperation = "source-over";
+
+        releaseCanvas(original);
+        releaseCanvas(mask);
+
+        HistoryService.start(EVENT.layerContentHistory);
+
+        pixelFloat = {
+            layerCtx: layerCtx,
+            background: background,
+            floating: floating,
+            offset: offset,
+            origLeft: selection.left,
+            origTop: selection.top,
+            origWidth: selection.width,
+            origHeight: selection.height
+        };
+    }
+
+    // newLeft/Top/Width/Height are the LIVE drag rect (document space, same shape as Selection).
+    // Moving is just the degenerate case of this same mapping (scale 1, pure translate).
+    function updatePixelFloat(newLeft,newTop,newWidth,newHeight){
+        if (!pixelFloat) return;
+        let scaleX = newWidth / pixelFloat.origWidth;
+        let scaleY = newHeight / pixelFloat.origHeight;
+        if (!isFinite(scaleX)) scaleX = 1;
+        if (!isFinite(scaleY)) scaleY = 1;
+
+        // Map layer-space point (origLeft-offset, origTop-offset) — the original selection's
+        // top-left, in the floating canvas's own coordinate space — to where the live rect's
+        // top-left now is, scaling everything else around that anchor.
+        let origLeftLayer = pixelFloat.origLeft - pixelFloat.offset.x;
+        let origTopLayer = pixelFloat.origTop - pixelFloat.offset.y;
+        let newLeftLayer = newLeft - pixelFloat.offset.x;
+        let newTopLayer = newTop - pixelFloat.offset.y;
+        let dx = newLeftLayer - origLeftLayer*scaleX;
+        let dy = newTopLayer - origTopLayer*scaleY;
+
+        let ctx = pixelFloat.layerCtx;
+        ctx.clearRect(0,0,ctx.canvas.width,ctx.canvas.height);
+        ctx.drawImage(pixelFloat.background,0,0);
+        ctx.imageSmoothingEnabled = ToolOptions.isSmooth();
+        ctx.drawImage(pixelFloat.floating,dx,dy,pixelFloat.floating.width*scaleX,pixelFloat.floating.height*scaleY);
+        ctx.imageSmoothingEnabled = false;
+        EventBus.trigger(EVENT.layerContentChanged);
+        EventBus.trigger(EVENT.imageContentChanged);
+    }
+
+    function endPixelFloat(){
+        if (!pixelFloat) return;
+        releaseCanvas(pixelFloat.background);
+        releaseCanvas(pixelFloat.floating);
+        pixelFloat = undefined;
+        HistoryService.end();
     }
 
     function selectionToCanvas(selection, w, h){
@@ -688,6 +789,9 @@ let SelectBox = ((editor,resizer)=>{
 
     EventBus.on(EVENT.sizerStartChange,()=>{
         if (me.isActive()  && editor.isActive()){
+            // Safety net: a new drag gesture is starting, so any pixel float left dangling by a
+            // previous one (should already be closed by sizerEndChange) must not bleed into it.
+            endPixelFloat();
             let selection = Selection.get();
             if (selection.canvas){
                 selectionTransform = {
@@ -724,6 +828,22 @@ let SelectBox = ((editor,resizer)=>{
                     translate.scaleY = currentSize.height/fromSize.height;
                     if (isNaN(translate.scaleX)) translate.scaleX = 1;
                     if (isNaN(translate.scaleY)) translate.scaleY = 1;
+
+                    // change.dotIndex (8 = whole-box move, 0-7 = a resize handle) is only set by an
+                    // actual pointer drag on the sizebox/a handle (resizer.js) — never by resizer
+                    // init, an arrow-key nudge, or the shift-aspect-lock replay on modifier change.
+                    // Inferring "is this a drag frame" from the from/to deltas instead is ambiguous:
+                    // a single-axis resize handle leaves the other axis unchanged all gesture long,
+                    // and any momentarily-stationary frame leaves both unchanged, so either can look
+                    // identical to a pure move. dotIndex sidesteps that entirely, and — since a move
+                    // is just a resize with scale 1 — the same updatePixelFloat handles both.
+                    let isDragFrame = typeof change.dotIndex === "number";
+                    if (isDragFrame && Input.isControlDown()){
+                        if (!pixelFloat) startPixelFloat(selection);
+                        if (pixelFloat) updatePixelFloat(currentSize.left, currentSize.top, currentSize.width, currentSize.height);
+                    } else if (pixelFloat && isDragFrame){
+                        endPixelFloat();
+                    }
 
                     if (selection.points && selection.points.length){
                         selectionPoints = selection.points;
@@ -804,6 +924,7 @@ let SelectBox = ((editor,resizer)=>{
 
     EventBus.on(EVENT.toolChanged,(tool)=>{
         if (me.isActive()){
+            endPixelFloat();
             selectionTransform = undefined;
             selectionMode = "replace";
             pendingBaseSelection = undefined;

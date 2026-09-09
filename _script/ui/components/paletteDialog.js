@@ -7,8 +7,8 @@ import {COMMAND, EVENT, SETTING} from "../../enum.js";
 import EventBus from "../../util/eventbus.js";
 import Input from "../input.js";
 import ColorRange from "./colorRange.js";
-import Generate from "../../fileformats/generate.js";
 import Modal, {DIALOG} from "../modal.js";
+import {setPaletteActive, setPaletteClickAction, getPaletteClickAction, clearPaletteClickAction, setPickColorHandler} from "../paletteClickAction.js";
 
 var PaletteDialog = function() {
     let me = {};
@@ -33,7 +33,6 @@ var PaletteDialog = function() {
     let swapButton;
     let spreadButton;
     let pickButton;
-    let paletteClickAction = "";
     let withActions = false;
     let panelContainer;
     let hsv = false;
@@ -51,7 +50,7 @@ var PaletteDialog = function() {
     me.render = function (container,modal) {
         container.innerHTML = "";
         sliders = [];
-        paletteClickAction = "";
+        setPaletteClickAction("");
 
         let currentColor = Palette.getDrawColor();
         currentIndex = Palette.getDrawColorIndex();
@@ -81,9 +80,9 @@ var PaletteDialog = function() {
                     })),
                 swapButton = $(".button.small",{
                     onClick:()=>{
-                        let active = paletteClickAction === "swap";
+                        let active = getPaletteClickAction() === "swap";
                         active = !active;
-                        paletteClickAction = active?"swap":"";
+                        setPaletteClickAction(active?"swap":"");
                         swapButton.classList.toggle("highlight",active);
                         if (active){
                             let dupe = $div("dragelement tooltip","Swap with");
@@ -96,9 +95,9 @@ var PaletteDialog = function() {
                 },"Swap"),
                 spreadButton = $(".button.small",{
                     onClick:()=>{
-                        let active = paletteClickAction === "spread";
+                        let active = getPaletteClickAction() === "spread";
                         active = !active;
-                        paletteClickAction = active?"spread":"";
+                        setPaletteClickAction(active?"spread":"");
                         spreadButton.classList.toggle("highlight",active);
                         if (active){
                             let dupe = $div("dragelement tooltip","Spread to");
@@ -113,9 +112,9 @@ var PaletteDialog = function() {
                 $(".button.small",{onClick:()=>{Palette.removeColor(currentIndex)},"info":"Remove the selected color"},"Remove"),
                 pickButton = $(".button.small",{
                     onClick:()=>{
-                        let active = paletteClickAction === "pick";
+                        let active = getPaletteClickAction() === "pick";
                         active = !active;
-                        paletteClickAction = active?"pick":"";
+                        setPaletteClickAction(active?"pick":"");
                         pickButton.classList.toggle("highlight",active);
                         if (active){
                             let dupe = $div("dragelement tooltip","Pick color from image");
@@ -511,6 +510,12 @@ var PaletteDialog = function() {
         setColorDepth();
 
         isActive = true;
+        setPaletteActive(true);
+        setPickColorHandler(color=>{
+            color = Color.toHex(color);
+            inputHex.value = color;
+            updateColor(color);
+        });
     }
 
     me.onClose = function(){
@@ -519,6 +524,7 @@ var PaletteDialog = function() {
         paletteCanvas = null;
         ColorRange.cleanUp();
         isActive = false;
+        setPaletteActive(false);
         if (previewLayerIndex >= 0) {
             let layer = ImageFile.getLayer(previewLayerIndex);
             if (layer && layer.name === "Palette Blend Preview") {
@@ -529,18 +535,9 @@ var PaletteDialog = function() {
         }
     }
 
-    me.setPaletteClickAction = (action)=>{
-        paletteClickAction = action;
-    }
-
-    me.getPaletteClickAction = ()=>{
-        return isActive?paletteClickAction:"";
-    }
-
-    me.clearPaletteClickAction = function(){
-        paletteClickAction="";
-        Input.removeDragElement();
-    }
+    me.setPaletteClickAction = setPaletteClickAction;
+    me.getPaletteClickAction = getPaletteClickAction;
+    me.clearPaletteClickAction = clearPaletteClickAction;
 
     me.updateColor = function(color){
         color = Color.toHex(color);
@@ -576,9 +573,9 @@ var PaletteDialog = function() {
         }
         sliders.forEach((slider,index)=>{
             slider.range.max = max[index];
+            slider.range.classList.toggle("hsv",hsv);
             slider.range.value = slider.input.value = color[index];
             slider.label.innerText = labels[index];
-            slider.range.classList.toggle("hsv",hsv);
         })
     }
 
@@ -636,26 +633,27 @@ var PaletteDialog = function() {
             const y = Math.floor((e.clientY - rect.top) / colorSize);
             let colorsPerRow = paletteCanvas.width / colorSize;
             let index = (y*colorsPerRow + x) + start;
-            if (paletteClickAction === "swap"){
+            let clickAction = getPaletteClickAction();
+            if (clickAction === "swap"){
                 Palette.swapColors(currentIndex,index);
                 me.clearPaletteClickAction();
                 swapButton.classList.remove("highlight");
             }
-            if (paletteClickAction === "spread"){
+            if (clickAction === "spread"){
                 Palette.spreadColors(currentIndex,index);
                 me.clearPaletteClickAction();
                 spreadButton.classList.remove("highlight");
             }
-            if (paletteClickAction === "rangeto"){
+            if (clickAction === "rangeto"){
                 ColorRange.setTo(index);
                 me.clearPaletteClickAction();
             }
-            if (paletteClickAction === "rangefrom"){
+            if (clickAction === "rangefrom"){
                 ColorRange.setFrom(index);
                 Input.removeDragElement();
                 let dupe = $div("dragelement tooltip","Select range: To color");
                 Input.setDragElement(dupe,true);
-                paletteClickAction = "rangeto";
+                setPaletteClickAction("rangeto");
             }
 
             handleSelection(index,e.shiftKey,e.ctrlKey || e.metaKey);

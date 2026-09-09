@@ -1,18 +1,13 @@
 import $,{$div} from "../util/dom.js";
 import UI from "./ui.js";
 import Input from "./input.js";
-import SaveDialog from "./components/saveDialog.js";
-import ResizeDialog from "./components/resizeDialog.js";
-import ResampleDialog from "./components/resampleDialog.js";
-import PaletteDialog from "./components/paletteDialog.js";
-import EffectDialog from "./components/effectDialog.js";
-import DitherDialog from "./components/ditherDialog.js";
-import OptionDialog from "./components/optionDialog.js";
-import TextOutputDialog from "./components/textOutputDialog.js";
-import PlanesDialog from "./components/planesDialog.js";
-import FrameRangeDialog from "./components/frameRangeDialog.js";
 import EventBus from "../util/eventbus.js";
 import {COMMAND, SETTING} from "../enum.js";
+// OPTION/TEXTOUTPUT back every generic alert/confirm/text-result box in the app (including
+// Modal.alert() below) and are trivially small, so — unlike the rest of `dialogs` — they stay a
+// plain eager import instead of a lazy `loader`.
+import OptionDialog from "./components/optionDialog.js";
+import TextOutputDialog from "./components/textOutputDialog.js";
 
 export let DIALOG={
     SAVE: 1,
@@ -38,18 +33,33 @@ var Modal = function(){
     let currentDialog;
     let notification;
 
+    // Every dialog but ABOUT/OPTION/TEXTOUTPUT is its own component module, loaded on first use via
+    // `loader` instead of eagerly — resolveHandler() resolves it once and caches the result on
+    // `handler`, so re-opening the same dialog later is synchronous again.
     let dialogs={
-        1: {title: "Save File As", fuzzy: true,width:600,height:"auto", handler: SaveDialog, position: [0,0]},
-        2: {title: "Canvas Size", fuzzy: true, handler: ResizeDialog, position: [0,0],width:406,height:220},
-        3: {title: "Image Size", fuzzy: true, handler: ResampleDialog, position: [0,0],width:326,height:220},
-        4: {title: "Palette Editor", handler: PaletteDialog, width:450,height:()=>{return SETTING.useMultiPalettes?334:304}, position: [0,0]},
-        5: {title: "Effects", handler: EffectDialog, position: [0,0],width:500,height:590},
+        1: {title: "Save File As", fuzzy: true,width:600,height:"auto", loader: ()=>import("./components/saveDialog.js"), position: [0,0]},
+        2: {title: "Canvas Size", fuzzy: true, loader: ()=>import("./components/resizeDialog.js"), position: [0,0],width:406,height:220},
+        3: {title: "Image Size", fuzzy: true, loader: ()=>import("./components/resampleDialog.js"), position: [0,0],width:326,height:220},
+        4: {title: "Palette Editor", loader: ()=>import("./components/paletteDialog.js"), width:450,height:()=>{return SETTING.useMultiPalettes?334:304}, position: [0,0]},
+        5: {title: "Effects", loader: ()=>import("./components/effectDialog.js"), position: [0,0],width:500,height:590},
         6: {title: "About", action: showAbout, position: [0,0],width:750,height:470},
-        7: {title: "DitherPattern",  handler: DitherDialog, position: [0,0],width:662,height:326},
+        7: {title: "DitherPattern",  loader: ()=>import("./components/ditherDialog.js"), position: [0,0],width:662,height:326},
         8: {title: "Request", fuzzy: true, handler: OptionDialog, position: [0,0],width:300,height:"auto"},
         9: {title: "Output", handler: TextOutputDialog, position: [0,0],width:300,height:220},
-        10: {title: "Import Bitplanes", fuzzy: true, handler: PlanesDialog, position: [0,0],width:420,height:"auto"},
-        11: {title: "Open Animation", fuzzy: true, handler: FrameRangeDialog, position: [0,0],width:340,height:"auto"}
+        10: {title: "Import Bitplanes", fuzzy: true, loader: ()=>import("./components/planesDialog.js"), position: [0,0],width:420,height:"auto"},
+        11: {title: "Open Animation", fuzzy: true, loader: ()=>import("./components/frameRangeDialog.js"), position: [0,0],width:340,height:"auto"}
+    }
+
+    // Resolves (and caches on the dialog entry) the handler module behind a lazy dialog's loader.
+    function resolveHandler(dialog){
+        if (dialog.handler) return Promise.resolve(dialog.handler);
+        if (!dialog.loading){
+            dialog.loading = dialog.loader().then(mod=>{
+                dialog.handler = mod.default || mod;
+                return dialog.handler;
+            });
+        }
+        return dialog.loading;
     }
 
     me.show = function(type,data){
@@ -119,6 +129,11 @@ var Modal = function(){
             caption.innerHTML = data.title || dialog.title;
             if (dialog.handler){
                 dialog.handler.render(inner,me,data);
+            }else if (dialog.loader){
+                resolveHandler(dialog).then(handler=>{
+                    if (currentDialog !== dialog) return; // closed / switched before the chunk loaded
+                    handler.render(inner,me,data);
+                });
             }
             if (dialog.action){
                 dialog.action(data);
@@ -142,7 +157,7 @@ var Modal = function(){
     }
 
     me.isVisible = function(){
-
+        return !!(modalWindow && modalWindow.classList.contains("active"));
     }
 
     me.inputKeyDown = function(e){

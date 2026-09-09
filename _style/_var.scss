@@ -1,3 +1,8 @@
+// Shared spacing between adjacent panel/editor regions (toolbar↔sidepanel, sidepanel↔editor,
+// and the split-view divider gap) so they read as one consistent grid.
+$toolbar-width: 64px;
+$panel-gap: 4px;
+
 $background-color: #2B2B2B;
 $panel-background-color: #313335;
 $panel-background-active: #3C3F41;

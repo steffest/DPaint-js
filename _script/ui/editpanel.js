@@ -9,7 +9,6 @@ import Input from "./input.js";
 import Brush from "./brush.js";
 import UserSettings from "../userSettings.js";
 import Cursor from "./cursor.js";
-import CodeView from "./components/codeView.js";
 import {isVector} from "../util/layerUtils.js";
 
 var EditPanel = function(parent,type){
@@ -265,8 +264,19 @@ var EditPanel = function(parent,type){
         }
 
         if (type === "code"){
-            if (!codeView) codeView = CodeView(panel);
-            codeView.show();
+            if (codeView){
+                codeView.show();
+            } else {
+                // "View as code" is a rarely-used split panel (only for vector layers), so its
+                // module loads on first use instead of riding along with the always-eager
+                // editpanel.js.
+                import("./components/codeView.js").then(mod=>{
+                    if (currentView !== "code") return; // switched away before the chunk loaded
+                    let CodeView = mod.default || mod;
+                    codeView = CodeView(panel);
+                    codeView.show();
+                });
+            }
         }
 
         EventBus.trigger(EVENT.previewModeChanged,type);

@@ -144,8 +144,8 @@ input[type=number],
 input[type=text],
 .inputbox {
   display: inline-block;
-  background-color: #2b2b2b;
-  border: 1px solid #6A6A6A;
+  background-color: #202020;
+  border: 1px solid #555;
   color: #BBBBBB;
   padding: 4px;
   font-size: 14px;
@@ -213,8 +213,12 @@ input[type=range] {
   margin: 0;
   background-color: transparent;
   -webkit-appearance: none;
+  appearance: none;
   box-sizing: border-box;
   height: 21px;
+  --range-percent: 0%;
+  --range-fill-start: 0%;
+  --range-fill-end: 0%;
 }
 
 input[type=range]:focus {
@@ -226,44 +230,62 @@ input[type=range]:disabled {
 }
 
 input[type=range]::-webkit-slider-runnable-track {
-  background: #c8c8c8;
-  border: 1px solid #010101;
+  background: linear-gradient(to right, transparent 0%, transparent var(--range-fill-start, 0%), #666 var(--range-fill-start, 0%), #666 var(--range-fill-end, 0%), transparent var(--range-fill-end, 0%)), #1c1c1c;
+  background-blend-mode: screen;
+  border: 1px solid #383838;
+  border-radius: calc(7px / 2 + 1px);
   width: 100%;
-  height: 2px;
+  height: 7px;
   cursor: pointer;
 }
 
 input[type=range]::-webkit-slider-thumb {
-  margin-top: -8.6px;
-  width: 8px;
-  height: 16px;
-  background: #c8c8c8;
-  border: 1px solid rgba(50, 50, 50, 0.7);
-  cursor: pointer;
   -webkit-appearance: none;
+  margin-top: -1px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #aaa;
+  border: none;
+  cursor: pointer;
+  box-sizing: border-box;
+}
+
+input[type=range]:hover::-webkit-slider-thumb {
+  background: #ddd;
 }
 
 input[type=range]:focus::-webkit-slider-runnable-track {
-  background: #d5d5d5;
+  border-color: #525252;
 }
 
 input[type=range]::-moz-range-track {
-  background: #c8c8c8;
-  border: 1px solid #010101;
+  background: linear-gradient(to right, transparent 0%, transparent var(--range-fill-start, 0%), #666 var(--range-fill-start, 0%), #666 var(--range-fill-end, 0%), transparent var(--range-fill-end, 0%)), #1c1c1c;
+  background-blend-mode: screen;
+  border: 1px solid #383838;
+  border-radius: calc(7px / 2 + 1px);
   width: 100%;
-  height: 0;
-  margin-top: -2px;
+  height: 7px;
   cursor: pointer;
 }
 
+input[type=range]::-moz-range-progress {
+  background: transparent;
+  border-radius: calc(7px / 2 + 1px);
+}
+
 input[type=range]::-moz-range-thumb {
-  width: 6px;
-  height: 14px;
-  background: #c8c8c8;
-  border: 1px solid rgba(50, 50, 50, 0.7);
-  border-radius: 0;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #aaa;
+  border: none;
   cursor: pointer;
-  margin-top: -2px;
+  box-sizing: border-box;
+}
+
+input[type=range]:hover::-moz-range-thumb {
+  background: #ddd;
 }
 
 input[type=range]::-ms-track {
@@ -272,35 +294,33 @@ input[type=range]::-ms-track {
   border-width: 8px 0;
   color: transparent;
   width: 100%;
-  height: 2px;
+  height: 7px;
   cursor: pointer;
 }
 
 input[type=range]::-ms-fill-lower {
-  background: #bbbbbb;
-  border: 1px solid #010101;
+  background: #666;
+  border: 1px solid #383838;
 }
 
 input[type=range]::-ms-fill-upper {
-  background: #c8c8c8;
-  border: 1px solid #010101;
+  background: #1c1c1c;
+  border: 1px solid #383838;
 }
 
 input[type=range]::-ms-thumb {
   width: 8px;
-  height: 16px;
-  background: #c8c8c8;
-  border: 1px solid rgba(50, 50, 50, 0.7);
+  height: 8px;
+  border-radius: 50%;
+  background: #aaa;
+  border: none;
   cursor: pointer;
+  box-sizing: border-box;
   margin-top: 0;
 }
 
-input[type=range]:focus::-ms-fill-lower {
-  background: #c8c8c8;
-}
-
 input[type=range]:focus::-ms-fill-upper {
-  background: #d5d5d5;
+  background: #292929;
 }
 
 .free-panel > .inner {
@@ -375,6 +395,9 @@ input[type=range]:focus::-ms-fill-upper {
 .free-panel > .inner .layer.active .mask:after {
   background-color: #46484A;
 }
+.free-panel > .inner .layer.selected {
+  background-color: rgba(80, 160, 255, 0.25);
+}
 .free-panel > .inner .layer:hover {
   cursor: pointer;
 }
@@ -404,7 +427,7 @@ input[type=range]:focus::-ms-fill-upper {
 .free-panel > .inner .layer .eye {
   position: absolute;
   right: 24px;
-  top: 9px;
+  top: 7px;
   width: 12px;
   height: 12px;
   background-image: url("../_img/eye.svg");
@@ -669,22 +692,11 @@ input[type=range]:focus::-ms-fill-upper {
 .free-panel .paneltools .rangeselect input {
   position: absolute;
   margin: 0 0 0 4px;
-  height: 17px;
+  height: 15px;
   left: 40px;
   top: 0;
   right: 0;
   width: auto;
-}
-.free-panel .paneltools .rangeselect input::-webkit-slider-thumb, .free-panel .paneltools .rangeselect input::-moz-range-thumb {
-  margin-top: -6px;
-  width: 8px;
-  height: 12px;
-  background: #9d9d9d;
-  border: 1px solid rgba(50, 50, 50, 0.7);
-}
-.free-panel .paneltools .rangeselect input::-moz-range-thumb {
-  width: 6px;
-  height: 10px;
 }
 .free-panel .paneltools .blendselect {
   position: absolute;
@@ -922,59 +934,67 @@ input[type=range]:focus::-ms-fill-upper {
   bottom: 0;
   overflow: auto;
 }
-.free-panel.properties .layerkeyprops,
-.free-panel.properties .grouptransform {
-  position: relative;
+.free-panel.properties .propcaption {
+  padding: 5px 6px 2px;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #7a7a7a;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+.free-panel.properties .propcaption:first-child {
+  border-top: none;
+}
+.free-panel.properties .propfield {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
   color: #9d9c9c;
   font-size: 11px;
   padding: 3px 6px;
 }
-.free-panel.properties .layerkeyprops .activetrack,
-.free-panel.properties .grouptransform .activetrack {
+.free-panel.properties .propfield .label {
+  width: 56px;
+  flex-shrink: 0;
+  opacity: 0.7;
+}
+.free-panel.properties .propfield .editors {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.free-panel.properties .propfield .activetrack {
   flex-grow: 1;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
+  text-align: right;
   opacity: 0.7;
 }
-.free-panel.properties .layerkeyprops input[type=text],
-.free-panel.properties .grouptransform input[type=text] {
+.free-panel.properties .propfield input[type=text] {
   width: 34px;
   height: 17px;
   padding: 0 3px;
   font-size: 11px;
-  background-color: #181818;
-  color: #888888;
-  border: 1px solid #7b7b7b;
 }
-.free-panel.properties .layerkeyprops input[type=text]:focus,
-.free-panel.properties .grouptransform input[type=text]:focus {
+.free-panel.properties .propfield input[type=text]:focus {
   outline: none;
 }
-.free-panel.properties .layerkeyprops.overridden input[type=text],
-.free-panel.properties .grouptransform.overridden input[type=text] {
+.free-panel.properties .propfield.overridden input[type=text] {
   border-color: #59b6ff;
   color: #cfe8ff;
 }
-.free-panel.properties .layerkeyprops.tweening input[type=text],
-.free-panel.properties .grouptransform.tweening input[type=text] {
+.free-panel.properties .propfield.tweening input[type=text] {
   border-style: dashed;
 }
-.free-panel.properties .transformfield {
+.free-panel.properties .editorunit {
   display: flex;
   align-items: center;
 }
-.free-panel.properties .transformfield .label {
-  min-width: 14px;
-  text-align: right;
-  margin-left: 6px;
-  margin-right: 2px;
-  opacity: 0.7;
+.free-panel.properties .editorunit .edlabel {
+  opacity: 0.6;
+  margin-right: 3px;
 }
-.free-panel.properties .transformfield .resetprop {
+.free-panel.properties .editorunit .resetprop {
   width: 12px;
   height: 12px;
   margin-left: 3px;
@@ -987,86 +1007,102 @@ input[type=range]:focus::-ms-fill-upper {
   visibility: hidden;
   cursor: pointer;
 }
-.free-panel.properties .transformfield .resetprop:hover {
+.free-panel.properties .editorunit .resetprop:hover {
   opacity: 1;
 }
-.free-panel.properties .transformfield.nondefault .resetprop {
+.free-panel.properties .editorunit.nondefault .resetprop {
   visibility: visible;
 }
-.free-panel.properties .transformfield.nondefault input[type=text] {
+.free-panel.properties .editorunit.nondefault input[type=text] {
   border-color: #ff9f1a;
   color: #ffd9a8;
 }
 .free-panel.properties .checkbox.smooth-toggle {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  right: 116px;
   margin: 0;
-  display: flex;
-  align-items: center;
 }
 .free-panel.properties .checkbox.smooth-toggle label span {
-  padding: 2px 14px 2px 0;
+  padding-left: 14px;
   opacity: 0.7;
 }
-.free-panel.properties .checkbox.smooth-toggle label span:before {
-  left: auto;
-  right: 0;
+.free-panel.properties .propfield.vectorprops .editors,
+.free-panel.properties .propfield.vectortext .editors {
+  flex-grow: 1;
 }
-.free-panel.properties .vectorprops {
-  display: flex;
-  align-items: center;
-  color: #9d9c9c;
-  font-size: 11px;
-  padding: 3px 6px;
-}
-.free-panel.properties .vectorprops .label {
-  width: 44px;
-  flex: 0 0 auto;
-}
-.free-panel.properties .vectorprops .vectordisplay-select {
-  flex: 1 1 auto;
+.free-panel.properties .propfield.vectorprops select,
+.free-panel.properties .propfield.vectortext select {
+  flex: 1;
   min-width: 0;
+  box-sizing: border-box;
   background-color: #2b2b2b;
   color: #cfcfcf;
   border: 1px solid #000;
   font-size: 11px;
-  padding: 1px 2px;
+  height: 18px;
+  padding: 0 3px;
 }
-.free-panel.properties .vectorprops.vectorstyle {
-  justify-content: flex-start;
-  flex-wrap: wrap;
+.free-panel.properties .propfield.vectorprops select:focus,
+.free-panel.properties .propfield.vectortext select:focus {
+  outline: none;
 }
-.free-panel.properties .vectorprops.vectorstyle .styleblock {
-  display: flex;
-  align-items: center;
-  margin-right: 12px;
+.free-panel.properties .propfield.vectorprops .button.loadfont,
+.free-panel.properties .propfield.vectortext .button.loadfont {
+  width: 20px;
+  height: 18px;
+  flex-shrink: 0;
+  background-color: #282a2c;
+  background-image: url("../_img/folder.svg");
+  background-position: center center;
+  background-repeat: no-repeat;
+  background-size: 60% 60%;
+  border: 1px solid #000;
+  border-radius: 2px;
+  opacity: 0.6;
+  cursor: pointer;
 }
-.free-panel.properties .vectorprops.vectorstyle .styleblock .label {
-  width: auto;
-  margin-right: 5px;
-  opacity: 0.7;
+.free-panel.properties .propfield.vectorprops .button.loadfont:hover,
+.free-panel.properties .propfield.vectortext .button.loadfont:hover {
+  opacity: 1;
 }
-.free-panel.properties .vectorprops.vectorstyle .styleblock input[type=range] {
-  width: 56px;
-  height: 6px;
-  margin: 0 4px;
-}
-.free-panel.properties .vectorprops.vectorstyle .styleblock .value {
-  min-width: 26px;
-  opacity: 0.7;
-}
-.free-panel.properties .vectorprops.vectorstyle .vectorswatch {
+.free-panel.properties .vectorswatch {
   width: 20px;
   height: 14px;
   border: 1px solid #7b7b7b;
   border-radius: 2px;
   cursor: pointer;
+  flex-shrink: 0;
   position: relative;
 }
-.free-panel.properties .vectorprops.vectorstyle .vectorswatch.nofill {
+.free-panel.properties .vectorswatch.nofill {
   background-image: linear-gradient(45deg, transparent 44%, #d24 44%, #d24 56%, transparent 56%);
+}
+.free-panel.properties .propfield.vectorstyle input[type=range],
+.free-panel.properties .propfield.vectortext input[type=range] {
+  flex: 1;
+  min-width: 40px;
+  height: 6px;
+  margin: 0;
+}
+.free-panel.properties .propfield.vectorstyle input[type=number],
+.free-panel.properties .propfield.vectortext input[type=number] {
+  width: 42px;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  background-color: #2b2b2b;
+  color: #cfcfcf;
+  border: 1px solid #000;
+  font-size: 11px;
+  height: 18px;
+  padding: 0 3px;
+}
+.free-panel.properties .propfield.vectorstyle .value,
+.free-panel.properties .propfield.vectortext .value {
+  min-width: 26px;
+  flex-shrink: 0;
+  opacity: 0.7;
+}
+.free-panel.properties .propfield.textactions .button.full {
+  margin: 0;
+  width: 100%;
 }
 .free-panel > .sizer {
   position: absolute;
@@ -1297,6 +1333,9 @@ input[type=range]:focus::-ms-fill-upper {
   line-height: 23px;
   font-size: 13px;
 }
+.menu a.main.hidden-menu {
+  display: none;
+}
 .menu a.main .sub {
   left: 0;
   margin-top: 0;
@@ -1364,6 +1403,30 @@ input[type=range]:focus::-ms-fill-upper {
 }
 .menu a.main .sub.checkable a {
   padding: 0 24px 0 20px;
+}
+.menu a.main .sub .caption {
+  padding: 0 10px;
+  font-size: 11px;
+  line-height: 20px;
+  color: #8f8f8f;
+  border-bottom: 1px solid black;
+  cursor: default;
+}
+.menu a.main .sub .group-vector,
+.menu a.main .sub .group-bone {
+  display: none;
+}
+.menu a.main .sub.bone-mode .group-pixel {
+  display: none;
+}
+.menu a.main .sub.bone-mode .group-bone {
+  display: block;
+}
+.menu a.main .sub.vector-mode .group-pixel {
+  display: none;
+}
+.menu a.main .sub.vector-mode .group-vector {
+  display: block;
 }
 .menu a.main .sub .info {
   position: absolute;
@@ -1927,7 +1990,7 @@ body.presentation .statusbar {
 .sidepanel,
 .dockcontainer {
   position: absolute;
-  left: 70px;
+  left: 68px;
   top: 27px;
   bottom: 20px;
   display: none;
@@ -2092,17 +2155,6 @@ body.override .toolpanel .options .checkbox.pressure span:before {
   top: 0;
   right: 0;
   width: auto;
-}
-.bottompanel .free-panel .paneltools .rangeselect input::-webkit-slider-thumb, .bottompanel .free-panel .paneltools .rangeselect input::-moz-range-thumb {
-  margin-top: -6px;
-  width: 8px;
-  height: 12px;
-  background: #9d9d9d;
-  border: 1px solid rgba(50, 50, 50, 0.7);
-}
-.bottompanel .free-panel .paneltools .rangeselect input::-moz-range-thumb {
-  width: 6px;
-  height: 10px;
 }
 .bottompanel .free-panel .paneltools .blendselect {
   position: absolute;
@@ -2607,7 +2659,7 @@ body.override .toolpanel .options .checkbox.pressure span:before {
   right: auto;
 }
 .dockcontainer.dock-bottom {
-  left: 70px;
+  left: 68px;
   right: 0;
   top: auto;
   bottom: 20px;
@@ -2850,7 +2902,7 @@ body.override .toolpanel .options .checkbox.pressure span:before {
 
 .palettelist {
   position: absolute;
-  left: 70px;
+  left: 68px;
   top: 27px;
   bottom: 20px;
   border: 1px solid black;
@@ -2968,7 +3020,7 @@ body.override .toolpanel .options .checkbox.pressure span:before {
 .splitpanel {
   position: absolute;
   top: 27px;
-  left: 70px;
+  left: 72px;
   right: 0;
   bottom: 22px;
 }
@@ -2976,7 +3028,7 @@ body.override .toolpanel .options .checkbox.pressure span:before {
   position: absolute;
   top: 0;
   bottom: 0;
-  width: calc(50% - 4px);
+  width: calc(50% - 4px / 2);
   border: 1px solid black;
 }
 .splitpanel .panel:first-of-type {
@@ -3043,11 +3095,15 @@ body.override .toolpanel .options .checkbox.pressure span:before {
   display: flex;
 }
 .splitpanel .panel .toolbar .toolpanel .options .optionsgroup.vectornode,
-.splitpanel .panel .toolbar .toolpanel .options .optionsgroup.vectorgap {
+.splitpanel .panel .toolbar .toolpanel .options .optionsgroup.vectorgap,
+.splitpanel .panel .toolbar .toolpanel .options .optionsgroup.vectorcombine,
+.splitpanel .panel .toolbar .toolpanel .options .optionsgroup.vectorfont {
   align-items: center;
 }
 .splitpanel .panel .toolbar .toolpanel .options .optionsgroup.vectornode .button,
-.splitpanel .panel .toolbar .toolpanel .options .optionsgroup.vectorgap .button {
+.splitpanel .panel .toolbar .toolpanel .options .optionsgroup.vectorgap .button,
+.splitpanel .panel .toolbar .toolpanel .options .optionsgroup.vectorcombine .button,
+.splitpanel .panel .toolbar .toolpanel .options .optionsgroup.vectorfont .button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -3064,26 +3120,75 @@ body.override .toolpanel .options .checkbox.pressure span:before {
   user-select: none;
 }
 .splitpanel .panel .toolbar .toolpanel .options .optionsgroup.vectornode .button:hover,
-.splitpanel .panel .toolbar .toolpanel .options .optionsgroup.vectorgap .button:hover {
+.splitpanel .panel .toolbar .toolpanel .options .optionsgroup.vectorgap .button:hover,
+.splitpanel .panel .toolbar .toolpanel .options .optionsgroup.vectorcombine .button:hover,
+.splitpanel .panel .toolbar .toolpanel .options .optionsgroup.vectorfont .button:hover {
   background-color: #2a2a2a;
 }
 .splitpanel .panel .toolbar .toolpanel .options .optionsgroup.vectornode .button.active,
-.splitpanel .panel .toolbar .toolpanel .options .optionsgroup.vectorgap .button.active {
+.splitpanel .panel .toolbar .toolpanel .options .optionsgroup.vectorgap .button.active,
+.splitpanel .panel .toolbar .toolpanel .options .optionsgroup.vectorcombine .button.active,
+.splitpanel .panel .toolbar .toolpanel .options .optionsgroup.vectorfont .button.active {
   color: #000;
   background-color: #BBBBBB;
   border-color: #BBBBBB;
 }
 .splitpanel .panel .toolbar .toolpanel .options .optionsgroup.vectornode .button.disabled,
-.splitpanel .panel .toolbar .toolpanel .options .optionsgroup.vectorgap .button.disabled {
+.splitpanel .panel .toolbar .toolpanel .options .optionsgroup.vectorgap .button.disabled,
+.splitpanel .panel .toolbar .toolpanel .options .optionsgroup.vectorcombine .button.disabled,
+.splitpanel .panel .toolbar .toolpanel .options .optionsgroup.vectorfont .button.disabled {
   opacity: 0.35;
   pointer-events: none;
 }
+.splitpanel .panel .toolbar .toolpanel .options .optionsgroup.vectornode .button.loadfont,
+.splitpanel .panel .toolbar .toolpanel .options .optionsgroup.vectorgap .button.loadfont,
+.splitpanel .panel .toolbar .toolpanel .options .optionsgroup.vectorcombine .button.loadfont,
+.splitpanel .panel .toolbar .toolpanel .options .optionsgroup.vectorfont .button.loadfont {
+  background-image: url("../_img/folder.svg");
+  background-position: center center;
+  background-repeat: no-repeat;
+  background-size: 60% 60%;
+}
 .splitpanel .panel .toolbar .toolpanel .options .optionsgroup.vectornode .optionsdivider,
-.splitpanel .panel .toolbar .toolpanel .options .optionsgroup.vectorgap .optionsdivider {
+.splitpanel .panel .toolbar .toolpanel .options .optionsgroup.vectorgap .optionsdivider,
+.splitpanel .panel .toolbar .toolpanel .options .optionsgroup.vectorcombine .optionsdivider,
+.splitpanel .panel .toolbar .toolpanel .options .optionsgroup.vectorfont .optionsdivider {
   width: 1px;
   height: 14px;
   margin: 0 5px;
   background-color: #626262;
+}
+.splitpanel .panel .toolbar .toolpanel .options .optionsgroup.expandfill {
+  align-items: center;
+}
+.splitpanel .panel .toolbar .toolpanel .options .optionsgroup.expandfill input[type=range] {
+  width: 100px;
+}
+.splitpanel .panel .toolbar .toolpanel .options .optionsgroup.expandfill .button {
+  display: inline-flex;
+  width: auto;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  padding: 0 12px;
+  height: 18px;
+  margin-left: 6px;
+  font-size: 11px;
+  line-height: 1;
+  white-space: nowrap;
+  color: #BBBBBB;
+  background-color: #181818;
+  border: 1px solid #626262;
+  border-radius: 2px;
+  cursor: pointer;
+  user-select: none;
+}
+.splitpanel .panel .toolbar .toolpanel .options .optionsgroup.expandfill .button:hover {
+  background-color: #2a2a2a;
+}
+.splitpanel .panel .toolbar .toolpanel .options .optionsgroup.expandfill .button.apply {
+  color: #b1e00f;
+  border-color: #b1e00f;
 }
 .splitpanel .panel .toolbar .toolpanel .options .flex {
   display: flex;
@@ -3106,20 +3211,9 @@ body.override .toolpanel .options .checkbox.pressure span:before {
   margin-left: 10px;
 }
 .splitpanel .panel .toolbar .toolpanel .options input[type=range] {
-  margin: 0 4px 0 4px;
-  width: 40px;
-  height: 6px;
-}
-.splitpanel .panel .toolbar .toolpanel .options input[type=range]::-webkit-slider-thumb {
-  margin-top: -7px;
-  width: 8px;
-  height: 14px;
-}
-.splitpanel .panel .toolbar .toolpanel .options input[type=range]::-webkit-slider-runnable-track {
-  background: #010101;
-  height: 3px;
-  margin-top: -2px;
-  cursor: pointer;
+  width: 50px;
+  height: 12px;
+  margin: 0 4px;
 }
 .splitpanel .panel .toolbar .toolpanel .options label {
   font-size: 11px;
@@ -3659,6 +3753,10 @@ body.presentation .sidepanel {
   z-index: 0;
 }
 
+body.selection-cut .sizebox {
+  cursor: url("../_img/cursors/scissors.svg") 12 12, move;
+}
+
 .selectbox {
   position: absolute;
   display: none;
@@ -4177,17 +4275,17 @@ body.hovercanvas.pointerdown.cursor-colorpicker .cursor .mark.large {
   right: 66px;
   bottom: 55px;
 }
-.modalwindow .inner .about .text.contrib i {
-  opacity: 0.8;
-  display: block;
-  font-style: normal;
-}
 .modalwindow .inner .about .text.contrib {
   bottom: 10px;
   text-align: right;
   left: unset;
   right: 66px;
   opacity: 0.5;
+}
+.modalwindow .inner .about .text.contrib i {
+  opacity: 0.8;
+  display: block;
+  font-style: normal;
 }
 .modalwindow .inner .optiondialog p {
   margin: 0;
@@ -4629,6 +4727,9 @@ body.hovercanvas.pointerdown.cursor-colorpicker .cursor .mark.large {
 }
 .modalwindow .inner .saveform .menu .button .icon.svg {
   background-image: url("../_img/svg.svg");
+}
+.modalwindow .inner .saveform .menu .button .icon.pdf {
+  background-image: url("../_img/pdf.svg");
 }
 .modalwindow .inner .saveform .menu .button .icon.mui {
   background-image: url("../_img/mui.png");
@@ -5589,25 +5690,46 @@ body.hovercanvas.pointerdown.cursor-colorpicker .cursor .mark.large {
   width: 148px;
   margin: 4px 0 0 12px;
 }
-.palette-editor .mainpanel .sliders .slider input.slider.red::-webkit-slider-runnable-track {
-  background: linear-gradient(90deg, #000000 0%, #c40202 100%);
-  border: none;
+.palette-editor .mainpanel .sliders .slider input.slider.red:not(.hsv)::-webkit-slider-runnable-track, .palette-editor .mainpanel .sliders .slider input.slider.green:not(.hsv)::-webkit-slider-runnable-track, .palette-editor .mainpanel .sliders .slider input.slider.blue:not(.hsv)::-webkit-slider-runnable-track {
+  background: linear-gradient(90deg, #000 0%, var(--slider-color, #000) var(--range-fill-end, 0%), #000 var(--range-fill-end, 0%), #000 100%);
+}
+.palette-editor .mainpanel .sliders .slider input.slider.red:not(.hsv)::-moz-range-track, .palette-editor .mainpanel .sliders .slider input.slider.green:not(.hsv)::-moz-range-track, .palette-editor .mainpanel .sliders .slider input.slider.blue:not(.hsv)::-moz-range-track {
+  background: linear-gradient(90deg, #000 0%, var(--slider-color, #000) var(--range-fill-end, 0%), #000 var(--range-fill-end, 0%), #000 100%);
+}
+.palette-editor .mainpanel .sliders .slider input.slider.red:not(.hsv)::-webkit-slider-thumb {
+  background: #f00;
+}
+.palette-editor .mainpanel .sliders .slider input.slider.green:not(.hsv)::-webkit-slider-thumb {
+  background: #0f0;
+}
+.palette-editor .mainpanel .sliders .slider input.slider.blue:not(.hsv)::-webkit-slider-thumb {
+  background: #00f;
+}
+.palette-editor .mainpanel .sliders .slider input.slider.red:not(.hsv)::-moz-range-thumb {
+  background: #f00;
+}
+.palette-editor .mainpanel .sliders .slider input.slider.green:not(.hsv)::-moz-range-thumb {
+  background: #0f0;
+}
+.palette-editor .mainpanel .sliders .slider input.slider.blue:not(.hsv)::-moz-range-thumb {
+  background: #00f;
 }
 .palette-editor .mainpanel .sliders .slider input.slider.red.hsv::-webkit-slider-runnable-track {
   background: linear-gradient(90deg, #FF3A00 0%, #F0FF00 20%, #00FF1D 40%, #0007FF 60%, #FF00F1 80%, #FA0505 100%);
 }
-.palette-editor .mainpanel .sliders .slider input.slider.green::-webkit-slider-runnable-track {
-  background: linear-gradient(90deg, #000000 0%, #00a402 100%);
-  border: none;
-}
 .palette-editor .mainpanel .sliders .slider input.slider.green.hsv::-webkit-slider-runnable-track {
   background: linear-gradient(90deg, #000000 0%, #c40202 100%);
 }
-.palette-editor .mainpanel .sliders .slider input.slider.blue::-webkit-slider-runnable-track {
-  background: linear-gradient(90deg, #000000 0%, #085db9 100%);
-  border: none;
-}
 .palette-editor .mainpanel .sliders .slider input.slider.blue.hsv::-webkit-slider-runnable-track {
+  background: linear-gradient(90deg, #000000 0%, #FFFFFF 100%);
+}
+.palette-editor .mainpanel .sliders .slider input.slider.red.hsv::-moz-range-track {
+  background: linear-gradient(90deg, #FF3A00 0%, #F0FF00 20%, #00FF1D 40%, #0007FF 60%, #FF00F1 80%, #FA0505 100%);
+}
+.palette-editor .mainpanel .sliders .slider input.slider.green.hsv::-moz-range-track {
+  background: linear-gradient(90deg, #000000 0%, #c40202 100%);
+}
+.palette-editor .mainpanel .sliders .slider input.slider.blue.hsv::-moz-range-track {
   background: linear-gradient(90deg, #000000 0%, #FFFFFF 100%);
 }
 .palette-editor .mainpanel .sliders .slider input.rangevalue {
@@ -5677,18 +5799,16 @@ body.hovercanvas.pointerdown.cursor-colorpicker .cursor .mark.large {
   border: 1px solid #6a6a6a;
   padding: 6px;
   user-select: none;
-}
-.palette-editor .button.small:hover {
-  cursor: pointer;
-  border: 1px solid #8c8c8c;
-  background-color: #232323;
-}
-.palette-editor .button.small {
   margin: 2px;
   line-height: 14px;
   font-size: 12px;
   padding: 2px 4px;
   text-align: center;
+}
+.palette-editor .button.small:hover {
+  cursor: pointer;
+  border: 1px solid #8c8c8c;
+  background-color: #232323;
 }
 .palette-editor .button.small.highlight {
   border: 1px solid #ded293;
@@ -5836,6 +5956,9 @@ body.hovercanvas.pointerdown.cursor-colorpicker .cursor .mark.large {
   position: absolute;
   left: 10px;
   top: 40px;
+  bottom: 54px;
+  overflow-y: auto;
+  overflow-x: hidden;
   display: none;
 }
 .effects-editor .sliders.active {
@@ -5852,72 +5975,80 @@ body.hovercanvas.pointerdown.cursor-colorpicker .cursor .mark.large {
 }
 .effects-editor .slider input[type=range] {
   width: 200px;
+  height: 19px;
   position: relative;
   z-index: 10;
-  margin-top: -2px;
 }
 .effects-editor .slider input[type=range]::-webkit-slider-runnable-track {
-  background: linear-gradient(90deg, rgb(0, 0, 0) 0%, rgb(200, 200, 200) 100%);
-  border: 1px solid #010101;
-  width: 100%;
-  height: 4px;
-  cursor: pointer;
+  background: linear-gradient(to right, transparent 0%, transparent var(--range-fill-start, 0%), #666 var(--range-fill-start, 0%), #666 var(--range-fill-end, 0%), transparent var(--range-fill-end, 0%)), linear-gradient(90deg, rgb(0,0,0) 0%, rgb(200,200,200) 100%);
+  background-blend-mode: screen;
 }
 .effects-editor .slider input[type=range]::-moz-range-track {
-  background: linear-gradient(90deg, rgb(0, 0, 0) 0%, rgb(200, 200, 200) 100%);
-  border: 1px solid #010101;
-  width: 100%;
-  height: 2px;
-  cursor: pointer;
+  background: linear-gradient(to right, transparent 0%, transparent var(--range-fill-start, 0%), #666 var(--range-fill-start, 0%), #666 var(--range-fill-end, 0%), transparent var(--range-fill-end, 0%)), linear-gradient(90deg, rgb(0,0,0) 0%, rgb(200,200,200) 100%);
+  background-blend-mode: screen;
 }
 .effects-editor .slider input[type=range].saturation::-webkit-slider-runnable-track {
-  background: linear-gradient(90deg, #7F7F7F 0%, #F50A0A 100%);
+  background: linear-gradient(to right, transparent 0%, transparent var(--range-fill-start, 0%), #666 var(--range-fill-start, 0%), #666 var(--range-fill-end, 0%), transparent var(--range-fill-end, 0%)), linear-gradient(90deg, #7F7F7F 0%, #F50A0A 100%);
+  background-blend-mode: screen;
 }
 .effects-editor .slider input[type=range].saturation::-moz-range-track {
-  background: linear-gradient(90deg, #7F7F7F 0%, #F50A0A 100%);
+  background: linear-gradient(to right, transparent 0%, transparent var(--range-fill-start, 0%), #666 var(--range-fill-start, 0%), #666 var(--range-fill-end, 0%), transparent var(--range-fill-end, 0%)), linear-gradient(90deg, #7F7F7F 0%, #F50A0A 100%);
+  background-blend-mode: screen;
 }
 .effects-editor .slider input[type=range].contrast::-webkit-slider-runnable-track {
-  background: linear-gradient(90deg, #7F7F7F 0%, #000000 100%);
+  background: linear-gradient(to right, transparent 0%, transparent var(--range-fill-start, 0%), #666 var(--range-fill-start, 0%), #666 var(--range-fill-end, 0%), transparent var(--range-fill-end, 0%)), linear-gradient(90deg, #7F7F7F 0%, #000000 100%);
+  background-blend-mode: screen;
 }
 .effects-editor .slider input[type=range].contrast::-moz-range-track {
-  background: linear-gradient(90deg, #7F7F7F 0%, #000000 100%);
+  background: linear-gradient(to right, transparent 0%, transparent var(--range-fill-start, 0%), #666 var(--range-fill-start, 0%), #666 var(--range-fill-end, 0%), transparent var(--range-fill-end, 0%)), linear-gradient(90deg, #7F7F7F 0%, #000000 100%);
+  background-blend-mode: screen;
 }
 .effects-editor .slider input[type=range].hue::-webkit-slider-runnable-track {
-  background: linear-gradient(90deg, #FF3A00 0%, #F0FF00 20%, #00FF1D 40%, #0007FF 60%, #FF00F1 80%, #FA0505 100%);
+  background: linear-gradient(to right, transparent 0%, transparent var(--range-fill-start, 0%), #666 var(--range-fill-start, 0%), #666 var(--range-fill-end, 0%), transparent var(--range-fill-end, 0%)), linear-gradient(90deg, #FF3A00 0%, #F0FF00 20%, #00FF1D 40%, #0007FF 60%, #FF00F1 80%, #FA0505 100%);
+  background-blend-mode: screen;
 }
 .effects-editor .slider input[type=range].hue::-moz-range-track {
-  background: linear-gradient(90deg, #FF3A00 0%, #F0FF00 20%, #00FF1D 40%, #0007FF 60%, #FF00F1 80%, #FA0505 100%);
+  background: linear-gradient(to right, transparent 0%, transparent var(--range-fill-start, 0%), #666 var(--range-fill-start, 0%), #666 var(--range-fill-end, 0%), transparent var(--range-fill-end, 0%)), linear-gradient(90deg, #FF3A00 0%, #F0FF00 20%, #00FF1D 40%, #0007FF 60%, #FF00F1 80%, #FA0505 100%);
+  background-blend-mode: screen;
 }
 .effects-editor .slider input[type=range].sepia::-webkit-slider-runnable-track {
-  background: linear-gradient(90deg, #313335 0%, #8A4F38 100%);
+  background: linear-gradient(to right, transparent 0%, transparent var(--range-fill-start, 0%), #666 var(--range-fill-start, 0%), #666 var(--range-fill-end, 0%), transparent var(--range-fill-end, 0%)), linear-gradient(90deg, #313335 0%, #8A4F38 100%);
+  background-blend-mode: screen;
 }
 .effects-editor .slider input[type=range].sepia::-moz-range-track {
-  background: linear-gradient(90deg, #313335 0%, #8A4F38 100%);
+  background: linear-gradient(to right, transparent 0%, transparent var(--range-fill-start, 0%), #666 var(--range-fill-start, 0%), #666 var(--range-fill-end, 0%), transparent var(--range-fill-end, 0%)), linear-gradient(90deg, #313335 0%, #8A4F38 100%);
+  background-blend-mode: screen;
 }
 .effects-editor .slider input[type=range].cyan::-webkit-slider-runnable-track {
-  background: linear-gradient(90deg, #0AF5F5 0%, #F50A0A 100%);
+  background: linear-gradient(to right, transparent 0%, transparent var(--range-fill-start, 0%), #666 var(--range-fill-start, 0%), #666 var(--range-fill-end, 0%), transparent var(--range-fill-end, 0%)), linear-gradient(90deg, #0AF5F5 0%, #F50A0A 100%);
+  background-blend-mode: screen;
 }
 .effects-editor .slider input[type=range].cyan::-moz-range-track {
-  background: linear-gradient(90deg, #0AF5F5 0%, #F50A0A 100%);
+  background: linear-gradient(to right, transparent 0%, transparent var(--range-fill-start, 0%), #666 var(--range-fill-start, 0%), #666 var(--range-fill-end, 0%), transparent var(--range-fill-end, 0%)), linear-gradient(90deg, #0AF5F5 0%, #F50A0A 100%);
+  background-blend-mode: screen;
 }
 .effects-editor .slider input[type=range].magenta::-webkit-slider-runnable-track {
-  background: linear-gradient(90deg, #F50AF5 0%, #0AF50A 100%);
+  background: linear-gradient(to right, transparent 0%, transparent var(--range-fill-start, 0%), #666 var(--range-fill-start, 0%), #666 var(--range-fill-end, 0%), transparent var(--range-fill-end, 0%)), linear-gradient(90deg, #F50AF5 0%, #0AF50A 100%);
+  background-blend-mode: screen;
 }
 .effects-editor .slider input[type=range].magenta::-moz-range-track {
-  background: linear-gradient(90deg, #F50AF5 0%, #0AF50A 100%);
+  background: linear-gradient(to right, transparent 0%, transparent var(--range-fill-start, 0%), #666 var(--range-fill-start, 0%), #666 var(--range-fill-end, 0%), transparent var(--range-fill-end, 0%)), linear-gradient(90deg, #F50AF5 0%, #0AF50A 100%);
+  background-blend-mode: screen;
 }
 .effects-editor .slider input[type=range].yellow::-webkit-slider-runnable-track {
-  background: linear-gradient(90deg, #F5F50A 0%, #0A0AF5 100%);
+  background: linear-gradient(to right, transparent 0%, transparent var(--range-fill-start, 0%), #666 var(--range-fill-start, 0%), #666 var(--range-fill-end, 0%), transparent var(--range-fill-end, 0%)), linear-gradient(90deg, #F5F50A 0%, #0A0AF5 100%);
+  background-blend-mode: screen;
 }
 .effects-editor .slider input[type=range].yellow::-moz-range-track {
-  background: linear-gradient(90deg, #F5F50A 0%, #0A0AF5 100%);
+  background: linear-gradient(to right, transparent 0%, transparent var(--range-fill-start, 0%), #666 var(--range-fill-start, 0%), #666 var(--range-fill-end, 0%), transparent var(--range-fill-end, 0%)), linear-gradient(90deg, #F5F50A 0%, #0A0AF5 100%);
+  background-blend-mode: screen;
 }
 .effects-editor .slider input[type=text] {
   position: absolute;
   width: 40px;
   right: 0;
   top: 0;
-  font-size: 12px;
+  font-size: 11px;
   padding: 2px 4px;
 }
 .effects-editor .alchemy {
@@ -5925,6 +6056,9 @@ body.hovercanvas.pointerdown.cursor-colorpicker .cursor .mark.large {
   left: 10px;
   top: 40px;
   width: 200px;
+  bottom: 54px;
+  overflow-y: auto;
+  overflow-x: hidden;
   display: none;
 }
 .effects-editor .alchemy.active {
@@ -6032,16 +6166,6 @@ body.hovercanvas.pointerdown.cursor-colorpicker .cursor .mark.large {
 .effects-editor .code .params .slider input[type=text] {
   padding: 1px 2px;
 }
-.effects-editor .code .params .slider input[type=range]::-webkit-slider-thumb {
-  height: 12px;
-  margin-top: -5px;
-}
-.effects-editor .code .params .slider input[type=range]::-ms-thumb {
-  height: 12px;
-}
-.effects-editor .code .params .slider input[type=range]::-moz-range-thumb {
-  height: 10px;
-}
 .effects-editor .code .params.columns .slider {
   margin-left: 10px;
   margin-right: 0;
@@ -6092,18 +6216,16 @@ body.hovercanvas.pointerdown.cursor-colorpicker .cursor .mark.large {
   border: 1px solid #6a6a6a;
   padding: 6px;
   user-select: none;
-}
-.effects-editor .buttons .button:hover {
-  cursor: pointer;
-  border: 1px solid #8c8c8c;
-  background-color: #232323;
-}
-.effects-editor .buttons .button {
   width: 150px;
   text-align: center;
   font-size: 12px;
   line-height: 20px;
   margin: 0 2px;
+}
+.effects-editor .buttons .button:hover {
+  cursor: pointer;
+  border: 1px solid #8c8c8c;
+  background-color: #232323;
 }
 .effects-editor .buttons .button.ghost {
   opacity: 0.7;
@@ -6222,12 +6344,10 @@ body.hovercanvas.pointerdown.cursor-colorpicker .cursor .mark.large {
 .gallery .item:hover {
   cursor: pointer;
   transform: scale(1.05);
+  color: #DDDDDD;
 }
 .gallery .item:hover .fileinfo {
   background-color: #505050;
-}
-.gallery .item:hover {
-  color: #DDDDDD;
 }
 .gallery .thumb {
   width: 120px;

@@ -3,7 +3,7 @@ import Eventbus from "../util/eventbus.js";
 import Input from "./input.js";
 import {COMMAND, EVENT} from "../enum.js";
 import Editor from "./editor.js";
-import VectorTool from "../paintTools/vectorTool.js";
+import {getVectorToolIfLoaded} from "../paintTools/vectorToolLoader.js";
 
 var Cursor = function(){
     var me = {}
@@ -94,6 +94,9 @@ var Cursor = function(){
         let isSelectionTool = tool === COMMAND.SELECT || tool === COMMAND.POLYGONSELECT || tool === COMMAND.FLOODSELECT;
         document.body.classList.toggle("selection-add", isSelectionTool && Input.isShiftDown() && !Input.isAltDown());
         document.body.classList.toggle("selection-subtract", isSelectionTool && Input.isAltDown() && !Input.isShiftDown());
+        // Ctrl-drag on the selection body moves the pixel content instead of the marquee
+        // (selectbox.js) — only the rectangular Select tool shows the resizer's .sizebox at all.
+        document.body.classList.toggle("selection-cut", tool === COMMAND.SELECT && Input.isControlDown());
     }
 
     Eventbus.on(EVENT.modifierKeyChanged,()=>{
@@ -111,14 +114,15 @@ var Cursor = function(){
 
         // On a vector layer, toggling Control over a line flips the action cursor between "bend the
         // curve" and "add a point" — re-query it here so it updates without moving the mouse.
-        if (VectorTool.isActive()){
+        let VectorTool = getVectorToolIfLoaded();
+        if (VectorTool?.isActive()){
             let vc = VectorTool.getHoverCursor(Input.isControlDown());
             if (vc) me.set(vc); else me.reset();
         }
     })
 
     Eventbus.on(EVENT.toolChanged,()=>{
-        document.body.classList.remove("selection-add","selection-subtract");
+        document.body.classList.remove("selection-add","selection-subtract","selection-cut");
     })
 
     return me;

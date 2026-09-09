@@ -23,6 +23,11 @@
     line-height: 23px;
     font-size: 13px;
 
+    // "Brush" hides while a vector layer is active, "Shape" takes its place (see menu.js updateToolsMenu).
+    &.hidden-menu{
+      display: none;
+    }
+
     .sub{
       left: 0;
       margin-top: 0;
@@ -104,6 +109,39 @@
       &.checkable{
         a{
           padding: 0 24px 0 20px;
+        }
+      }
+
+      // Non-selectable "Pixel"/"Vector"/"Bones" label on top of the Tools submenu.
+      .caption{
+        padding: 0 10px;
+        font-size: 11px;
+        line-height: 20px;
+        color: $menu-text-color-dim;
+        border-bottom: 1px solid black;
+        cursor: default;
+      }
+
+      // Tools menu: swap between pixel/vector/bone tool sets depending on the active layer type
+      // (toggled by the `bone-mode` / `vector-mode` class in menu.js, mirrors the toolbar).
+      .group-vector,
+      .group-bone{
+        display: none;
+      }
+      &.bone-mode{
+        .group-pixel{
+          display: none;
+        }
+        .group-bone{
+          display: block;
+        }
+      }
+      &.vector-mode{
+        .group-pixel{
+          display: none;
+        }
+        .group-vector{
+          display: block;
         }
       }
 

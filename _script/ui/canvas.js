@@ -20,13 +20,13 @@ import Cursor from "./cursor.js";
 import Smudge from "../paintTools/smudge.js";
 import Spray from "../paintTools/spray.js";
 import Text from "../paintTools/text.js";
-import MeshWarp from "../paintTools/meshWarp.js";
-import BoneTool from "../paintTools/boneTool.js";
-import VectorTool from "../paintTools/vectorTool.js";
+import {getMeshWarpIfLoaded} from "../paintTools/meshWarpLoader.js";
+import {getBoneToolIfLoaded} from "../paintTools/boneToolLoader.js";
+import {getVectorToolIfLoaded} from "../paintTools/vectorToolLoader.js";
 import {getVectorSvgShapes} from "../util/vectorUtils.js";
 import GridOverlay from "./components/gridOverlay.js";
 import RulerOverlay from "./components/rulerOverlay.js";
-import PaletteDialog from "./components/paletteDialog.js";
+import {getPaletteClickAction, pickColor} from "./paletteClickAction.js";
 import {resetShaders, runWebGLQuantizer} from "../util/webgl-quantizer.js";
 import UserSettings from "../userSettings.js";
 import visualScheduler from "../services/visualScheduler.js";
@@ -116,7 +116,8 @@ let Canvas = function(parent){
     panelParent.onDrag = function (x,y,touchData,e) {handle('move', e)}
     panelParent.onDragEnd = function (e) {handle('up', e)}
     panelParent.onDoubleClick = function(e){
-        if (VectorTool.isActive()){
+        let VectorTool = getVectorToolIfLoaded();
+        if (VectorTool?.isActive()){
             // double-click a line → select every line connected to it (uses the last pointer-down
             // position, since onDoubleClick receives no event coordinates)
             if (vectorDownPoint) VectorTool.handleDoubleClick(vectorDownPoint, 8/zoom);
@@ -435,7 +436,7 @@ let Canvas = function(parent){
     // canvas, and re-composites the deformed pixels; both are signalled by bonesChanged.
     EventBus.on(EVENT.bonesChanged,()=>{
         // drop a lingering radius-handle cursor when the bone tool is no longer active
-        if (!BoneTool.isActive() && Cursor.isCurrent("boneradius")) Cursor.reset();
+        if (!getBoneToolIfLoaded()?.isActive() && Cursor.isCurrent("boneradius")) Cursor.reset();
         if (!parent.isVisible()) return;
         // Re-composite the deformed pixels (getCanvas runs the bone pre-pass with the current
         // poses) so posing shows a live preview, then repaint the armature on the overlay.
@@ -577,9 +578,9 @@ let Canvas = function(parent){
         drawVectorShapes();
 
         // zoom hid the overlay; redraw the warp grid at the new scale
-        if (MeshWarp.isActive()) drawMeshOverlay();
-        if (BoneTool.isActive()) drawBoneOverlay();
-        if (VectorTool.isActive()) drawVectorOverlay();
+        if (getMeshWarpIfLoaded()?.isActive()) drawMeshOverlay();
+        if (getBoneToolIfLoaded()?.isActive()) drawBoneOverlay();
+        if (getVectorToolIfLoaded()?.isActive()) drawVectorOverlay();
     }
 
     me.getZoom = function(){
@@ -605,6 +606,10 @@ let Canvas = function(parent){
         containerTransform.x = tx;
         containerTransform.y = ty;
         setContainer();
+        // sizeBox lives outside the transformed container (it's appended to the
+        // viewport, not `container`), so panning doesn't move it via CSS like the
+        // selectbox — force it to recompute its position from the panned canvas rect.
+        if (resizer.isActive()) resizer.zoom(zoom);
     }
 
     me.getPanning = ()=>{
@@ -760,8 +765,8 @@ let Canvas = function(parent){
                     Cursor.override("colorpicker");
                     Cursor.attach("colorpicker");
                     var pixel = ctx.getImageData(point.x, point.y, 1, 1).data;
-                    if (PaletteDialog.getPaletteClickAction() === "pick"){
-                        PaletteDialog.updateColor(pixel);
+                    if (getPaletteClickAction() === "pick"){
+                        pickColor(pixel);
                     }else{
                         Palette.setColor(pixel,!!e.button,true);
                     }
@@ -771,24 +776,27 @@ let Canvas = function(parent){
 
                 // Mesh Warp owns all pointer interaction while active (pan/colour-pick above
                 // still work). Grab the nearest control point, if any, and consume the event.
-                if (MeshWarp.isActive()){
+                let meshWarpTool = getMeshWarpIfLoaded();
+                if (meshWarpTool?.isActive()){
                     touchData.meshWarping = true;
-                    MeshWarp.handleDown(point, 8/zoom);
+                    meshWarpTool.handleDown(point, 8/zoom);
                     return;
                 }
 
                 // Bone tool likewise owns all pointer interaction while a bone layer is active.
-                if (BoneTool.isActive()){
+                let boneTool = getBoneToolIfLoaded();
+                if (boneTool?.isActive()){
                     touchData.boneEditing = true;
-                    BoneTool.handleDown(point, 8/zoom);
+                    boneTool.handleDown(point, 8/zoom);
                     return;
                 }
 
                 // Vector tool likewise owns all pointer interaction while a vector layer is active.
-                if (VectorTool.isActive()){
+                let vectorTool = getVectorToolIfLoaded();
+                if (vectorTool?.isActive()){
                     touchData.vectorEditing = true;
                     vectorDownPoint = getCursorPosition(canvas,e,false,true);
-                    VectorTool.handleDown(vectorDownPoint, 8/zoom, {shift: Input.isShiftDown(), alt: Input.isAltDown(), ctrl: Input.isControlDown(), right: e.button === 2});
+                    vectorTool.handleDown(vectorDownPoint, 8/zoom, {shift: Input.isShiftDown(), alt: Input.isAltDown(), ctrl: Input.isControlDown(), right: e.button === 2});
                     return;
                 }
 
@@ -1149,19 +1157,19 @@ let Canvas = function(parent){
                 break;
             case "up":
                 if (touchData.meshWarping){
-                    MeshWarp.handleUp();
+                    getMeshWarpIfLoaded()?.handleUp();
                     touchData.meshWarping = false;
                     touchData.isdown = false;
                     return;
                 }
                 if (touchData.boneEditing){
-                    BoneTool.handleUp();
+                    getBoneToolIfLoaded()?.handleUp();
                     touchData.boneEditing = false;
                     touchData.isdown = false;
                     return;
                 }
                 if (touchData.vectorEditing){
-                    VectorTool.handleUp();
+                    getVectorToolIfLoaded()?.handleUp();
                     touchData.vectorEditing = false;
                     touchData.isdown = false;
                     return;
@@ -1256,32 +1264,35 @@ let Canvas = function(parent){
                     point = getCursorPosition(canvas,e,false);
                     currentCursorPoint = point;
 
-                    if (MeshWarp.isActive()){
-                        MeshWarp.handleHover(point, 8/zoom);
+                    let meshWarpTool = getMeshWarpIfLoaded();
+                    if (meshWarpTool?.isActive()){
+                        meshWarpTool.handleHover(point, 8/zoom);
                         StatusBar.setToolTip("Mesh Warp – drag points to warp, Enter to apply, Esc to cancel");
                         return;
                     }
 
-                    if (BoneTool.isActive()){
-                        let boneHover = BoneTool.handleHover(point, 8/zoom);
+                    let boneTool = getBoneToolIfLoaded();
+                    if (boneTool?.isActive()){
+                        let boneHover = boneTool.handleHover(point, 8/zoom);
                         // the shoulder-line radius handle gets a drag cursor; everything else the default
                         if (boneHover === "radiusline") Cursor.set("boneradius"); else Cursor.reset();
-                        StatusBar.setToolTip("Bones – " + BoneTool.getMode() + " mode");
+                        StatusBar.setToolTip("Bones – " + boneTool.getMode() + " mode");
                         return;
                     }
 
-                    if (VectorTool.isActive()){
-                        VectorTool.handleHover(getCursorPosition(canvas,e,false,true), 8/zoom);
+                    let vectorTool = getVectorToolIfLoaded();
+                    if (vectorTool?.isActive()){
+                        vectorTool.handleHover(getCursorPosition(canvas,e,false,true), 8/zoom);
                         // hover only enlarges the point/handle under the cursor — repaint just the
                         // overlay, not the whole composite, so it stays cheap on every mouse move.
-                        if (VectorTool.hoverChanged) drawVectorOverlay();
+                        if (vectorTool.hoverChanged) drawVectorOverlay();
                         // action cursor: a base pointer with a glyph hinting what the hovered target does
                         // (move a point/shape, bend a line, or — with Ctrl — insert a point). Only touch
                         // the body classList when it actually changes — this runs on every mouse move.
-                        let vc = VectorTool.getHoverCursor(Input.isControlDown());
+                        let vc = vectorTool.getHoverCursor(Input.isControlDown());
                         if (vc){ if (!Cursor.isCurrent(vc)) Cursor.set(vc); }
                         else if (!Cursor.isCurrent(undefined)) Cursor.reset();
-                        StatusBar.setToolTip("Vector – " + VectorTool.getMode() + " mode");
+                        StatusBar.setToolTip("Vector – " + vectorTool.getMode() + " mode");
                         return;
                     }
 
@@ -1322,17 +1333,17 @@ let Canvas = function(parent){
                     }
 
                     if (touchData.meshWarping){
-                        MeshWarp.handleMove(point);
+                        getMeshWarpIfLoaded()?.handleMove(point);
                         return;
                     }
 
                     if (touchData.boneEditing){
-                        BoneTool.handleMove(point);
+                        getBoneToolIfLoaded()?.handleMove(point);
                         return;
                     }
 
                     if (touchData.vectorEditing){
-                        VectorTool.handleMove(getCursorPosition(canvas,e,false,true), {shift: Input.isShiftDown()});
+                        getVectorToolIfLoaded()?.handleMove(getCursorPosition(canvas,e,false,true), {shift: Input.isShiftDown()});
                         return;
                     }
 
@@ -1343,8 +1354,8 @@ let Canvas = function(parent){
 
                     if ((Input.isShiftDown() || Input.isAltDown()) && Editor.canPickColor(true) || Editor.getCurrentTool() === COMMAND.COLORPICKER){
                         var pixel = ctx.getImageData(point.x, point.y, 1, 1).data;
-                        if (PaletteDialog.getPaletteClickAction() === "pick"){
-                             PaletteDialog.updateColor(pixel);
+                        if (getPaletteClickAction() === "pick"){
+                             pickColor(pixel);
                         }else{
                             Palette.setColor(pixel,false,true);
                         }
@@ -1461,9 +1472,10 @@ let Canvas = function(parent){
     }
 
     function drawMeshOverlay(){
-        if (MeshWarp.isActive()){
+        let meshWarpTool = getMeshWarpIfLoaded();
+        if (meshWarpTool?.isActive()){
             overlayCanvas.style.opacity = 1;
-            MeshWarp.drawOverlay(overlayCtx, zoom);
+            meshWarpTool.drawOverlay(overlayCtx, zoom);
         }else{
             overlayCtx.clearRect(0,0,overlayCanvas.width,overlayCanvas.height);
             overlayCanvas.style.opacity = 0;
@@ -1471,9 +1483,10 @@ let Canvas = function(parent){
     }
 
     function drawBoneOverlay(){
-        if (BoneTool.isActive()){
+        let boneTool = getBoneToolIfLoaded();
+        if (boneTool?.isActive()){
             overlayCanvas.style.opacity = 1;
-            BoneTool.drawOverlay(overlayCtx, zoom);
+            boneTool.drawOverlay(overlayCtx, zoom);
         }else{
             overlayCtx.clearRect(0,0,overlayCanvas.width,overlayCanvas.height);
             overlayCanvas.style.opacity = 0;
@@ -1487,9 +1500,10 @@ let Canvas = function(parent){
     }
 
     function drawVectorOverlay(){
-        if (VectorTool.isActive()){
+        let vectorTool = getVectorToolIfLoaded();
+        if (vectorTool?.isActive()){
             vectorOverlay.style.display = "block";
-            VectorTool.drawOverlay(vectorOverlay, zoom);
+            vectorTool.drawOverlay(vectorOverlay, zoom);
         }else{
             while (vectorOverlay.firstChild) vectorOverlay.removeChild(vectorOverlay.firstChild);
             vectorOverlay.style.display = "none";
@@ -1521,26 +1535,41 @@ let Canvas = function(parent){
             if (typeof layer.opacity === "number" && layer.opacity < 1) g.setAttribute("opacity", layer.opacity);
             if (layer.blend && layer.blend !== "normal") g.style.mixBlendMode = layer.blend;
             ops.forEach(op=>{
-                let path = document.createElementNS(SVGNS,"path");
-                path.setAttribute("d", op.d);
-                if (op.fill){
-                    path.setAttribute("fill", op.fill);
-                    if (op.fillRule && op.fillRule !== "nonzero") path.setAttribute("fill-rule", op.fillRule);
-                    // A combined fill+stroke shape (uniform outline) also carries its stroke here.
+                if (op.kind === "text"){
+                    let text = document.createElementNS(SVGNS, "text");
+                    text.setAttribute("x", op.x);
+                    text.setAttribute("y", op.y);
+                    text.setAttribute("font-family", op.font || "Arial");
+                    text.setAttribute("font-size", op.fontSize);
+                    text.setAttribute("text-anchor", op.align === "center" ? "middle" : (op.align === "right" ? "end" : "start"));
+                    text.setAttribute("fill", op.fill || "none");
                     if (op.stroke){
+                        text.setAttribute("stroke", op.stroke);
+                        text.setAttribute("stroke-width", op.width || 0);
+                    }
+                    text.textContent = op.text || "";
+                    g.appendChild(text);
+                }else{
+                    let path = document.createElementNS(SVGNS,"path");
+                    path.setAttribute("d", op.d);
+                    if (op.fill){
+                        path.setAttribute("fill", op.fill);
+                        if (op.fillRule && op.fillRule !== "nonzero") path.setAttribute("fill-rule", op.fillRule);
+                        if (op.stroke){
+                            path.setAttribute("stroke", op.stroke);
+                            path.setAttribute("stroke-width", op.width);
+                            path.setAttribute("stroke-linecap", "round");
+                            path.setAttribute("stroke-linejoin", "round");
+                        }
+                    }else{
+                        path.setAttribute("fill", "none");
                         path.setAttribute("stroke", op.stroke);
                         path.setAttribute("stroke-width", op.width);
                         path.setAttribute("stroke-linecap", "round");
                         path.setAttribute("stroke-linejoin", "round");
                     }
-                }else{
-                    path.setAttribute("fill", "none");
-                    path.setAttribute("stroke", op.stroke);
-                    path.setAttribute("stroke-width", op.width);
-                    path.setAttribute("stroke-linecap", "round");
-                    path.setAttribute("stroke-linejoin", "round");
+                    g.appendChild(path);
                 }
-                g.appendChild(path);
             });
             vectorShapes.appendChild(g);
         });

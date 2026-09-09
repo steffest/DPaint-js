@@ -116,19 +116,7 @@
           top: 0;
           right: 0;
           width: auto;
-
-          &::-webkit-slider-thumb,
-          &::-moz-range-thumb{
-            margin-top: -6px;
-            width: 8px;
-            height: 12px;
-            background: #9d9d9d;
-            border: 1px solid rgba(50, 50, 50, 0.7);
-          }
-          &::-moz-range-thumb{
-            width: 6px;
-            height: 10px;
-          }
+          // thumb/track look now comes from the shared default in _range.scss
         }
       }
 

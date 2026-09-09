@@ -32,6 +32,8 @@ let Layer = function(width,height,name){
         // shifted; offsets are applied by the parent at composite time (see layerUtils).
         x: 0,
         y: 0,
+        canvasX: 0,
+        canvasY: 0,
         name: name,
         blendMode: "normal",
         // Which stencil pattern this node's opacity uses while the palette is locked, where
@@ -248,6 +250,106 @@ let Layer = function(width,height,name){
     // change the document size and the node offsets), so nothing in the app calls this any
     // more. Kept as part of the Layer API for callers that really do want to re-sample a
     // layer's own canvas.
+    me.ensureLocalRect = function(x,y,w,h){
+        if (me.type === "group" || me.type === "bone" || me.type === "vector") return;
+        w = typeof w === "number" ? w : 1;
+        h = typeof h === "number" ? h : 1;
+        let curMinX = me.canvasX || 0;
+        let curMinY = me.canvasY || 0;
+        let curMaxX = curMinX + canvas.width;
+        let curMaxY = curMinY + canvas.height;
+
+        let targetMinX = Math.min(curMinX, x);
+        let targetMinY = Math.min(curMinY, y);
+        let targetMaxX = Math.max(curMaxX, x + w);
+        let targetMaxY = Math.max(curMaxY, y + h);
+
+        let curFile = ImageFile.getCurrentFile ? ImageFile.getCurrentFile() : undefined;
+        let off = ImageFile.getLayerOffset ? ImageFile.getLayerOffset() : {x: me.x || 0, y: me.y || 0};
+        if (curFile && off){
+            let docLocalMinX = -off.x;
+            let docLocalMinY = -off.y;
+            let docLocalMaxX = curFile.width - off.x;
+            let docLocalMaxY = curFile.height - off.y;
+            if (targetMinX < curMinX){
+                targetMinX = Math.min(targetMinX, docLocalMinX);
+            }
+            if (targetMinY < curMinY){
+                targetMinY = Math.min(targetMinY, docLocalMinY);
+            }
+            if (targetMaxX > curMaxX){
+                targetMaxX = Math.max(targetMaxX, docLocalMaxX);
+            }
+            if (targetMaxY > curMaxY){
+                targetMaxY = Math.max(targetMaxY, docLocalMaxY);
+            }
+        }
+
+        if (targetMinX >= curMinX && targetMinY >= curMinY && targetMaxX <= curMaxX && targetMaxY <= curMaxY){
+            return;
+        }
+
+        if (HistoryService.isRecording() && HistoryService.notifyLayerExpanded){
+            HistoryService.notifyLayerExpanded(me);
+        }
+
+        let newW = Math.ceil(targetMaxX - targetMinX);
+        let newH = Math.ceil(targetMaxY - targetMinY);
+        let deltaX = curMinX - targetMinX;
+        let deltaY = curMinY - targetMinY;
+
+        let d = duplicateCanvas(canvas, true);
+        canvas.width = newW;
+        canvas.height = newH;
+        ctx.imageSmoothingEnabled = false;
+        ctx.drawImage(d, deltaX, deltaY);
+        releaseCanvas(d);
+
+        if (mask){
+            let m = duplicateCanvas(mask, true);
+            mask.width = newW;
+            mask.height = newH;
+            maskCtx.imageSmoothingEnabled = false;
+            maskCtx.drawImage(m, deltaX, deltaY);
+            releaseCanvas(m);
+        }
+
+        if (alphaLayer){
+            let a = duplicateCanvas(alphaLayer, true);
+            alphaLayer.width = newW;
+            alphaLayer.height = newH;
+            alphaCtx.imageSmoothingEnabled = false;
+            alphaCtx.drawImage(a, deltaX, deltaY);
+            releaseCanvas(a);
+        }
+
+        if (drawLayer){
+            let dl = duplicateCanvas(drawLayer, true);
+            drawLayer.width = newW;
+            drawLayer.height = newH;
+            drawCtx.imageSmoothingEnabled = false;
+            drawCtx.drawImage(dl, deltaX, deltaY);
+            releaseCanvas(dl);
+        }
+
+        if (drawMask){
+            let dm = duplicateCanvas(drawMask, true);
+            drawMask.width = newW;
+            drawMask.height = newH;
+            drawMaskCtx.imageSmoothingEnabled = false;
+            drawMaskCtx.drawImage(dm, deltaX, deltaY);
+            releaseCanvas(dm);
+        }
+
+        if (combined){
+            releaseCanvas(combined);
+            combined = undefined;
+        }
+
+        me.canvasX = targetMinX;
+        me.canvasY = targetMinY;
+    };
+
     me.resize = function(width,height,x,y){
         if (me.type === "group"){
             me.layers.forEach(c=>c.resize(width,height,x,y));
@@ -259,6 +361,7 @@ let Layer = function(width,height,name){
         let d = duplicateCanvas(canvas, true);
         canvas.width = width;
         canvas.height = height;
+        ctx.imageSmoothingEnabled = false;
         ctx.drawImage(d, x, y);
         releaseCanvas(d);
 
@@ -278,6 +381,8 @@ let Layer = function(width,height,name){
             releaseCanvas(a);
         }
 
+        me.canvasX = 0;
+        me.canvasY = 0;
         me.reset();
         EventBus.trigger(EVENT.layerContentChanged);
     }
@@ -295,6 +400,7 @@ let Layer = function(width,height,name){
         let d = duplicateCanvas(canvas, true);
         canvas.width = w;
         canvas.height = h;
+        ctx.imageSmoothingEnabled = false;
         ctx.drawImage(d, x, y, w, h, 0, 0, w, h);
         releaseCanvas(d);
 
@@ -314,19 +420,37 @@ let Layer = function(width,height,name){
             releaseCanvas(a);
         }
 
+        me.canvasX = 0;
+        me.canvasY = 0;
         me.reset();
         EventBus.trigger(EVENT.layerContentChanged);
     }
 
     me.drawImage = function(image,x,y){
         x=x||0;y=y||0;
+        if (image){
+            me.ensureLocalRect(x, y, image.width, image.height);
+        }
+        let bx = x - (me.canvasX || 0);
+        let by = y - (me.canvasY || 0);
         let _ctx = me.getContext();
         _ctx.imageSmoothingEnabled = false;
-        _ctx.drawImage(image,x,y);
+        _ctx.drawImage(image,bx,by);
         me.update();
     }
 
     me.draw = function(x,y,color,touchData){
+        let brush = Brush.get();
+        let bw = brush.width || 1;
+        let bh = brush.height || bw;
+        let rx = Math.floor((bw - 1) / 2);
+        let ry = Math.floor((bh - 1) / 2);
+
+        me.ensureLocalRect(x - rx, y - ry, bw, bh);
+
+        let bx = x - (me.canvasX || 0);
+        let by = y - (me.canvasY || 0);
+
         if (!drawLayer){
             drawLayer=duplicateCanvas(canvas);
             drawCtx = drawLayer.getContext("2d");
@@ -342,7 +466,7 @@ let Layer = function(width,height,name){
         }
 
         //Brush.draw(me.getContext(),x,y,color,true);
-        let b = Brush.draw(drawCtx,x,y,drawColor,touchData.button,true,true,!touchData.isDrawing); // TODO: color should not be part of the brush?
+        let b = Brush.draw(drawCtx,bx,by,drawColor,touchData.button,true,true,!touchData.isDrawing); // TODO: color should not be part of the brush?
 
         if (DitherPanel.getDitherState()){
             let pattern = DitherPanel.getDitherPattern();
@@ -355,10 +479,19 @@ let Layer = function(width,height,name){
         // Return the drawn footprint (layer-local) so the canvas can damage-clip the
         // on-screen composite (spec 016 phase 11). The dither pass above only masks
         // within the brush's own pixels, so b still bounds every changed pixel.
-        return b;
+        return {
+            x: b.x + (me.canvasX || 0),
+            y: b.y + (me.canvasY || 0),
+            width: b.width,
+            height: b.height
+        };
     }
 
     me.drawShape = function(drawFunction,x,y,w,h){
+        me.ensureLocalRect(x, y, w, h);
+        let bx = x - (me.canvasX || 0);
+        let by = y - (me.canvasY || 0);
+
         if (!drawLayer){
             drawLayer=duplicateCanvas(canvas);
             drawCtx = drawLayer.getContext("2d");
@@ -367,7 +500,7 @@ let Layer = function(width,height,name){
         drawOpacity = 1; // Shapes should always be fully opaque
         drawCtx.globalAlpha = 1; // Reset context alpha from any previous brush operations
 
-        drawFunction(drawCtx,x,y,w,h);
+        drawFunction(drawCtx,bx,by,w,h);
     }
 
     me.commitDraw = function(){
@@ -481,6 +614,8 @@ let Layer = function(width,height,name){
             id: me.id,
             x: me.x || 0,
             y: me.y || 0,
+            canvasX: me.canvasX || 0,
+            canvasY: me.canvasY || 0,
             // The canvas is NOT always document-sized: crop and resize are non-destructive, so
             // a layer keeps the pixels that now fall outside the document. Record the real
             // size, or restore() rebuilds the canvas at the document size and clips them away.
@@ -564,6 +699,8 @@ let Layer = function(width,height,name){
             }
             me.x = struct.x || 0;
             me.y = struct.y || 0;
+            me.canvasX = struct.canvasX || 0;
+            me.canvasY = struct.canvasY || 0;
 
             // A stored canvas can be LARGER than the document: crop and resize are
             // non-destructive, so a layer keeps the pixels that now fall outside the document

@@ -1,6 +1,6 @@
 .palettelist{
   position: absolute;
-  left: 70px;
+  left: $toolbar-width + $panel-gap;
   top: 27px;
   bottom: 20px;
   border: 1px solid black;

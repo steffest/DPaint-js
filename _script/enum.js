@@ -155,7 +155,12 @@ export const COMMAND = {
     VECTORFILL: 1154,
     VECTOROUTLINE: 1155,
     VECTORDELETE: 1156,
-    RASTERIZELAYER: 1157,
+    VECTORTEXT: 1157,
+    RASTERIZELAYER: 1158,
+    COMBINEVECTORLAYERS: 1159,
+    SHAPELINESTOFILL: 1160,
+    SHAPEEXPANDFILL: 1161,
+    SHAPESTRAIGHTENSMOOTH: 1162,
 };
 
 export let EVENT = {
@@ -192,6 +197,7 @@ export let EVENT = {
     layerPropertyHistory: 31,
     layerHistory: 32,
     sizerStartChange: 33,
+    sizerEndChange: 54,
     fontStyleChanged: 34,
     colorDepthChanged: 35,
     previewModeChanged: 36,
@@ -210,6 +216,9 @@ export let EVENT = {
     bonesChanged: 49,
     vectorChanged: 50,
     vectorHistory: 51,
+    vectorGroupHistory: 52,
+    keyPropsGroupHistory: 53,
+    fontListChanged: 55,
 };
 
 export const ANIMATION = {

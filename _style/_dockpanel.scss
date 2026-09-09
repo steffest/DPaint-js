@@ -18,7 +18,7 @@
     z-index: 400;
   }
 
-  // left mirrors the legacy side panel position (left: 70px from _sidepanel.scss)
+  // left mirrors the legacy side panel position (left: $toolbar-width + $panel-gap from _sidepanel.scss)
   &.dock-left{
     // inherits left/top/bottom from the shared rule
   }
@@ -36,7 +36,7 @@
 
   // bottom: full width above the status bar
   &.dock-bottom{
-    left: 70px;
+    left: $toolbar-width + $panel-gap;
     right: 0;
     top: auto;
     bottom: 20px;
