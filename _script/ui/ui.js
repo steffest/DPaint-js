@@ -9,6 +9,7 @@ import PaletteList from "./components/paletteList.js";
 import EventBus from "../util/eventbus.js";
 import {COMMAND, EVENT, SETTING} from "../enum.js";
 import PanelManager from "./panelManager.js";
+import RangeFill from "../util/rangeFill.js";
 
 let UI = function(){
 	let me = {}
@@ -19,6 +20,7 @@ let UI = function(){
 		document.body.appendChild(container);
 		Cursor.init();
 		Input.init();
+		RangeFill.init();
 		Menu.init(container);
 		Toolbar.init(container);
 		StatusBar.init(container);

@@ -12,3 +12,26 @@ Freeware
 https://www.fontsaddict.com/font/topaz-8.html
 
 Derived from the original Topaz-8 Amiga font, included with Workbench 2.x/3.x by Peter J Cherna
+
+-------
+Arimo (Arimo.ttf)
+Copyright 2026 The Arimo Project Authors (https://github.com/googlefonts/arimo)
+Licensed under the SIL Open Font License, Version 1.1 (https://openfontlicense.org)
+Metrically compatible substitute for Arial/Helvetica.
+
+-------
+VT323 (VT323-Regular.ttf)
+Copyright 2011, The VT323 Project Authors (peter.hull@oikoi.com)
+Licensed under the SIL Open Font License, Version 1.1 (https://openfontlicense.org)
+https://github.com/phoikoi/VT323
+
+-------
+Pacifico (Pacifico-Regular.ttf)
+Copyright 2018 The Pacifico Project Authors (https://github.com/googlefonts/Pacifico)
+Licensed under the SIL Open Font License, Version 1.1 (https://openfontlicense.org)
+
+-------
+PT Sans (PT-Sans-Regular.ttf, PT-Sans-Bold.ttf)
+Copyright (c) 2010, ParaType Ltd. (http://www.paratype.com/public), with Reserved Font Names
+"PT Sans" and "ParaType".
+Licensed under the SIL Open Font License, Version 1.1 (https://openfontlicense.org)

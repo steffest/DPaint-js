@@ -5,9 +5,11 @@ import ImageFile from "../../image.js";
 import BrushPanel from "../toolPanels/brushPanel.js";
 import Brush from "../brush.js";
 import DitherPanel from "../toolPanels/ditherPanel.js";
-import Text from "../../paintTools/text.js";
-import BoneTool from "../../paintTools/boneTool.js";
-import VectorTool from "../../paintTools/vectorTool.js";
+import {getBoneToolIfLoaded} from "../../paintTools/boneToolLoader.js";
+import {getVectorToolIfLoaded} from "../../paintTools/vectorToolLoader.js";
+import {getFontNames, pickFontFile} from "../../util/fonts.js";
+import {isVector} from "../../util/layerUtils.js";
+import LayerPanel from "../toolPanels/layerPanel.js";
 
 let ToolOptions = function(){
     let me = {}
@@ -52,6 +54,7 @@ let ToolOptions = function(){
     let smudgeAction = "Smudge";
     let smudgeSelect;
     let fontOptionGroup;
+    let fontSelect;
     let fontSettings={};
     let boneRadiusRange;
     let boneRadiusValue;
@@ -61,6 +64,10 @@ let ToolOptions = function(){
     let vgNoneBtn, vgSmallBtn, vgMediumBtn, vgLargeBtn;
     let blobGroup;
     let blobCircleBtn, blobSquareBtn, blobSizeRange, blobSizeInput, blobSmoothRange, blobSmoothInput;
+    let combineGroup;
+    let cvUnionBtn, cvBackMinusFrontBtn, cvFrontMinusBackBtn, cvIntersectBtn;
+    let expandFillGroup;
+    let expandFillRange, expandFillValue;
 
     me.isSmooth = ()=>{
         return smooth;
@@ -229,6 +236,10 @@ let ToolOptions = function(){
                 options.appendChild(label("Font:"));
                 options.appendChild(fontSetting());
                 break;
+            case COMMAND.VECTORTEXT:
+                options.appendChild(label("Vector – Text:"));
+                options.appendChild(fontSetting());
+                break;
             case COMMAND.BONESELECT:
                 options.appendChild(label("Bones – Select:"));
                 options.appendChild(actionRadiusSetting());
@@ -288,6 +299,8 @@ let ToolOptions = function(){
         if (activeLayer && activeLayer.isMaskActive && activeLayer.isMaskActive()){
             options.appendChild(maskSetting());
         }
+        options.appendChild(combineVectorSetting());
+        options.appendChild(expandFillSetting());
         return options;
     }
 
@@ -554,13 +567,40 @@ let ToolOptions = function(){
         return smudgeSelect;
     }
 
+    // Rebuilds the select's options from fonts.js, e.g. after loading a font file or after
+    // restoring a save that embedded custom fonts (both fire EVENT.fontListChanged).
+    function refreshFontSelect(){
+        if (!fontSelect) return;
+        let current = fontSelect.value;
+        fontSelect.innerHTML = "";
+        getFontNames().forEach(option=>{
+            let opt = document.createElement("option");
+            opt.value = option;
+            opt.innerText = option;
+            fontSelect.appendChild(opt);
+        });
+        if (current && getFontNames().includes(current)) fontSelect.value = current;
+    }
+
+    function loadFontFile(){
+        pickFontFile().then(font=>{
+            if (!font) return;
+            EventBus.trigger(EVENT.fontListChanged);
+            fontSelect.value = font.name;
+            fontSettings.name = font.name;
+            EventBus.trigger(EVENT.fontStyleChanged,fontSettings);
+        });
+    }
+
+    EventBus.on(EVENT.fontListChanged, refreshFontSelect);
+
     function fontSetting(){
-        let options = Text.getFonts();
+        let options = getFontNames();
         if (!fontOptionGroup){
-            fontOptionGroup = $div("optionsgroup");
+            fontOptionGroup = $div("optionsgroup vectorfont");
 
 
-            let fontSelect = $elm("select","",fontOptionGroup,"inline");
+            fontSelect = $elm("select","",fontOptionGroup,"inline");
             options.forEach((option)=>{
                 let opt = document.createElement("option");
                 opt.value = option;
@@ -572,6 +612,10 @@ let ToolOptions = function(){
                 fontSettings.name = fontSelect.value;
                 EventBus.trigger(EVENT.fontStyleChanged,fontSettings);
             }
+
+            let loadFontBtn = $div("button loadfont","",fontOptionGroup);
+            loadFontBtn.info = "Load a custom TrueType/OpenType font (.ttf/.otf)";
+            loadFontBtn.onclick = loadFontFile;
 
             let fontSizeRange = $div("range","",fontOptionGroup);
             $elm("label","Size:",fontSizeRange,"inline");
@@ -595,21 +639,22 @@ let ToolOptions = function(){
     // Bone-tool option controls. Rebuilt fresh on each toolChanged (getOptions clears the panel),
     // so they reflect the currently selected bone / active bone layer rather than caching state.
     function actionRadiusSetting(){
+        let BoneTool = getBoneToolIfLoaded();
         let wrap = $div("range");
         $elm("label","Radius:",wrap);
         let range = document.createElement("input");
         range.type = "range";
         range.min = 1;
         range.max = 400;
-        range.value = Math.round(BoneTool.getSelectedActionRadius()) || 1;
+        range.value = Math.round(BoneTool?.getSelectedActionRadius()) || 1;
         wrap.appendChild(range);
         let value = $elm("span",range.value,wrap);
         range.oninput = function(){
             value.innerText = range.value;
-            BoneTool.previewActionRadius(parseInt(range.value,10));
+            BoneTool?.previewActionRadius(parseInt(range.value,10));
         };
         range.onchange = function(){
-            BoneTool.setActionRadius(parseInt(range.value,10));
+            BoneTool?.setActionRadius(parseInt(range.value,10));
         };
         // keep references so a live radius drag on the canvas (the shoulder-line handle) can push the
         // new value back into this slider — see the bonesChanged sync listener below.
@@ -646,10 +691,10 @@ let ToolOptions = function(){
     // sync whether shown next to the Select radius/grid controls or in the Transform panel.
     function stretchSetting(){
         let cb = $checkbox("Stretch bones","","info",(checked)=>{
-            BoneTool.setStretch(checked);
+            getBoneToolIfLoaded()?.setStretch(checked);
         });
         cb.info = "Dragging a bone's tip in Transform mode also stretches it";
-        cb.setState(BoneTool.getStretch());
+        cb.setState(getBoneToolIfLoaded()?.getStretch());
         return cb;
     }
 
@@ -671,10 +716,10 @@ let ToolOptions = function(){
             vnSmoothBtn = nodeModeButton("smooth","◯","Smooth point — the two handles stay on one straight line");
             vnSplitBtn = $div("button icon","✂");
             vnSplitBtn.info = "Split the path at this point";
-            vnSplitBtn.onclick = ()=>{ if (vnSplitBtn.classList.contains("disabled")) return; VectorTool.splitSelectedNode(); updateVectorNode(); };
+            vnSplitBtn.onclick = ()=>{ if (vnSplitBtn.classList.contains("disabled")) return; getVectorToolIfLoaded()?.splitSelectedNode(); updateVectorNode(); };
             vnJoinBtn = $div("button icon","⋈");
             vnJoinBtn.info = "Join the selected points into one (at their average position)";
-            vnJoinBtn.onclick = ()=>{ if (vnJoinBtn.classList.contains("disabled")) return; VectorTool.joinSelectedNodes(); updateVectorNode(); };
+            vnJoinBtn.onclick = ()=>{ if (vnJoinBtn.classList.contains("disabled")) return; getVectorToolIfLoaded()?.joinSelectedNodes(); updateVectorNode(); };
             vectorNodeGroup.appendChild(vnSquareBtn);
             vectorNodeGroup.appendChild(vnSharpBtn);
             vectorNodeGroup.appendChild(vnSmoothBtn);
@@ -689,7 +734,7 @@ let ToolOptions = function(){
     function nodeModeButton(mode, glyph, info){
         let b = $div("button icon", glyph);
         b.info = info;
-        b.onclick = ()=>{ VectorTool.setSelectedNodeMode(mode); updateVectorNode(); };
+        b.onclick = ()=>{ getVectorToolIfLoaded()?.setSelectedNodeMode(mode); updateVectorNode(); };
         return b;
     }
 
@@ -777,6 +822,98 @@ let ToolOptions = function(){
         }
     }
 
+    // Vector layer combine (Pathfinder-style): shown whenever exactly two vector layers are
+    // multi-selected in the Layer panel (any tool), regardless of which tool is currently active —
+    // unlike every other option-bar group above, this one isn't keyed to a `command` in getOptions'
+    // switch, so it's appended unconditionally (like maskSetting below) and toggles its own
+    // visibility off a lightweight EVENT.layersChanged listener instead of a full panel rebuild.
+    function combineVectorSetting(){
+        if (!combineGroup){
+            combineGroup = $div("optionsgroup vectorcombine");
+            combineGroup.appendChild(label("Combine:"));
+            cvUnionBtn = combineButton("union", "⊕", "Merge — union of both layers' shapes");
+            cvBackMinusFrontBtn = combineButton("backMinusFront", "◐", "Back minus Front — subtract the front layer from the back layer");
+            cvFrontMinusBackBtn = combineButton("frontMinusBack", "◑", "Front minus Back — subtract the back layer from the front layer");
+            cvIntersectBtn = combineButton("intersect", "◒", "Intersect — only the overlapping area");
+            combineGroup.appendChild(cvUnionBtn);
+            combineGroup.appendChild(cvBackMinusFrontBtn);
+            combineGroup.appendChild(cvFrontMinusBackBtn);
+            combineGroup.appendChild(cvIntersectBtn);
+        }
+        updateCombineVector();
+        return combineGroup;
+    }
+
+    function combineButton(mode, glyph, info){
+        let b = $div("button icon", glyph);
+        b.info = info;
+        b.onclick = ()=>{
+            let paths = combineVectorPaths();
+            if (!paths) return;
+            EventBus.trigger(COMMAND.COMBINEVECTORLAYERS, { pathA: paths[0], pathB: paths[1], mode });
+        };
+        return b;
+    }
+
+    // The two selected vector-layer paths, or null unless the Layer panel selection is EXACTLY two
+    // vector layers (a third selected pixel/group/bone layer, or a selection of 1 or 3+, hides the
+    // buttons entirely rather than guessing which two to combine).
+    function combineVectorPaths(){
+        if (!LayerPanel.hasMultiSelection()) return null;
+        let paths = LayerPanel.getSelectedPaths();
+        if (paths.length !== 2) return null;
+        let both = paths.every(p=>isVector(ImageFile.getLayer(p)));
+        return both ? paths : null;
+    }
+
+    function updateCombineVector(){
+        if (!combineGroup) return;
+        combineGroup.style.display = combineVectorPaths() ? "" : "none";
+    }
+
+    // Vector "Expand Fill" (Shape menu) option-bar: a centered -20..20 slider in 0.1px steps (0 =
+    // unchanged, negative insets the shape, positive expands it) driving VectorTool's live preview,
+    // plus Apply/Cancel.
+    // Built once and appended unconditionally (like the vector Combine buttons above) — normally
+    // hidden, shown only while VectorTool has an Expand Fill gesture open. min/max straddling zero is
+    // all a slider needs to get the same center-origin "fill grows from the middle" look the Effects
+    // panel's Brightness/Hue sliders have — rangeFill.js applies that treatment to every range input.
+    function expandFillSetting(){
+        if (!expandFillGroup){
+            expandFillGroup = $div("optionsgroup expandfill");
+            expandFillGroup.appendChild(label("Expand fill:"));
+            let rangeWrap = $div("range","",expandFillGroup);
+            expandFillRange = $input("range",0,rangeWrap);
+            expandFillRange.min = -20;
+            expandFillRange.max = 20;
+            expandFillRange.step = 0.1;
+            expandFillRange.oninput = ()=>{
+                let v = parseFloat(expandFillRange.value) || 0;
+                expandFillValue.innerText = (v > 0 ? "+" : "") + v.toFixed(1) + "px";
+                getVectorToolIfLoaded()?.previewExpandFill(v);
+            };
+            expandFillValue = $elm("span","0.0px",rangeWrap);
+            let applyBtn = $div("button apply","Apply",expandFillGroup);
+            applyBtn.onclick = ()=>{ getVectorToolIfLoaded()?.commitExpandFill(); };
+            let cancelBtn = $div("button ghost","Cancel",expandFillGroup);
+            cancelBtn.onclick = ()=>{ getVectorToolIfLoaded()?.cancelExpandFill(); };
+        }
+        updateExpandFill();
+        return expandFillGroup;
+    }
+
+    function updateExpandFill(){
+        if (!expandFillGroup) return;
+        let VectorTool = getVectorToolIfLoaded();
+        let isActive = !!(VectorTool && VectorTool.isExpandFillActive());
+        expandFillGroup.style.display = isActive ? "" : "none";
+        if (!isActive) return;
+        let v = VectorTool.getExpandFillAmount();
+        // don't fight the browser's own value while the user is mid-drag on this exact slider
+        if (document.activeElement !== expandFillRange) expandFillRange.value = v;
+        expandFillValue.innerText = (v > 0 ? "+" : "") + v.toFixed(1) + "px";
+    }
+
     function updateGapClose(){
         if (!vectorGapGroup) return;
         vgNoneBtn.classList.toggle("active", gapClose === "none");
@@ -787,7 +924,8 @@ let ToolOptions = function(){
 
     function updateVectorNode(){
         if (!vectorNodeGroup) return;
-        let m = VectorTool.isActive && VectorTool.isActive() && VectorTool.getMode();
+        let VectorTool = getVectorToolIfLoaded();
+        let m = VectorTool?.isActive() && VectorTool.getMode();
         let inNode = m === "select" || m === "node";  // unified edit tool
         let ids = inNode ? VectorTool.getSelectedNodes() : [];
         let count = ids.length;
@@ -827,6 +965,14 @@ let ToolOptions = function(){
     // toolChanged, so the options panel is not rebuilt). Cheap and idempotent.
     EventBus.on(EVENT.vectorChanged,()=>{
         if (vectorNodeGroup && vectorNodeGroup.isConnected) updateVectorNode();
+        if (expandFillGroup && expandFillGroup.isConnected) updateExpandFill();
+    });
+
+    // Layer panel selection changes (shift-click range, activating a different layer, a
+    // group/combine operation consuming the selection, …) all fire layersChanged — re-check
+    // whether the combine buttons should show without rebuilding the rest of the option bar.
+    EventBus.on(EVENT.layersChanged,()=>{
+        if (combineGroup && combineGroup.isConnected) updateCombineVector();
     });
 
     // Keep the Blob option-bar (shape toggle + size) in step with the live brush, so choosing a
@@ -837,7 +983,7 @@ let ToolOptions = function(){
 
     EventBus.on(EVENT.bonesChanged,()=>{
         if (!boneRadiusRange || !boneRadiusRange.isConnected) return;
-        let r = Math.round(BoneTool.getSelectedActionRadius());
+        let r = Math.round(getBoneToolIfLoaded()?.getSelectedActionRadius());
         if (!r) return;
         let v = String(r);
         if (boneRadiusRange.value !== v){

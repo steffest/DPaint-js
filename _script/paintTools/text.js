@@ -5,23 +5,13 @@ import {COMMAND, EVENT, ANIMATION} from "../enum.js";
 import Animator from "../util/animator.js";
 import ToolOptions from "../ui/components/toolOptions.js";
 import Palette from "../ui/palette.js";
+import {getFontNames, getFontDefinition, loadFont} from "../util/fonts.js";
 
 let Text = (()=>{
     let me = {};
     let currentText = {};
     let cursorOn;
     let isActive ;
-
-    let fonts = [
-        {name:"Arial"},
-        {name:"Courier New"},
-        {name:"Georgia"},
-        {name:"GillSans-UltraBold"},
-        {name:"Times New Roman"},
-        {name:"Topaz Serif", url:"_font/amiga-topaz.otf"},
-        {name:"Topaz Sans", url:"_font/topaz-8.ttf"},
-        {name:"Verdana"}
-    ]
 
     // TODO: load Amiga fonts
     // see https://github.com/smugpie/amiga-bitmap-font-tools
@@ -46,8 +36,7 @@ let Text = (()=>{
         currentText.color = Palette.getDrawColor();
         cursorOn = true;
         isActive = true;
-        let font = fonts.find(f=>f.name === ToolOptions.getFont());
-        await loadFont(font);
+        await loadFont(ToolOptions.getFont());
         drawText();
         Animator.start(ANIMATION.TEXT,()=>{
             cursorOn = !cursorOn;
@@ -72,29 +61,10 @@ let Text = (()=>{
     }
 
     me.getFonts = ()=>{
-        return fonts.map(f=>f.name);
+        return getFontNames();
     }
 
-    function loadFont(font){
-        return new Promise((next)=>{
-            if (font && font.url && !font.loaded){
-                const fontFace = new FontFace(font.name, 'url('+font.url+')');
-                fontFace.load().then(loadedFont=>{
-                    document.fonts.add(loadedFont);
-                    font.loaded = true;
-                    console.log("Font " + font.name + " loaded");
-                    next();
-                }).catch(err=>{
-                    console.error("Error loading font " + font.name,err);
-                    next();
-                });
-            }else{
-                next();
-            }
-        });
-    }
-
-    function keyHandler(code,key){
+    function keyHandler(code,key,rawKey){
         switch (code){
             case "enter":
             case "escape":
@@ -106,9 +76,10 @@ let Text = (()=>{
                 return true;
             default:
                 if (key.length > 1) return false;
-                let char=key;
-                if (Input.isMetaDown()) char = char.toUpperCase();
-                currentText.text += char;
+                // rawKey preserves the actual Shift/CapsLock-resolved character (e.g. Shift+C ->
+                // "C") — `key` has already been lowercased by input.js for the tool-shortcut
+                // switches, which don't care about case.
+                currentText.text += rawKey;
                 drawText();
                 return true;
         }
@@ -136,8 +107,7 @@ let Text = (()=>{
 
     EventBus.on(EVENT.fontStyleChanged,async font=>{
        if (isActive && currentText.ctx){
-           let f = fonts.find(f=>f.name === font.name);
-           await loadFont(f);
+           await loadFont(getFontDefinition(font.name));
            currentText.ctx.font = font.size + "px " + font.name;
            currentText.fontSize = font.size;
            drawText();

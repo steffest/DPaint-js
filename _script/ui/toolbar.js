@@ -47,6 +47,7 @@ let Toolbar = function(){
         {name: "vectorblob", label: "⬮", isTool: true, group: "vector", command: COMMAND.VECTORBLOB, info: "<b>B</b> Paint a freehand filled shape (blob brush - round/square, sized in the tool options or a toolbar brush preset)."},
         {name: "vectorfill", label: "", isTool: true, group: "vector", command: COMMAND.VECTORFILL, info: "<b>F</b> Fill a closed shape with the current color."},
         {name: "vectoroutline", label: "◌", isTool: true, group: "vector", command: COMMAND.VECTOROUTLINE, info: "<b>O</b> Outline a shape with the current color and line width."},
+        {name: "vectortext", label: "T", isTool: true, group: "vector", command: COMMAND.VECTORTEXT, info: "<b>T</b> Add vector text: click or drag to place it, type to edit, drag an existing text to move it, and use the Properties panel to style or convert it to shapes."},
         {name: "split", command: COMMAND.SPLITSCREEN, toggleProperty: "splitPanel", info: "<b>N</b> Toggle split view."},
         {name: "pan", isTool: true, command: COMMAND.PAN, info: "<b>H</b> or <b>Space</b> Hand: Pan the image."},
         {name: "picker", isTool: true, command: COMMAND.COLORPICKER, info: "<b>K</b> or <b>Shift+Draw</b> Pick color from image."},
