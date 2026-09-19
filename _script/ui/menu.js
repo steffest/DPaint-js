@@ -5,6 +5,8 @@ import UserSettings from "../userSettings.js";
 import ImageFile from "../image.js";
 import LayerPanel from "./toolPanels/layerPanel.js";
 import {isBones, isVector} from "../util/layerUtils.js";
+import {hasLocalFileHandle, onFileHandleChanged} from "./currentFileHandle.js";
+import {getRecentFiles, onRecentFilesChanged} from "../util/recentFiles.js";
 
 let Menu = function(){
     let me = {}
@@ -13,6 +15,8 @@ let Menu = function(){
     let isMenuActive;
     let isMac = navigator.platform.toUpperCase().indexOf('MAC')>=0;
     let refs = {};
+    let recentSubMenu;
+    let saveAsItem;
     let groupDisabledItems = [];
     let notInGroupDisabledItems = [];
     let panelSubMenu;   // the View ▸ Panels submenu container (populated by PanelManager)
@@ -25,7 +29,9 @@ let Menu = function(){
         {label: "File", items:[
                 {label: "New", command: COMMAND.NEW,shortKey: "meta+N"},
                 {label: "Open", command: COMMAND.OPEN,shortKey: "meta+O",needsRealClick: true},
-                {label: "Save", command: COMMAND.SAVE,shortKey: "meta+S"},
+                {label: "Recent", recentMenu: true, items: []},
+                {label: "Save", command: COMMAND.SAVE,shortKey: "meta+S",needsRealClick: true},
+                {label: "Save As", command: COMMAND.SAVEAS,shortKey: "meta+Shift+S",saveAs: true},
                 {label: "Import", command: COMMAND.IMPORTLAYER,shortKey: "meta+I",needsRealClick: true},
                 {label: "Info", command: COMMAND.INFO},
             ]},
@@ -258,7 +264,7 @@ let Menu = function(){
 
     function buildMenuItem(item,parent){
         if (!item) return;
-        let menuItem = $link("handle",item.label,parent,(e) =>{
+        let menuItem = $link("handle",item.plainLabel ? "" : item.label,parent,(e) =>{
             if (menuItem.classList.contains("disabled")) return;
             if (item.command){
                 EventBus.trigger(item.command);
@@ -269,8 +275,13 @@ let Menu = function(){
                 item.action();
             }
         });
+        if (item.plainLabel) menuItem.textContent = item.label;
         if (item.group){
             menuItem.classList.add("group-"+item.group);
+        }
+        if (item.saveAs){
+            saveAsItem = menuItem;
+            menuItem.style.display = hasLocalFileHandle() ? "" : "none";
         }
         if (item.groupDisabled){
             groupDisabledItems.push(menuItem);
@@ -283,6 +294,7 @@ let Menu = function(){
             menuItem.classList.add("menuitem");
             let sub = $div("menuitem subsub","",menuItem);
             if (item.panelMenu) panelSubMenu = sub;
+            if (item.recentMenu) recentSubMenu = sub;
             item.items.forEach(subitem=>{
                 buildMenuItem(subitem,sub);
             });
@@ -346,7 +358,24 @@ let Menu = function(){
             }
         })
         updateToolsMenu();
+        updateRecentFiles();
     }
+
+    function updateRecentFiles(){
+        if (!recentSubMenu) return;
+        recentSubMenu.replaceChildren();
+        const entries = getRecentFiles();
+        recentSubMenu.parentElement.style.display = entries.length ? "" : "none";
+        entries.forEach(entry => buildMenuItem({
+            label: entry.name, plainLabel: true, needsRealClick: true,
+            action: () => ImageFile.openFileHandle(entry.handle)
+        }, recentSubMenu));
+    }
+
+    onRecentFilesChanged(updateRecentFiles);
+    onFileHandleChanged(() => {
+        if (saveAsItem) saveAsItem.style.display = hasLocalFileHandle() ? "" : "none";
+    });
 
     // Swap the Tools menu between pixel/vector/bone tool sets depending on the active layer type,
     // and update the non-selectable caption on top of the submenu (mirrors Toolbar.updateSpecialMode).

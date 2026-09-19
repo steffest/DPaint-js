@@ -12,6 +12,7 @@ import BinaryStream from "../../util/binarystream.js";
 import ImageProcessing from "../../util/imageProcessing.js";
 import UserSettings from "../../userSettings.js";
 import {setCurrentFileHandle, getCurrentFileHandle} from "../currentFileHandle.js";
+import {rememberFile} from "../../util/recentFiles.js";
 
 var SaveDialog = function(){
     let me ={};
@@ -227,33 +228,32 @@ var SaveDialog = function(){
         },
     }
 
-     function saveFile(blob,fileName,type) {
-        return new Promise(async (resolve,reject)=>{
-            if (window.host && window.host.saveFile){
-                window.host.saveFile(blob,fileName);
-                resolve();
-                return;
-            }
-
-            if (window.showSaveFilePicker){
-                window.showSaveFilePicker({
+    async function saveFile(blob,fileName,type) {
+        if (window.host && window.host.saveFile){
+            await window.host.saveFile(blob,fileName);
+            return;
+        }
+        if (window.showSaveFilePicker){
+            try {
+                const handle = await window.showSaveFilePicker({
                     suggestedName: fileName,
                     types: [type],
-                }).then(async handle => {
-                    const writableStream = await handle.createWritable();
-                    await writableStream.write(blob);
-                    await writableStream.close();
-                    resolve();
-                }).catch(async err => {
-                    console.error(err);
-                    await saveAs(blob,fileName);
-                    resolve();
                 });
-            }else{
-                await saveAs(blob,fileName);
-                resolve();
+                const stream = await handle.createWritable();
+                try {
+                    await stream.write(blob);
+                    await stream.close();
+                } catch (error){
+                    try { await stream.abort(); } catch {}
+                    throw error;
+                }
+                return handle;
+            } catch (error){
+                if (error.name === "AbortError") return false;
+                throw error;
             }
-        });
+        }
+        await saveAs(blob,fileName);
     }
 
     me.render = function(_container){
@@ -761,6 +761,10 @@ var SaveDialog = function(){
                         Modal.hide();
                     }
                 }
+            }).catch(error => {
+                spinner.remove();
+                elm.classList.remove("loading");
+                Modal.alert(error.message, "Could not save file");
             });
         },50);
     }
@@ -771,6 +775,7 @@ var SaveDialog = function(){
     }
 
     async function writeFile(){
+        const document = ImageFile.getCurrentFile();
         let fileType = currentSaveOptions.fileType;
         if (!fileType) {
             console.error("Unknown file type",info.type);
@@ -789,7 +794,12 @@ var SaveDialog = function(){
         let result = await Generate.file(generator,currentSaveOptions);
         if (result){
             if (result.file){
-                await saveFile(result.file,getFileName() + "." + fileType.extension,fileType);
+                const handle = await saveFile(result.file,getFileName() + "." + fileType.extension,fileType);
+                if (handle === false) return;
+                if (handle && ImageFile.getCurrentFile() === document){
+                    setCurrentFileHandle(handle, generator, {...currentSaveOptions});
+                    rememberFile(handle);
+                }
             }
             if (result.files){
                 for (let i = 0; i < result.files.length; i++) {

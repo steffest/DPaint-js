@@ -9,7 +9,8 @@ import PanelManager from "./ui/panelManager.js";
 import NativePanels from "./ui/nativePanels.js";
 import {duplicateCanvas, indexPixelsToPalette, releaseCanvas} from "./util/canvasUtils.js";
 import Palette from "./ui/palette.js";
-import {setCurrentFileHandle} from "./ui/currentFileHandle.js";
+import {setCurrentFileHandle, getCurrentFileHandle, getCurrentSaveFormat, getCurrentSaveOptions, hasLocalFileHandle} from "./ui/currentFileHandle.js";
+import {rememberFile} from "./util/recentFiles.js";
 import HistoryService from "./services/historyservice.js";
 import ImageProcessing from "./util/imageProcessing.js";
 import Brush from "./ui/brush.js";
@@ -213,9 +214,8 @@ let ImageFile = function(){
 
     me.restoreOriginal = function(){
         if (cachedImage) {
-            let ctx = me.getActiveContext();
-            ctx.clearRect(0, 0, currentFile.width, currentFile.height);
-            ctx.drawImage(cachedImage, 0, 0);
+            // the cache is the DOCUMENT composite, so it goes back through the layer mapping
+            me.drawDocCanvasOnLayer(cachedImage);
             clearRenderCache();
             EventBus.trigger(EVENT.imageContentChanged);
         }
@@ -752,14 +752,43 @@ let ImageFile = function(){
         }
     }
 
-    me.openLocal = function(target){
+    me.openLocal = async function(target){
         stop();
+        if (typeof window.showOpenFilePicker === "function"){
+            try {
+                const [handle] = await window.showOpenFilePicker({multiple: false});
+                if (handle) await me.openFileHandle(handle, target || "file");
+                return;
+            } catch (error){
+                if (error.name === "AbortError") return;
+                if (!["SecurityError", "NotSupportedError"].includes(error.name)){
+                    Modal.alert(error.message, "Could not open file");
+                    return;
+                }
+            }
+        }
         var input = document.createElement("input");
         input.type = "file";
         input.onchange = function (e) {
             handleUpload(e.target.files, target || "file");
         };
         input.click();
+    };
+
+    me.openFileHandle = async function(handle, target = "file"){
+        try {
+            if (handle.queryPermission && await handle.queryPermission({mode: "read"}) !== "granted"){
+                if (await handle.requestPermission({mode: "read"}) !== "granted") return;
+            }
+            const file = await handle.getFile();
+            handleUpload([file], target, format => {
+                if (target !== "file") return;
+                setCurrentFileHandle(handle, format);
+                rememberFile(handle);
+            });
+        } catch (error){
+            if (error.name !== "AbortError") Modal.alert(error.message, "Could not open file");
+        }
     };
 
     me.openUrl = function(url,useProxy){
@@ -794,9 +823,47 @@ let ImageFile = function(){
         });
     }
 
-    me.save = function(){
-        Modal.show(DIALOG.SAVE);
+    let saving = false;
+    me.save = async function(){
+        if (!hasLocalFileHandle()) return me.saveAs();
+        if (saving) return;
+        const handle = getCurrentFileHandle();
+        const format = getCurrentSaveFormat();
+        if (!format){
+            return me.saveAs();
+        }
+        saving = true;
+        try {
+            // Ask while still in the click/key event, before loading the export module.
+            if (handle.queryPermission && await handle.queryPermission({mode: "readwrite"}) !== "granted"){
+                if (await handle.requestPermission({mode: "readwrite"}) !== "granted") return;
+            }
+            const document = currentFile;
+            const Generate = (await import("./fileformats/generate.js")).default;
+            if (currentFile !== document || getCurrentFileHandle() !== handle) return;
+            const result = await Generate.file(format, {quality: 90, gifMode: "animation", compression: true, ...getCurrentSaveOptions()});
+            if (!result?.file || result.result === "error"){
+                throw new Error(result?.messages?.join("\n") || "This image cannot be saved in its original format. Use Save As.");
+            }
+            if (currentFile !== document || getCurrentFileHandle() !== handle) return;
+            const stream = await handle.createWritable();
+            try {
+                await stream.write(result.file);
+                await stream.close();
+            } catch (error){
+                try { await stream.abort(); } catch {}
+                throw error;
+            }
+            rememberFile(handle);
+            Modal.softAlert("File saved.");
+        } catch (error){
+            if (error.name !== "AbortError") Modal.alert(error.message, "Could not save file");
+        } finally {
+            saving = false;
+        }
     };
+
+    me.saveAs = function(){ Modal.show(DIALOG.SAVE); };
 
     // Non-destructive: only the document size and the top-level offsets change. Layer
     // canvases keep their pixels, so content pushed outside the new bounds stays alive and
@@ -1034,11 +1101,16 @@ let ImageFile = function(){
         if (!p || !layer) return;
 
         let newName = DuplicateName(layer.name, p.parent);
+        // The copy is an independent node set (fresh ids), so it carries none of the source's
+        // property-key overrides: every branch below bakes the values resolved at the playhead
+        // into the copy's own base values, or the duplicate of an animated/moved layer lands
+        // somewhere other than where the user sees the original.
+        let resolvedProps = me.getResolvedProps();
 
         if (isGroup(layer)){
             // deep-copy the whole subtree via clone/restore (async), like duplicateFrame
             let newLayer = Layer.makeGroup(currentFile.width, currentFile.height, newName);
-            let struct = withFreshIds(layer.clone(false));
+            let struct = withResolvedProps(withFreshIds(layer.clone(false)), layer, resolvedProps);
             struct.name = newName;
             let insertPath = path.slice();
             insertPath[insertPath.length-1] = p.index + 1;
@@ -1056,7 +1128,7 @@ let ImageFile = function(){
             // type. Deep-copy the whole struct via clone/restore (async) so the duplicate stays
             // the same kind of layer, exactly like the group branch above.
             let newLayer = Layer(currentFile.width, currentFile.height, newName);
-            let struct = withFreshIds(layer.clone(false));
+            let struct = withResolvedProps(withFreshIds(layer.clone(false)), layer, resolvedProps);
             struct.name = newName;
             let insertPath = path.slice();
             insertPath[insertPath.length-1] = p.index + 1;
@@ -1071,17 +1143,29 @@ let ImageFile = function(){
             });
         }
 
+        // The source canvas is not necessarily document-sized or document-aligned: crop/resize are
+        // non-destructive and ensureLocalRect() grows the canvas (moving canvasX/canvasY) when
+        // something is painted outside it. Reproduce that geometry on the copy — a document-sized
+        // canvas with the source drawn at 0,0 shifted the pixels by the canvas origin, so
+        // duplicating a layer that had been moved and painted on came out offset (and anything
+        // sticking out past the document was clipped away).
+        // getCanvasType(false) is the raw pixel canvas: getCanvas() hands back the MASK while the
+        // mask is being edited, which would copy the mask into the duplicate's pixels.
+        let source = layer.getCanvasType(false);
+        let effective = effectiveProps(layer, resolvedProps);
         let newLayer = Layer(
-            currentFile.width,
-            currentFile.height,
+            source.width,
+            source.height,
             newName
         );
-        newLayer.opacity = layer.opacity;
+        newLayer.opacity = effective.opacity;
         newLayer.blendMode = layer.blendMode;
         newLayer.locked = layer.locked;
-        newLayer.x = layer.x || 0;
-        newLayer.y = layer.y || 0;
-        newLayer.drawImage(layer.getCanvas());
+        newLayer.x = effective.x;
+        newLayer.y = effective.y;
+        newLayer.canvasX = layer.canvasX || 0;
+        newLayer.canvasY = layer.canvasY || 0;
+        newLayer.getContext().drawImage(source,0,0);
         let insertPath = path.slice();
         insertPath[insertPath.length-1] = p.index + 1;
         insertAtPath(frame.layers, insertPath, newLayer);
@@ -1226,6 +1310,23 @@ let ImageFile = function(){
         return resolvedOffset(frame.layers, path, me.getResolvedProps());
     };
 
+    // Document coordinates → pixels of the layer's OWN canvas (what getCanvas()/getContext()
+    // address): the resolved offset above PLUS the canvas origin. A layer's canvas is NOT pinned
+    // to the layer origin — ensureLocalRect() grows it and moves canvasX/canvasY (negative when it
+    // grows up/left) as soon as something is painted outside it, which is exactly what happens
+    // once a layer has been moved and you keep painting on it. So code that draws a
+    // document-space shape straight into getContext() must subtract THIS, not getLayerOffset():
+    // forgetting the canvas origin shifts the result by it. TRANSLATION ONLY, like getLayerOffset.
+    me.getLayerCanvasOffset = function(ref){
+        let offset = me.getLayerOffset(ref);
+        let layer = typeof ref === "undefined" ? activeLayer : me.getLayer(ref);
+        if (!layer) return offset;
+        return {
+            x: offset.x + (layer.canvasX || 0),
+            y: offset.y + (layer.canvasY || 0)
+        };
+    };
+
     // Spec 018: every OTHER vector layer sharing `ref`'s immediate parent group that is visible and
     // not locked — the candidate set for cross-layer vector selection. Re-resolved fresh on every
     // call (never cached), so a visibility/lock toggle takes effect on the very next gesture.
@@ -1304,6 +1405,28 @@ let ImageFile = function(){
         ctx.drawImage(source, canvasX, canvasY);
         ctx.setTransform(1, 0, 0, 1, 0, 0);
         return canvas;
+    };
+
+    // The write-back counterpart of getActiveLayerDocCanvas: draws a DOCUMENT-space canvas into
+    // a layer's own canvas, mapping document coordinates to canvas pixels through
+    // getLayerCanvasOffset. Whole-image operations (colour reduce, restore-original) produce a
+    // document-space result; drawing it at 0,0 put it at the layer's canvas origin instead of on
+    // the document window, so on a layer that had been moved the picture came back shifted.
+    // Only the area the canvas covers is replaced, so pixels the layer keeps outside the document
+    // window survive. Translation only — a layer under a scaled/rotated group is not resampled
+    // back (same v1 limitation as getLayerOffset); groups and vector layers have no paintable
+    // canvas and are skipped, exactly like getActiveContext().
+    me.drawDocCanvasOnLayer = function(canvas,ref){
+        if (!canvas) return false;
+        let layer = typeof ref === "undefined" ? activeLayer : me.getLayer(ref);
+        if (!layer || isGroup(layer) || isVector(layer)) return false;
+        let offset = me.getLayerCanvasOffset(ref);
+        let ctx = layer.getContext();
+        if (!ctx) return false;
+        ctx.clearRect(-offset.x, -offset.y, canvas.width, canvas.height);
+        ctx.imageSmoothingEnabled = false;
+        ctx.drawImage(canvas, -offset.x, -offset.y);
+        return true;
     };
 
     // Bounding box of the layer's opaque pixels, in DOCUMENT coordinates.
@@ -3003,7 +3126,10 @@ let ImageFile = function(){
 
     me.restoreAutoSave = function(){
         storage.getFile("autosave").then(data=>{
-            if (data) me.restore(data);
+            if (data){
+                setCurrentFileHandle();
+                me.restore(data);
+            }
         });
     }
 
@@ -3020,7 +3146,7 @@ let ImageFile = function(){
         return me.getFrameCount() > 1;
     }
 
-    function handleUpload(files,target){
+    function handleUpload(files,target,onOpened){
         stop();
         if (files.length) {
             var file = files[0];
@@ -3041,12 +3167,13 @@ let ImageFile = function(){
             if (ext === "svg") isText = true;
 
             var reader = new FileReader();
-            reader.onload = function(){
+            reader.onload = async function(){
+                try {
                 if (detectType) {
-                    me.handleBinary(reader.result, file.name, target,true);
+                    me.handleBinary(reader.result, file.name, target,true,onOpened);
                 } else if (isText) {
                     if (ext === "svg") {
-                        me.importSVG(reader.result, fileName);
+                        if (await me.importSVG(reader.result, fileName)) onOpened?.("SVG");
                     } else {
                         let data = {};
                         if (ext === "json") {
@@ -3058,6 +3185,7 @@ let ImageFile = function(){
                         }
                         if (data) {
                             me.handleJSON(data,target);
+                            if (data.image && target === "file") onOpened?.("DPAINT");
                         }
                     }
                 } else {
@@ -3065,7 +3193,9 @@ let ImageFile = function(){
                     var image = new Image();
                     image.onload = function(){
                         URL.revokeObjectURL(this.src);
-                        handleOpenedImage(image,fileName,target)
+                        handleOpenedImage(image,fileName,target);
+                        onOpened?.(({"image/jpeg":"JPG", "image/png":"PNG"})[file.type]
+                            || ({jpg:"JPG", jpeg:"JPG", png:"PNG"})[ext]);
                     };
                     image.onerror = function(){
                         URL.revokeObjectURL(this.src);
@@ -3075,7 +3205,9 @@ let ImageFile = function(){
                     image.setAttribute("crossOrigin", "");
                     image.src = reader.result;
                 }
+                } catch (error){ Modal.alert(error.message, "Could not open file"); }
             };
+            reader.onerror = () => Modal.alert("Could not read " + file.name, "Could not open file");
             if (isText) {
                 reader.readAsText(file);
             } else if (detectType) {
@@ -3083,12 +3215,11 @@ let ImageFile = function(){
             } else {
                 reader.readAsDataURL(file);
             }
-            setCurrentFileHandle();
         }
     }
     me.handleUpload = handleUpload;
 
-    me.handleBinary = function (data,name,target,stillTryImage){
+    me.handleBinary = function (data,name,target,stillTryImage,onOpened){
         let now = performance.now();
 
         name = name || "";
@@ -3101,13 +3232,20 @@ let ImageFile = function(){
         // cancelling the dialog simply does nothing, instead of falling through to the
         // "not a known image type" path.
         if (name.split(".").pop().toLowerCase() === "planes"){
-            importPlanes(data,fileName,target);
+            importPlanes(data,fileName,target,onOpened);
             return;
         }
 
         FileDetector.detect(data, name).then((result) => {
             console.log(" FileDetector: ", result);
             if (result) {
+                const commit = images => {
+                    openDetected(result,fileName,target,now,images);
+                    const formats = ["PNG", "GIF", "PSD", "PCX", "PDF", "classicIcon", "colorIcon", "PNGIcon"];
+                    const format = result.type === "IFF" ? (result.data?.frames?.length ? "ANIM" : "IFF")
+                        : (formats.includes(result.type) ? result.type : (name.toLowerCase().endsWith(".png") ? "PNG" : undefined));
+                    onOpened?.(format);
+                };
                 // Opening a multi-frame file asks which frames to take FIRST. Everything
                 // below mutates the current document (palette included), so the question has
                 // to come before any of it — cancelling then leaves the open file untouched.
@@ -3117,12 +3255,11 @@ let ImageFile = function(){
                     Modal.show(DIALOG.FRAMERANGE,{
                         frameCount: result.image.length,
                         fileName: name,
-                        onOk: (range)=>openDetected(result,fileName,target,now,
-                            result.image.slice(range.from, range.to + 1))
+                        onOk: (range)=>commit(result.image.slice(range.from, range.to + 1))
                     });
                     return;
                 }
-                openDetected(result,fileName,target,now);
+                commit();
             } else {
                 if (stillTryImage) {
                     // happens when the file is not coming from a file upload
@@ -3130,6 +3267,7 @@ let ImageFile = function(){
                     image.onload = function(){
                         URL.revokeObjectURL(this.src);
                         handleOpenedImage(image,fileName,target);
+                        onOpened?.(({png:"PNG", jpg:"JPG", jpeg:"JPG"})[name.split(".").pop().toLowerCase()]);
                     };
                     image.onerror = function(){
                         URL.revokeObjectURL(this.src);
@@ -3143,7 +3281,7 @@ let ImageFile = function(){
                     image.src = URL.createObjectURL(blob);
                 }
             }
-        });
+        }).catch(error => Modal.alert(error.message, "Could not open file"));
     };
 
     // Commits a detected file to the document: original type/data/meta, the palette, and then
@@ -3271,8 +3409,80 @@ let ImageFile = function(){
         EventBus.trigger(EVENT.framesChanged);
     };
 
+    function extractLayersFromDPaintJSON(data){
+        let layerStructs = [];
+        if (!data) return layerStructs;
+
+        if (Array.isArray(data.layers)) {
+            return data.layers;
+        }
+
+        let image = data.image || data;
+
+        if (Array.isArray(image.layers)) {
+            return image.layers;
+        }
+
+        let source = toTimelineStruct(image);
+        if (source && Array.isArray(source.tracks)){
+            let frameIdx = (typeof image.activeFrameIndex === "number") ? image.activeFrameIndex : 0;
+            source.tracks.forEach(track => {
+                if (!track || !Array.isArray(track.keys)) return;
+                let contentKeys = track.keys.filter(k => k.type === "content" && k.cel && Array.isArray(k.cel.layers));
+                if (!contentKeys.length) return;
+                let targetKey = contentKeys.find(k => k.frame === frameIdx) || contentKeys[0];
+                if (targetKey && targetKey.cel && Array.isArray(targetKey.cel.layers)){
+                    targetKey.cel.layers.forEach(l => layerStructs.push(l));
+                }
+            });
+        } else if (image.frames && Array.isArray(image.frames)){
+            let frameIdx = (typeof image.activeFrameIndex === "number") ? image.activeFrameIndex : 0;
+            let f = image.frames[frameIdx] || image.frames[0];
+            if (f && Array.isArray(f.layers)){
+                layerStructs.push(...f.layers);
+            }
+        }
+
+        return layerStructs;
+    }
+
+    function importDPaintLayers(data){
+        if (!data) return;
+        if (data.customFonts){
+            restoreCustomFonts(data.customFonts);
+            if (data.customFonts.length) EventBus.trigger(EVENT.fontListChanged);
+        }
+
+        let sourceLayers = extractLayersFromDPaintJSON(data);
+        if (!sourceLayers || !sourceLayers.length) return;
+
+        HistoryService.start(EVENT.imageHistory);
+        let restorePromises = [];
+
+        sourceLayers.forEach(sourceLayer => {
+            let layerStruct = withFreshIds(clonePlainData(sourceLayer));
+            if (!layerStruct.w && layerStruct.width) layerStruct.w = layerStruct.width;
+            if (!layerStruct.h && layerStruct.height) layerStruct.h = layerStruct.height;
+            let layer = Layer(currentFile.width, currentFile.height);
+            currentFrame().layers.push(layer);
+            restorePromises.push(layer.restore(layerStruct));
+        });
+
+        Promise.all(restorePromises).then(() => {
+            syncNextLayerId();
+            let topIndex = currentFrame().layers.length - 1;
+            me.activateLayer(topIndex);
+            clearRenderCache();
+            HistoryService.end();
+            EventBus.trigger(EVENT.layersChanged);
+            EventBus.trigger(EVENT.imageContentChanged);
+            EventBus.trigger(EVENT.layerContentChanged);
+            me.render();
+        });
+    }
+
     me.handleJSON = function(data,target){
-        if (data.type === "dpaint") {
+        if (data.type === "dpaint" || data.image || data.layers) {
 
             if (target==="file"){
                 if (data.palette) Palette.set(data.palette);
@@ -3289,11 +3499,13 @@ let ImageFile = function(){
 
             switch (target){
                 case "frame":
+                    importDPaintLayers(data);
                     break;
                 case "brush":
                     Brush.import(data);
                     break;
                 default:
+                    setCurrentFileHandle();
                     me.restore(data);
             }
         }
@@ -3302,7 +3514,7 @@ let ImageFile = function(){
         }
     }
 
-    function importPlanes(data,fileName,target){
+    function importPlanes(data,fileName,target,onOpened){
         import("./fileformats/planes.js").then(module=>{
             let PLANES = module.default;
             let guess = PLANES.guess(data.byteLength,currentFile.width,PLANES.getPalettePlaneCount());
@@ -3318,6 +3530,7 @@ let ImageFile = function(){
                     currentFile.originalData = undefined;
                     currentFile.meta = undefined;
                     handleOpenedImage(canvas,fileName,target);
+                    onOpened?.();
                 }
             });
         });
@@ -3338,6 +3551,7 @@ let ImageFile = function(){
                 Brush.import(image);
                 break;
             default:
+                setCurrentFileHandle();
                 if (Array.isArray(image)) {
                     newFile(image[0],fileName,currentFile.originalType,currentFile.originalData,meta);
                     EventBus.hold();
@@ -3366,6 +3580,28 @@ let ImageFile = function(){
         if (!struct) return struct;
         delete struct.id;
         if (Array.isArray(struct.layers)) struct.layers.forEach(withFreshIds);
+        return struct;
+    }
+
+    // Bakes the RESOLVED (possibly tweened) values of `node` into the base values of its cloned
+    // `struct`, recursively — the same thing copyResolvedCel() does for a content-key copy.
+    // A copy that gets fresh ids (above) inherits none of the source's property-key overrides,
+    // so without this a duplicate of a layer that was moved on a property key came back at its
+    // base position instead of where the user sees it.
+    function withResolvedProps(struct,node,props){
+        if (!struct || !node) return struct;
+        let effective = effectiveProps(node, props);
+        struct.x = effective.x;
+        struct.y = effective.y;
+        struct.opacity = effective.opacity;
+        if (isGroup(node)){
+            struct.scaleX = effective.scaleX;
+            struct.scaleY = effective.scaleY;
+            struct.rotation = effective.rotation;
+            if (Array.isArray(struct.layers) && Array.isArray(node.layers)){
+                struct.layers.forEach((child,index)=>withResolvedProps(child,node.layers[index],props));
+            }
+        }
         return struct;
     }
 
@@ -3836,6 +4072,7 @@ let ImageFile = function(){
         let blank = document.createElement("canvas");
         blank.width = parsed.width;
         blank.height = parsed.height;
+        setCurrentFileHandle();
         newFile(blank, fileName, "SVG");
 
         for (const spec of parsed.layers){          // bottom-to-top
@@ -3864,6 +4101,7 @@ let ImageFile = function(){
         EventBus.trigger(EVENT.layersChanged);
         EventBus.trigger(EVENT.imageContentChanged);
         EventBus.trigger(EVENT.vectorChanged);
+        return true;
     };
 
     function loadDataUrlImage(src){
@@ -4259,7 +4497,7 @@ let ImageFile = function(){
     // (or the canvas grown around it) instead of losing the pixels at import time. It still
     // lands at 0,0, so what you see is unchanged — only what survives is different.
     function drawFrame(image,fileName){
-        let layerIndex = me.addLayer(0, fileName, {width: image.width, height: image.height});
+        let layerIndex = me.addLayer(undefined, fileName, {width: image.width, height: image.height});
         let layer = me.getLayer(layerIndex);
         layer.clear();
         layer.drawImage(image);
@@ -4332,9 +4570,14 @@ let ImageFile = function(){
         //    by the offset difference since geometry is layer-local.
         //  - otherwise the below layer is first rasterized to a plain pixel layer, so the pixels the
         //    merge draws in below actually persist.
+        // What the merge has to bake in is what the user SEES, so read the opacity through the
+        // resolved property overlay (on a property key or a tween the node's own base value is
+        // not what is on screen) — same rule as duplicateLayer.
+        let mergedOpacity = effectiveProps(layer, me.getResolvedProps()).opacity;
+
         let belowIsVector = isVector(belowLayer) && belowLayer.vector;
         let topIsPlainVector = isVector(layer) && layer.vector && !layer.hasMask
-            && (layer.opacity == null || layer.opacity === 100)
+            && (mergedOpacity == null || mergedOpacity === 100)
             && (!layer.blendMode || layer.blendMode === "normal");
         if (belowIsVector && topIsPlainVector && !belowLayer.hasMask){
             // ensure the top layer's geometry is complete/up to date before copying it out
@@ -4355,18 +4598,16 @@ let ImageFile = function(){
         }
         if (belowIsVector) belowLayer.rasterize(); // bake to pixels so the drawn merge persists
 
-        let ctx = belowLayer.getContext();
-        ctx.globalAlpha = layer.opacity / 100;
         let blendMode = layer.blendMode || "normal";
         if (blendMode === "normal") blendMode = "source-over";
-        ctx.globalCompositeOperation = blendMode;
         // render() returns unshifted content, so draw it at the offset DIFFERENCE: the result
         // must land where the merged layer showed it, expressed in belowLayer's local space.
+        // The opacity/blend mode go WITH the draw call (see Layer.drawImage): setting them on
+        // the context here would be wiped by the canvas resize this draw can trigger.
         belowLayer.drawImage(layer.render(),
             (layer.x || 0) - (belowLayer.x || 0) + (layer.canvasX || 0),
-            (layer.y || 0) - (belowLayer.y || 0) + (layer.canvasY || 0)); // render() composites a group; returns canvas for a leaf
-        ctx.globalAlpha = 1;
-        ctx.globalCompositeOperation = "source-over";
+            (layer.y || 0) - (belowLayer.y || 0) + (layer.canvasY || 0), // render() composites a group; returns canvas for a leaf
+            {alpha: (typeof mergedOpacity === "number" ? mergedOpacity : 100) / 100, blendMode: blendMode});
         p.parent.splice(p.index, 1);
         if (!skipHistory) HistoryService.end();
         let belowPath = path.slice();
@@ -4685,11 +4926,16 @@ let ImageFile = function(){
 
     EventBus.on(COMMAND.NEW, function(){
         stop();
+        setCurrentFileHandle();
         newFile();
     });
 
     EventBus.on(COMMAND.SAVE, function(){
         me.save();
+    });
+
+    EventBus.on(COMMAND.SAVEAS, function(){
+        if (hasLocalFileHandle()) me.saveAs();
     });
 
     EventBus.on(COMMAND.RESIZE, function(){
@@ -4841,23 +5087,29 @@ let ImageFile = function(){
             }
         });
 
-        if (currentFrame().layers.length > 1) {
+        let cel = currentFrame();
+        if (cel.layers.length > 1) {
+            // The composite is already in DOCUMENT space, so it goes onto a FRESH, document-sized,
+            // document-aligned plain pixel layer. Re-using the top node (what this used to do) went
+            // wrong three ways:
+            //  - its canvas origin displaced the whole flattened image by that origin: drawImage
+            //    maps layer-local → canvas pixels, and zeroing canvasX/canvasY afterwards does not
+            //    move the pixels back;
+            //  - a group / vector / bone node throws the drawn pixels away again (a group
+            //    re-composites its children, a vector layer regenerates its raster from its
+            //    geometry, a bone layer paints nothing of its own), so the flatten did nothing
+            //    visible while every layer below it was already gone;
+            //  - keeping its id kept every property key targeting it, which re-offset (or faded)
+            //    the flattened image on that frame.
             let canvas = me.getCanvas();
-            currentFrame().layers.splice(0, currentFrame().layers.length - 1);
-            let layer = currentFrame().layers[0];
-            if (layer) {
-                layer.clear();
-                layer.drawImage(canvas, 0, 0);
-                layer.opacity = 100;
-                layer.blendMode = "normal";
-                layer.visible = true;
-                // the composite is already in document space — drop the offset so it is not
-                // applied a second time when the flattened layer is drawn
-                layer.x = 0;
-                layer.y = 0;
-                layer.canvasX = 0;
-                layer.canvasY = 0;
-            }
+            let name = cel.layers[cel.layers.length - 1].name;
+            let removedIds = [];
+            cel.layers.forEach(node=>collectIds(node,removedIds));
+            let flat = Layer(currentFile.width, currentFile.height, name);
+            flat.drawImage(canvas, 0, 0);
+            cel.layers.length = 0;
+            cel.layers.push(flat);
+            prunePropsForIds(removedIds);
             me.activateLayer(0);
             EventBus.trigger(EVENT.imageContentChanged);
         }

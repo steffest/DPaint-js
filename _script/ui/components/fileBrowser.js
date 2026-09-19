@@ -118,8 +118,7 @@ let FileBrowser = function(){
     function openFile(file){
         currentFile = file;
         let f = Adf.readFileAtSector(file.sector,true);
-        ImageFile.handleBinary(f.content.buffer,file.name,"file",true);
-        setCurrentFileHandle(file);
+        ImageFile.handleBinary(f.content.buffer,file.name,"file",true,()=>setCurrentFileHandle(file));
     }
 
     EventBus.on(COMMAND.SAVEFILETOADF,([currentFile,name])=>{
