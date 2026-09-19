@@ -5,6 +5,8 @@ import ImageFile from "../image.js";
 import Color from "./color.js";
 import { runWebGLQuantizer } from "./webgl-quantizer.js";
 import { SRGB_TO_RGB } from "./colorConversionTables.js";
+import Storage from "./storage.js";
+import { stampDither } from "./stampDither.js";
 
 var ImageProcessing = function(){
 	var me = {};
@@ -29,20 +31,57 @@ var ImageProcessing = function(){
 			{ Name: "s", label: "Sierra", pattern: [ 0, 0, 0, 5.0 / 32.0, 3.0 / 32.0, 2.0 / 32.0, 4.0 / 32.0, 5.0 / 32.0, 4.0 / 32.0, 2.0 / 32.0, 0, 2.0 / 32.0, 3.0 / 32.0, 2.0 / 32.0, 0 ] },
 			{ Name: "trs", label: "Two-Row Sierra", pattern: [ 0, 0, 0, 4.0 / 16.0, 3.0 / 16.0, 1.0 / 16.0, 2.0 / 16.0, 3.0 / 16.0, 2.0 / 16.0, 1.0 / 16.0, 0, 0, 0, 0, 0 ] },
 			{ Name: "sl", label: "Sierra Lite", pattern: [ 0, 0, 0, 2.0 / 4.0, 0, 0, 1.0 / 4.0, 1.0 / 4.0, 0, 0, 0, 0, 0, 0, 0 ] } ,
-			{ Name: "bayer", label: "Bayer", pattern: [0,15/255, 135/255, 45/255, 165/255, 195/255, 75/255, 225/255, 105/255, 60/255, 180/255, 30/255, 150/255 , 240/255, 120/255, 210/255, 90/255] },
+			{ Name: "bayer", amountDivisor: 5, label: "Bayer", pattern: [0,15/255, 135/255, 45/255, 165/255, 195/255, 75/255, 225/255, 105/255, 60/255, 180/255, 30/255, 150/255 , 240/255, 120/255, 210/255, 90/255] },
 			// procedural dithers that only exist in the WebGL shader (webgl-quantizer.js)
-			// scale feeds u_ditherScale and its meaning differs per pattern
-			{ Name: "gradientnoise", label: "Gradient Noise", pattern: null, webgl: "gradient-noise", scale: 1 },
-			{ Name: "random", label: "Random Noise", pattern: null, webgl: "random", scale: 1 },
-			{ Name: "halftone", label: "Halftone", pattern: null, webgl: "halftone", scale: 1 },
-			{ Name: "curly", label: "Curly", pattern: null, webgl: "curly", scale: 8 },
-			{ Name: "voronoi", label: "Voronoi", pattern: null, webgl: "voronoi", scale: 4 },
-			{ Name: "curl", label: "Curl Noise", pattern: null, webgl: "curl", scale: 10 },
-			{ Name: "foliage", label: "Foliage", pattern: null, webgl: "foliage", scale: 10 },
-			{ Name: "ripples", label: "Ripples", pattern: null, webgl: "ripples", scale: 30 }
+			// scale feeds u_ditherScale and its meaning differs per pattern.
+			// grain:true means scale is a feature size in pixels that the "Grain" slider in
+			// the reduce panel may override; the others keep their fixed scale.
+			{ Name: "gradientnoise", amountDivisor: 3, label: "Gradient Noise", pattern: null, webgl: "gradient-noise", scale: 1 },
+			{ Name: "random", amountDivisor: 3, label: "Random Noise", pattern: null, webgl: "random", scale: 1 },
+			{ Name: "halftone", amountDivisor: 3, label: "Halftone", pattern: null, webgl: "halftone", scale: 1 },
+			{ Name: "curly", amountDivisor: 4, label: "Curly", pattern: null, webgl: "curly", scale: 8 },
+			{ Name: "voronoi", amountDivisor: 3, label: "Voronoi", pattern: null, webgl: "voronoi", scale: 4, grain: true },
+			{ Name: "curl", amountDivisor: 3, label: "Curl Noise", pattern: null, webgl: "curl", scale: 8, grain: true },
+			// fbm value noise - the clumpy "organic" dither. Base cell 2px reproduces the
+			// fine semi-random dot scatter seen in hand-dithered Amiga/ST artwork.
+			{ Name: "organic", amountDivisor: 3, label: "Organic Noise", pattern: null, webgl: "organic", scale: 2, grain: true },
+			{ Name: "ripples", amountDivisor: 3, label: "Ripples", pattern: null, webgl: "ripples", scale: 30 },
+			// ordered dithers driven by a generic threshold matrix: any width x height, values
+			// 0..255 read left-to-right / top-to-bottom, tiled over the image by the shader
+			// (and by the CPU fallback in remapImage). A "1-bit" pattern is just a matrix whose
+			// values are all 0 or 255. User-loaded patterns are appended after these, so keep
+			// adding new built-ins at the end - ditherIndex is a positional index.
+			{ Name: "hlines", amountDivisor: 5, label: "Horizontal Lines", pattern: null, webgl: "pattern", matrix: {width: 1, height: 2, values: [255, 0]} },
+			{ Name: "vlines", amountDivisor: 5, label: "Vertical Lines", pattern: null, webgl: "pattern", matrix: {width: 2, height: 1, values: [255, 0]} },
+			{ Name: "dots", amountDivisor: 5, label: "Dots", pattern: null, webgl: "pattern", matrix: {width: 2, height: 2, values: [255, 0, 0, 0]} },
+			{ Name: "checker2", amountDivisor: 5, label: "Checker 2x2", pattern: null, webgl: "pattern", matrix: {width: 2, height: 2, values: [255, 0, 0, 255]} },
+			{ Name: "bayer2", amountDivisor: 5, label: "Bayer 2x2", pattern: null, webgl: "pattern", matrix: {width: 2, height: 2, values: [0, 255, 170, 85]} },
+			{ Name: "bayer4", amountDivisor: 5, label: "Bayer 4x4", pattern: null, webgl: "pattern", matrix: {width: 4, height: 4, values: [
+				  0, 128,  32, 160,
+				192,  64, 224,  96,
+				 48, 176,  16, 144,
+				240, 112, 208,  80
+			]} },
+			// note: no "Bayer 8x8" - the "Bayer" entry above already is the 8x8 map
+			// Stamp scatter dithers (spec 023). CPU only - these work by PLACEMENT against an
+			// occupancy grid, which no per-pixel shader function can do. No `webgl` key, so
+			// remapImage routes them to stampDither instead of the quantizer. `scale` is the
+			// largest shape dimension in px and the Grain slider overrides it. No
+			// amountDivisor: for these amount scales coverage demand and 100% is exactly the
+			// tone-accurate maximum, so the full range is meaningful.
+			{ Name: "stampswirls", label: "Swirls", pattern: null, stamp: "swirls", scale: 5, grain: true },
+			{ Name: "stampmaze", label: "Maze", pattern: null, stamp: "maze", scale: 4, grain: true },
+			{ Name: "stampdots", label: "Scattered Dots", pattern: null, stamp: "dots", scale: 7, grain: true }
 		];
+
+	// how many entries are built in; everything past this index is a user-loaded pattern
+	var builtinDitherCount = dithering.length;
 	var ditherPattern = null;
 	var ditherWebGL = null;
+	var ditherStamp = null;
+	// Alpha cut-off as a raw 0-255 alpha BYTE, which is what every comparison against it uses
+	// (matting, getColors, remapImage, the transparent-index scan). The reduce panel's slider is
+	// a percentage, so me.reduce() converts it — see there.
 	var alphaThreshold = 44;
 	var mattingColor = "rgb(149,149,149)";
 	//mattingColor = "rgb(192,192,192)";
@@ -51,6 +90,63 @@ var ImageProcessing = function(){
 	me.getDithering = function(){
 		return dithering;
 	};
+
+	// true if dithering[index] is a user-loaded threshold matrix rather than a built-in
+	me.isUserDither = function(index){
+		return parseInt(index) >= builtinDitherCount;
+	};
+
+	me.MAX_DITHER_PATTERN_SIZE = 64;
+
+	// register a user threshold matrix {width,height,values:[0..255]} as a new dither entry.
+	// returns the new ditherIndex, or -1 when the matrix is not usable.
+	me.addPatternDither = function(label,matrix){
+		if (!validPatternMatrix(matrix)) return -1;
+		let entry = {label: label || "Pattern", matrix: matrix};
+		Storage.put("ditherpattern",entry);
+		return pushPatternDither(entry) ;
+	};
+
+	// remove a user-loaded pattern. Built-in indices are refused.
+	me.removePatternDither = function(index){
+		index = parseInt(index);
+		if (!me.isUserDither(index) || index >= dithering.length) return false;
+		Storage.remove("ditherpattern",index - builtinDitherCount);
+		dithering.splice(index,1);
+		return true;
+	};
+
+	function validPatternMatrix(matrix){
+		if (!matrix || !Array.isArray(matrix.values)) return false;
+		let w = matrix.width;
+		let h = matrix.height;
+		if (!w || !h || w < 1 || h < 1) return false;
+		if (w > me.MAX_DITHER_PATTERN_SIZE || h > me.MAX_DITHER_PATTERN_SIZE) return false;
+		return matrix.values.length === w * h;
+	}
+
+	function pushPatternDither(entry){
+		dithering.push({
+			Name: "userpattern",
+			amountDivisor: 5,   // same reduced range as the built-in threshold matrices
+			label: entry.label,
+			pattern: null,
+			webgl: "pattern",
+			matrix: entry.matrix
+		});
+		return dithering.length - 1;
+	}
+
+	// user patterns live in localStorage and are appended after the built-ins on startup,
+	// which keeps every built-in ditherIndex fixed
+	(function restorePatternDithers(){
+		let stored = Storage.get("ditherpattern");
+		if (stored && stored.forEach){
+			stored.forEach(entry=>{
+				if (entry && validPatternMatrix(entry.matrix)) pushPatternDither(entry);
+			});
+		}
+	})();
 
 
 	me.matting = function(canvas){
@@ -156,10 +252,17 @@ var ImageProcessing = function(){
 
 	};
 	
-	me.reduce = function(canvas,colors,_alphaThreshold,ditherIndex,useAlphaThreshold,ditherAmount,quantizationMethod){
+	// `canvas` is always a copy of the ACTIVE LAYER's own canvas (see Palette.reduce), so the
+	// reduced result goes straight back onto that layer at pixel 0,0. It must never be the
+	// document composite: that would bake every other visible layer into the one being reduced.
+	me.reduce = function(canvas,colors,_alphaThreshold,ditherIndex,useAlphaThreshold,ditherAmount,quantizationMethod,ditherGrain,ditherVariance){
 
-		alphaThreshold = _alphaThreshold || 0;
-		ditherPattern = prepareDither(ditherIndex,ditherAmount);
+		// `_alphaThreshold` comes from the reduce panel's slider, which is a PERCENTAGE (0-100,
+		// and its label says "%"); everything downstream compares it against a 0-255 alpha byte.
+		// Passing it through unscaled made "44%" cut at alpha 44 (17%) and put the whole top
+		// half of the slider out of reach - 100% still only meant 39%.
+		alphaThreshold = Math.round(Math.max(0, Math.min(100, _alphaThreshold || 0)) * 255 / 100);
+		ditherPattern = prepareDither(ditherIndex,ditherAmount,ditherGrain,ditherVariance);
 
 		var bitsPerColor = 3;
 		
@@ -182,20 +285,35 @@ var ImageProcessing = function(){
 	// remap a canvas onto a fixed palette with the given dither settings.
 	// unlike reduce() this doesn't touch the image file, palette or history and triggers no events;
 	// used a.o. by the palette-locked display filter for the effect-panel live preview.
-	me.remap = function(canvas,palette,ditherIndex,ditherAmount){
-		let pattern = prepareDither(ditherIndex,ditherAmount);
+	me.remap = function(canvas,palette,ditherIndex,ditherAmount,ditherGrain,ditherVariance){
+		let pattern = prepareDither(ditherIndex,ditherAmount,ditherGrain,ditherVariance);
 		let colors = palette.map(c => typeof c === "string" ? Color.fromString(c) : c);
 		remapImage(canvas, colors, pattern);
 	};
 
 	// scales the dither pattern of dithering[ditherIndex] by ditherAmount (0-100)
-	// and sets ditherWebGL for shader-only dither types
-	function prepareDither(ditherIndex,ditherAmount){
+	// and sets ditherWebGL for shader-only dither types.
+	// ditherGrain (px) overrides entry.scale for entries that declare grain:true.
+	// ditherVariance (0-100) narrows the stamp pools' shape-size window; stamp entries only.
+	//
+	// entry.amountDivisor shrinks the useful range of the Dither Amount slider: these
+	// patterns were far too strong over most of the slider, so 100% now maps to what
+	// (100/divisor)% used to give. Applied once here, so it reaches both the shader
+	// (via ditherWebGL.amount) and the CPU ordered/matrix paths (via the scaled pattern).
+	// Error diffusion and Checks have no divisor - their full range is usable.
+	function prepareDither(ditherIndex,ditherAmount,ditherGrain,ditherVariance){
 		let entry = dithering[ditherIndex || 0] || dithering[0];
 		if (typeof ditherAmount === "undefined") ditherAmount = 100;
 		var amount = ditherAmount/100;
+		if (entry.amountDivisor) amount = amount / entry.amountDivisor;
+		var scale = entry.scale || 1;
+		if (entry.grain && ditherGrain) scale = ditherGrain;
 
-		ditherWebGL = entry.webgl ? {type: entry.webgl, amount: amount, scale: entry.scale || 1} : null;
+		ditherWebGL = entry.webgl ? {type: entry.webgl, amount: amount, scale: scale, matrix: entry.matrix || null} : null;
+		// fixed seed: the scatter must be identical across repeated previews of the same
+		// settings, otherwise the preview would reshuffle on every slider nudge
+		ditherStamp = entry.stamp ? {pool: entry.stamp, amount: amount, grain: scale, seed: 0x5f3759df,
+			variance: (typeof ditherVariance === "number" ? ditherVariance : 100) / 100} : null;
 
 		let pattern = entry.pattern;
 		if (pattern){
@@ -238,15 +356,34 @@ var ImageProcessing = function(){
 	
 	function remapImage(canvas, palette, ditherPattern) {
 
+        // placement-based dither: needs the whole image at once, so it can't go through the
+        // per-pixel shader or the scanline CPU loop below
+        if (ditherStamp){
+            stampDither(canvas, palette, ditherStamp);
+            return;
+        }
+
         let ditherType = null;
         let ditherAmount = 0;
         let ditherScale = 1.0;
+        // generic threshold matrix (Horizontal Lines, Dots, user patterns, ...). Unlike the
+        // procedural shader dithers this one has a CPU equivalent, so keep it around for the
+        // fallback path below.
+        let orderedMatrix = null;
 
         if (ditherWebGL) {
             // procedural dither that only exists in the shader
             ditherType = ditherWebGL.type;
             ditherAmount = ditherWebGL.amount * palette.length; // Adaptation for shader logic
             ditherScale = ditherWebGL.scale;
+            if (ditherWebGL.matrix){
+                orderedMatrix = {
+                    width: ditherWebGL.matrix.width,
+                    height: ditherWebGL.matrix.height,
+                    values: ditherWebGL.matrix.values,
+                    amount: ditherWebGL.amount
+                };
+            }
         } else if (!ditherPattern) {
             ditherType = "none";
         } else if (ditherPattern.length > 16) {
@@ -259,7 +396,7 @@ var ImageProcessing = function(){
              // ensure palette is compatible (array of arrays or objects -> array of arrays handled by webgl-quantizer now?)
              // actually webgl-quantizer handles objects now.
              // But we need to make sure we don't pass weird stuff.
-             let success = runWebGLQuantizer(canvas, palette, ditherType, null, ditherAmount, ditherScale);
+             let success = runWebGLQuantizer(canvas, palette, ditherType, ditherWebGL && ditherWebGL.matrix, ditherAmount, ditherScale);
              if (success) return;
              // webgl failed: fall through to the CPU path (plain remap for shader-only dithers)
         }
@@ -322,7 +459,18 @@ var ImageProcessing = function(){
 				var TrueGreen = SRGB_TO_RGB[Green];
 				var TrueBlue = SRGB_TO_RGB[Blue];
 
-				if (ditherPattern && ditherPattern.length>16){
+				if (orderedMatrix){
+					// Generic threshold matrix, tiled from the pixel coordinate.
+					// Same offset as the shader: (value - 0.5) * amount in 0..1 colour space,
+					// so the CPU fallback and the WebGL path agree.
+					var m = orderedMatrix;
+					var mValue = m.values[(X % m.width) + (Y % m.height) * m.width] / 255;
+					var mOffset = (mValue - 0.5) * m.amount * 255;
+
+					TrueRed = SrgbToRgb(Math.max(0, Math.min(255, Red + mOffset)));
+					TrueGreen = SrgbToRgb(Math.max(0, Math.min(255, Green + mOffset)));
+					TrueBlue = SrgbToRgb(Math.max(0, Math.min(255, Blue + mOffset)));
+				}else if (ditherPattern && ditherPattern.length>16){
 					// Bayer / Ordered Dither
 					// Pattern values are 0..1
 					// Center them around 0 (-0.5 .. 0.5)
@@ -761,10 +909,14 @@ var ImageProcessing = function(){
 				palette.sort(function (c1, c2) { return (SrgbToRgb(c1[0]) * 0.21 + SrgbToRgb(c1[1]) * 0.72 + SrgbToRgb(c1[2]) * 0.07) - (SrgbToRgb(c2[0]) * 0.21 + SrgbToRgb(c2[1]) * 0.72 + SrgbToRgb(c2[2]) * 0.07) });
 			}
 
-			let f = ImageFile.getCurrentFile();
+			// The reduced copy is this layer's own canvas, so it goes back where it came from.
+			// Clear the WHOLE canvas, not a document-sized rect: a layer's canvas can be bigger
+			// than the document, and the leftover strip would keep its unreduced pixels.
 			let ctx = ImageFile.getActiveContext();
-			ctx.clearRect(0,0,f.width,f.height);
-			ctx.drawImage(canvas,0,0);
+			if (ctx){
+				ctx.clearRect(0,0,ctx.canvas.width,ctx.canvas.height);
+				ctx.drawImage(canvas,0,0);
+			}
 			EventBus.trigger(EVENT.paletteProcessingEnd);
 			EventBus.trigger(EVENT.layerContentChanged,{keepImageCache:true});
 			Palette.set(palette);

@@ -669,7 +669,10 @@ let SelectBox = ((editor,resizer)=>{
         if (!layer || layer.locked || layer.type === "group" || isVector(layer)) return;
         if (!selection.width || !selection.height) return;
         let layerCtx = layer.getContext();
-        let offset = ImageFile.getLayerOffset();
+        // Everything below (the mask placement and the remap in updatePixelFloat) works in the
+        // layer's own CANVAS space, so the canvas origin counts on top of the layer offset —
+        // see ImageFile.getLayerCanvasOffset.
+        let offset = ImageFile.getLayerCanvasOffset();
         let w = ImageFile.getCurrentFile().width;
         let h = ImageFile.getCurrentFile().height;
 

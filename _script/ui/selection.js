@@ -202,8 +202,11 @@ let Selection = function(){
             let layer = ImageFile.getActiveLayer(); 
 
             // The selection is expressed in document coordinates; the mask and the layer
-            // canvas are in the layer's own space, so shift by the layer's resolved offset.
-            let offset = ImageFile.getLayerOffset();
+            // canvas are in the duplicate's own CANVAS space, so shift by its resolved offset
+            // AND its canvas origin (the canvas is not pinned to the layer origin — see
+            // getLayerCanvasOffset). Using the plain layer offset here put the mask off by the
+            // canvas origin on any layer that had been moved and painted on.
+            let offset = ImageFile.getLayerCanvasOffset();
 
             if (currentSelection.points || currentSelection.canvas){
                 layer.addMask();
@@ -257,17 +260,21 @@ let Selection = function(){
                      if (originalLayer.markVectorDirty) originalLayer.markVectorDirty();
                      EventBus.trigger(EVENT.vectorChanged);
                  } else {
+                     // Erasing pixels addresses the layer's own canvas, so the canvas origin
+                     // counts on top of the layer offset (getLayerCanvasOffset) — without it the
+                     // hole landed next to the selection on a moved-and-painted layer.
+                     let cutCanvasOffset = ImageFile.getLayerCanvasOffset(sourceLayerIndex);
                      let layerCtx = originalLayer.getContext();
                      layerCtx.globalCompositeOperation = "destination-out";
                      if (s.points || s.canvas){
                           if (s.canvas){
-                              layerCtx.drawImage(s.canvas,-cutOffset.x,-cutOffset.y);
+                              layerCtx.drawImage(s.canvas,-cutCanvasOffset.x,-cutCanvasOffset.y);
                           } else {
                               let mask = me.getCanvas();
-                              layerCtx.drawImage(mask,-cutOffset.x,-cutOffset.y);
+                              layerCtx.drawImage(mask,-cutCanvasOffset.x,-cutCanvasOffset.y);
                           }
                      } else {
-                         layerCtx.clearRect(s.left - cutOffset.x,s.top - cutOffset.y,s.width,s.height);
+                         layerCtx.clearRect(s.left - cutCanvasOffset.x,s.top - cutCanvasOffset.y,s.width,s.height);
                      }
                      layerCtx.globalCompositeOperation = "source-over";
                  }

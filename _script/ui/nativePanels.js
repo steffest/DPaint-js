@@ -245,7 +245,7 @@ let NativePanels = (function(){
         });
         manager.register({
             id:"reduce", label:"Reduce Colors", defaultContainer:"left", defaultOrder:7,
-            defaultCollapsed:true, height:290,
+            defaultCollapsed:true, height:376,
             content:(inner)=>{ Palette.generateControlPanel(inner); }
         });
         // Timeline: bottom container when useBottomPanel is on (seed only), else left.

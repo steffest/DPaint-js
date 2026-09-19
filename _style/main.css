@@ -6528,5 +6528,97 @@ body.hovercanvas.pointerdown.cursor-colorpicker .cursor .mark.large {
     display: block;
   }
 }
+.drop-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 5000;
+  pointer-events: none;
+  background-color: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+}
+.drop-overlay.active {
+  display: flex;
+}
+.drop-overlay .drop-box {
+  background-color: #313335;
+  border: 1px solid #111;
+  border-top-color: #8c8c8c;
+  border-left-color: #8c8c8c;
+  outline: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.7);
+  padding: 18px 28px;
+  min-width: 260px;
+  max-width: 85vw;
+  text-align: center;
+  color: #DDDDDD;
+  user-select: none;
+  transition: outline-color 0.15s ease, border-color 0.15s ease;
+}
+.drop-overlay .drop-box .drop-icon {
+  margin: 0 auto 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+}
+.drop-overlay .drop-box .drop-icon svg {
+  width: 32px;
+  height: 32px;
+}
+.drop-overlay .drop-box .drop-title {
+  font-size: 15px;
+  font-weight: bold;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  font-family: sans-serif;
+}
+.drop-overlay .drop-box .drop-sub {
+  font-size: 12px;
+  color: #adadad;
+  line-height: 1.4;
+}
+.drop-overlay .drop-box .drop-hint-key {
+  display: inline-block;
+  border: 1px solid #666;
+  background-color: #1a1a1a;
+  color: #fff;
+  padding: 1px 5px;
+  border-radius: 2px;
+  font-family: monospace;
+  font-size: 11px;
+  font-weight: bold;
+  margin: 0 2px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+.drop-overlay.mode-layer .drop-box {
+  border-top-color: #cdf349;
+  border-left-color: #cdf349;
+  outline: 1px solid #b1e00f;
+}
+.drop-overlay.mode-layer .drop-box .drop-icon {
+  color: #b1e00f;
+}
+.drop-overlay.mode-layer .drop-box .drop-title {
+  color: #b1e00f;
+}
+.drop-overlay.mode-file .drop-box {
+  outline: 1px solid rgba(255, 255, 255, 0.35);
+}
+.drop-overlay.mode-file .drop-box .drop-icon {
+  color: #ffffff;
+}
+.drop-overlay.mode-file .drop-box .drop-title {
+  color: #ffffff;
+}
 
 /*# sourceMappingURL=main.css.map */

@@ -13,6 +13,8 @@ import ToolOptions from "./components/toolOptions.js";
 import {getVectorToolIfLoaded} from "../paintTools/vectorToolLoader.js";
 import LayerPanel from "./toolPanels/layerPanel.js";
 import {isGroup} from "../util/layerUtils.js";
+import DropIndicator from "./dropIndicator.js";
+
 
 var Input = function(){
 	let me = {}
@@ -48,10 +50,17 @@ var Input = function(){
 		window.addEventListener("delete", handleDelete,false);
 		window.addEventListener("dragenter", handleDragEnter,false);
 		window.addEventListener("dragover", handleDragOver,false);
+		window.addEventListener("dragleave", handleDragLeave,false);
 		window.addEventListener("drop", handleDrop,false);
+		window.addEventListener("dragend", handleDragEnd,false);
 
 		EventBus.on(COMMAND.COPY,handleCopy);
 		EventBus.on(COMMAND.PASTE,handlePaste);
+		EventBus.on(EVENT.modifierKeyChanged, function(){
+			if (DropIndicator.isVisible()){
+				DropIndicator.update(me.isShiftDown());
+			}
+		});
 	}
 
 	me.isSpaceDown = function(){
@@ -433,6 +442,7 @@ var Input = function(){
 					case "l": EventBus.trigger(COMMAND.TOSELECTION); break;
 					case "p": EventBus.trigger(COMMAND.COLORSELECT); break;
 					case "r": EventBus.trigger(COMMAND.TOGGLERULERS); break;
+					case "s": EventBus.trigger(COMMAND.SAVEAS); break;
 					case "x": EventBus.trigger(COMMAND.INFO); break;
 					case "arrowdown": EventBus.trigger(COMMAND.MERGEDOWN); break;
 				}
@@ -672,25 +682,66 @@ var Input = function(){
 		console.log("delete");
 	}
 
+	let dragDepth = 0;
+
+	function isFileDrag(e){
+		if (!e || !e.dataTransfer) return false;
+		let types = e.dataTransfer.types;
+		if (!types || !types.length) return true;
+		return types.includes ? types.includes("Files") : Array.from(types).indexOf("Files") >= 0;
+	}
+
 	function handleDragEnter(e) {
 		e.stopPropagation();
 		e.preventDefault();
+		dragDepth++;
+		let isShift = !!(e && (e.shiftKey || me.isShiftDown()));
+		if (e.dataTransfer) {
+			e.dataTransfer.dropEffect = isShift ? "copy" : "move";
+		}
+		if (isFileDrag(e)){
+			DropIndicator.show(isShift);
+		}
 	}
 
 	function handleDragOver(e){
 		e.stopPropagation();
 		e.preventDefault();
+		let isShift = !!(e && (e.shiftKey || me.isShiftDown()));
+		if (e.dataTransfer) {
+			e.dataTransfer.dropEffect = isShift ? "copy" : "move";
+		}
+		if (isFileDrag(e)){
+			DropIndicator.show(isShift);
+			DropIndicator.update(isShift);
+		}
+	}
+
+	function handleDragLeave(e){
+		e.stopPropagation();
+		e.preventDefault();
+		dragDepth--;
+		if (dragDepth <= 0){
+			dragDepth = 0;
+			DropIndicator.hide();
+		}
+	}
+
+	function handleDragEnd(){
+		dragDepth = 0;
+		DropIndicator.hide();
 	}
 
 	function handleDrop(e){
 		e.preventDefault();
-		//console.error("Drop");
-		//console.error(e);
+		dragDepth = 0;
+		DropIndicator.hide();
 
 		var dt = e.dataTransfer;
-		var files = dt.files;
+		var files = dt ? dt.files : null;
 
-		ImageFile.handleUpload(files,"file")
+		var target = (e && (e.shiftKey || me.isShiftDown())) ? "frame" : "file";
+		ImageFile.handleUpload(files, target);
 
 	}
 	

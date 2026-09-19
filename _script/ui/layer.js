@@ -426,7 +426,13 @@ let Layer = function(width,height,name){
         EventBus.trigger(EVENT.layerContentChanged);
     }
 
-    me.drawImage = function(image,x,y){
+    // `options` (optional) is the compositing state to draw WITH: {alpha: 0..1, blendMode}.
+    // It has to be passed here rather than set on the context by the caller beforehand:
+    // ensureLocalRect() below may resize the canvas to fit the image, and resizing a canvas
+    // RESETS its 2D context state — which silently wiped a caller's globalAlpha/blend mode
+    // (that is how merging a layer whose offset differs from the one below it, and which
+    // therefore grew its canvas, lost the merged layer's opacity and blend mode entirely).
+    me.drawImage = function(image,x,y,options){
         x=x||0;y=y||0;
         if (image){
             me.ensureLocalRect(x, y, image.width, image.height);
@@ -435,7 +441,15 @@ let Layer = function(width,height,name){
         let by = y - (me.canvasY || 0);
         let _ctx = me.getContext();
         _ctx.imageSmoothingEnabled = false;
+        if (options){
+            if (typeof options.alpha === "number") _ctx.globalAlpha = Math.max(0, Math.min(1, options.alpha));
+            if (options.blendMode) _ctx.globalCompositeOperation = options.blendMode;
+        }
         _ctx.drawImage(image,bx,by);
+        if (options){
+            _ctx.globalAlpha = 1;
+            _ctx.globalCompositeOperation = "source-over";
+        }
         me.update();
     }
 
@@ -593,6 +607,17 @@ let Layer = function(width,height,name){
 
     me.isMaskEnabled = ()=>{
         return maskEnabled;
+    }
+
+    // Re-derives the alpha layer render() uses from the mask bitmap. update() only does that
+    // while mask editing is active, but undo/redo can put mask pixels back when it is not — and
+    // then the layer would keep compositing through the pre-undo alpha.
+    me.syncMask = ()=>{
+        if (!mask) return;
+        let wasActive = maskActive;
+        maskActive = true;
+        me.update();
+        maskActive = wasActive;
     }
 
     me.update = (_maskCtx)=>{
@@ -830,6 +855,14 @@ let Layer = function(width,height,name){
             bitmap.then(image=>{
                 // no w/h in the struct: the bitmap is the only record of the real size
                 if (image) sizeCanvasTo(image.width, image.height);
+                // restore REPLACES this layer's pixels, it never composites onto them. The
+                // canvas is usually already empty (a fresh Layer, or sizeCanvasTo resized and
+                // thereby cleared it), but not when restoring over a live layer at an unchanged
+                // size — undo does exactly that. Drawing the snapshot over the current content
+                // left every pixel the snapshot has transparent showing whatever was painted
+                // there: an undone flood fill stayed on the layer, and restoring an empty
+                // snapshot did nothing at all.
+                ctx.clearRect(0,0,canvas.width,canvas.height);
                 if (image) ctx.drawImage(image,0,0);
                 else if (struct.indexedPixels) restoreIndexedPixels(struct.indexedPixels);
 
@@ -844,12 +877,7 @@ let Layer = function(width,height,name){
                     if (maskImage) maskCtx.drawImage(maskImage,0,0);
                 });
             }).then(()=>{
-                if (struct.mask){
-                    let a = maskActive;
-                    maskActive = true;
-                    me.update();
-                    maskActive = a;
-                }
+                if (struct.mask) me.syncMask();
                 next();
             });
         });

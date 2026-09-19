@@ -34,7 +34,7 @@ const fragmentShaderSource = `
     uniform sampler2D u_palette;
     uniform sampler2D u_bayerMatrix;
     uniform float u_paletteSize;
-    uniform int u_ditherType; // 0: none, 1: bayer/pattern, 2: gradient noise, 3: random, 4: halftone, 5: curly, 6: voronoi, 7: curl, 8: foliage, 9: ripples
+    uniform int u_ditherType; // 0: none, 1: bayer/pattern, 2: gradient noise, 3: random, 4: halftone, 5: curly, 6: voronoi, 7: curl, 8: organic noise (fbm), 9: ripples
     uniform vec2 u_ditherMatrixSize;
     uniform vec2 u_resolution;
     uniform float u_ditherAmount;
@@ -136,12 +136,12 @@ const fragmentShaderSource = `
         return vec2(dy, -dx);
     }
 
-    // Foliage pattern
+    // Value noise, used by the organic fbm dither below
     float random(vec2 st) {
         return fract(sin(dot(st.xy, vec2(12.9898,78.233))) * 43758.5453123);
     }
 
-    float foliage_noise (vec2 st) {
+    float value_noise (vec2 st) {
         vec2 i = floor(st);
         vec2 f = fract(st);
         float a = random(i);
@@ -152,26 +152,29 @@ const fragmentShaderSource = `
         return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
     }
 
-    float foliage_fbm (vec2 st) {
+    // fbm of value noise, normalised to 0..1 with mean 0.5 so it can be centred and used
+    // as a dither offset. The caller scales st, so one lattice step = u_ditherScale pixels.
+    float organic_fbm (vec2 st) {
         float value = 0.0;
         float amplitude = 0.5;
-        float frequency = 0.0;
-        for (int i = 0; i < 5; i++) {
-            value += amplitude * foliage_noise(st * frequency * u_ditherScale);
+        float norm = 0.0;
+        for (int i = 0; i < 4; i++) {
+            value += amplitude * value_noise(st);
+            norm += amplitude;
             st *= 2.0;
             amplitude *= 0.5;
-            frequency = frequency == 0.0 ? 1.0 : frequency;
         }
-        return value;
+        return value / norm;
     }
 
-    // Water ripples pattern
+    // Water ripples pattern. Two beating sines at full amplitude, mapped to 0..1 with mean
+    // 0.5 - the original summed to 0.5 +/- 0.04, far too weak to cross a quantisation step.
     float ripples(vec2 st) {
         vec2 center = vec2(0.5, 0.5);
         float dist = distance(st, center);
-        float ripple = sin(dist * u_ditherScale * 10.0) * 0.05 + 0.5;
-        float ripple2 = sin(dist * u_ditherScale * 6.0 + 2.0) * 0.03 + 0.5;
-        return (ripple + ripple2) * 0.5;
+        float ripple = sin(dist * u_ditherScale * 10.0);
+        float ripple2 = sin(dist * u_ditherScale * 6.0 + 2.0);
+        return (ripple + ripple2) * 0.25 + 0.5;
     }
 
 
@@ -197,15 +200,19 @@ const fragmentShaderSource = `
             float ditherValue = voronoi(uv) - 0.5;
             finalColor = originalColor.rgb + ditherValue * u_ditherAmount / u_paletteSize;
         } else if (u_ditherType == 7) { // Curl Noise Dithering
-            vec3 p = vec3(gl_FragCoord.xy / u_resolution * u_ditherScale, 0.0);
+            // u_ditherScale is the feature size in pixels, so the grain does not change
+            // with canvas size. Use a signed curl component, not length(), which is never
+            // negative and so biased the whole image brighter instead of dithering it.
+            vec3 p = vec3(gl_FragCoord.xy / max(u_ditherScale, 0.5), 0.0);
             vec2 c = curlNoise(p);
-            float ditherValue = length(c) * 0.5;
+            float ditherValue = clamp(c.x * 0.6, -0.5, 0.5);
             finalColor = originalColor.rgb + ditherValue * u_ditherAmount / u_paletteSize;
-        } else if (u_ditherType == 8) { // Foliage Dithering
-            vec2 st = gl_FragCoord.xy / u_resolution.xy;
-            st.x *= u_resolution.x / u_resolution.y;
-            vec2 noise_st = st;
-            float ditherValue = foliage_fbm(noise_st);
+        } else if (u_ditherType == 8) { // Organic Noise (fbm clouds)
+            // u_ditherScale is the base cell size in pixels. The gain widens the fbm's
+            // naturally narrow distribution to something comparable to an ordered matrix;
+            // the clamp turns the tails into solid areas, which is what the look wants.
+            vec2 st = gl_FragCoord.xy / max(u_ditherScale, 0.5);
+            float ditherValue = clamp((organic_fbm(st) - 0.5) * 2.5, -0.5, 0.5);
             finalColor = originalColor.rgb + ditherValue * u_ditherAmount / u_paletteSize;
         } else if (u_ditherType == 9) { // Ripples Dithering
             vec2 st = gl_FragCoord.xy / u_resolution.xy;
@@ -226,7 +233,13 @@ const fragmentShaderSource = `
             }
         }
 
-        gl_FragColor = vec4(closestColor, 1.0);
+        // Keep the pixel's own alpha: quantizing colours must not turn transparency opaque.
+        // (It used to emit 1.0 here, which made every transparent pixel a solid nearest-to-black
+        // palette colour — so a locked-palette apply/reduce lost the layer's transparency and the
+        // locked display painted empty areas black.) The drawing buffer is premultiplied, and the
+        // source texture is uploaded unpremultiplied so the distance loop above sees the true
+        // colour, so premultiply on the way out.
+        gl_FragColor = vec4(closestColor * originalColor.a, originalColor.a);
     }
 `;
 
@@ -285,6 +298,19 @@ function createProgram(gl, vertexShader, fragmentShader) {
     return program;
 }
 
+// matrix values are 0..1 row-major from the top; GL wants them bottom-up (see the upload site)
+function flipMatrixRows(values, size) {
+    const w = size.width;
+    const h = size.height;
+    const out = new Uint8Array(w * h);
+    for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++) {
+            out[(h - 1 - y) * w + x] = values[y * w + x] * 255;
+        }
+    }
+    return out;
+}
+
 function runWebGLQuantizer(canvas, palette, dither, ditherPatternImage, ditherAmount, ditherScale) {
     let perf = window.performance || {};
     let t0 = perf.now();
@@ -317,6 +343,10 @@ function runWebGLQuantizer(canvas, palette, dither, ditherPatternImage, ditherAm
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
 
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+    // Unpremultiplied upload: the default premultiplies the canvas, which hands the palette
+    // distance loop a semi-transparent pixel's DARKENED colour and so snaps it to the wrong
+    // entry. The shader premultiplies again on output (the drawing buffer is premultiplied).
+    gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
     const imageTexture = gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D, imageTexture);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, canvas);
@@ -362,28 +392,52 @@ function runWebGLQuantizer(canvas, palette, dither, ditherPatternImage, ditherAm
         ditherValue = 6;
     } else if (dither === 'curl') {
         ditherValue = 7;
-    } else if (dither === 'foliage') {
+    } else if (dither === 'organic') {
         ditherValue = 8;
     } else if (dither === 'ripples') {
         ditherValue = 9;
     } else if (dither === 'pattern' && ditherPatternImage) {
         ditherValue = 1; // Reuse bayer/matrix dither logic
-        useCustomPattern = true;
         ditherMatrixSize = { width: ditherPatternImage.width, height: ditherPatternImage.height };
+        if (Array.isArray(ditherPatternImage.values)) {
+            // plain threshold matrix {width,height,values:[0..255]} - same shape as the
+            // built-in maps above, which are stored 0..1
+            ditherMatrix = ditherPatternImage.values.map(x => x / 255);
+        } else {
+            // canvas / image element
+            useCustomPattern = true;
+        }
     }
 
     const bayerMatrixTexture = gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D, bayerMatrixTexture);
 
+    // UNPACK_ALIGNMENT must drop to 1: LUMINANCE rows are otherwise padded to the alignment
+    // (default 4), which rejects any matrix width that isn't a multiple of 4 - a 1x2 matrix
+    // would need 8 bytes while supplying 2.
+    gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+
     if (useCustomPattern) {
+        // an image element: let the driver flip it, same as the source image above, so the
+        // pattern tiles in the orientation it was drawn in
+        gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
         gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, ditherPatternImage);
     } else {
-        gl.texImage2D(gl.TEXTURE_2D, 0, gl.LUMINANCE, ditherMatrixSize.width, ditherMatrixSize.height, 0, gl.LUMINANCE, gl.UNSIGNED_BYTE, new Uint8Array(ditherMatrix.map(x => x * 255)));
+        // Raw threshold data. The image texture is uploaded flipped, so the matrix has to be
+        // flipped too or an asymmetric pattern tiles upside down. Do it here rather than with
+        // UNPACK_FLIP_Y_WEBGL, which is only specified to affect the DOM-element overloads of
+        // texImage2D and is free to ignore an ArrayBufferView.
+        gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.LUMINANCE, ditherMatrixSize.width, ditherMatrixSize.height, 0, gl.LUMINANCE, gl.UNSIGNED_BYTE, flipMatrixRows(ditherMatrix, ditherMatrixSize));
     }
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
+    // CLAMP_TO_EDGE, not REPEAT: the shader already wraps the coordinate itself
+    // (mod(fragCoord,size)/size never reaches a border texel), and in WebGL 1 a
+    // non-power-of-two texture with REPEAT is incomplete and samples as black - which
+    // would break every user pattern with an NPOT dimension.
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 
     gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
     gl.useProgram(program);
@@ -413,7 +467,12 @@ function runWebGLQuantizer(canvas, palette, dither, ditherPatternImage, ditherAm
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
     const ctx = canvas.getContext('2d');
+    // "copy", not the default source-over: the result now carries transparency, and compositing
+    // it over the unquantized original would leave those pixels showing through underneath.
+    let previousOperation = ctx.globalCompositeOperation;
+    ctx.globalCompositeOperation = "copy";
     ctx.drawImage(glCanvas, 0, 0);
+    ctx.globalCompositeOperation = previousOperation;
 
     let t1 = perf.now();
     // Hot-path timing is opt-in only (spec 016 R1.1): no per-invocation console

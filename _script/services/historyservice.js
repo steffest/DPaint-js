@@ -43,7 +43,14 @@ let HistoryService = function(){
         // undo runs, so a layer step must not resolve its layer through "whatever is active
         // now" — see ImageFile.getLayerInTarget (spec 004 design 3.9).
         currentHistory.data.target = ImageFile.getHistoryTarget();
-        let index = ImageFile.getActiveLayerIndex();
+        // The active layer's PATH, not its flat index: a flat index is resolved as a top-level
+        // index on the way back (toPath(3) → [3]), so a step recorded on a layer inside a group
+        // came back out as the group — undo then wrote the pixels into the group's composite
+        // buffer and the edit stayed on screen. Copied, since activeLayerPath is live.
+        let activePath = ImageFile.getActiveLayerPath ? ImageFile.getActiveLayerPath() : undefined;
+        let index = Array.isArray(activePath) && activePath.length
+            ? activePath.slice()
+            : ImageFile.getActiveLayerIndex();
         // data may be a flat layer index (number) or a path array (number[]) pointing
         // into nested groups. Honour either so property history targets the right node.
         if (typeof data === "number" || Array.isArray(data)) index = data;
@@ -54,18 +61,36 @@ let HistoryService = function(){
                 // Spec 016 phase 5: instead of storing two full copies of the layer (a "from"
                 // and a "to" canvas), record only the 128×128 tiles that actually change.
                 // Capture the whole active layer's before-image now, split into tiles; end()
-                // reads it again and keeps just the tiles that differ. readRegion re-fetches the
-                // active context each call so a tool that swaps the layer canvas mid-step still
-                // diffs the right pixels.
+                // reads it again and keeps just the tiles that differ.
                 {
-                    let startCtx = ImageFile.getActiveContext();
-                    let w = startCtx.canvas.width, h = startCtx.canvas.height;
-                    let recorder = createPatchRecorder({
-                        width: w, height: h,
-                        readRegion: (x,y,rw,rh)=> ImageFile.getActiveContext().getImageData(x,y,rw,rh).data
-                    });
-                    recorder.beforeWrite({x:0,y:0,width:w,height:h});
-                    currentHistory.data.recorder = recorder;
+                    // A tool draws into the layer's MASK while mask editing is active, so record
+                    // which of the two buffers this step belongs to and resolve it through the
+                    // LAYER from here on (see rasterContext). Reading "whatever is active now"
+                    // instead meant that leaving mask mode before undoing put the mask's
+                    // before-image onto the layer's own pixels, wiping the artwork.
+                    let activeLayer = ImageFile.getActiveLayer();
+                    let onMask = !!(activeLayer && activeLayer.isMaskActive && activeLayer.isMaskActive());
+                    currentHistory.data.onMask = onMask;
+                    let startCtx = rasterContext(activeLayer, onMask);
+                    // No paintable buffer (a group or vector layer is active): nothing to record.
+                    // end() falls back to a full snapshot, which handles a missing recorder.
+                    if (startCtx){
+                        let w = startCtx.canvas.width, h = startCtx.canvas.height;
+                        let target = currentHistory.data.target;
+                        let layerRef = currentHistory.data.layerIndex;
+                        let recorder = createPatchRecorder({
+                            width: w, height: h,
+                            // Re-resolved on every call so a tool that swaps the layer's canvas
+                            // mid-step still diffs the right pixels.
+                            readRegion: (x,y,rw,rh)=>{
+                                let l = ImageFile.getLayerInTarget(target, layerRef) || ImageFile.getActiveLayer();
+                                let ctx = rasterContext(l, onMask);
+                                return ctx.getImageData(x,y,rw,rh).data;
+                            }
+                        });
+                        recorder.beforeWrite({x:0,y:0,width:w,height:h});
+                        currentHistory.data.recorder = recorder;
+                    }
                 }
                 break;
             case EVENT.layerPropertyHistory:
@@ -133,9 +158,13 @@ let HistoryService = function(){
                         currentHistory.data.patches = result.patches;
                         currentHistory.data.recorder = undefined;
                     } else {
-                        // Fallback: no recorder was set up (should not happen for a start()/end()
-                        // pair) — keep the old full-canvas snapshot so undo still works.
-                        currentHistory.data.to = duplicateCanvas(ImageFile.getActiveContext().canvas,true);
+                        // Fallback: no recorder was set up (a group/vector layer was active, or
+                        // there was no start()/end() pair) — keep the old full-canvas snapshot so
+                        // undo still works, taken from the buffer the step was recorded against.
+                        let l = ImageFile.getLayerInTarget(currentHistory.data.target, currentHistory.data.layerIndex)
+                            || ImageFile.getActiveLayer();
+                        let ctx = rasterContext(l, currentHistory.data.onMask);
+                        currentHistory.data.to = ctx ? duplicateCanvas(ctx.canvas,true) : undefined;
                     }
                     break;
                 case EVENT.layerPropertyHistory:
@@ -225,11 +254,40 @@ let HistoryService = function(){
     // Spec 016 phase 5: put changed tiles back onto a layer. direction "undo" writes each
     // tile's before-image, "redo" writes its after-image. Only the tiles a step actually
     // touched are written; every other pixel is left as-is (it did not change in this step).
-    function applyRasterPatches(layer, patches, direction){
-        let ctx = layer.getContext();
+    function applyRasterPatches(layer, patches, direction, onMask){
+        let ctx = rasterContext(layer, onMask);
+        if (!ctx) return;
         applyPatches(patches, direction, (x,y,w,h,buf)=>{
             ctx.putImageData(new ImageData(new Uint8ClampedArray(buf), w, h), x, y);
         });
+        if (onMask && layer.syncMask) layer.syncMask();
+    }
+
+    // The buffer a raster history step belongs to: the layer's own pixels, or its mask when the
+    // step was recorded while mask editing was active. Resolved through the layer rather than
+    // through layer.getContext(), which follows whatever mask mode is active *now*.
+    function rasterContext(layer, onMask){
+        if (!layer) return undefined;
+        let canvas = layer.getCanvasType ? layer.getCanvasType(!!onMask) : undefined;
+        if (!canvas || !canvas.getContext) return undefined;
+        // groups/vector layers have no paintable raster of their own
+        if (!onMask && (layer.type === "group" || layer.type === "vector")) return undefined;
+        return canvas.getContext("2d");
+    }
+
+    // Puts a whole-canvas snapshot back onto a layer. The snapshots handed to HistoryService.add
+    // (and the end() fallback) are copies of the layer's OWN canvas, so they go back at canvas
+    // pixel 0,0 — layer.drawImage() would have treated that as layer-LOCAL 0,0 and shifted them
+    // by the layer's canvas origin on any layer whose canvas has grown.
+    function restoreCanvasSnapshot(layer, snapshot, onMask){
+        let ctx = rasterContext(layer, onMask);
+        if (!ctx) return;
+        ctx.clearRect(0,0,ctx.canvas.width,ctx.canvas.height);
+        if (snapshot){
+            ctx.imageSmoothingEnabled = false;
+            ctx.drawImage(snapshot,0,0);
+        }
+        if (onMask && layer.syncMask) layer.syncMask();
     }
 
     function getLayerProperties(index){
@@ -253,12 +311,18 @@ let HistoryService = function(){
                     layer = ImageFile.getLayerInTarget(historyStep.data.target,historyStep.data.layerIndex);
                     if (!layer) break;
                     if (historyStep.data.expandedLayerFrom){
-                        layer.restore(historyStep.data.expandedLayerFrom);
-                    } else if (historyStep.data.patches){
-                        applyRasterPatches(layer, historyStep.data.patches, "undo");
+                        // restore() is asynchronous, so the repaint has to wait for it —
+                        // triggering layerContentChanged straight away re-composited the
+                        // not-yet-restored pixels and left the stale image on screen until some
+                        // unrelated redraw came along.
+                        layer.restore(historyStep.data.expandedLayerFrom)
+                            .then(()=>EventBus.trigger(EVENT.layerContentChanged));
+                        break;
+                    }
+                    if (historyStep.data.patches){
+                        applyRasterPatches(layer, historyStep.data.patches, "undo", historyStep.data.onMask);
                     } else {
-                        layer.clear();
-                        layer.drawImage(historyStep.data.from);
+                        restoreCanvasSnapshot(layer, historyStep.data.from, historyStep.data.onMask);
                     }
                     EventBus.trigger(EVENT.layerContentChanged);
                     break;
@@ -330,12 +394,14 @@ let HistoryService = function(){
                         : undefined) || ImageFile.getActiveLayer();
                     if (!layer) break;
                     if (historyStep.data.expandedLayerFrom && historyStep.data.to){
-                        layer.restore(historyStep.data.to);
-                    } else if (historyStep.data.patches){
-                        applyRasterPatches(layer, historyStep.data.patches, "redo");
+                        layer.restore(historyStep.data.to)
+                            .then(()=>EventBus.trigger(EVENT.layerContentChanged));
+                        break;
+                    }
+                    if (historyStep.data.patches){
+                        applyRasterPatches(layer, historyStep.data.patches, "redo", historyStep.data.onMask);
                     } else {
-                        layer.clear();
-                        layer.drawImage(historyStep.data.to);
+                        restoreCanvasSnapshot(layer, historyStep.data.to, historyStep.data.onMask);
                     }
                     EventBus.trigger(EVENT.layerContentChanged);
                     break;

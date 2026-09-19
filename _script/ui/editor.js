@@ -205,8 +205,9 @@ var Editor = function(){
             let layer = ImageFile.getActiveLayer();
             if (!layer) return;
             HistoryService.start(EVENT.layerContentHistory);
-            // the selection is in document space, the layer context in the layer's own space
-            let clearOffset = ImageFile.getLayerOffset();
+            // the selection is in document space, the layer context in the layer's own canvas
+            // space — that is the layer offset PLUS the canvas origin (getLayerCanvasOffset)
+            let clearOffset = ImageFile.getLayerCanvasOffset();
             if (s){
                 if (s.canvas || s.points){
                     let canvas = Selection.getCanvas();
@@ -509,12 +510,17 @@ var Editor = function(){
 
             removeColorMaskLayers();
 
-            let ctx = ImageFile.getActiveContext();
             let color = Palette.getDrawColor();
             let sourceColor = Color.fromString(color);
             let w = ImageFile.getCurrentFile().width;
             let h = ImageFile.getCurrentFile().height;
-            let data = ctx.getImageData(0,0,w,h).data;
+            // The mask overlay below is a document-space layer (addLayer puts it at the top
+            // level, at the document origin), so the colours have to be scanned in document
+            // space too: the active layer's own canvas is neither document-aligned nor
+            // necessarily document-sized once the layer has been moved or the canvas has grown.
+            let source = ImageFile.getActiveLayerDocCanvas();
+            if (!source) return;
+            let data = source.getContext("2d",{willReadFrequently:true}).getImageData(0,0,w,h).data;
             let layerIndex = ImageFile.addLayer();
             let layer = ImageFile.getLayer(layerIndex);
             layer.type = "pixelSelection";

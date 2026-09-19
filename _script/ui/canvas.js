@@ -1610,7 +1610,7 @@ let Canvas = function(parent){
             if (effectDitherPreview){
                 let dither = Palette.getDitherSettings();
                 if (dither.index > 0){
-                    ImageProcessing.remap(canvas, Palette.get(), dither.index, dither.amount);
+                    ImageProcessing.remap(canvas, Palette.get(), dither.index, dither.amount, dither.grain, dither.variance);
                     return;
                 }
             }
