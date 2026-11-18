@@ -9,11 +9,16 @@ import Selection from "./selection.js";
 import Cursor from "./cursor.js";
 import UI from "./ui.js";
 import Palette from "./palette.js";
+import Brush from "./brush.js";
 import ToolOptions from "./components/toolOptions.js";
 import {getVectorToolIfLoaded} from "../paintTools/vectorToolLoader.js";
+import {getBoneToolIfLoaded} from "../paintTools/boneToolLoader.js";
+import {getMeshWarpIfLoaded} from "../paintTools/meshWarpLoader.js";
 import LayerPanel from "./toolPanels/layerPanel.js";
-import {isGroup} from "../util/layerUtils.js";
+import {isBones, isGroup} from "../util/layerUtils.js";
 import DropIndicator from "./dropIndicator.js";
+import CenterPanel from "./centerPanel.js";
+import Modal from "./modal.js";
 
 
 var Input = function(){
@@ -23,6 +28,7 @@ var Input = function(){
 	let touchData = {};
 	let activeKeyHandler;
 	let holdPointerEvents = false;
+	const pendingTouchPresses = new Set();
 	
 	me.init = function(){
 		console.log("Input init");
@@ -120,6 +126,10 @@ var Input = function(){
 	}
 
 	me.holdPointerEvents = function(){
+		// The viewport handles gestures before they reach the document touch listener.
+		// Cancel queued presses here, even if all fingers lift before the delay ends.
+		pendingTouchPresses.forEach(timer => clearTimeout(timer));
+		pendingTouchPresses.clear();
 		holdPointerEvents = true;
 	}
 
@@ -145,9 +155,11 @@ var Input = function(){
 
 		if (e.pointerType === "touch" && target && target.classList.contains("viewport")){
 			// add a small delay so we still can capture multi touch gestures
-			setTimeout(function(){
+			const timer = setTimeout(function(){
+				pendingTouchPresses.delete(timer);
 				handlePointerDown(e,target);
 			},100);
+			pendingTouchPresses.add(timer);
 			return;
 		}
 
@@ -157,8 +169,7 @@ var Input = function(){
 	function onTouchStart(e){
 		touchData.touches = e.touches;
 		if (e.touches.length>1){
-			console.log("multitouch detected, holding pointer events");
-			holdPointerEvents = true;
+			me.holdPointerEvents();
 			EventBus.trigger(EVENT.hideCanvasOverlay);
 		}
 	}
@@ -302,11 +313,24 @@ var Input = function(){
 	}
 
 	function onKeyDown(e){
+		if (!Modal.isVisible() && CenterPanel.inputKeyDown(e)) return;
 		let VectorTool = getVectorToolIfLoaded();
+		let BoneTool = getBoneToolIfLoaded();
 		let code = limitKeyCode(e.code);
 		let rawKey = e.key;
 		let key = e.key;
 		if (key) key = key.toLowerCase();
+		let boneLayerActive = isBones(ImageFile.getActiveLayer());
+		const meshWarp = getMeshWarpIfLoaded();
+		if (meshWarp?.isActive() && (code === "delete" || code === "backspace")){
+			if (Modal.isVisible() || isEditableTarget(e.target)) return;
+			e.preventDefault();
+			meshWarp.deleteSelected();
+			return;
+		}
+
+		// Let focused fields type normally, even while a bone layer is selected.
+		if (boneLayerActive && isEditableTarget(e.target)) return;
 
 		if (me.isShiftDown() && !e.shiftKey) modifierKeyUp("shift");
 		if (me.isControlDown() && !e.ctrlKey) modifierKeyUp("control");
@@ -370,10 +394,16 @@ var Input = function(){
 
 		//console.log(code);
 		switch (code){
+			case "f5": EventBus.trigger(e.shiftKey ? COMMAND.REMOVEFRAME : COMMAND.INSERTFRAME); return;
+			case "f6": EventBus.trigger(COMMAND.ADDKEYFRAMECOPY); return;
+			case "f7": EventBus.trigger(COMMAND.ADDKEYFRAME); return;
+			case "f8": EventBus.trigger(COMMAND.ADDPROPERTYKEYFRAME); return;
+			case "f9": EventBus.trigger(COMMAND.TOGGLETWEEN); return;
 			case "delete":
 			case "backspace":
-				// on a vector layer, Delete removes the selected point/shape instead of clearing pixels
-				if (VectorTool?.isActive()){
+				if (BoneTool?.isActive() && BoneTool.getMode() === "select"){
+					EventBus.trigger(COMMAND.BONEDELETE);
+				}else if (VectorTool?.isActive()){
 					EventBus.trigger(COMMAND.VECTORDELETE);
 				}else{
 					EventBus.trigger(COMMAND.CLEAR);
@@ -383,11 +413,16 @@ var Input = function(){
 				// TODO should we tie this to the selected tool?
 				Menu.close();
 				ContextMenu.hide();
-				Editor.reset();
-				if (UI.inPresentation()) EventBus.trigger(COMMAND.PRESENTATION);
+				{
+					let hadSelection = !!Selection.get();
+					let consumed = Editor.reset() || hadSelection;
+					if (UI.inPresentation()) EventBus.trigger(COMMAND.PRESENTATION);
+					// nothing else wanted Escape: leave the clip being edited in place (spec 024)
+					else if (!consumed && ImageFile.isEditingClip()) EventBus.trigger(COMMAND.EXITCLIP);
+				}
 				break;
 			case "tab":
-				//EventBus.trigger(COMMAND.SPLITSCREEN);
+				if (Brush.nextFrame()) break;
 				if (me.isShiftDown()){
 					EventBus.trigger(COMMAND.CYCLEPALETTESTEP);
 				}else{
@@ -420,6 +455,10 @@ var Input = function(){
 			case "arrowup":
 			case "arrowright":
 			case "arrowdown":
+				if (boneLayerActive && BoneTool?.isActive() &&
+					(code === "arrowleft" || code === "arrowright") &&
+					!e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey &&
+					BoneTool.selectAdjacent(code === "arrowleft" ? -1 : 1)) break;
 				Editor.arrowKey(code.replace("arrow",""));
 				break;
 			case "pageup":
@@ -471,6 +510,8 @@ var Input = function(){
 					case "z": EventBus.trigger(COMMAND.UNDO); break;
 				}
 			}
+		}else if (boneLayerActive && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey && handleBoneToolKey(key)){
+			// On a bone layer, the single-letter keys switch bone modes or delete the selection.
 		}else if (VectorTool?.isActive() && handleVectorToolKey(key)){
 			// on a vector layer the single-letter tool keys switch the vector SUB-tool (S/L/R/C/B/F/O)
 			// instead of the pixel tools; any key the vector map doesn't claim falls through below.
@@ -512,6 +553,16 @@ var Input = function(){
 			}
 		}
 
+	}
+
+	function handleBoneToolKey(key){
+		switch (key){
+			case "s": EventBus.trigger(COMMAND.BONESELECT); return true;
+			case "a": EventBus.trigger(COMMAND.BONEADD); return true;
+			case "p": EventBus.trigger(COMMAND.BONETRANSFORM); return true;
+			case "d": EventBus.trigger(COMMAND.BONEDELETE); return true;
+		}
+		return false;
 	}
 
 	// Vector-mode single-letter tool shortcuts. Mirrors the pixel-tool keys but switches the active

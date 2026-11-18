@@ -1,19 +1,23 @@
 import {$div} from "../util/dom.js";
 import EventBus from "../util/eventbus.js";
 import {EVENT, COMMAND} from "../enum.js";
+import Brush from "./brush.js";
 
 let StatusBar = (()=>{
   let me = {};
   let container;
   let toolTip;
   let permaTip;
+  let brushTip;
   let permaTips = {}
   let overide = false;
 
   me.init = (parent)=>{
       container = $div("statusbar","",parent);
+      brushTip = $div("statusbar-brush-info","",container);
       permaTip = $div("permatip","",container);
       toolTip = $div("tooltip","",container);
+      setPermaTips();
   }
 
   me.setToolTip = (text)=>{
@@ -31,6 +35,12 @@ let StatusBar = (()=>{
     setPermaTips();
   })
 
+  EventBus.on(EVENT.brushOptionsChanged, ()=>{
+    const frame = Brush.getFrameInfo();
+    permaTips.brush = frame.count > 1 ? "Brush: " + (frame.index + 1) + "/" + frame.count : "";
+    setPermaTips();
+  });
+
   EventBus.on(EVENT.paletteLockChanged, (active)=>{
     permaTips.paletteLock = active;
     setPermaTips();
@@ -47,6 +57,9 @@ let StatusBar = (()=>{
   })
 
   function setPermaTips(){
+    if (!permaTip) return;
+    brushTip.textContent = permaTips.brush || "";
+    brushTip.hidden = !permaTips.brush;
     permaTip.innerHTML = "";
     if (permaTips.pen) permaTip.innerHTML += "Pen mode ";
     if (permaTips.paletteLock) permaTip.innerHTML += "Palette lock ";

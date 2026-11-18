@@ -12,6 +12,11 @@
   overflow: hidden;
   display: flex;
 
+  .statusbar-brush-info{
+    color: #b6e3a8;
+    margin-right: 6px;
+  }
+
   .tooltip{
     b{
       font-weight: normal;

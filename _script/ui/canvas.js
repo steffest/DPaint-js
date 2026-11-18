@@ -38,8 +38,17 @@ let Canvas = function(parent){
     let ctx;
     let overlayCanvas;
     let overlayCtx;
+    let onionCanvas;
+    let onionCtx;
+    let tintCanvas;
     let vectorShapes;       // SVG element rendering "vector"-display-mode layers as TRUE vector shapes
     let vectorOverlay;      // SVG element for crisp, zoom-independent vector-editing handles
+    let pivotOverlay;       // SVG element for the edited clip's pivot crosshair (spec 024)
+    let pivotPreview;       // live pivot while the crosshair is dragged (committed on release)
+    let viewBounds = {x:0,y:0};
+    let viewContext = "[]";
+    let savedViews = new Map();
+    let documentBoundary;
     let touchData={};
     let zoom=1;
     let prevZoom;
@@ -52,10 +61,13 @@ let Canvas = function(parent){
     let containerTransform = {x:0,y:0,startX:0,startY:0, rotation:0, startRotation: 0};
     let currentCursorPoint;
     let vectorDownPoint; // last pointer-down position in vector geometry space (for double-click line select)
+    let lastDownPoint;   // last pointer-down position in document space (double-click to enter a clip)
     let effectDitherPreview = false;
 
     canvas = document.createElement("canvas");
     overlayCanvas = document.createElement("canvas");
+    onionCanvas = document.createElement("canvas");
+    tintCanvas = document.createElement("canvas");
     resizer = Resizer(parent);
     selectBox = SelectBox(parent,resizer);
 
@@ -64,23 +76,31 @@ let Canvas = function(parent){
     canvas.height = 200;
     overlayCanvas.width = 200;
     overlayCanvas.height = 200;
+    onionCanvas.width = onionCanvas.height = 200;
     ctx = canvas.getContext("2d",{willReadFrequently: true, antialias:false, desynchronized: false});
     overlayCtx = overlayCanvas.getContext("2d",{willReadFrequently: true});
+    onionCtx = onionCanvas.getContext("2d");
 
     let wrapper = $div("canvaswrapper");
     let container = $div("canvascontainer");
     let visualAids = $div("visualaids");
-    gridOverlay = GridOverlay(visualAids);
+    gridOverlay = GridOverlay(visualAids,()=>viewBounds);
 
 
     overlayCanvas.className = "overlaycanvas";
+    onionCanvas.className = "onioncanvas";
     canvas.className = "maincanvas info";
     // Vector-editing handles (nodes, bezier tangents, rubber-band previews) are drawn as SVG rather
-    // than into the raster overlay canvas, so they stay crisp and constant screen-size at any zoom.
-    // The SVG lives inside the zoomed container (so it pans/zooms with the artwork for free); its
-    // viewBox is the document, and non-scaling strokes + zoom-compensated dot radii keep the
-    // decorations a fixed size on screen regardless of the container's CSS scale.
+        // decorations a fixed size on screen regardless of the container's CSS scale.
     const SVGNS = "http://www.w3.org/2000/svg";
+    documentBoundary = document.createElementNS(SVGNS,"svg");
+    documentBoundary.setAttribute("class","clip-document-boundary");
+    container.appendChild(documentBoundary);
+    // The clip pivot crosshair while a clip is edited in place (spec 024 R2a): its own SVG so the
+    // brush/mesh/bone overlays, which clear the shared overlay canvas, never wipe it.
+    pivotOverlay = document.createElementNS(SVGNS,"svg");
+    pivotOverlay.setAttribute("class","pivotoverlay");
+    pivotOverlay.style.display = "none";
     vectorOverlay = document.createElementNS(SVGNS,"svg");
     vectorOverlay.setAttribute("class","vectoroverlay");
     vectorOverlay.style.display = "none";
@@ -94,8 +114,10 @@ let Canvas = function(parent){
     syncVectorOverlaySize();
     container.appendChild(canvas);
     container.appendChild(vectorShapes);
+    container.appendChild(onionCanvas);
     container.appendChild(overlayCanvas);
     container.appendChild(vectorOverlay);
+    container.appendChild(pivotOverlay);
     container.appendChild(selectBox.getBox());
     container.appendChild(visualAids);
     wrapper.appendChild(container);
@@ -106,7 +128,8 @@ let Canvas = function(parent){
         zoom: zoom,
         transform: containerTransform,
         width: canvas.width,
-        height: canvas.height
+        height: canvas.height,
+        origin: viewBounds
     }));
 
     panelParent.addEventListener('scroll',(e)=>{handle('scroll', e)},false);
@@ -123,12 +146,29 @@ let Canvas = function(parent){
             if (vectorDownPoint) VectorTool.handleDoubleClick(vectorDownPoint, 8/zoom);
             return;
         }
+        // Double-clicking the pixels of the active clip instance enters it (spec 024 R17).
+        let active = ImageFile.getActiveLayer();
+        if (active && active.type === "clip" && lastDownPoint){
+            let hit = ImageFile.getTopLayerIndexAtPoint(lastDownPoint);
+            let activePath = ImageFile.getActiveLayerPath();
+            if (hit && activePath && hit.join(",") === activePath.join(",")){
+                ImageFile.enterClip();
+                return;
+            }
+        }
         if (Editor.getCurrentTool() === COMMAND.POLYGONSELECT){
             selectBox.endPolySelect(true);
         }
     }
 
     canvas.addEventListener("pointermove", function (e) {handle('over', e)}, { passive: false });
+    // The polygon's capture surface sits above the artwork. Hover events over that
+    // surface must update the live vertex too, even after the pointer button is released.
+    panelParent.addEventListener("pointermove",e=>{
+        if (e.target !== canvas && touchData.isPolySelect && !Input.isPointerDown() && e.pointerType !== "touch"){
+            selectBox.updatePoint(getCursorPosition(canvas,e,false));
+        }
+    });
 
     // this makes the CPU usage spike.
     // TODO: investigate
@@ -138,7 +178,16 @@ let Canvas = function(parent){
     }, false);
     canvas.addEventListener("pointerleave", function (e) {
         Input.removePointerOver("canvas");
-        hideOverlay();
+        const boneTool = getBoneToolIfLoaded();
+        if (boneTool?.isActive()) {
+            boneTool.handleHover(null);
+            if (boneTool.hoverChanged) drawBoneOverlay();
+        }
+        // The armature is an editing overlay, not a cursor preview. Keep it visible
+        // while the pointer is outside the canvas.
+        const meshWarpTool = getMeshWarpIfLoaded();
+        if (meshWarpTool?.isActive()) meshWarpTool.handleHover(null);
+        if (!getBoneToolIfLoaded()?.isActive() && !meshWarpTool?.isActive()) hideOverlay();
     }, false);
 
     //canvas.addEventListener("touchmove",(e)=>{
@@ -153,6 +202,8 @@ let Canvas = function(parent){
     });
 
     EventBus.on(EVENT.hideCanvasOverlay,()=>{
+        // The mesh is an editing overlay, not a brush cursor preview.
+        if (getMeshWarpIfLoaded()?.isActive()) { drawMeshOverlay(); return; }
         overlayCanvas.style.opacity = 0;
     });
 
@@ -163,7 +214,7 @@ let Canvas = function(parent){
         if (!point) return;
         if (!Input.hasPointerEvents()) return;
         overlayCanvas.style.opacity = 1;
-        overlayCtx.clearRect(0,0, canvas.width, canvas.height);
+        clearToolOverlay();
         overlayCtx.globalAlpha = Brush.getOpacity();
         let color = Palette.getDrawColor();
         if (false && window.override){
@@ -202,8 +253,10 @@ let Canvas = function(parent){
     EventBus.on(EVENT.imageSizeChanged,()=>{
         if (!parent.isVisible()) return;
         let c = ImageFile.getCanvas();
-        canvas.width = overlayCanvas.width = c.width;
-        canvas.height = overlayCanvas.height = c.height;
+        viewBounds = {x:0,y:0,w:c.width,h:c.height};
+        savedViews.clear();
+        canvas.width = overlayCanvas.width = onionCanvas.width = c.width;
+        canvas.height = overlayCanvas.height = onionCanvas.height = c.height;
         syncVectorOverlaySize();
         me.update();
         me.zoom(1);
@@ -230,6 +283,7 @@ let Canvas = function(parent){
     // synchronous so existing behaviour and tests are unchanged until the flag is
     // promoted. Ordered model/history events are never routed through here.
     function presentMainDisplay(){
+        refreshWorkspace();
         if (useIncrementalDisplay){
             let incremental = canPresentIncremental();
             let rect = pendingDisplayRect;
@@ -240,6 +294,7 @@ let Canvas = function(parent){
             } else {
                 presentFullRetained();
             }
+            drawOnionOverlay();
             return;
         }
         // legacy default path — byte-identical to the original present
@@ -247,6 +302,7 @@ let Canvas = function(parent){
         let c = displayComposite();
         if (c) ctx.drawImage(c,0,0);
         drawVectorShapes();
+        drawOnionOverlay();
     }
 
     // Spec 016 phase 11 (live wiring): damage-clipped main-display compositing.
@@ -332,13 +388,24 @@ let Canvas = function(parent){
             && displaySurface.width === canvas.width
             && displaySurface.height === canvas.height
             && !ImageFile.hasVectorDisplayLayers()
-            && !Palette.isLockedGlobal();
+            // A pixel edit changes the outline beyond the tool's original damage rectangle.
+            && !ImageFile.hasActiveEffects()
+            && !Palette.isLockedGlobal()
+            // inside a clip the screen shows the dimmed context + the clip (getDisplayCanvas),
+            // which the root-addressed clipped composite can't reproduce
+            && !ImageFile.isEditingClip();
     }
 
     function presentFullRetained(){
         let s = ensureDisplaySurface();
         // full composite into the retained surface (parity-verified against the fast path)
-        ImageFile.getCanvas(undefined, {skipVectorDisplay:true, target:s});
+        if (ImageFile.isEditingClip()){
+            let sctx = s.getContext("2d");
+            sctx.clearRect(0, 0, s.width, s.height);
+            sctx.drawImage(displayComposite(), 0, 0);
+        }else{
+            ImageFile.getCanvas(undefined, {skipVectorDisplay:true, target:s});
+        }
         me.clear();
         ctx.drawImage(s,0,0);
         displaySurfaceValid = true;
@@ -448,6 +515,12 @@ let Canvas = function(parent){
         drawBoneOverlay();
     });
 
+    // Scrubbing to a property key changes the resolved bone pose without editing the rig.
+    // The main image is refreshed by imageContentChanged; refresh its active handles here.
+    EventBus.on(EVENT.framesChanged,()=>{
+        if (parent.isVisible() && getBoneToolIfLoaded()?.isActive()) drawBoneOverlay();
+    });
+
     // The vector tool draws its geometry handles (nodes, bezier tangents, rubber-band previews) on
     // the overlay canvas; a geometry change also marks the layer's raster cache dirty, so the
     // re-composite here paints the freshly rasterized shapes. Both are signalled by vectorChanged.
@@ -505,13 +578,132 @@ let Canvas = function(parent){
     // (they are painted as true SVG shapes by drawVectorShapes instead). Export/bake use the plain
     // ImageFile.getCanvas(), which includes them rasterized.
     function displayComposite(){
-        return ImageFile.getCanvas(undefined, {skipVectorDisplay: true});
+        // inside a clip: the dimmed parent context + the edited clip (spec 024 §3.8)
+        return ImageFile.getDisplayCanvas({skipVectorDisplay: true, bounds:viewBounds});
     }
+
+    me.getCanvasOrigin = ()=>({x:viewBounds.x,y:viewBounds.y});
+
+    function clearToolOverlay(){
+        overlayCtx.save();
+        overlayCtx.setTransform(1,0,0,1,0,0);
+        overlayCtx.clearRect(0,0,overlayCanvas.width,overlayCanvas.height);
+        overlayCtx.restore();
+    }
+
+    function positionLogicalOverlays(){
+        let selectionBox = selectBox.getBox();
+        // Selection paths use document/clip coordinates, not the expanded workspace's size.
+        let file = ImageFile.getCurrentFile();
+        selectionBox.style.width = file.width*zoom+"px";
+        selectionBox.style.height = file.height*zoom+"px";
+        selectionBox.style.transform = `translate(${-viewBounds.x*zoom}px,${-viewBounds.y*zoom}px)`;
+        overlayCtx.setTransform(1,0,0,1,-viewBounds.x,-viewBounds.y);
+    }
+
+    function refreshWorkspace(reset){
+        let workspace = ImageFile.getClipWorkspace();
+        let file = ImageFile.getCurrentFile();
+        let next = workspace ? workspace.bounds : {x:0,y:0,w:file.width,h:file.height};
+        if (workspace && !reset && viewBounds.w){
+            let x = Math.min(next.x,viewBounds.x), y = Math.min(next.y,viewBounds.y);
+            next = {x,y,w:Math.max(next.x+next.w,viewBounds.x+viewBounds.w)-x,
+                h:Math.max(next.y+next.h,viewBounds.y+viewBounds.h)-y};
+        }
+        let changed = next.x !== viewBounds.x || next.y !== viewBounds.y || next.w !== canvas.width || next.h !== canvas.height;
+        if (changed){
+            // Keep the same logical point under the camera when content grows beyond the workspace.
+            let angle = containerTransform.rotation*Math.PI/180;
+            let cos = Math.cos(angle), sin = Math.sin(angle);
+            let dx = (next.x-viewBounds.x)*zoom, dy = (next.y-viewBounds.y)*zoom;
+            let cx = (next.w-canvas.width)*zoom/2, cy = (next.h-canvas.height)*zoom/2;
+            containerTransform.x += cos*dx-sin*dy+(cos-1)*cx-sin*cy;
+            containerTransform.y += sin*dx+cos*dy+sin*cx+(cos-1)*cy;
+            viewBounds = next;
+            canvas.width = overlayCanvas.width = onionCanvas.width = next.w;
+            canvas.height = overlayCanvas.height = onionCanvas.height = next.h;
+            syncVectorOverlaySize();
+            container.style.width = (Math.floor(next.w*zoom)+2)+"px";
+            container.style.height = (Math.floor(next.h*zoom)+2)+"px";
+            positionLogicalOverlays();
+            gridOverlay.zoom(zoom);
+            setContainer();
+            if (resizer.isActive()) resizer.zoom(zoom);
+        }
+        container.classList.toggle("clip-workspace",!!workspace);
+        documentBoundary.style.display = workspace?.documentPoints.length ? "block" : "none";
+        documentBoundary.replaceChildren();
+        if (workspace?.documentPoints.length){
+            let polygon = document.createElementNS(SVGNS,"polygon");
+            polygon.setAttribute("points",workspace.documentPoints.map(p=>p.x+","+p.y).join(" "));
+            documentBoundary.appendChild(polygon);
+        }
+        return workspace;
+    }
+
+    me.fitClip = function(){
+        let workspace = refreshWorkspace();
+        if (!workspace) return;
+        let rect = panelParent.getBoundingClientRect(), inset = me.getViewInset();
+        let b = workspace.clipBounds || viewBounds;
+        let margin = 48;
+        me.setRotation(0);
+        me.setZoom(Math.max(.01,Math.min((rect.width-inset.left-margin)/(b.w+32),
+            (rect.height-inset.top-margin)/(b.h+32))));
+        me.setPanning(inset.left+(rect.width-inset.left)/2-(b.x+b.w/2-viewBounds.x)*zoom,
+            inset.top+(rect.height-inset.top)/2-(b.y+b.h/2-viewBounds.y)*zoom);
+    };
+
+    // View-only ghost frames from the active track's neighbouring keys. The shared document
+    // composite gives each ghost the other tracks too, at that key's time. Blend colour atop
+    // the source so its transparency and light/dark detail survive.
+    function drawOnionOverlay(){
+        onionCtx.clearRect(0, 0, onionCanvas.width, onionCanvas.height);
+        if (!UserSettings.get("onionSkin") || ImageFile.isEditingParam()) return;
+        let track = ImageFile.getActiveTrack();
+        if (!track || !Array.isArray(track.keys)) return;
+        let current = ImageFile.getActiveFrameIndex();
+        let previous, next;
+        track.keys.forEach(key=>{
+            if (key.frame < current && (!previous || key.frame > previous.frame)) previous = key;
+            if (key.frame > current && (!next || key.frame < next.frame)) next = key;
+        });
+        function ghost(key, color){
+            if (!key) return;
+            let source;
+            if (ImageFile.isEditingClip()) source = ImageFile.getClipComposite(ImageFile.getEditClipId(), key.frame);
+            else source = {canvas: ImageFile.getCachedCanvas(key.frame), x: 0, y: 0};
+            if (!source || !source.canvas) return;
+            let bitmap = source.canvas;
+            if (tintCanvas.width !== bitmap.width || tintCanvas.height !== bitmap.height){
+                tintCanvas.width = bitmap.width;
+                tintCanvas.height = bitmap.height;
+            }
+            let tintCtx = tintCanvas.getContext("2d");
+            tintCtx.clearRect(0, 0, tintCanvas.width, tintCanvas.height);
+            tintCtx.globalCompositeOperation = "source-over";
+            tintCtx.drawImage(bitmap, 0, 0);
+            tintCtx.globalCompositeOperation = "source-atop";
+            tintCtx.globalAlpha = 0.6;
+            tintCtx.fillStyle = color;
+            tintCtx.fillRect(0, 0, tintCanvas.width, tintCanvas.height);
+            tintCtx.globalCompositeOperation = "source-over";
+            tintCtx.globalAlpha = 1;
+            onionCtx.globalAlpha = 0.5;
+            onionCtx.drawImage(tintCanvas, (source.x || 0)-viewBounds.x, (source.y || 0)-viewBounds.y);
+            onionCtx.globalAlpha = 1;
+        }
+        ghost(previous, "#ff5050");
+        ghost(next, "#5080ff");
+    }
+
+    EventBus.on(EVENT.timelineChanged, drawOnionOverlay);
 
     me.set = function(image,reset){
         if (reset){
-            canvas.width = overlayCanvas.width = image.width;
-            canvas.height = overlayCanvas.height = image.height;
+            viewBounds = {x:0,y:0,w:image.width,h:image.height};
+            canvas.width = overlayCanvas.width = onionCanvas.width = image.width;
+            canvas.height = overlayCanvas.height = onionCanvas.height = image.height;
             syncVectorOverlaySize();
             zoom = 1;
             me.zoom(1);
@@ -520,17 +712,22 @@ let Canvas = function(parent){
     }
     
     me.update = function(){
+        refreshWorkspace();
         me.clear();
-        ctx.drawImage(displayComposite(),0,0);
+        let composite = displayComposite();
+        if (composite) ctx.drawImage(composite,0,0);
 
         let palette = Palette.get();
 
         me.applyGlobalFilter();
         drawVectorShapes();
+        drawOnionOverlay();
     }
 
     me.zoom = function(amount, event) {
-        hideOverlay();
+        // The brush preview scales with the canvas container. Keep it visible even
+        // when the pointer stays still after a wheel/keyboard zoom.
+        if (!Editor.usesBrush()) hideOverlay();
 
         var z = prevZoom || zoom;
         prevZoom = undefined;
@@ -564,6 +761,7 @@ let Canvas = function(parent){
         //overlayCanvas.style.height = _h + "px";
         container.style.width = (_w + 2) + "px";
         container.style.height = (_h + 2) + "px";
+        positionLogicalOverlays();
 
         setContainer();
 
@@ -572,7 +770,8 @@ let Canvas = function(parent){
         gridOverlay.zoom(zoom);
         rulerOverlay.update();
 
-        me.applyGlobalFilter();
+        // Zoom only changes the CSS view size. Keep the rendered pixels intact:
+        // reapplying palette dithering here would quantize an already-dithered preview.
 
         // zoom changed the scale: re-rasterize the crisp "vector"-mode layers at the new zoom.
         drawVectorShapes();
@@ -581,6 +780,7 @@ let Canvas = function(parent){
         if (getMeshWarpIfLoaded()?.isActive()) drawMeshOverlay();
         if (getBoneToolIfLoaded()?.isActive()) drawBoneOverlay();
         if (getVectorToolIfLoaded()?.isActive()) drawVectorOverlay();
+        drawPivotOverlay();
     }
 
     me.getZoom = function(){
@@ -748,6 +948,7 @@ let Canvas = function(parent){
 
                 point = getCursorPosition(canvas,e,true);
                 currentCursorPoint = point;
+                lastDownPoint = point;
                 let isOnCanvas = e.target && e.target.classList.contains("maincanvas");
                 touchData.isdown = true;
                 touchData.button = e.button;
@@ -761,10 +962,10 @@ let Canvas = function(parent){
                     containerTransform.startX = containerTransform.x;
                     containerTransform.startY = containerTransform.y;
                     return;
-                }else if ((Input.isShiftDown() || Input.isAltDown())  && Editor.canPickColor() || Editor.getCurrentTool() === COMMAND.COLORPICKER){
+                }else if (((Input.isShiftDown() && !getMeshWarpIfLoaded()?.isActive()) || Input.isAltDown()) && Editor.canPickColor() || Editor.getCurrentTool() === COMMAND.COLORPICKER){
                     Cursor.override("colorpicker");
                     Cursor.attach("colorpicker");
-                    var pixel = ctx.getImageData(point.x, point.y, 1, 1).data;
+                    var pixel = ctx.getImageData(point.x-viewBounds.x, point.y-viewBounds.y, 1, 1).data;
                     if (getPaletteClickAction() === "pick"){
                         pickColor(pixel);
                     }else{
@@ -779,7 +980,7 @@ let Canvas = function(parent){
                 let meshWarpTool = getMeshWarpIfLoaded();
                 if (meshWarpTool?.isActive()){
                     touchData.meshWarping = true;
-                    meshWarpTool.handleDown(point, 8/zoom);
+                    meshWarpTool.handleDown(point, 8/zoom, {shift:e.shiftKey || Input.isShiftDown(), zoom});
                     return;
                 }
 
@@ -798,6 +999,18 @@ let Canvas = function(parent){
                     vectorDownPoint = getCursorPosition(canvas,e,false,true);
                     vectorTool.handleDown(vectorDownPoint, 8/zoom, {shift: Input.isShiftDown(), alt: Input.isAltDown(), ctrl: Input.isControlDown(), right: e.button === 2});
                     return;
+                }
+
+                // The clip pivot crosshair (spec 024 R2a): grabbed before the paint tool when the
+                // press lands within a few screen pixels of it.
+                if (ImageFile.isEditingClip()){
+                    let clip = ImageFile.getClip(ImageFile.getEditClipId());
+                    let fp = getCursorPosition(canvas,e,false,true);
+                    if (clip && Math.hypot(fp.x - clip.pivot.x, fp.y - clip.pivot.y) <= 8/zoom){
+                        touchData.pivotDragging = {clipId: clip.id, dx: clip.pivot.x - fp.x, dy: clip.pivot.y - fp.y};
+                        pivotPreview = {x: clip.pivot.x, y: clip.pivot.y};
+                        return;
+                    }
                 }
 
                 let currentTool = Editor.getCurrentTool();
@@ -842,6 +1055,9 @@ let Canvas = function(parent){
                         break;
                     case COMMAND.SELECTLAYER:
                         if (!isOnCanvas) return;
+                        // Spec 025 R21/R23: Ctrl/Cmd-click picks the deepest node INSIDE an instance
+                        // (a nested focus); pressing on the focused node drags it as an override.
+                        if (beginNestedPick(point, e.metaKey || e.ctrlKey)) break;
                         let selectedLayerPath = ImageFile.getTopLayerIndexAtPoint(point);
                         if (!selectedLayerPath) return;
                         let activePath = ImageFile.getActiveLayerPath();
@@ -868,11 +1084,14 @@ let Canvas = function(parent){
                         break;
                     case COMMAND.FLOOD:
                         HistoryService.start(EVENT.layerContentHistory);
-                        let cf = selectBox.floodSelect(ImageFile.getActiveLayerDocCanvas(),point,Color.fromString(e.button?Palette.getBackgroundColor():Palette.getDrawColor()));
+                        let floodColor = Color.fromString(e.button?Palette.getBackgroundColor():Palette.getDrawColor());
+                        let eraseFlood = floodColor === "transparent" || floodColor[3] === 0;
+                        let cf = selectBox.floodSelect(ImageFile.getActiveLayerDocCanvas(),point,floodColor);
                         // the fill was computed in document space: draw it back into the
                         // layer's own space by subtracting the layer's resolved offset
                         let floodOffset = ImageFile.getLayerOffset();
-                        ImageFile.getActiveLayer().drawImage(cf,-floodOffset.x,-floodOffset.y)
+                        ImageFile.getActiveLayer().drawImage(cf,-floodOffset.x,-floodOffset.y,
+                            eraseFlood ? {blendMode: "destination-out"} : undefined);
                         HistoryService.end();
                         EventBus.trigger(EVENT.layerContentChanged);
                         break;
@@ -1156,6 +1375,19 @@ let Canvas = function(parent){
                 }
                 break;
             case "up":
+                if (touchData.pivotDragging){
+                    let drag = touchData.pivotDragging;
+                    let clip = ImageFile.getClip(drag.clipId);
+                    touchData.pivotDragging = undefined;
+                    touchData.isdown = false;
+                    // one libraryHistory step for the whole drag
+                    if (clip && pivotPreview && (pivotPreview.x !== clip.pivot.x || pivotPreview.y !== clip.pivot.y)){
+                        ImageFile.setClipPivot(drag.clipId, pivotPreview);
+                    }
+                    pivotPreview = undefined;
+                    drawPivotOverlay();
+                    return;
+                }
                 if (touchData.meshWarping){
                     getMeshWarpIfLoaded()?.handleUp();
                     touchData.meshWarping = false;
@@ -1165,6 +1397,11 @@ let Canvas = function(parent){
                 if (touchData.boneEditing){
                     getBoneToolIfLoaded()?.handleUp();
                     touchData.boneEditing = false;
+                    touchData.isdown = false;
+                    return;
+                }
+                if (touchData.nestedMove){
+                    endNestedMove();
                     touchData.isdown = false;
                     return;
                 }
@@ -1267,13 +1504,14 @@ let Canvas = function(parent){
                     let meshWarpTool = getMeshWarpIfLoaded();
                     if (meshWarpTool?.isActive()){
                         meshWarpTool.handleHover(point, 8/zoom);
-                        StatusBar.setToolTip("Mesh Warp – drag points to warp, Enter to apply, Esc to cancel");
+                        StatusBar.setToolTip("Mesh Warp – drag points/handles, Shift-click to add, Delete to remove, Enter to apply, Esc to cancel");
                         return;
                     }
 
                     let boneTool = getBoneToolIfLoaded();
                     if (boneTool?.isActive()){
                         let boneHover = boneTool.handleHover(point, 8/zoom);
+                        if (boneTool.hoverChanged) drawBoneOverlay();
                         // the shoulder-line radius handle gets a drag cursor; everything else the default
                         if (boneHover === "radiusline") Cursor.set("boneradius"); else Cursor.reset();
                         StatusBar.setToolTip("Bones – " + boneTool.getMode() + " mode");
@@ -1300,7 +1538,7 @@ let Canvas = function(parent){
                         touchData.hotDrawFunction(point.x,point.y);
                     }
 
-                    var pixel = ctx.getImageData(point.x, point.y, 1, 1).data;
+                    var pixel = ctx.getImageData(point.x-viewBounds.x, point.y-viewBounds.y, 1, 1).data;
                     let tooltip = "x:" + point.x + " y:" + point.y + " ";
 
                     if (pixel[3]) tooltip += Palette.getColorInfo(pixel);
@@ -1324,6 +1562,12 @@ let Canvas = function(parent){
 
                 point = getCursorPosition(canvas,e,false);
                 currentCursorPoint = point;
+                if (touchData.pivotDragging){
+                    let fp = getCursorPosition(canvas,e,false,true);
+                    pivotPreview = {x: Math.round(fp.x + touchData.pivotDragging.dx), y: Math.round(fp.y + touchData.pivotDragging.dy)};
+                    drawPivotOverlay();
+                    return;
+                }
                 if (touchData.isdown){
                     if (Input.isSpaceDown() || touchData.button===1 || Editor.getCurrentTool() === COMMAND.PAN){
                         var panDeltaX = e.clientX - touchData.startDragX;
@@ -1342,6 +1586,11 @@ let Canvas = function(parent){
                         return;
                     }
 
+                    if (touchData.nestedMove){
+                        updateNestedMove(point);
+                        return;
+                    }
+
                     if (touchData.vectorEditing){
                         getVectorToolIfLoaded()?.handleMove(getCursorPosition(canvas,e,false,true), {shift: Input.isShiftDown()});
                         return;
@@ -1353,7 +1602,7 @@ let Canvas = function(parent){
                     }
 
                     if ((Input.isShiftDown() || Input.isAltDown()) && Editor.canPickColor(true) || Editor.getCurrentTool() === COMMAND.COLORPICKER){
-                        var pixel = ctx.getImageData(point.x, point.y, 1, 1).data;
+                        var pixel = ctx.getImageData(point.x-viewBounds.x, point.y-viewBounds.y, 1, 1).data;
                         if (getPaletteClickAction() === "pick"){
                              pickColor(pixel);
                         }else{
@@ -1436,8 +1685,8 @@ let Canvas = function(parent){
         const canvasRotatedX = rotatedX / zoom;
         const canvasRotatedY = rotatedY / zoom;
 
-        const rawX = canvasRotatedX + canvas.width / 2;
-        const rawY = canvasRotatedY + canvas.height / 2;
+        const rawX = canvasRotatedX + canvas.width / 2 + viewBounds.x;
+        const rawY = canvasRotatedY + canvas.height / 2 + viewBounds.y;
         const finalX = fractional ? rawX : Math.floor(rawX);
         const finalY = fractional ? rawY : Math.floor(rawY);
 
@@ -1475,29 +1724,137 @@ let Canvas = function(parent){
         let meshWarpTool = getMeshWarpIfLoaded();
         if (meshWarpTool?.isActive()){
             overlayCanvas.style.opacity = 1;
+            clearToolOverlay();
             meshWarpTool.drawOverlay(overlayCtx, zoom);
         }else{
-            overlayCtx.clearRect(0,0,overlayCanvas.width,overlayCanvas.height);
+            clearToolOverlay();
             overlayCanvas.style.opacity = 0;
         }
+    }
+
+    // ── nested focus on the canvas (spec 025 R21, R23) ─────────────────────────────────
+    // With the Layer Select tool: Ctrl/Cmd-click selects the deepest node under the pointer inside
+    // the clicked instance; a press on the node that is already focused starts a drag that writes
+    // its x/y override (in the node's parent space, so it lands under the cursor). A plain press
+    // elsewhere drops the focus and falls through to the normal layer pick. Returns true when the
+    // press was consumed.
+    function beginNestedPick(point, modifier){
+        let focus = ImageFile.getNestedFocus ? ImageFile.getNestedFocus() : undefined;
+        if (!modifier && !focus) return false;
+        let instPath = modifier ? ImageFile.getTopLayerIndexAtPoint(point) : focus.instancePath;
+        let inst = instPath && ImageFile.getLayer(instPath);
+        let nested = inst && inst.type === "clip" ? ImageFile.getNestedPathAtPoint(point, instPath) : undefined;
+        if (!nested || (!modifier && nested !== focus.path)){
+            if (focus) ImageFile.setNestedFocus(undefined, null);
+            return false;
+        }
+        if (!ImageFile.setNestedFocus(instPath, nested)) return false;
+        let f = ImageFile.getNestedFocus();
+        let entry = (f && f.entry) || {};
+        let absolute = entry.mode === "absolute";
+        let resolved = (f && f.resolved) || {};
+        touchData.nestedMove = {
+            origin: {x: point.x, y: point.y},
+            start: {
+                x: typeof entry.x === "number" ? entry.x : (absolute ? (resolved.x || 0) : 0),
+                y: typeof entry.y === "number" ? entry.y : (absolute ? (resolved.y || 0) : 0)
+            },
+            moved: false
+        };
+        HistoryService.start(EVENT.imageHistory);
+        return true;
+    }
+
+    function updateNestedMove(point){
+        let m = touchData.nestedMove;
+        let dx = point.x - m.origin.x, dy = point.y - m.origin.y;
+        if (!m.moved && !dx && !dy) return;
+        m.moved = true;
+        let local = ImageFile.nestedDocDeltaToLocal(dx, dy);
+        if (!local) return;
+        let round = v=>Math.round(v * 100) / 100;
+        ImageFile.setNestedOverride({x: round(m.start.x + local.x), y: round(m.start.y + local.y)});
+    }
+
+    function endNestedMove(){
+        let m = touchData.nestedMove;
+        touchData.nestedMove = undefined;
+        if (m && m.moved) HistoryService.end(); else HistoryService.neverMind();
     }
 
     function drawBoneOverlay(){
         let boneTool = getBoneToolIfLoaded();
         if (boneTool?.isActive()){
             overlayCanvas.style.opacity = 1;
+            clearToolOverlay();
             boneTool.drawOverlay(overlayCtx, zoom);
         }else{
-            overlayCtx.clearRect(0,0,overlayCanvas.width,overlayCanvas.height);
+            clearToolOverlay();
             overlayCanvas.style.opacity = 0;
         }
     }
 
     function syncVectorOverlaySize(){
-        let box = "0 0 " + canvas.width + " " + canvas.height;
+        let box = viewBounds.x+" "+viewBounds.y+" " + canvas.width + " " + canvas.height;
+        if (documentBoundary) documentBoundary.setAttribute("viewBox",box);
         if (vectorOverlay) vectorOverlay.setAttribute("viewBox", box);
+        if (pivotOverlay) pivotOverlay.setAttribute("viewBox", box);
         if (vectorShapes) vectorShapes.setAttribute("viewBox", box);
     }
+
+    // The pivot crosshair of the clip being edited, at a constant on-screen size (spec 024 R2a).
+    // Drawn from the live drag preview while the crosshair is being dragged.
+    function drawPivotOverlay(){
+        if (!pivotOverlay) return;
+        while (pivotOverlay.firstChild) pivotOverlay.removeChild(pivotOverlay.firstChild);
+        let clip = ImageFile.isEditingClip() ? ImageFile.getClip(ImageFile.getEditClipId()) : undefined;
+        if (!clip){
+            pivotOverlay.style.display = "none";
+            return;
+        }
+        pivotOverlay.style.display = "block";
+        let p = pivotPreview || clip.pivot;
+        let s = 1 / (zoom || 1);
+        let arm = 9 * s, r = 4 * s;
+        [["#000000", 3], ["#FFFFFF", 1]].forEach(([color, width])=>{
+            let g = document.createElementNS(SVGNS, "g");
+            g.setAttribute("stroke", color);
+            g.setAttribute("stroke-width", width);
+            g.setAttribute("fill", "none");
+            g.setAttribute("vector-effect", "non-scaling-stroke");
+            let circle = document.createElementNS(SVGNS, "circle");
+            circle.setAttribute("cx", p.x); circle.setAttribute("cy", p.y); circle.setAttribute("r", r);
+            circle.setAttribute("vector-effect", "non-scaling-stroke");
+            g.appendChild(circle);
+            [[p.x - arm, p.y, p.x + arm, p.y], [p.x, p.y - arm, p.x, p.y + arm]].forEach(([x1, y1, x2, y2])=>{
+                let line = document.createElementNS(SVGNS, "line");
+                line.setAttribute("x1", x1); line.setAttribute("y1", y1);
+                line.setAttribute("x2", x2); line.setAttribute("y2", y2);
+                line.setAttribute("vector-effect", "non-scaling-stroke");
+                g.appendChild(line);
+            });
+            pivotOverlay.appendChild(g);
+        });
+    }
+    EventBus.on(EVENT.editContextChanged, ()=>{
+        let key = ImageFile.getEditViewKey();
+        if (key !== viewContext){
+            savedViews.set(viewContext,{zoom,pan:me.getPanning(),rotation:me.getRotation(),bounds:{...viewBounds}});
+            let previous = savedViews.get(key);
+            viewContext = key;
+            viewBounds = previous ? previous.bounds : {x:0,y:0};
+            refreshWorkspace(true);
+            if (previous){
+                me.setRotation(previous.rotation);
+                me.setZoom(previous.zoom);
+                me.setPanning(previous.pan.x,previous.pan.y);
+            }else if (ImageFile.isEditingClip()) me.fitClip();
+            else me.resetPan();
+        }
+        me.update();
+        drawPivotOverlay();
+    });
+    EventBus.on(EVENT.libraryChanged, ()=>{ if (!touchData.pivotDragging) drawPivotOverlay(); });
 
     function drawVectorOverlay(){
         let vectorTool = getVectorToolIfLoaded();

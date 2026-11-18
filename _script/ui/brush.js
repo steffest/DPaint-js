@@ -26,6 +26,9 @@ var Brush = function(){
     var container;
     let pressure = 1;
     let rotationCache = {};
+    let animationFrames = [];
+    let animationIndex = 0;
+    let importGeneration = 0;
 
     let presets = [
         {
@@ -228,7 +231,28 @@ var Brush = function(){
         return currentBrush;
     }
 
-    me.set = function(type,data){
+    me.getFrameInfo = ()=>({index: animationIndex, count: animationFrames.length || 1});
+
+    me.nextFrame = ()=>{
+        if (animationFrames.length < 2) return false;
+        const scaleX = currentBrush.width / currentBrush.img.width;
+        const scaleY = currentBrush.height / currentBrush.img.height;
+        animationIndex = (animationIndex + 1) % animationFrames.length;
+        currentBrush.img = animationFrames[animationIndex];
+        currentBrush.width = Math.max(1, Math.round(currentBrush.img.width * scaleX));
+        currentBrush.height = Math.max(1, Math.round(currentBrush.img.height * scaleY));
+        brushAlphaLayer = undefined;
+        rotationCache = {};
+        generateBrush();
+        EventBus.trigger(EVENT.brushOptionsChanged);
+        EventBus.trigger(EVENT.drawCanvasOverlay);
+        return true;
+    };
+
+    me.set = function(type,data,frames = []){
+        ++importGeneration;
+        animationFrames = frames;
+        animationIndex = 0;
         if (type === "preset" && typeof(data) === "number") {
 
             activateBrushTool();
@@ -435,9 +459,6 @@ var Brush = function(){
              h = drawCanvas.height * scaleY;
         }
 
-        if (w>1) x -= Math.floor((w-1)/2);
-        if (h>1) y -= Math.floor((h-1)/2);
-
         if (isDrawing && currentBrush.jitter && !isFirst){
             let jx = (Math.random() - 0.5) * currentBrush.jitter * w * 0.05;
             let jy = (Math.random() - 0.5) * currentBrush.jitter * h  * 0.05;
@@ -468,6 +489,11 @@ var Brush = function(){
             w = Math.max(1, w * pressure * (Math.random() * 0.5 + 0.5) * sizeFactor);
             h = Math.max(1, h * pressure * (Math.random() * 0.5 + 0.5) * sizeFactor);
         }
+
+        // Position the final stamp around the pointer, including pressure/rotation sizing.
+        // Integer offsets keep pixel brushes sharp; even sizes use the lower-right centre pixel.
+        x -= Math.floor(w / 2);
+        y -= Math.floor(h / 2);
 
         if (currentBrush.type === "canvas" || currentBrush.type === "circle"){
             if (onBackground){
@@ -592,14 +618,38 @@ var Brush = function(){
     me.import = (data)=>{
         if (!data) return;
         if (data.image && data.type === "dpaint"){
-            let frame = data.image.frames[0];
-            let layer = frame.layers[0];
-            let canvas = new Image();
-            canvas.onload = ()=>{
-                me.set("canvas",canvas);
-                EventBus.trigger(EVENT.drawCanvasOverlay);
+            // Each content cel supplies one brush frame, using its first raster layer.
+            let frames = data.image.frames || [];
+            if (data.image.timeline){
+                frames = [];
+                for (const track of data.image.timeline.tracks || []){
+                    const keys = (track.keys || [])
+                        .filter(key => key.type === "content" && key.cel?.layers?.length)
+                        .sort((a,b) => a.frame - b.frame);
+                    if (keys.length){
+                        frames = keys.map(key => key.cel);
+                        break;
+                    }
+                }
             }
-            canvas.src = layer.canvas;
+            const layers = frames.map(frame => frame.layers?.[0]);
+            if (!layers.length || layers.some(layer => !layer?.canvas)){
+                throw new Error("This DPaint file has no raster layer to load as a brush");
+            }
+            const generation = ++importGeneration;
+            // Decode the whole sequence before installing it, so Tab always switches instantly.
+            return Promise.all(layers.map(layer => new Promise((resolve,reject)=>{
+                const image = new Image();
+                image.onload = ()=>resolve(image);
+                image.onerror = ()=>reject(new Error("Could not decode a brush frame"));
+                image.src = layer.canvas;
+            }))).then(images=>{
+                if (generation !== importGeneration) return;
+                me.set("canvas",images[0],images);
+                EventBus.trigger(EVENT.drawCanvasOverlay);
+            }).catch(error=>{
+                if (generation === importGeneration) Modal.alert(error.message, "Could not load brush");
+            });
         }else{
             if (data.width && data.height){
                 me.set("canvas",data);
