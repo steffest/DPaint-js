@@ -1,16 +1,19 @@
+import {normalizeEasing, easingData} from "./util/easingUtils.js";
 import FileDetector from "./fileformats/detect.js";
 import AmigaIcon from "./fileformats/amigaIcon.js";
 import EventBus from "./util/eventbus.js";
 import {COMMAND,EVENT} from "./enum.js";
 import Historyservice from "./services/historyservice.js";
 import Layer from "./ui/layer.js";
+import {normalizeEffects, activeStroke} from "./util/layerEffects.js";
+import BoneDeformer from "./paintTools/boneDeformer.js";
 import Modal,{DIALOG} from "./ui/modal.js";
 import PanelManager from "./ui/panelManager.js";
 import NativePanels from "./ui/nativePanels.js";
 import {duplicateCanvas, indexPixelsToPalette, releaseCanvas} from "./util/canvasUtils.js";
 import Palette from "./ui/palette.js";
 import {setCurrentFileHandle, getCurrentFileHandle, getCurrentSaveFormat, getCurrentSaveOptions, hasLocalFileHandle} from "./ui/currentFileHandle.js";
-import {rememberFile} from "./util/recentFiles.js";
+import {rememberFile, rememberPreviousDocument, getPreviousDocument} from "./util/recentFiles.js";
 import HistoryService from "./services/historyservice.js";
 import ImageProcessing from "./util/imageProcessing.js";
 import Brush from "./ui/brush.js";
@@ -19,7 +22,8 @@ import {DuplicateName} from "./util/textUtils.js";
 import {getRecorderIfLoaded} from "./services/recorderLoader.js";
 import {createEditService} from "./services/editService.js";
 import {runWebGLQuantizer} from "./util/webgl-quantizer.js";
-import {compositeNodes, resolveLayerPath, flatIndex, pathFromFlatIndex, isGroup, isBones, isVector, parentOf, removeAtPath, insertAtPath, moveAtPath, isLockedInTree, resolvedOffset, effectiveProps, hasGroupTransform, getOpaqueBounds, groupTransformMatrix, matIdentity, matMultiply, matTranslate, matApply, matInvert, eligibleVectorSiblings} from "./util/layerUtils.js";
+import {compositeNodes, resolveLayerPath, flatIndex, pathFromFlatIndex, isGroup, isBones, isVector, isClip, parentOf, removeAtPath, insertAtPath, moveAtPath, isLockedInTree, resolvedOffset, effectiveProps, hasGroupTransform, getOpaqueBounds, groupTransformMatrix, matIdentity, matMultiply, matTranslate, matRotate, matScale, matApply, matInvert, eligibleVectorSiblings,
+    buildAttachMap, boneSkinMatrix, applyPoseOverlay, isVisibleIn} from "./util/layerUtils.js";
 import {DISSOLVE_PATTERNS, DEFAULT_DISSOLVE_PATTERN, isDissolvePattern, isDissolveComparison,
     dissolveFollowsOpacity, applyDissolve} from "./util/dissolveUtils.js";
 import {getDisplayMode, VECTOR_DISPLAY_MODES, appendVector, emptyVectorData, getVectorSvgShapeSources, poseVector,
@@ -30,7 +34,18 @@ import {timelineLength, keyAt, previousKey, nextKey, governingContentKey, conten
     canTween, insertKey, removeKey, moveKey, moveKeys} from "./util/timelineUtils.js";
 import {createFrameCache, makeFrameKey, RENDER_VARIANT} from "./services/frameCache.js";
 import {createExportSnapshot, iterateFrames} from "./services/exportSnapshot.js";
+import {renderTimeline, rootEnv, resolveMaskFor, trackOptionsFor, resolveForRender} from "./util/timelineRender.js";
+import {clipNodeIndex} from "./util/clipUtils.js";
+import {clipMap, clampLength, clipUsage, validateMarkers, canPlace, forEachClipNode, resolveInstanceTime,
+    normalizeCue, normalizeFrame, rangeFor, markerRanges, renameMarkerRefs, MAX_CLIP_DEPTH} from "./util/clipUtils.js";
+import {configureClipRendering, clearClipCache, getClipMetrics, getClipWarnings, getClipComposite, getDeformSource, clipBounds, childEnv, instanceMatrix, instanceParts} from "./util/clipRender.js";
 import {getCustomFonts, restoreCustomFonts} from "./util/fonts.js";
+import {lineageIds, sanitizeLineages, checkLineages} from "./util/lineageUtils.js";
+import {resolveNested, nestedTree, nestedPathAtPoint} from "./util/nestedResolve.js";
+import {syntheticTracks, paramContribution, lastFrame as paramLastFrame, valueOf as paramValueOf, copyParams,
+    normalizeParams, frameOf as paramFrameOf, effectiveValues as paramEffectiveValues, clearDrivenSetMemo} from "./util/paramUtils.js";
+import {normalizeEntry, normalizePath, normalizeOverrides, pathSegments, walkPath, resolvedToRaw, mergeRawOuter, resolveSetTimes,
+    normalizeParamValues} from "./util/overrideUtils.js";
 
 let ImageFile = function(){
     let me = {};
@@ -60,6 +75,13 @@ let ImageFile = function(){
     };
     let autoSaveTimer;
 
+    // Renders that arrive without a timeline env (merge down, thumbnails, hit tests) still find
+    // the document library and the timeline-wide smooth flag (spec 024 §3.4).
+    configureClipRendering({
+        library: ()=>currentFile.library,
+        smooth: ()=>!!currentFile.smooth
+    });
+
     me.getCurrentFile = function(){
         return currentFile;
     };
@@ -67,9 +89,275 @@ let ImageFile = function(){
     // ── timeline model access ─────────────────────────────────────────────────────
     // currentFile.timeline = { fps, tracks:[ {name,visible,locked,keys:[...]} ] }
     // Track index 0 is the BOTTOM of the z-order (same convention as cel.layers).
+    //
+    // Edit context (spec 024 §3.7): the timeline being EDITED is either the root timeline or
+    // the clip on top of `editStack`. tracks()/activeTrack()/currentFrame() resolve through
+    // editTimeline(), so every editing site works inside a clip unchanged. The baking boundary
+    // (getCanvas, getFrameCount, getBakedFrames, export, fps, clone/restore) always addresses
+    // the ROOT. activeFrameIndex/activeTrackIndex always refer to the edit timeline.
+    let editStack = [];
+
+    function rootTimeline(){
+        return currentFile.timeline;
+    }
+
+    // The clip with `id` in the document library, or undefined. A parameter context key
+    // ("C3#P1", spec 026) resolves to its clip, so history records made inside a parameter
+    // timeline find their clip like any other.
+    function clipById(id){
+        if (typeof id === "string"){
+            let i = id.indexOf("#");
+            if (i > 0) id = id.slice(0, i);
+        }
+        return clipMap(currentFile.library).get(id);
+    }
+
+    // ── clip parameters: the parameter edit context (spec 026 §3.6) ────────────────
+    // Editing a parameter pushes a {kind: "param"} level on the edit stack. tracks() then returns
+    // SYNTHETIC tracks (paramUtils.syntheticTracks): each clip track's governing cel pinned at
+    // frame −1, then the parameter's keys BY REFERENCE — so the timeline panel, key operations,
+    // the Properties panel, Free Transform and the bone tool edit the parameter without knowing it
+    // exists. Structural key changes land in the synthetic arrays and are written back into
+    // param.tracks by syncParamTracks() (called on every structure change).
+    let paramCtx = null;    // {key, clip, param, localFrame, timeline}
+
+    function paramOf(clip, paramId){
+        return clip && Array.isArray(clip.params) ? clip.params.find(p=>p.id === paramId) : undefined;
+    }
+
+    function editParamEntry(){
+        let top = editStack[editStack.length - 1];
+        return top && top.kind === "param" ? top : undefined;
+    }
+
+    function contextKey(clipId, paramId){
+        return paramId ? clipId + "#" + paramId : clipId;
+    }
+
+    function parseContextKey(key){
+        if (typeof key === "string"){
+            let i = key.indexOf("#");
+            if (i > 0) return {clipId: key.slice(0, i), paramId: key.slice(i + 1)};
+        }
+        return {clipId: key};
+    }
+
+    // The history / edit-context key of what is being edited: null (root), a clip id, or
+    // "clipId#paramId" inside a parameter timeline.
+    function editContextKey(){
+        let pe = editParamEntry();
+        return pe ? contextKey(pe.clipId, pe.paramId) : editClipId();
+    }
+
+    function paramTimeline(clipId, paramId, localFrame){
+        let clip = clipById(clipId);
+        let param = paramOf(clip, paramId);
+        if (!clip || !param) return undefined;
+        let key = contextKey(clip.id, paramId);
+        if (paramCtx && paramCtx.key === key && paramCtx.clip === clip && paramCtx.param === param
+            && (typeof localFrame !== "number" || paramCtx.localFrame === localFrame)) return paramCtx.timeline;
+        syncParamTracks();
+        let lf = typeof localFrame === "number" ? localFrame : 0;
+        ensureTrackIds(clip.timeline);
+        paramCtx = {key, clip, param, localFrame: lf, timeline: {tracks: syntheticTracks(clip, param, lf), param: true}};
+        return paramCtx.timeline;
+    }
+
+    function invalidateParamCtx(){
+        syncParamTracks();
+        paramCtx = null;
+    }
+
+    // Writes the synthetic tracks' parameter keys back into param.tracks. Tracks that show no cel
+    // at the entry frame (no pinned key) keep their stored keys untouched.
+    function syncParamTracks(){
+        if (!paramCtx) return;
+        let param = paramCtx.param;
+        let tracksMap = Object.assign({}, param.tracks || {});
+        paramCtx.timeline.tracks.forEach(st=>{
+            if (!st.id || !(st.keys || []).some(k=>k.pinned)) return;
+            let keys = st.keys.filter(k=>!k.pinned && k.type === "property" && k.frame >= 0);
+            keys.forEach(k=>{ k.tween = param.type === "number"; });
+            if (keys.length) tracksMap[st.id] = keys; else delete tracksMap[st.id];
+        });
+        param.tracks = tracksMap;
+    }
+
+    // Refuses an edit that would change the clip itself while a parameter is edited (R20, N10).
+    function refuseInParam(what){
+        if (!editParamEntry()) return false;
+        Modal.softAlert(what + " is not available while editing a parameter: it would change the clip itself.", "Parameter");
+        return true;
+    }
+
+    // A write whose target is the pinned cel (a parameter frame without a key) would edit the
+    // clip's own base values: refused (R19).
+    function refusePinned(key){
+        if (!key || !key.pinned) return false;
+        Modal.softAlert("Add a key on this parameter frame first.", "Parameter");
+        return true;
+    }
+
+    // The timeline a history target / edit-stack entry addresses: null/undefined = the root.
+    // A deleted clip resolves to undefined, which callers treat as a no-op (N8).
+    function timelineOf(clipId){
+        if (clipId === null || typeof clipId === "undefined") return rootTimeline();
+        let ctx = parseContextKey(clipId);
+        if (ctx.paramId){
+            let pe = editParamEntry();
+            let lf = pe && contextKey(pe.clipId, pe.paramId) === clipId ? pe.parentFrame : undefined;
+            return paramTimeline(ctx.clipId, ctx.paramId, lf);
+        }
+        let clip = clipById(clipId);
+        return clip ? clip.timeline : undefined;
+    }
+
+    function editClip(){
+        let top = editStack[editStack.length - 1];
+        return top ? clipById(top.clipId) : undefined;
+    }
+
+    function editTimeline(){
+        let pe = editParamEntry();
+        if (pe) return paramTimeline(pe.clipId, pe.paramId, pe.parentFrame) || {tracks: []};
+        let clip = editClip();
+        return clip ? clip.timeline : rootTimeline();
+    }
+
+    function tracksOf(timeline){
+        return (timeline && timeline.tracks) || [];
+    }
+
+    // Stable track ids (spec 026 D10): unique within their timeline, never reused there. Clip
+    // parameters store their keys per track id, so they follow a track through reorder, add and
+    // delete. Assigned lazily to tracks built without one (every track constructor, restored
+    // documents from before 026) and repaired when duplicated.
+    function ensureTrackIds(timeline){
+        let list = tracksOf(timeline);
+        let max = 0;
+        list.forEach(t=>{
+            let n = t && typeof t.id === "string" ? parseInt(t.id.replace(/^T/, ""), 10) : NaN;
+            if (Number.isFinite(n) && n > max) max = n;
+        });
+        let seen = new Set();
+        list.forEach(t=>{
+            if (!t) return;
+            if (typeof t.id !== "string" || !t.id || seen.has(t.id)) t.id = "T" + (++max);
+            seen.add(t.id);
+        });
+    }
+
+    function ensureAllTrackIds(){
+        allTimelines().forEach(ensureTrackIds);
+    }
 
     function tracks(){
-        return (currentFile.timeline && currentFile.timeline.tracks) || [];
+        let timeline = editTimeline();
+        ensureTrackIds(timeline);
+        return tracksOf(timeline);
+    }
+
+    function rootLength(){
+        return timelineLength(rootTimeline());
+    }
+
+    // A clip's editable range also covers keys past its explicit length (shown out of range, R3).
+    function clipEditLength(clip){
+        return Math.max(clampLength(clip.length), timelineLength(clip.timeline));
+    }
+
+    function editLength(){
+        let pe = editParamEntry();
+        if (pe){
+            let param = paramOf(clipById(pe.clipId), pe.paramId);
+            return param ? paramLastFrame(param) + 1 : 1;
+        }
+        let clip = editClip();
+        return clip ? clipEditLength(clip) : rootLength();
+    }
+
+    // The clip id the current edit context targets (null at the root) — recorded by history steps.
+    function editClipId(){
+        let clip = editClip();
+        return clip ? clip.id : null;
+    }
+
+    // ── clip library (spec 024) ───────────────────────────────────────────────────
+    // currentFile.library = { nextClipId, rev, clips: [ {id, name, length, pivot, markers,
+    //                         timeline: {tracks}, rev} ] }
+    // Clip ids ("C1", "C2", …) are never reused within a document. `rev` (per clip and for the
+    // library) is a session-monotonic change stamp that keys the clip composite cache; it is not
+    // serialized.
+    let clipRevCounter = 0;
+
+    function emptyLibrary(){
+        return {nextClipId: 1, rev: 0, clips: []};
+    }
+
+    function library(){
+        if (!currentFile.library) currentFile.library = emptyLibrary();
+        return currentFile.library;
+    }
+
+    function hasClips(){
+        return !!(currentFile.library && Array.isArray(currentFile.library.clips) && currentFile.library.clips.length);
+    }
+
+    // Marks a clip's content (or the library structure) as changed: every cached composite of the
+    // clip, and of every clip that contains it (revChain), stops matching.
+    function touchClip(clip){
+        if (clip) clip.rev = ++clipRevCounter;
+        library().rev = ++clipRevCounter;
+    }
+
+    function uniqueClipName(name, exceptId){
+        let base = (typeof name === "string" && name.trim()) ? name.trim() : "Clip";
+        let taken = new Set(library().clips.filter(c=>c.id !== exceptId).map(c=>c.name));
+        if (!taken.has(base)) return base;
+        let n = 2;
+        while (taken.has(base + " " + n)) n++;
+        return base + " " + n;
+    }
+
+    function clipIdNumber(id){
+        let m = /^C(\d+)$/.exec(typeof id === "string" ? id : "");
+        return m ? parseInt(m[1], 10) : 0;
+    }
+
+    function allocateClipId(){
+        let lib = library();
+        let n = Math.max(1, lib.nextClipId || 1);
+        while (clipById("C" + n)) n++;
+        lib.nextClipId = n + 1;
+        return "C" + n;
+    }
+
+    function copyMarkers(markers){
+        return (Array.isArray(markers) ? markers : []).map(m=>{
+            let out = {frame: m.frame, name: m.name};
+            if (typeof m.end === "number") out.end = m.end;
+            return out;
+        });
+    }
+
+    function libraryChanged(){
+        clearRenderCache();
+        cachedImage = undefined;
+        EventBus.trigger(EVENT.libraryChanged);
+        EventBus.trigger(EVENT.imageContentChanged);
+    }
+
+    // The env a clip's content renders with when composited on its own (thumbnails, bounds).
+    function clipRenderEnv(){
+        return {library: library(), depth: 0, stack: new Set(), dissolve: false, skipVectorDisplay: false};
+    }
+
+    // The track list a history record addresses by its `clipId` (spec 024 §3.13): null = the
+    // root, a clip id = that clip's timeline (empty when the clip was deleted → the step is a
+    // no-op), undefined (a record from before clip ids existed) = the current edit timeline.
+    function trackListFor(clipId){
+        if (typeof clipId === "undefined") return tracks();
+        return tracksOf(timelineOf(clipId));
     }
 
     function activeTrack(){
@@ -97,12 +385,12 @@ let ImageFile = function(){
         };
     }
 
-    function makeContentKey(frame,cel,tween){
-        return {frame: frame, type: "content", tween: !!tween, cel: cel || makeCel()};
+    function makeContentKey(frame,cel,tween,easing){
+        return {frame: frame, type: "content", tween: !!tween, ...easingData(easing), cel: cel || makeCel()};
     }
 
-    function makePropertyKey(frame,props,tween){
-        return {frame: frame, type: "property", tween: !!tween, props: props || {}};
+    function makePropertyKey(frame,props,tween,easing){
+        return {frame: frame, type: "property", tween: !!tween, ...easingData(easing), props: props || {}};
     }
 
     function makeTrack(name,cel){
@@ -126,23 +414,43 @@ let ImageFile = function(){
         return {fps: fps || 12, tracks: [track]};
     }
 
-    // Every cel of every content key of every track, each visited exactly once. Cels are
-    // never shared between content keys (property keys only reference them), so there is
-    // no double-processing hazard for document-wide operations like resize/resample.
-    function forEachCel(callback){
-        tracks().forEach((track,trackIndex)=>{
+    // Every root and clip timeline of the document (layer ids are document-global, R38).
+    function allTimelines(){
+        let list = [];
+        if (rootTimeline()) list.push(rootTimeline());
+        ((currentFile.library && currentFile.library.clips) || []).forEach(clip=>{
+            if (clip && clip.timeline) list.push(clip.timeline);
+        });
+        return list;
+    }
+
+    // Every cel of every content key of every track of ONE timeline, each visited once.
+    function forEachCelIn(timeline,callback){
+        tracksOf(timeline).forEach((track,trackIndex)=>{
             (track.keys || []).forEach(key=>{
                 if (key.type === "content" && key.cel) callback(key.cel, key, track, trackIndex);
             });
         });
     }
 
-    function forEachPropertyKey(callback){
-        tracks().forEach((track,trackIndex)=>{
+    function forEachPropertyKeyIn(timeline,callback){
+        tracksOf(timeline).forEach((track,trackIndex)=>{
             (track.keys || []).forEach(key=>{
                 if (key.type === "property") callback(key, track, trackIndex);
             });
         });
+    }
+
+    // Every cel of every content key of every track, each visited exactly once — across the
+    // root AND every clip timeline, so document-wide operations (resample, rotate, smooth,
+    // id-based pruning) reach clip content too (spec 024 R40). Cels are never shared between
+    // content keys (property keys only reference them), so there is no double-processing hazard.
+    function forEachCel(callback){
+        allTimelines().forEach(timeline=>forEachCelIn(timeline, callback));
+    }
+
+    function forEachPropertyKey(callback){
+        allTimelines().forEach(timeline=>forEachPropertyKeyIn(timeline, callback));
     }
 
     // Re-derives activeLayer/activeLayerPath/activeLayerIndex from the governing cel.
@@ -164,6 +472,19 @@ let ImageFile = function(){
         }
         activeLayerIndex = flatIndex(cel.layers, activeLayerPath);
         if (activeLayerIndex < 0) activeLayerIndex = activeLayerPath[0] || 0;
+    }
+
+    // Crossing a content key: stay on the same layer lineage when the new cel continues it
+    // (spec 025 R5). Otherwise the cel's own remembered activeLayerIndex (resolveActiveLayer) wins.
+    function followLineage(leftCel, leftId){
+        let cel = currentFrame();
+        if (!leftId || !cel || cel === leftCel) return;
+        let path = findPathById(cel.layers || [], leftId);
+        if (!path) return;
+        activeLayerPath = path;
+        activeLayer = resolveLayerPath(cel.layers, path);
+        activeLayerIndex = flatIndex(cel.layers, path);
+        cel.activeLayerIndex = activeLayerIndex;
     }
 
     // Remembers the active layer on the cel we are leaving, so returning to it restores it.
@@ -242,8 +563,11 @@ let ImageFile = function(){
         if (!nodes || nodes.length !== 1) return false;
         let only = nodes[0];
         if (!only || isGroup(only) || !only.visible) return false;
+        // A clip instance is composited from its library clip (spec 024) — never a plain canvas.
+        if (isClip(only)) return false;
         // A bone layer is not content — it deforms siblings; never hand it back as the whole frame.
         if (isBones(only)) return false;
+        if (activeStroke(only)) return false;
         // Compare the EFFECTIVE values, not the base ones: resolveTrackState always returns
         // a full per-layer map (base values included), so the mere presence of an entry says
         // nothing. What matters is whether the layer still lands at the origin, fully opaque.
@@ -264,9 +588,11 @@ let ImageFile = function(){
     // Returns undefined for a frame outside the timeline, matching the old out-of-range
     // behaviour that callers like the icon exporters rely on (`getCanvas(1) || canvas1`).
     me.getCanvas = function(frameIndex, displayOptions){
-        let list = tracks();
+        // The baking boundary always addresses the ROOT timeline, at the root playhead when
+        // no frame is given — even while a clip is being edited (spec 024 §3.7).
+        let list = tracksOf(rootTimeline());
         if (!list.length) return;
-        let f = typeof frameIndex === "number" ? frameIndex : activeFrameIndex;
+        let f = typeof frameIndex === "number" ? frameIndex : me.getRootFrameIndex();
         if (f < 0 || f >= me.getFrameCount()) return;
 
         // On-screen callers pass {skipVectorDisplay:true}: a "vector"-display layer is painted as a
@@ -322,36 +648,13 @@ let ImageFile = function(){
         }
         // While the palette is locked, transparency is a 1-bit stencil rather than an alpha
         // blend, so the composite only ever contains real palette colours (dissolveUtils).
-        let compositeOptions = me.getCompositeOptions();
-        if (skipVectorDisplay){
-            compositeOptions = Object.assign({}, compositeOptions, {skipVectorDisplay: true});
-        }
-        list.forEach((track,index)=>{
-            // A mask track is not content: it only shapes the alpha of the track below it.
-            if (track.mask) return;
-            if (!track.visible) return;
-            let state = resolveTrackState(track, f);
-            if (!state) return; // empty cells: this track has no key at or before f yet
-
-            let maskState = resolveMaskFor(list, index, f);
-            if (maskState){
-                // Composite this track in ISOLATION, punch the mask through it, then draw the
-                // result — masking has to happen before the track meets the tracks below it.
-                // Side effect: a masked track's own blend modes no longer blend against lower
-                // tracks (they blend within the track), which is the same trade-off Photoshop
-                // makes for a masked group. The unmasked path below is unchanged.
-                let masked = document.createElement("canvas");
-                masked.width = currentFile.width;
-                masked.height = currentFile.height;
-                let maskedCtx = masked.getContext("2d",{willReadFrequently:true});
-                compositeNodes(state.cel.layers, maskedCtx, state.props, compositeOptions);
-                applyTrackMask(maskedCtx, maskState);
-                ctx.drawImage(masked, 0, 0);
-                releaseCanvas(masked);
-                return;
-            }
-            compositeNodes(state.cel.layers, ctx, state.props, compositeOptions);
-        });
+        // The track loop and mask isolation live in the shared renderer (spec 024 §3.3).
+        renderTimeline(list, f, ctx, rootEnv({
+            // Only a document that has clips pays for the clip plumbing (N7).
+            library: hasClips() ? currentFile.library : undefined,
+            dissolve: Palette.isLockedGlobal(),
+            skipVectorDisplay: skipVectorDisplay
+        }));
         if (clipped) ctx.restore();
         return canvas;
     };
@@ -424,45 +727,6 @@ let ImageFile = function(){
     // drawn as content itself. It disables itself when hidden, or on frames where it has no
     // key yet, so an unfinished mask track cannot silently blank the artwork below it.
 
-    // The resolved state of the mask track sitting directly on top of `index`, or undefined.
-    function resolveMaskFor(list, index, f){
-        let maskTrack = list[index + 1];
-        if (!maskTrack || !maskTrack.mask || maskTrack.visible === false) return undefined;
-        return resolveTrackState(maskTrack, f);
-    }
-
-    // Punches the mask into `targetCtx`: the mask composite's RED channel becomes alpha, the
-    // same rule Layer.update() uses for layer masks, so white keeps pixels and black drops
-    // them. Painted-but-black areas conceal; an ENTIRELY unpainted mask cel means "no mask
-    // yet" and is skipped, so flagging a track as a mask never blanks the artwork below it
-    // before anything has been drawn. Returns true when a mask was actually applied.
-    function applyTrackMask(targetCtx, maskState){
-        let maskCanvas = document.createElement("canvas");
-        maskCanvas.width = currentFile.width;
-        maskCanvas.height = currentFile.height;
-        let maskCtx = maskCanvas.getContext("2d",{willReadFrequently:true});
-        compositeNodes(maskState.cel.layers, maskCtx, maskState.props);
-
-        let image = maskCtx.getImageData(0, 0, maskCanvas.width, maskCanvas.height);
-        let data = image.data;
-        let hasContent = false;
-        for (let i = 0, max = data.length; i < max; i += 4){
-            if (data[i + 3]) hasContent = true;
-            data[i + 3] = data[i];
-        }
-        if (!hasContent){
-            releaseCanvas(maskCanvas);
-            return false;
-        }
-        maskCtx.putImageData(image, 0, 0);
-
-        targetCtx.globalCompositeOperation = "destination-in";
-        targetCtx.drawImage(maskCanvas, 0, 0);
-        targetCtx.globalCompositeOperation = "source-over";
-        releaseCanvas(maskCanvas);
-        return true;
-    }
-
     // True if the track at `index` is currently being masked by the one above it.
     me.isTrackMasked = function(index){
         let list = tracks();
@@ -475,9 +739,50 @@ let ImageFile = function(){
     // ── baking / frame count ──────────────────────────────────────────────────────
 
     // Timeline length is implicit: one past the last key over all tracks (decision 5).
+    // Always the ROOT timeline: this is what exporters bake (spec 024).
     me.getFrameCount = function(){
-        return timelineLength(currentFile.timeline);
+        return rootLength();
     };
+
+    // Frame count of the timeline being EDITED (the root, or the clip being edited in place):
+    // what the timeline panel shows and playback loops over (spec 024 §3.7).
+    me.getEditFrameCount = function(){
+        return editLength();
+    };
+
+    // The ROOT playhead. At the root it is the edit playhead; inside a clip it is mapped back
+    // up the edit stack level by level (linear mapping follows the clip playhead, frozen
+    // mapping stays at the entry frame — spec 024 §3.8).
+    me.getRootFrameIndex = function(){
+        return contextFrames()[0];
+    };
+
+    // Length of the timeline at edit level i (0 = the root, i = the clip of editStack[i − 1]).
+    function levelLength(i){
+        if (i === 0) return rootLength();
+        let clip = clipById(editStack[i - 1].clipId);
+        return clip ? clipEditLength(clip) : rootLength();
+    }
+
+    // The playhead of every level of the edit context: frames[0] is the root, frames[n] the clip
+    // being edited (= activeFrameIndex). Mapped up level by level: a linear mapping follows the
+    // clip playhead (parentAtEntry + (local − localAtEntry)); a frozen one stays at the entry
+    // frame (R19). Clamped to each level's length.
+    function contextFrames(){
+        let frames = new Array(editStack.length + 1);
+        let local = activeFrameIndex;
+        frames[editStack.length] = local;
+        for (let i = editStack.length - 1; i >= 0; i--){
+            let entry = editStack[i];
+            let mapping = entry.mapping || {};
+            let parent = mapping.kind === "linear"
+                ? mapping.parentAtEntry + (local - mapping.localAtEntry)
+                : entry.parentFrame;
+            local = Math.max(0, Math.min(levelLength(i) - 1, Math.floor(parent || 0)));
+            frames[i] = local;
+        }
+        return frames;
+    }
 
     // The exporter entry point: every timeline frame, fully resolved.
     me.getBakedFrames = function(){
@@ -539,14 +844,15 @@ let ImageFile = function(){
     };
 
     me.getFps = function(){
-        return (currentFile.timeline && currentFile.timeline.fps) || 12;
+        return (rootTimeline() && rootTimeline().fps) || 12;
     };
 
     me.setFps = function(value){
+        if (editStack.length) return;   // a clip has no fps of its own (D1)
         let fps = parseInt(value,10);
         if (isNaN(fps) || fps < 1) return;
-        if (!currentFile.timeline) return;
-        currentFile.timeline.fps = fps;
+        if (!rootTimeline()) return;
+        rootTimeline().fps = fps;
         EventBus.trigger(EVENT.timelineChanged);
     };
 
@@ -601,6 +907,20 @@ let ImageFile = function(){
     // imageContentChanged (the layer panel and the canvas must refresh). Holding the cache
     // across those keeps playback from re-compositing every derived frame on every loop.
     let cacheHold = 0;
+    let contextRootRevision = 0;
+    let contextFramesCache = new Map();
+    let contextCacheBytes = 0;
+    let contextBoundsCache = new Map();
+    let contextDependencyMemo;
+    const CONTEXT_CACHE_BUDGET = 32*1024*1024;
+
+    function clearContextCache(){
+        contextFramesCache.forEach(entry=>releaseCanvas(entry.canvas));
+        contextFramesCache.clear();
+        contextCacheBytes = 0;
+        contextBoundsCache.clear();
+        contextDependencyMemo = undefined;
+    }
 
     // Cached canvases are handed straight to callers, so they must not be released here —
     // dropping the references and letting GC reclaim them is the only safe invalidation.
@@ -609,7 +929,14 @@ let ImageFile = function(){
         // playback (a playhead move is a composite-input change too). This is the single
         // signal the incremental display path uses to detect that its retained surface is stale.
         editService.bumpDocumentRevision("structure");
+        // Editing inside a clip changes its definition: every cached composite of it (and of
+        // every clip containing it, via revChain) must stop matching (spec 024 §3.7).
+        if (editStack.length && !cacheHold) touchClip(editClip());
         if (cacheHold) return;
+        if (!editStack.length){
+            contextRootRevision++;
+            clearContextCache();
+        }
         renderCache.invalidate(true); // drop every cached baked frame (same as the old Map.clear)
     }
     me.clearRenderCache = clearRenderCache;
@@ -633,8 +960,9 @@ let ImageFile = function(){
     };
 
     me.getActiveContext = function(){
-        // A group has no paintable context; tools must no-op (see editor guard).
-        if (activeLayer && isGroup(activeLayer)) return undefined;
+        // A group has no paintable context; tools must no-op (see editor guard). Neither does a
+        // clip instance: its pixels are its library clip's composite (spec 024 R13).
+        if (activeLayer && (isGroup(activeLayer) || isClip(activeLayer))) return undefined;
         // A vector layer's pixels are a regenerated raster of its geometry — pixel tools/effects
         // must not draw into it (they would be wiped on the next render()). VectorTool edits the
         // geometry instead. Returning undefined makes the pixel tools no-op, like a group.
@@ -655,7 +983,11 @@ let ImageFile = function(){
     me.isActiveLayerLocked = function(){
         let frame = currentFrame();
         if (!frame) return false;
+        // a parameter timeline only poses the clip's parts: no painting (spec 026 R20)
+        if (editParamEntry()) return true;
         if (isGroup(activeLayer)) return true;
+        // A clip instance only moves/transforms; pixel tools refuse it (spec 024 R13).
+        if (isClip(activeLayer)) return true;
         return isLockedInTree(frame.layers, activeLayerPath);
     };
 
@@ -697,12 +1029,16 @@ let ImageFile = function(){
         }
 
         function search(nodes, prefix, m){
+            // bone attachment (spec 024): an attached node sits under its bone's rigid matrix
+            let attachMap = buildAttachMap(nodes, props);
             for (let i = nodes.length - 1; i >= 0; i--){
                 let node = nodes[i];
                 if (!node || !node.visible || !node.opacity) continue;
                 let path = prefix.concat(i);
                 let effective = effectiveProps(node, props);
-                let nodeMatrix = matMultiply(m, matTranslate(effective.x, effective.y));
+                let attached = attachMap && attachMap.get(node);
+                let scope = attached ? matMultiply(m, attached) : m;
+                let nodeMatrix = matMultiply(scope, matTranslate(effective.x, effective.y));
                 if (isGroup(node) && !node.collapsed){
                     let groupMatrix = nodeMatrix;
                     if (hasGroupTransform(effective)){
@@ -712,6 +1048,13 @@ let ImageFile = function(){
                     let inner = search(node.layers, path, groupMatrix);
                     if (inner) return inner;
                     // group is expanded but nothing opaque inside at this point
+                    continue;
+                }
+                // A clip instance is a leaf: probe its composite (render() → cached local
+                // composite + canvasX/Y) through the full instance matrix about its pivot.
+                if (isClip(node)){
+                    let clip = clipById(node.clipId);
+                    if (clip && opaqueAt(node, matMultiply(scope, instanceMatrix(effective, clip.pivot)))) return path;
                     continue;
                 }
                 if (opaqueAt(node,nodeMatrix)) return path;
@@ -829,7 +1172,7 @@ let ImageFile = function(){
         if (saving) return;
         const handle = getCurrentFileHandle();
         const format = getCurrentSaveFormat();
-        if (!format){
+        if (!format || format === "VIDEO"){
             return me.saveAs();
         }
         saving = true;
@@ -855,7 +1198,7 @@ let ImageFile = function(){
                 throw error;
             }
             rememberFile(handle);
-            Modal.softAlert("File saved.");
+            Modal.softAlert("File saved: " + handle.name);
         } catch (error){
             if (error.name !== "AbortError") Modal.alert(error.message, "Could not save file");
         } finally {
@@ -900,15 +1243,17 @@ let ImageFile = function(){
     // moves with the group.
     function shiftDocumentContent(dx,dy){
         if (!dx && !dy) return;
-        forEachCel(cel=>{
+        // Only the ROOT timeline moves: clip content lives in clip-local space, which a crop of
+        // the document does not touch (spec 024 R40) — its instances move with the root.
+        forEachCelIn(rootTimeline(), cel=>{
             cel.layers.forEach(node=>{
                 node.x = (node.x || 0) + dx;
                 node.y = (node.y || 0) + dy;
             });
         });
-        forEachPropertyKey(key=>{
+        forEachPropertyKeyIn(rootTimeline(), (key,track)=>{
             let topLevelIds = new Set();
-            let gov = governingContentKey(keyOwnerTrack(key), key.frame);
+            let gov = governingContentKey(track, key.frame);
             ((gov && gov.cel && gov.cel.layers) || []).forEach(node=>{ if (node.id) topLevelIds.add(node.id); });
             Object.keys(key.props || {}).forEach(id=>{
                 if (!topLevelIds.has(id)) return;
@@ -917,10 +1262,6 @@ let ImageFile = function(){
                 if (typeof entry.y === "number") entry.y += dy;
             });
         });
-    }
-
-    function keyOwnerTrack(key){
-        return tracks().find(track=>(track.keys || []).indexOf(key) >= 0);
     }
 
     // Crop: the same non-destructive shift, with the document origin moving to (x,y).
@@ -981,6 +1322,43 @@ let ImageFile = function(){
                     }
                 });
             });
+            // Override x/y and bone x/y deltas live in the target's parent space, which scales with
+            // the document too — absolute and relative alike (spec 025 R41).
+            forEachOverride(rec=>{
+                let map = clonePlainData(rec.map);
+                Object.keys(map).forEach(p=>{
+                    let e = map[p];
+                    if (!e) return;
+                    if (typeof e.x === "number") e.x *= scaleX;
+                    if (typeof e.y === "number") e.y *= scaleY;
+                    if (e.bones) Object.keys(e.bones).forEach(bid=>{
+                        let bp = e.bones[bid];
+                        if (typeof bp.x === "number") bp.x *= scaleX;
+                        if (typeof bp.y === "number") bp.y *= scaleY;
+                    });
+                });
+                rec.set(map);
+            });
+            // ...and so do x/y and bone x/y in parameter keys (spec 026 R24)
+            forEachParamKey(k=>{
+                Object.keys(k.props || {}).forEach(id=>{
+                    let e = k.props[id];
+                    if (!e) return;
+                    if (typeof e.x === "number") e.x = Math.round(e.x * scaleX);
+                    if (typeof e.y === "number") e.y = Math.round(e.y * scaleY);
+                    if (e.bones) Object.keys(e.bones).forEach(bid=>{
+                        let bp = e.bones[bid];
+                        if (typeof bp.x === "number") bp.x *= scaleX;
+                        if (typeof bp.y === "number") bp.y *= scaleY;
+                    });
+                });
+            });
+            clearDrivenSetMemo();
+            // Clip pivots live in clip-local space, which scales with the document (R40).
+            library().clips.forEach(clip=>{
+                clip.pivot = {x: clip.pivot.x * scaleX, y: clip.pivot.y * scaleY};
+            });
+            clearClipCache();
             clearRenderCache();
             let todo = 0;
             let done = 0;
@@ -993,7 +1371,8 @@ let ImageFile = function(){
                             // drop it so render() rebuilds it at the new one
                             if (node.invalidateCache) node.invalidateCache();
                             walk(node.layers || []);
-                        }else{
+                        }else if (!isClip(node)){
+                            // a clip instance has no pixels: its clip's own cels are leaves here
                             leaves.push(node);
                         }
                     });
@@ -1010,6 +1389,13 @@ let ImageFile = function(){
                 leaves.forEach((layer) => {
                     let canvas = layer.getCanvas();
                     let ctx = layer.getContext();
+                    // Crop/canvas resize preserve the layer's backing canvas. Scale its
+                    // own dimensions, rather than fitting those hidden pixels to the document.
+                    let w = Math.max(1, Math.round(canvas.width * scaleX));
+                    let h = Math.max(1, Math.round(canvas.height * scaleY));
+                    layer.canvasX = Math.round((layer.canvasX || 0) * scaleX);
+                    layer.canvasY = Math.round((layer.canvasY || 0) * scaleY);
+                    if (layer.invalidateCache) layer.invalidateCache();
 
                     if (quality === "pixelated") {
                         let d = duplicateCanvas(canvas, true);
@@ -1051,6 +1437,7 @@ let ImageFile = function(){
                     }
                 });
             });
+            clearClipCache();
         }
     };
 
@@ -1070,6 +1457,8 @@ let ImageFile = function(){
         // Persist onto the cel so a later resolveActiveLayer() (playhead/track move, keyframe add)
         // restores THIS layer instead of reverting to the stale cel.activeLayerIndex (index 0).
         if (frame) frame.activeLayerIndex = activeLayerIndex;
+        // a nested focus belongs to its instance: selecting anything else drops it (spec 025 R20)
+        if (nestedFocus && (!layer || layer.id !== nestedFocus.instanceId)) clearNestedFocus();
         EventBus.trigger(EVENT.layersChanged);
     };
 
@@ -1093,6 +1482,7 @@ let ImageFile = function(){
     };
 
     me.duplicateLayer = function(ref){
+        if (refuseInParam("Duplicating a layer")) return;
         let path = typeof ref === "undefined" ? activeLayerPath : toPath(ref);
         if (!path) return;
         let frame = currentFrame();
@@ -1118,11 +1508,13 @@ let ImageFile = function(){
             me.activateLayer(insertPath);
             // returns a Promise so callers can sequence history capture after the deep copy
             return newLayer.restore(struct).then(()=>{
+                // attachments inside the copy follow the copy's own bone layers (spec 024)
+                remapAttachIds(newLayer.layers, copyIdMap(layer.layers, newLayer.layers));
                 EventBus.trigger(EVENT.layerContentChanged);
             });
         }
 
-        if (layer.type === "vector" || layer.type === "bone"){
+        if (layer.type === "vector" || layer.type === "bone" || layer.type === "clip"){
             // These carry editable geometry/armature instead of pixels: the quick canvas-copy
             // path below would rasterize them into a plain pixel layer, silently dropping the
             // type. Deep-copy the whole struct via clone/restore (async) so the duplicate stays
@@ -1354,6 +1746,15 @@ let ImageFile = function(){
             let node = current && current[path[i]];
             if (!node) break;
             let effective = effectiveProps(node, props);
+            let attachMap = node.attach ? buildAttachMap(current, props) : undefined;
+            let attached = attachMap && attachMap.get(node);
+            if (attached) m = matMultiply(m, attached);
+            if (isClip(node)){
+                // clip-local → parent: translate + rotate/scale about the clip pivot (D2)
+                let clip = clipById(node.clipId);
+                m = matMultiply(m, clip ? instanceMatrix(effective, clip.pivot) : matTranslate(effective.x, effective.y));
+                break;
+            }
             m = matMultiply(m, matTranslate(effective.x, effective.y));
             if (isGroup(node)){
                 if (hasGroupTransform(effective)){
@@ -1495,14 +1896,17 @@ let ImageFile = function(){
     // Moves the playhead. The governing cel (and with it the layer panel and every editing
     // target) is re-resolved for the new position.
     me.activateFrame = function(index){
-        let count = me.getFrameCount();
+        let count = editLength();
         if (typeof index !== "number" || isNaN(index)) index = 0;
         if (index < 0) index = 0;
         if (index >= count) index = count - 1;
         rememberActiveLayer();
+        let leftCel = currentFrame();
+        let leftId = activeLayer && activeLayer.id;
         activeFrameIndex = index;
         cachedImage = undefined;
         resolveActiveLayer();
+        followLineage(leftCel, leftId);
         holdRenderCache(()=>{
             EventBus.trigger(EVENT.layersChanged);
             EventBus.trigger(EVENT.imageContentChanged);
@@ -1512,7 +1916,7 @@ let ImageFile = function(){
 
     me.nextFrame = function(offset){
         offset = offset || 1;
-        let count = me.getFrameCount();
+        let count = editLength();
         let frame = activeFrameIndex + offset;
         if (frame < 0) frame = count - 1;
         if (frame >= count) frame = 0;
@@ -1531,12 +1935,3061 @@ let ImageFile = function(){
 
     me.getTracks = function(){
         return tracks();
+    }
+
+    // The timeline a clip id addresses (null = the root, a deleted clip = undefined). Exposed for
+    // history resolution tests and edit-context consumers (spec 024 §3.13).
+    me.getTimelineOf = function(clipId){
+        return timelineOf(clipId);
+    };
+
+    // ── clip library API (spec 024 §3.7) ──────────────────────────────────────────
+
+    me.getLibrary = function(){
+        return library();
+    };
+
+    me.getClip = function(id){
+        return clipById(id);
+    };
+
+    // Instance occurrences of clip `id` across the root and every clip timeline (R5).
+    me.getClipUsage = function(id){
+        return clipUsage(rootTimeline(), library()).get(id) || 0;
+    };
+
+    // Content bounds of a clip at local time t, in clip-local space ({x,y,w,h} or null).
+    me.getClipBounds = function(id, t){
+        let clip = clipById(id);
+        if (!clip) return null;
+        return clipBounds(clip, t || 0, childEnv(clipRenderEnv(), clip));
+    };
+
+    // The clip composited on its own at local time t: {canvas, x, y} in clip-local space, or null.
+    // The canvas is a shared cache entry — read only.
+    me.getClipComposite = function(id, t){
+        let clip = clipById(id);
+        if (!clip) return null;
+        return getClipComposite(clip, t || 0, clipRenderEnv());
+    };
+
+    // A size×size thumbnail of the clip at local frame 0 (R5), fitted and centred.
+    me.getClipThumbnail = function(id, size){
+        size = size || 32;
+        let canvas = document.createElement("canvas");
+        canvas.width = size;
+        canvas.height = size;
+        let composite = me.getClipComposite(id, 0);
+        if (composite){
+            let c = composite.canvas;
+            let scale = Math.min(size / c.width, size / c.height, 1);
+            let w = Math.max(1, Math.round(c.width * scale));
+            let h = Math.max(1, Math.round(c.height * scale));
+            let ctx = canvas.getContext("2d");
+            ctx.imageSmoothingEnabled = scale < 1;
+            ctx.drawImage(c, Math.floor((size - w) / 2), Math.floor((size - h) / 2), w, h);
+        }
+        return canvas;
+    };
+
+    me.getClipMetrics = function(){
+        return getClipMetrics();
+    };
+
+    // Lineage invariant problems in the live document (spec 025 R2): [] when sane. Diagnostic and
+    // test helper.
+    me.checkLineages = function(){
+        return checkLineages(allTimelines());
+    };
+
+    me.getClipWarnings = function(){
+        return getClipWarnings();
+    };
+
+    // Creates a clip. Without `opts.tracks` it gets one track holding one empty layer. The pivot
+    // defaults to the centre of the content bounds (the document centre for empty content) and
+    // is never recomputed afterwards (D2). The caller owns the history step. Returns the clip.
+    function addClip(name, opts){
+        opts = opts || {};
+        let tracksList = opts.tracks || [makeTrack("Track 1",
+            makeCel([Layer(currentFile.width, currentFile.height, "Layer 1")]))];
+        let timeline = {tracks: tracksList};
+        let clip = {
+            id: allocateClipId(),
+            name: uniqueClipName(name),
+            length: clampLength(typeof opts.length === "number" ? opts.length : timelineLength(timeline)),
+            pivot: {x: Math.round(currentFile.width / 2), y: Math.round(currentFile.height / 2)},
+            markers: copyMarkers(opts.markers),
+            timeline: timeline,
+            rev: ++clipRevCounter
+        };
+        library().clips.push(clip);
+        ensureTrackIds(timeline);
+        touchClip(clip);
+        if (opts.pivot){
+            clip.pivot = {x: opts.pivot.x, y: opts.pivot.y};
+        }else{
+            // The centre of what is actually painted at local frame 0 (read once, at creation).
+            let composite = me.getClipComposite(clip.id, 0);
+            let opaque = composite ? getOpaqueBounds(composite.canvas) : null;
+            if (opaque) clip.pivot = {
+                x: Math.round(composite.x + opaque.x + opaque.w / 2),
+                y: Math.round(composite.y + opaque.y + opaque.h / 2)
+            };
+        }
+        return clip;
+    }
+
+    me.createClip = function(name, opts){
+        HistoryService.start(EVENT.libraryHistory);
+        let clip = addClip(name, opts);
+        HistoryService.end();
+        libraryChanged();
+        return clip;
+    };
+
+    // Import an image as a one-frame library clip without changing the open document.
+    me.importClipFromImage = function(image, name){
+        if (!image || !image.width || !image.height) throw new Error("Could not decode the image");
+        let layer = Layer(image.width, image.height, name || "Image");
+        layer.getContext().drawImage(image, 0, 0);
+        return me.createClip(name || "Image", {tracks: [makeTrack("Track 1", makeCel([layer]))]});
+    };
+
+    // A DPaint document whose root is the selected clip, with only its transitive
+    // dependencies in the library. It can be opened as a document or imported as a clip.
+    me.exportClip = function(id){
+        let selected = clipById(id);
+        if (!selected) throw new Error("Select a clip to export");
+        syncParamTracks();
+        let dependencies = [], visited = new Set(), visiting = new Set();
+        function visit(clip){
+            if (visiting.has(clip.id)) throw new Error("Cannot export a clip cycle");
+            if (visited.has(clip.id)) return;
+            visiting.add(clip.id);
+            function nodes(list){
+                (list || []).forEach(node=>{
+                    if (isClip(node)){
+                        let child = clipById(node.clipId);
+                        if (!child) throw new Error("Cannot export missing clip " + node.clipId);
+                        visit(child);
+                    }
+                    if (node.layers) nodes(node.layers);
+                });
+            }
+            (clip.timeline.tracks || []).forEach(track=>(track.keys || []).forEach(key=>{
+                if (key.cel) nodes(key.cel.layers);
+            }));
+            visiting.delete(clip.id); visited.add(clip.id);
+            if (clip !== selected) dependencies.push(clip);
+        }
+        visit(selected);
+        function serialize(clip){
+            let saved = {id: clip.id, name: clip.name, length: clip.length,
+                pivot: {...clip.pivot}, markers: copyMarkers(clip.markers),
+                timeline: {tracks: clip.timeline.tracks.map(track=>({
+                    id: track.id, name: track.name, visible: track.visible !== false,
+                    locked: !!track.locked, mask: !!track.mask,
+                    keys: track.keys.map(key=>key.type === "content"
+                        ? {frame: key.frame, type: "content", tween: !!key.tween, ...easingData(key.easing),
+                            cel: {activeLayerIndex: key.cel.activeLayerIndex || 0,
+                                layers: key.cel.layers.map(layer=>layer.clone(true))}}
+                        : {frame: key.frame, type: "property", tween: !!key.tween, ...easingData(key.easing), props: clonePlainData(key.props) || {}})
+                }))}};
+            if (Array.isArray(clip.params) && clip.params.length){
+                saved.params = copyParams(clip.params);
+                saved.nextParamId = clip.nextParamId || 1;
+            }
+            return saved;
+        }
+        let image = serialize(selected);
+        delete image.id;
+        Object.assign(image, {width: currentFile.width, height: currentFile.height,
+            activeFrameIndex: 0, activeTrackIndex: 0, activeLayerIndex: 0,
+            nextLayerId: syncNextLayerId(),
+            library: {nextClipId: library().nextClipId, clips: dependencies.map(serialize)}});
+        image.timeline.fps = me.getFps();
+        if (currentFile.smooth) image.smooth = true;
+        let data = {type: "dpaint", version: "2", image, palette: clonePlainData(Palette.get())};
+        let fonts = getCustomFonts();
+        if (fonts.length) data.customFonts = fonts;
+        return data;
+    };
+
+    // Accept a saved DPaint document or a standalone clip object. Its timeline becomes one
+    // library clip; layer identities are regenerated so they cannot collide with this document.
+    me.importClipFromJSON = async function(data, fallbackName){
+        let documentData = data && data.image && (data.type === "dpaint" || data.image.timeline || data.image.frames);
+        let source = documentData ? data.image : data;
+        let timeline = documentData ? toTimelineStruct(source) : source && source.timeline;
+        if (!timeline || !Array.isArray(timeline.tracks) || !timeline.tracks.length){
+            throw new Error("This JSON file has no DPaint animation timeline");
+        }
+        let sourceClips = new Map(((source.library && source.library.clips) || []).map(clip=>[clip.id, clip]));
+        let dependencies = [], visiting = new Set(), visited = new Set();
+        function visitTimeline(timeline){
+            (timeline.tracks || []).forEach(track=>(track.keys || []).forEach(key=>{
+                function visitNodes(nodes){
+                    (nodes || []).forEach(node=>{
+                        if (node.type === "clip") visitClip(node.clipId);
+                        if (node.layers) visitNodes(node.layers);
+                    });
+                }
+                if (key.cel) visitNodes(key.cel.layers);
+            }));
+        }
+        function visitClip(id){
+            if (visiting.has(id)) throw new Error("The imported animation contains a clip cycle");
+            if (visited.has(id)) return;
+            let clip = sourceClips.get(id);
+            if (!clip || !clip.timeline) throw new Error("The imported animation is missing clip " + id);
+            visiting.add(id);
+            visitTimeline(clip.timeline);
+            visiting.delete(id);
+            visited.add(id);
+            dependencies.push(clip);
+        }
+        visitTimeline(timeline);
+        if (Array.isArray(data.customFonts) && data.customFonts.length){
+            restoreCustomFonts(data.customFonts);
+            EventBus.trigger(EVENT.fontListChanged);
+        }
+        let layerIds = {}, clipIds = new Map();
+        function remapOverrides(entry){
+            if (!entry || !entry.overrides) return;
+            let overrides = {};
+            Object.keys(entry.overrides).forEach(path=>{
+                overrides[path.split("/").map(id=>layerIds[id] || id).join("/")] = entry.overrides[path];
+            });
+            entry.overrides = overrides;
+        }
+        function decodeIndexedBitmap(node){
+            if (!node.indexedPixels || node.canvas) return;
+            if (!Array.isArray(data.palette)) throw new Error("Indexed JSON needs its source palette");
+            let width = node.w || source.width || currentFile.width;
+            let height = node.h || source.height || currentFile.height;
+            let canvas = document.createElement("canvas");
+            canvas.width = width;
+            canvas.height = height;
+            let ctx = canvas.getContext("2d");
+            let pixels = ctx.createImageData(width, height);
+            for (let y = 0; y < height; y++){
+                let row = node.indexedPixels[y] || [];
+                for (let x = 0; x < width; x++){
+                    let color = data.palette[row[x]];
+                    if (!color) continue;
+                    let offset = (y * width + x) * 4;
+                    pixels.data[offset] = color[0];
+                    pixels.data[offset + 1] = color[1];
+                    pixels.data[offset + 2] = color[2];
+                    pixels.data[offset + 3] = 255;
+                }
+            }
+            ctx.putImageData(pixels, 0, 0);
+            node.canvas = canvas.toDataURL();
+            delete node.indexedPixels;
+        }
+        function prepareNode(node){
+            decodeIndexedBitmap(node);
+            if (Array.isArray(node.layers)) node.layers.forEach(prepareNode);
+        }
+        async function importTracks(timeline){
+        let pending = [];
+        let imported = timeline.tracks.map(track=>{
+            if (!track || !Array.isArray(track.keys) || !track.keys.length){
+                throw new Error("The imported animation has an invalid track");
+            }
+            let idMap = layerIds;
+            let keys = track.keys.map(key=>{
+                if (!Number.isInteger(key.frame) || key.frame < 0){
+                    throw new Error("The imported animation has an invalid keyframe");
+                }
+                if (key.type === "property") return makePropertyKey(key.frame, clonePlainData(key.props) || {}, key.tween,key.easing);
+                if (key.type !== "content" || !key.cel || !Array.isArray(key.cel.layers)){
+                    throw new Error("The imported animation has an invalid content keyframe");
+                }
+                let cel = makeCel();
+                cel.activeLayerIndex = key.cel.activeLayerIndex || 0;
+                key.cel.layers.forEach(node=>{
+                    if (!node || typeof node !== "object") throw new Error("The imported animation has an invalid layer");
+                    let layer = Layer(currentFile.width, currentFile.height, node.name);
+                    cel.layers.push(layer);
+                    let struct = clonePlainData(node);
+                    prepareNode(struct);
+                    function remapInstances(node){
+                        remapOverrides(node);
+                        if (node.layers) node.layers.forEach(remapInstances);
+                    }
+                    remapInstances(struct);
+                    pending.push(layer.restore(remapIds(struct, idMap)));
+                });
+                return makeContentKey(key.frame, cel, key.tween,key.easing);
+            });
+            return {id: track.id, name: track.name || "Track 1", visible: track.visible !== false,
+                locked: !!track.locked, mask: !!track.mask, keys, idMap};
+        });
+        await Promise.all(pending);
+        imported.forEach(track=>{
+            track.keys.forEach(key=>{
+                if (key.type === "content") remapAttachIds(key.cel.layers, track.idMap);
+                else {
+                    let props = {};
+                    Object.keys(key.props).forEach(id=>{
+                        if (track.idMap[id]){
+                            remapOverrides(key.props[id]);
+                            props[track.idMap[id]] = key.props[id];
+                        }
+                    });
+                    key.props = sanitizeKeyOverrides(props);
+                }
+            });
+            delete track.idMap;
+        });
+        return imported;
+        }
+        // Decode everything before changing the library; all additions share one undo step.
+        let prepared = [];
+        for (let dependency of dependencies){
+            prepared.push({source: dependency, tracks: await importTracks(dependency.timeline)});
+        }
+        let imported = await importTracks(timeline);
+        let opts = {tracks: imported};
+        opts.length = source.length;
+        opts.markers = source.markers;
+        if (source.pivot && Number.isFinite(source.pivot.x) && Number.isFinite(source.pivot.y)) opts.pivot = source.pivot;
+        let name = source && typeof source.name === "string" && source.name.trim() ? source.name : fallbackName;
+        HistoryService.start(EVENT.libraryHistory);
+        function relinkNodes(nodes){
+            (nodes || []).forEach(node=>{
+                if (node.type === "clip") node.clipId = clipIds.get(node.clipId);
+                if (node.layers) relinkNodes(node.layers);
+            });
+        }
+        function relinkTracks(tracks){
+            tracks.forEach(track=>track.keys.forEach(key=>{ if (key.cel) relinkNodes(key.cel.layers); }));
+        }
+        function restoreParams(clip, source){
+            if (Array.isArray(source.params)){
+                clip.params = copyParams(source.params);
+                clip.nextParamId = source.nextParamId || 1;
+                clip.params.forEach(param=>Object.values(param.tracks || {}).forEach(keys=>keys.forEach(key=>{
+                    let props = {};
+                    Object.keys(key.props || {}).forEach(id=>{
+                        remapOverrides(key.props[id]);
+                        props[layerIds[id] || id] = key.props[id];
+                    });
+                    key.props = props;
+                })));
+            }
+        }
+        prepared.forEach(item=>{
+            relinkTracks(item.tracks);
+            let clip = addClip(item.source.name, {...item.source, tracks: item.tracks});
+            clipIds.set(item.source.id, clip.id);
+            restoreParams(clip, item.source);
+        });
+        relinkTracks(imported);
+        let clip = addClip(name || "Clip", opts);
+        restoreParams(clip, source);
+        HistoryService.end();
+        libraryChanged();
+        return clip;
+    };
+
+    me.renameClip = function(id, name){
+        let clip = clipById(id);
+        if (!clip) return false;
+        let next = uniqueClipName(name, id);
+        if (next === clip.name) return true;
+        HistoryService.start(EVENT.libraryHistory);
+        clip.name = next;
+        library().rev = ++clipRevCounter;
+        HistoryService.end();
+        libraryChanged();
+        return true;
+    };
+
+    // A deep copy with a fresh clip id and fresh layer ids (property keys remapped). Returns a
+    // Promise for the new clip, because cel copies go through Layer.clone/restore.
+    me.duplicateClip = function(id){
+        let source = clipById(id);
+        if (!source) return Promise.resolve(undefined);
+        let idMap = {};
+        return copyTracks(source.timeline.tracks, idMap).then(copied=>{
+            HistoryService.start(EVENT.libraryHistory);
+            let clip = addClip(DuplicateName(source.name, library().clips), {
+                tracks: copied,
+                length: source.length,
+                pivot: source.pivot,
+                markers: source.markers
+            });
+            // parameters (spec 026 R24): same ids, track ids kept by copyTracks, layer ids remapped
+            syncParamTracks();
+            if (Array.isArray(source.params) && source.params.length){
+                clip.params = copyParams(source.params);
+                clip.nextParamId = source.nextParamId || 1;
+                clip.params.forEach(p=>Object.values(p.tracks || {}).forEach(keys=>keys.forEach(k=>{
+                    let props = {};
+                    Object.keys(k.props || {}).forEach(oldId=>{ props[idMap[oldId] || oldId] = k.props[oldId]; });
+                    k.props = props;
+                })));
+                touchClip(clip);
+            }
+            HistoryService.end();
+            libraryChanged();
+            return clip;
+        });
+    };
+
+    me.setClipLength = function(id, n){
+        if (refuseInParam("Changing the clip length")) return false;
+        let clip = clipById(id);
+        if (!clip || !Number.isFinite(n)) return false;
+        let length = clampLength(n);
+        if (length === clip.length) return true;
+        HistoryService.start(EVENT.libraryHistory);
+        clip.length = length;
+        touchClip(clip);
+        HistoryService.end();
+        libraryChanged();
+        if (editClipId() === id) timelineStructureChanged();
+        return true;
+    };
+
+    // Moves the pivot to the centre of what the clip shows at local frame t (default: the edit
+    // playhead when editing it, else 0). One libraryHistory step. Returns the new pivot or null.
+    me.centerClipPivot = function(id, t){
+        let clip = clipById(id);
+        if (!clip) return null;
+        if (typeof t !== "number") t = editClipId() === id ? activeFrameIndex : 0;
+        let composite = getClipComposite(clip, t, clipRenderEnv());
+        let opaque = composite ? getOpaqueBounds(composite.canvas) : null;
+        if (!opaque) return null;
+        let pivot = {
+            x: Math.round(composite.x + opaque.x + opaque.w / 2),
+            y: Math.round(composite.y + opaque.y + opaque.h / 2)
+        };
+        me.setClipPivot(id, pivot);
+        return pivot;
+    };
+
+    me.setClipPivot = function(id, pivot){
+        if (refuseInParam("Moving the clip pivot")) return null;
+        let clip = clipById(id);
+        if (!clip || !pivot || !Number.isFinite(pivot.x) || !Number.isFinite(pivot.y)) return false;
+        HistoryService.start(EVENT.libraryHistory);
+        clip.pivot = {x: pivot.x, y: pivot.y};
+        touchClip(clip);
+        HistoryService.end();
+        libraryChanged();
+        return true;
+    };
+
+    // Replaces a clip's markers after validation (R22). Returns {ok, reason}.
+    me.setClipMarkers = function(id, markers){
+        let clip = clipById(id);
+        if (!clip) return {ok: false, reason: "No such clip"};
+        let result = validateMarkers(clip, markers);
+        if (!result.ok) return result;
+        HistoryService.start(EVENT.libraryHistory);
+        clip.markers = copyMarkers(markers);
+        touchClip(clip);
+        HistoryService.end();
+        libraryChanged();
+        return {ok: true};
+    };
+
+    // libraryHistory snapshot (R39): library structure only. Timelines are referenced, never
+    // cloned — key/track/pixel edits inside a clip have their own history steps.
+    me.cloneLibraryStructure = function(){
+        syncParamTracks();
+        let lib = library();
+        return {
+            nextClipId: lib.nextClipId,
+            clips: lib.clips.map(c=>({
+                id: c.id, name: c.name, length: c.length,
+                pivot: {x: c.pivot.x, y: c.pivot.y},
+                markers: copyMarkers(c.markers),
+                timeline: c.timeline,
+                params: copyParams(c.params),
+                nextParamId: c.nextParamId
+            }))
+        };
+    };
+
+    me.restoreLibraryStructure = function(snapshot){
+        if (!snapshot || !Array.isArray(snapshot.clips)) return;
+        let lib = library();
+        let existing = clipMap(lib);
+        // ids are never reused, so the allocator only ever moves forward
+        lib.nextClipId = Math.max(lib.nextClipId || 1, snapshot.nextClipId || 1);
+        lib.clips = snapshot.clips.map(s=>{
+            let clip = existing.get(s.id) || {id: s.id};
+            clip.name = s.name;
+            clip.length = s.length;
+            clip.pivot = {x: s.pivot.x, y: s.pivot.y};
+            clip.markers = copyMarkers(s.markers);
+            clip.timeline = s.timeline;
+            if (s.params && s.params.length){ clip.params = copyParams(s.params); clip.nextParamId = s.nextParamId || 1; }
+            else { delete clip.params; }
+            clip.rev = ++clipRevCounter;
+            return clip;
+        });
+        paramCtx = null;
+        touchClip();
+        validateEditStack();
+        libraryChanged();
+        timelineStructureChanged();
+    };
+
+    // Whether an instance of `clipId` may go into the timeline being edited: never into itself or
+    // into any clip it (transitively) contains (R4).
+    me.canPlaceClip = function(clipId){
+        return canPlace(library(), clipId, editClipId());
+    };
+
+    // Places an instance of `clipId` directly above the active layer of the active cel (in the
+    // edited timeline). With `at` (a drop point) the clip's pivot lands there; without it the
+    // instance sits at 0,0 so clip-local coordinates coincide with the document (touch *Place*).
+    // Refused with a message on a cycle. One undo step. Returns the new node, or undefined.
+    me.placeClip = function(clipId, at){
+        if (refuseInParam("Placing a clip")) return undefined;
+        let clip = clipById(clipId);
+        let cel = currentFrame();
+        if (!clip || !cel) return undefined;
+        if (!me.canPlaceClip(clipId)){
+            Modal.softAlert("A clip can't contain itself.", "Place clip");
+            return undefined;
+        }
+        let node = Layer.makeClip(clipId, clip.name);
+        if (at && Number.isFinite(at.x) && Number.isFinite(at.y)){
+            node.x = Math.round(at.x - clip.pivot.x);
+            node.y = Math.round(at.y - clip.pivot.y);
+        }
+        HistoryService.start(EVENT.imageHistory);
+        let p = parentOf(cel.layers, activeLayerPath);
+        let path;
+        if (p){
+            p.parent.splice(p.index + 1, 0, node);
+            path = activeLayerPath.slice(0, -1).concat(p.index + 1);
+        }else{
+            cel.layers.push(node);
+            path = [cel.layers.length - 1];
+        }
+        HistoryService.end();
+        me.activateLayer(path);
+        clearRenderCache();
+        cachedImage = undefined;
+        EventBus.trigger(EVENT.layersChanged);
+        EventBus.trigger(EVENT.libraryChanged);
+        EventBus.trigger(EVENT.imageContentChanged);
+        return node;
+    };
+
+    // A copy of resolved props must never carry an instance's cue / scrub frame into a NEW key:
+    // a cue re-anchors the clock at the key it sits on (R24), so copying it would restart the clip.
+    function withoutTimeCues(props){
+        Object.keys(props || {}).forEach(id=>{
+            let entry = props[id];
+            if (entry){ delete entry.cue; delete entry.frame; }
+        });
+        return props;
+    }
+
+    // ── Convert to Clip (R6) ──────────────────────────────────────────────────────
+    // sel = {layerPaths: [path…]}  sibling nodes of the active cel, or
+    //       {trackIndices: [i…]}   contiguous tracks of the edited timeline.
+    // Content keeps its coordinates as clip-local coordinates (D2) and the instance sits at 0,0
+    // with an identity transform, so the frames look the same immediately after converting.
+
+    function analyseLayerSelection(paths){
+        let cel = currentFrame();
+        let track = activeTrack();
+        if (!cel || !track || !Array.isArray(paths) || !paths.length) return {ok: false, reason: "Nothing selected"};
+        let parentKey = null, parent = null;
+        let indices = [];
+        for (let i = 0; i < paths.length; i++){
+            let path = toPath(paths[i]);
+            let p = path && parentOf(cel.layers, path);
+            if (!p || !p.parent[p.index]) return {ok: false, reason: "Invalid selection"};
+            let key = path.slice(0, -1).join(",");
+            if (parentKey === null){ parentKey = key; parent = p.parent; }
+            else if (key !== parentKey) return {ok: false, reason: "Select layers that share a parent"};
+            if (indices.indexOf(p.index) < 0) indices.push(p.index);
+        }
+        indices.sort((a,b)=>a-b);
+        // A lone unattached pixel layer can stay under the same bone layer as an instance: the
+        // compositor deforms an instance on the same scope-sized mesh as a pixel layer. Other
+        // selections can change grouping, attachments or deformation order when split.
+        let selected = new Set(indices);
+        let lonePixel = indices.length === 1 && !isGroup(parent[indices[0]]) &&
+            !isBones(parent[indices[0]]) && !isVector(parent[indices[0]]) &&
+            !isClip(parent[indices[0]]) && !parent[indices[0]].attach;
+        for (let i = 0; i < parent.length; i++){
+            if (!isBones(parent[i])) continue;
+            for (let j = 0; j < i; j++){
+                if (selected.has(i) !== selected.has(j) && !(lonePixel && selected.has(j)))
+                    return {ok: false, reason: "Include the bone layer and the layers it deforms"};
+            }
+        }
+        let gov = governingContentKey(track, activeFrameIndex) || contentKeys(track)[0];
+        let next = contentKeys(track).find(k=>k.frame > gov.frame);
+        let end = next ? next.frame - 1 : Math.max(gov.frame, editLength() - 1);
+        return {ok: true, kind: "layers", track, cel, parent, indices, gov, end,
+            prefix: toPath(paths[0]).slice(0, -1)};
+    }
+
+    function analyseTrackSelection(indices){
+        let list = tracks();
+        if (!Array.isArray(indices) || !indices.length) return {ok: false, reason: "Nothing selected"};
+        let sorted = indices.slice().sort((a,b)=>a-b);
+        for (let i = 0; i < sorted.length; i++){
+            if (!list[sorted[i]]) return {ok: false, reason: "Invalid selection"};
+            if (i && sorted[i] !== sorted[i - 1] + 1) return {ok: false, reason: "Select adjacent tracks"};
+        }
+        let lo = sorted[0], hi = sorted[sorted.length - 1];
+        // A mask belongs to the track directly beneath it: it can't be separated from it.
+        if (list[lo].mask) return {ok: false, reason: "Include the track the mask belongs to"};
+        let above = list[hi + 1];
+        if (above && above.mask && above.visible !== false && lo !== hi){
+            return {ok: false, reason: "Include the mask track above the selection"};
+        }
+        let first = Infinity;
+        sorted.forEach(i=>(list[i].keys || []).forEach(k=>{ if (k.frame < first) first = k.frame; }));
+        if (!Number.isFinite(first)) first = 0;
+        return {ok: true, kind: "tracks", lo, hi, first};
+    }
+
+    me.canConvertToClip = function(sel){
+        if (!sel) return {ok: false, reason: "Nothing selected"};
+        let a = sel.trackIndices ? analyseTrackSelection(sel.trackIndices) : analyseLayerSelection(sel.layerPaths);
+        return {ok: !!a.ok, reason: a.reason};
+    };
+
+    // Returns the new clip (or undefined when refused). One imageHistory step.
+    me.convertToClip = function(sel, name){
+        if (refuseInParam("Convert to Clip")) return undefined;
+        if (!sel) return undefined;
+        let a = sel.trackIndices ? analyseTrackSelection(sel.trackIndices) : analyseLayerSelection(sel.layerPaths);
+        if (!a.ok){
+            Modal.softAlert(a.reason, "Convert to Clip");
+            return undefined;
+        }
+        HistoryService.start(EVENT.imageHistory);
+        let clip = a.kind === "tracks" ? convertTracks(a, name) : convertLayers(a, name);
+        HistoryService.end();
+        PanelManager.reveal && PanelManager.reveal("library", true);
+        timelineStructureChanged();
+        EventBus.trigger(EVENT.libraryChanged);
+        return clip;
+    };
+
+    function convertLayers(a, name){
+        let moved = a.indices.map(i=>a.parent[i]);
+        let movedIds = new Set();
+        moved.forEach(node=>collectIds(node).forEach(id=>movedIds.add(id)));
+        let K = a.gov.frame;
+
+        // A moved layer whose lineage continues in another content key of this track stays in
+        // the parent there, so inside the clip it becomes a new lineage with a fresh id: an id
+        // may only live on one track of one timeline (spec 025 R2).
+        let idMap = {};
+        movedIds.forEach(id=>{ if (lineageElsewhere(a.track, a.gov.cel, id)) idMap[id] = Layer.nextId(); });
+        if (Object.keys(idMap).length){
+            (function reId(nodes){
+                nodes.forEach(node=>{
+                    if (!node) return;
+                    if (idMap[node.id]) node.id = idMap[node.id];
+                    if (isGroup(node)) reId(node.layers || []);
+                });
+            })(moved);
+            remapAttachIds(moved, idMap);
+        }
+
+        // Every property key the governing cel owns moves along (rebased to the clip's frame 0),
+        // carrying only the moved layers' entries. ALL of them, even ones that don't mention a
+        // moved layer: a key without an entry still pins those layers to their base values, which
+        // is part of how their tweens look.
+        let clipKeys = [makeContentKey(0, makeCel(moved), a.gov.tween,a.gov.easing)];
+        propertyKeysGovernedBy(a.track, a.gov).forEach(key=>{
+            let props = {};
+            Object.keys(key.props || {}).forEach(id=>{
+                if (!movedIds.has(id)) return;
+                props[idMap[id] || id] = key.props[id];
+                delete key.props[id];
+            });
+            if (key.frame <= a.end) clipKeys.push(makePropertyKey(key.frame - K, props, key.tween,key.easing));
+        });
+        let clipTrack = {name: a.track.name || "Track 1", visible: true, locked: false, mask: false, keys: clipKeys};
+        let defaultName = moved.length === 1 ? moved[0].name : "Clip";
+        let clip = addClip(name || defaultName, {tracks: [clipTrack], length: a.end - K + 1});
+
+        // The instance takes the place of the topmost moved node; its clock starts at the
+        // governing key and plays once, which reproduces the original frames exactly.
+        let top = a.indices[a.indices.length - 1];
+        let below = a.indices.filter(i=>i < top).length;
+        for (let i = a.indices.length - 1; i >= 0; i--) a.parent.splice(a.indices[i], 1);
+        let node = Layer.makeClip(clip.id, clip.name);
+        node.cue = {playback: "once", start: 0, speed: 1};
+        let at = top - below;
+        a.parent.splice(at, 0, node);
+        me.activateLayer(a.prefix.concat(at));
+        // lineages that moved with their ids now live one level deeper (spec 025 R30)
+        if (editStack.length){
+            let kept = new Set();
+            movedIds.forEach(id=>{ if (!idMap[id]) kept.add(id); });
+            followConvertedIntoClip(kept, node.id);
+            // the moved lineages left this clip: its parameters no longer pose them (spec 026)
+            pruneParamKeysOf(editClip());
+        }
+        return clip;
+    }
+
+    function convertTracks(a, name){
+        let list = tracks();
+        let moved = list.slice(a.lo, a.hi + 1);
+        let m = a.first;
+        let length = Math.max(1, editLength() - m);
+        moved.forEach(track=>(track.keys || []).forEach(key=>{ key.frame -= m; }));
+        let named = moved.find(t=>!t.mask) || moved[0];
+        let clip = addClip(name || named.name || "Clip", {tracks: moved, length});
+        let node = Layer.makeClip(clip.id, clip.name);
+        node.cue = {playback: "once", start: 0, speed: 1};
+        let track = {
+            name: clip.name,
+            visible: true,
+            locked: false,
+            mask: false,
+            keys: [makeContentKey(m, makeCel([node]))]
+        };
+        list.splice(a.lo, moved.length, track);
+        rememberActiveLayer();
+        activeTrackIndex = a.lo;
+        resolveActiveLayer();
+        // every lineage of the moved tracks now lives one level deeper (spec 025 R30)
+        if (editStack.length){
+            let kept = new Set();
+            moved.forEach(t=>forEachCelIn({tracks: [t]}, cel=>{
+                (function walk(nodes){ (nodes || []).forEach(n=>{ if (n && n.id) kept.add(n.id); if (isGroup(n)) walk(n.layers); }); })(cel.layers);
+            }));
+            followConvertedIntoClip(kept, node.id);
+            // the moved tracks' parameter keys stay behind (the new clip has no parameters) and
+            // their lineages are gone from this clip: prune (spec 026 R24)
+            let dropped = pruneParamKeysOf(editClip());
+            if (dropped) Modal.softAlert(dropped + " parameter setting" + (dropped === 1 ? "" : "s") + " for the converted content were removed: the new clip has no parameters.", "Convert to Clip");
+        }
+        return clip;
+    }
+
+    // Converting content of the edited clip into a new clip moves those lineages one level down:
+    // outer override paths that reach them get the new instance inserted before the first moved
+    // segment (spec 025 R30). Ids name one lineage, so a moved id in a path can only mean that one.
+    function followConvertedIntoClip(movedIds, instanceId){
+        if (!movedIds.size) return;
+        rewriteOverridePaths(p=>{
+            let segs = pathSegments(p);
+            let k = segs.findIndex(seg=>movedIds.has(seg));
+            if (k < 0) return p;
+            segs.splice(k, 0, instanceId);
+            return segs.length > MAX_CLIP_DEPTH ? null : segs.join("/");
+        });
+    }
+
+    // ── Break Apart (R7) and deleting a clip (R5a, D4) ───────────────────────────
+
+    // A struct of `node` with fresh ids and everything the timeline resolves at local time `t`
+    // baked into base values: x/y/opacity and transforms (withResolvedProps), bone poses, vector
+    // node/curve overlays, and — for a nested instance — its time: a default-clock instance keeps
+    // looping with an offset that preserves its current local frame at `parentFrame`; a cue- or
+    // scrub-driven one holds that frame.
+    function bakeForBreakApart(node, props, times, parentFrame){
+        let struct = withResolvedProps(withFreshIds(node.clone(false)), node, props);
+        (function bake(s, n){
+            let entry = props && n.id ? props[n.id] : undefined;
+            if (isBones(n) && s.armature && entry && entry.bones){
+                s.armature.bones.forEach(b=>{
+                    let o = entry.bones[b.id];
+                    if (o) b.pose = Object.assign({}, b.pose, o);
+                });
+            }
+            if (isVector(n) && s.vector && entry && (entry.nodes || entry.curves)){
+                s.vector = poseVector(s.vector, entry.nodes, entry.curves);
+            }
+            if (isClip(n)){
+                let info = times.get(n.id);
+                if (info){
+                    if (info.source === "default"){
+                        s.offset = Math.round(info.local - parentFrame);
+                        delete s.cue;
+                    }else{
+                        s.cue = {playback: "hold", start: info.local, speed: 1};
+                    }
+                    delete s.frame;
+                }
+            }
+            // a visibility override from the broken-apart instance (spec 025) is baked in too
+            if (entry && typeof entry.visible === "boolean") s.visible = entry.visible;
+            if (isGroup(n) && Array.isArray(s.layers)) s.layers.forEach((c,i)=>bake(c, n.layers[i]));
+        })(struct, node);
+        return struct;
+    }
+
+    // What an instance on `track` hands to its clip at `frame` (its override set and blend window,
+    // spec 025), for operations that rebuild its content outside a render (Break Apart).
+    function instancePartsAt(track, frame, node, clip){
+        let state = resolveTrackState(track, frame, library());
+        if (!state) return undefined;
+        return instanceParts(node, state.props, trackOptionsFor(undefined, state), clipRenderEnv(), clip);
+    }
+
+    function findNodeDeep(nodes, id){
+        for (let i = 0; i < (nodes || []).length; i++){
+            let n = nodes[i];
+            if (!n) continue;
+            if (n.id === id) return n;
+            if (isGroup(n)){
+                let inner = findNodeDeep(n.layers, id);
+                if (inner) return inner;
+            }
+        }
+        return undefined;
+    }
+
+    // Builds (asynchronously, without touching the document) the group that replaces an instance
+    // of `clip` showing local time `t`, sitting in a timeline at `parentFrame`.
+    // `parts` = the instance's override set and blend window (spec 025): single-segment overrides
+    // are baked into the copies like any resolved value; longer paths move one level down onto
+    // the copied nested instances (R30). The group carries the old → new id map it used, as
+    // `breakApartMap`, so outer overrides running through the instance can follow.
+    function buildBreakApartGroup(clip, t, parentFrame, parts){
+        let lib = library();
+        let env = childEnv(clipRenderEnv(), clip, parts);
+        let overridden = new Set();
+        if (parts && parts.overrides) parts.overrides.forEach((R, path)=>{
+            if (pathSegments(path).length === 1 && R.time && R.time.kind === "local") overridden.add(path);
+        });
+        let list = (clip.timeline && clip.timeline.tracks) || [];
+        let pending = [];
+        let trackGroups = [];
+        let remaps = [];
+        list.forEach((track, index)=>{
+            if (track.mask || !track.visible) return;
+            let state = resolveForRender(track, t, env);
+            if (!state) return;
+            let group = Layer.makeGroup(currentFile.width, currentFile.height, track.name || "Track");
+            let maskState = resolveMaskFor(list, index, t, lib, env);
+            if (maskState){
+                // groups carry no masks: a masked track is baked into one pixel layer
+                let leaf = Layer(currentFile.width, currentFile.height, track.name || "Track");
+                renderTimeline([track, list[index + 1]], t, leaf.getContext(), env);
+                group.layers.push(leaf);
+            }else{
+                let gov = governingContentKey(track, t);
+                let times = new Map();
+                forEachClipNode(state.cel.layers, n=>{
+                    let nested = clipById(n.clipId);
+                    if (!nested) return;
+                    // a nested time set by an override holds the frame it shows (like a cue)
+                    if (overridden.has(n.id) && state.clipTimes && state.clipTimes.has(n.id)){
+                        times.set(n.id, {source: "override", local: state.clipTimes.get(n.id)});
+                    }else{
+                        times.set(n.id, resolveInstanceTime(track, t, n, gov, nested));
+                    }
+                });
+                state.cel.layers.forEach(n=>{
+                    let copy = Layer(currentFile.width, currentFile.height, n.name);
+                    group.layers.push(copy);
+                    pending.push(copy.restore(bakeForBreakApart(n, state.props, times, parentFrame)));
+                });
+                remaps.push({group, sources: state.cel.layers});
+            }
+            trackGroups.push(group);
+        });
+        return Promise.all(pending).then(()=>{
+            // attachments inside the copies follow the copied rigs
+            let idMap = {};
+            remaps.forEach(r=>{
+                let map = copyIdMap(r.sources, r.group.layers);
+                remapAttachIds(r.group.layers, map);
+                Object.assign(idMap, map);
+            });
+            // one track: its layers go straight into the result group
+            let result = Layer.makeGroup(currentFile.width, currentFile.height, clip.name);
+            if (trackGroups.length === 1) result.layers = trackGroups[0].layers;
+            else result.layers = trackGroups;
+            // overrides addressed THROUGH a nested instance now belong on its copy (R30)
+            if (parts && parts.overrides) parts.overrides.forEach((R, path)=>{
+                let segs = pathSegments(path);
+                if (segs.length < 2) return;
+                let copy = idMap[segs[0]] ? findNodeDeep(result.layers, idMap[segs[0]]) : undefined;
+                if (!isClip(copy)) return;
+                let rest = segs.slice(1).join("/");
+                let raw = resolvedToRaw(R);
+                if (!raw) return;
+                let merged = mergeRawOuter(copy.overrides && copy.overrides[rest], raw);
+                if (merged) copy.overrides = Object.assign({}, copy.overrides, {[rest]: JSON.parse(JSON.stringify(merged))});
+            });
+            result.breakApartMap = idMap;
+            return result;
+        });
+    }
+
+    // The group's transform pivots about its content centre c, the instance's about the clip
+    // pivot p: x_group = x_instance + (I − L)(p − c) keeps every pixel where it was.
+    function pivotCompensation(t, d){
+        let L = matMultiply(matRotate(t.rotation || 0), matScale(t.scaleX, t.scaleY));
+        let Ld = matApply(L, d);
+        return {x: d.x - Ld.x, y: d.y - Ld.y};
+    }
+
+    function transformOfEntry(e, fallback){
+        return {
+            scaleX: typeof e.scaleX === "number" ? e.scaleX : fallback.scaleX,
+            scaleY: typeof e.scaleY === "number" ? e.scaleY : fallback.scaleY,
+            rotation: typeof e.rotation === "number" ? e.rotation : fallback.rotation
+        };
+    }
+
+    // Replaces `node` (an instance in `parentArray`, in the cel of content key `key` on `track`)
+    // with a built break-apart `group`: base transform + every governed property key entry move
+    // from the instance to the group, pivot-compensated.
+    function applyBreakApart(track, key, parentArray, node, clip, group){
+        let bounds = getOpaqueBounds(group.render());
+        let c = bounds ? {x: bounds.x + bounds.w / 2, y: bounds.y + bounds.h / 2} : {x: clip.pivot.x, y: clip.pivot.y};
+        let d = {x: clip.pivot.x - c.x, y: clip.pivot.y - c.y};
+        let base = {
+            scaleX: typeof node.scaleX === "number" ? node.scaleX : 1,
+            scaleY: typeof node.scaleY === "number" ? node.scaleY : 1,
+            rotation: typeof node.rotation === "number" ? node.rotation : 0
+        };
+        let comp = pivotCompensation(base, d);
+        group.x = Math.round((node.x || 0) + comp.x);
+        group.y = Math.round((node.y || 0) + comp.y);
+        group.scaleX = base.scaleX;
+        group.scaleY = base.scaleY;
+        group.rotation = base.rotation;
+        group.opacity = typeof node.opacity === "number" ? node.opacity : 100;
+        group.blendMode = node.blendMode || "normal";
+        group.visible = node.visible !== false;
+        group.locked = !!node.locked;
+        group.smooth = !!currentFile.smooth;
+        if (node.attach) group.attach = JSON.parse(JSON.stringify(node.attach));
+
+        propertyKeysGovernedBy(track, key).forEach(k=>{
+            let entry = k.props && k.props[node.id];
+            if (!entry) return;
+            delete k.props[node.id];
+            let out = Object.assign({}, entry);
+            delete out.cue;
+            delete out.frame;
+            // the instance's overrides are baked into the pieces (spec 025); a group has none
+            delete out.overrides;
+            let resolved = keyState(track, k)[node.id] || {};
+            let tf = transformOfEntry(out, transformOfEntry(resolved, base));
+            let kc = pivotCompensation(tf, d);
+            out.x = Math.round((typeof out.x === "number" ? out.x : (node.x || 0)) + kc.x);
+            out.y = Math.round((typeof out.y === "number" ? out.y : (node.y || 0)) + kc.y);
+            k.props[group.id] = out;
+        });
+        let index = parentArray.indexOf(node);
+        if (index >= 0) parentArray.splice(index, 1, group);
+        followBrokenApart(track, node.id, group);
+    }
+
+    // Outer overrides that ran THROUGH a broken-apart instance follow it one level down (R30):
+    // ".../X/A/..." → ".../A'/...", ".../X" → ".../group". Only once the instance's lineage is gone
+    // from its timeline: while other content keys still hold X, those paths keep addressing it.
+    function followBrokenApart(track, instanceId, group){
+        let map = group.breakApartMap || {};
+        delete group.breakApartMap;
+        let timeline = allTimelines().find(t=>tracksOf(t).indexOf(track) >= 0);
+        if (!timeline || timeline === rootTimeline()) return;
+        let alive = false;
+        forEachCelIn(timeline, cel=>{ if (!alive && findNodeDeep(cel.layers, instanceId)) alive = true; });
+        if (alive) return;
+        rewriteOverridePaths(p=>{
+            let segs = pathSegments(p);
+            let i = segs.indexOf(instanceId);
+            if (i < 0) return p;
+            if (i === segs.length - 1){ segs[i] = group.id; return segs.join("/"); }
+            let mapped = map[segs[i + 1]];
+            if (!mapped) return null;
+            segs.splice(i, 2, mapped);
+            return segs.join("/");
+        });
+    }
+
+    // Where `ref` sits in the active cel, and the instance's local time at the playhead.
+    function instanceAt(ref){
+        let cel = currentFrame();
+        let track = activeTrack();
+        let path = typeof ref === "undefined" ? activeLayerPath : toPath(ref);
+        if (!cel || !track || !path) return undefined;
+        let p = parentOf(cel.layers, path);
+        let node = p && p.parent[p.index];
+        if (!isClip(node)) return undefined;
+        let clip = clipById(node.clipId);
+        if (!clip) return undefined;
+        let gov = governingContentKey(track, activeFrameIndex) || contentKeys(track)[0];
+        let t = resolveInstanceTime(track, activeFrameIndex, node, gov, clip).local;
+        return {track, key: gov, parent: p.parent, node, clip, t, path};
+    }
+
+    me.canBreakApart = function(ref){
+        return !!instanceAt(ref);
+    };
+
+    // Replace one instance by the pixels it shows at the current playhead. Rendering the
+    // instance through compositeNodes preserves its resolved clock, cue/action, nested overrides,
+    // parameter pose, mask and transform. The result is document-aligned in this layer scope;
+    // the clip definition and any other instances in the library are left alone.
+    me.flattenClipToImage = function(ref){
+        if (refuseInParam("Flatten to image")) return undefined;
+        let at = instanceAt(ref);
+        if (!at) return undefined;
+        let state = resolveTrackState(at.track, activeFrameIndex, library());
+        if (!state) return undefined;
+        let effective = effectiveProps(at.node, state.props);
+        let options = trackOptionsFor(Object.assign({env: clipRenderEnv()}, me.getCompositeOptions()), state);
+        let index = at.path[at.path.length - 1];
+        let governed = !at.node.attach && at.parent.slice(index + 1).some(layer=>{
+            if (!isBones(layer) || !isVisibleIn(layer, state.props) || !layer.armature) return false;
+            let overlay = state.props && state.props[layer.id] && state.props[layer.id].bones;
+            return BoneDeformer.hasDeformation(applyPoseOverlay(layer.armature.bones, overlay));
+        });
+        let source = governed ? getDeformSource(at.node, state.props, Object.assign({}, options, {
+            deformScope: {x: 0, y: 0, w: currentFile.width, h: currentFile.height},
+            deformOffset: effective
+        })) : null;
+        let canvas;
+        if (source){
+            // Keep alpha on the new layer: the outer rig skins these exact pixels before the
+            // layer's opacity/blend is applied, just as it did for the clip instance.
+            canvas = source.canvas;
+        }else{
+            canvas = document.createElement("canvas");
+            canvas.width = currentFile.width;
+            canvas.height = currentFile.height;
+            // The instance blend mode needs the backdrop below it. Keep it on the new image and
+            // rasterize the clip itself with normal blending; opacity is baked into its alpha.
+            let isolated = Object.create(at.node);
+            isolated.blendMode = "normal";
+            let props = Object.assign({}, state.props, {
+                [at.node.id]: Object.assign({}, state.props && state.props[at.node.id], {opacity: effective.opacity})
+            });
+            compositeNodes([isolated], canvas.getContext("2d"), props, options);
+        }
+
+        HistoryService.start(EVENT.imageHistory);
+        let flat = Layer(currentFile.width, currentFile.height, at.node.name);
+        flat.drawImage(canvas, 0, 0);
+        flat.opacity = source ? effective.opacity : 100;
+        flat.blendMode = at.node.blendMode;
+        flat.locked = at.node.locked;
+        flat.visible = isVisibleIn(at.node, state.props);
+        if (at.node.attach) flat.attach = at.node.attach;
+        at.parent[at.path[at.path.length - 1]] = flat;
+        HistoryService.end();
+        me.activateLayer(at.path);
+        timelineStructureChanged();
+        return flat;
+    };
+
+    // Returns a Promise for the group that replaced the instance (undefined when refused).
+    me.breakApart = function(ref){
+        if (refuseInParam("Break Apart")) return Promise.resolve(undefined);
+        let at = instanceAt(ref);
+        if (!at) return Promise.resolve(undefined);
+        let parts = instancePartsAt(at.track, activeFrameIndex, at.node, at.clip);
+        return buildBreakApartGroup(at.clip, at.t, activeFrameIndex, parts).then(group=>{
+            HistoryService.start(EVENT.imageHistory);
+            applyBreakApart(at.track, at.key, at.parent, at.node, at.clip, group);
+            HistoryService.end();
+            me.activateLayer(at.path);
+            timelineStructureChanged();
+            EventBus.trigger(EVENT.libraryChanged);
+            return group;
+        });
+    };
+
+    // Deletes a clip (D4). In use and without {breakApart}: refused → {refused: true, usage}.
+    // With {breakApart}: every instance anywhere (root and other clips) is broken apart at the
+    // local time it shows at the start of its governing content key, then the clip is removed —
+    // one imageHistory step. Unused: removed as one libraryHistory step. Returns a Promise.
+    me.deleteClip = function(id, opts){
+        let clip = clipById(id);
+        if (!clip) return Promise.resolve({ok: false});
+        let usage = me.getClipUsage(id);
+        if (usage && !(opts && opts.breakApart)) return Promise.resolve({refused: true, usage});
+
+        let finish = ()=>{
+            library().clips = library().clips.filter(c=>c.id !== id);
+            touchClip();
+            validateEditStack();
+        };
+        if (!usage){
+            HistoryService.start(EVENT.libraryHistory);
+            finish();
+            HistoryService.end();
+            libraryChanged();
+            timelineStructureChanged();
+            return Promise.resolve({ok: true, usage: 0});
+        }
+
+        // collect every instance of the clip (outside the clip itself) with its break-apart time
+        let jobs = [];
+        allTimelines().forEach(timeline=>{
+            if (timeline === clip.timeline) return;
+            forEachCelIn(timeline, (cel, key, track)=>{
+                (function walk(nodes){
+                    nodes.forEach(n=>{
+                        if (isGroup(n)) walk(n.layers || []);
+                        else if (isClip(n) && n.clipId === id){
+                            let t = resolveInstanceTime(track, key.frame, n, key, clip).local;
+                            jobs.push({timeline, track, key, parent: nodes, node: n, t,
+                                parts: instancePartsAt(track, key.frame, n, clip)});
+                        }
+                    });
+                })(cel.layers);
+            });
+        });
+        return Promise.all(jobs.map(job=>buildBreakApartGroup(clip, job.t, job.key.frame, job.parts))).then(groups=>{
+            HistoryService.start(EVENT.imageHistory);
+            jobs.forEach((job, i)=>applyBreakApart(job.track, job.key, job.parent, job.node, clip, groups[i]));
+            // a clip whose content changed (it held an instance) has a new definition
+            library().clips.forEach(c=>{ if (jobs.some(job=>job.timeline === c.timeline)) touchClip(c); });
+            finish();
+            HistoryService.end();
+            resolveActiveLayer();
+            libraryChanged();
+            timelineStructureChanged();
+            return {ok: true, usage};
+        });
+    };
+
+    // ── edit in place (spec 024 §3.8) ─────────────────────────────────────────────
+    // Entering a clip pushes an edit-stack entry; from then on tracks()/currentFrame() resolve
+    // into the clip's timeline, and every tool, panel and history step works on it. Clip-local
+    // coordinates map 1:1 onto the document viewport (D2); the parent context is drawn dimmed
+    // around it by getDisplayCanvas.
+
+    me.isEditingClip = function(){
+        return editStack.length > 0;
+    };
+
+    me.getEditClipId = function(){
+        return editClipId();
+    };
+
+    // The breadcrumb: [{clipId, name}] from the outermost entered clip to the edited one.
+    me.getEditContext = function(){
+        return editStack.map(entry=>{
+            let clip = clipById(entry.clipId);
+            if (entry.kind === "param"){
+                let param = paramOf(clip, entry.paramId);
+                return {clipId: entry.clipId, paramId: entry.paramId, kind: "param", name: param ? param.name : "(missing parameter)"};
+            }
+            return {clipId: entry.clipId, name: clip ? clip.name : "(missing clip)"};
+        });
+    };
+
+    me.getContextFrames = function(){
+        return contextFrames();
+    };
+
+    me.canEnterClip = function(ref, mode){
+        if (mode === "in-place" && editStack.some(entry=>entry.standalone)) return false;
+        return !!instanceAt(ref);
+    };
+
+    // The path of the first instance of `clipId` in the active cel (depth-first), or undefined —
+    // how the Library panel's *Edit* finds something to enter.
+    me.findInstancePath = function(clipId){
+        let cel = currentFrame();
+        if (!cel) return undefined;
+        let found;
+        (function walk(nodes, prefix){
+            (nodes || []).forEach((node, i)=>{
+                if (found || !node) return;
+                if (isClip(node) && node.clipId === clipId) found = prefix.concat(i);
+                else if (isGroup(node)) walk(node.layers, prefix.concat(i));
+            });
+        })(cel.layers, []);
+        return found;
+    };
+
+    // The cue in effect on an instance at the active frame, or null (default clock / scrub).
+    function cueInEffect(info, at){
+        if (!info || info.source !== "cue" || !info.key) return null;
+        let data = info.key === at.key ? at.node : (info.key.props && info.key.props[at.node.id]);
+        return normalizeCue(data && data.cue);
+    }
+
+    // Enters the clip of the instance at `ref` (default: the active layer). The clip playhead
+    // becomes the local frame the instance shows at the parent playhead (R19). Returns true.
+    me.enterClip = function(ref, options){
+        if (options?.mode === "in-place" && editStack.some(entry=>entry.standalone)) return false;
+        let at = instanceAt(ref);
+        if (!at) return false;
+        let info = resolveInstanceTime(at.track, activeFrameIndex, at.node, at.key, at.clip);
+        let local = Math.max(0, Math.floor(info.local));
+        // Linear (the parent playhead follows the clip playhead) where the instance's time is a
+        // plain 1:1 run: the default clock, or a loop/once cue at speed 1 inside its range.
+        // Otherwise (hold, scrub, other speeds, a finished once) the context stays frozen.
+        let linear = info.source === "default";
+        let cue = cueInEffect(info, at);
+        if (cue && cue.speed === 1 && (cue.playback === "loop" || cue.playback === "once")){
+            let range = rangeFor(at.clip, cue.action) || {start: 0, end: clampLength(at.clip.length) - 1};
+            let t = cue.start + (activeFrameIndex - info.key.frame);
+            linear = cue.playback === "loop" || (t >= 0 && t <= range.end - range.start);
+        }
+        let parentChain = editStack.length ? editStack[editStack.length - 1].chainMatrix : matIdentity();
+        let entry = {
+            viewMode: options?.mode || (editStack.length ? me.getClipEditMode() : "in-place"),
+            clipId: at.clip.id,
+            instanceId: at.node.id,
+            instancePath: at.path.slice(),
+            parentTrackIndex: activeTrackIndex,
+            parentFrame: activeFrameIndex,
+            parentLayerPath: activeLayerPath.slice(),
+            entryLocal: info.local,
+            mapping: {kind: linear ? "linear" : "frozen", parentAtEntry: activeFrameIndex, localAtEntry: local, speed: 1},
+            // clip-local → document: every ancestor level's instance chain, then this instance
+            chainMatrix: matMultiply(parentChain, me.getLayerMatrix(at.path))
+        };
+        rememberActiveLayer();
+        clearNestedFocus();
+        editStack.push(entry);
+        activeTrackIndex = 0;
+        activeFrameIndex = Math.min(local, editLength() - 1);
+        resolveActiveLayer();
+        EventBus.trigger(EVENT.editContextChanged);
+        timelineStructureChanged();
+        return true;
+    };
+
+    me.getClipEditMode = function(){
+        let top = editStack[editStack.length-1];
+        return top?.viewMode || "in-place";
+    };
+    me.canShowClipContext = ()=>editStack.length > 0 && !editStack.some(entry=>entry.standalone);
+    me.setClipEditMode = function(mode){
+        if (!editStack.length || !["clip","in-place"].includes(mode)) return false;
+        if (mode === "in-place" && !me.canShowClipContext()) return false;
+        editStack[editStack.length-1].viewMode = mode;
+        EventBus.trigger(EVENT.editContextChanged);
+        EventBus.trigger(EVENT.imageContentChanged);
+        return true;
+    };
+    // Library definitions need no scene instance to be editable.
+    me.editClipDefinition = function(id){
+        let clip = clipById(id);
+        if (!clip) return false;
+        let path = me.findInstancePath(id);
+        if (path) return me.enterClip(path,{mode:"clip"});
+        if (editStack.some(entry=>entry.clipId === id)) return false;
+        rememberActiveLayer();
+        clearNestedFocus();
+        editStack.push({clipId:id,standalone:true,viewMode:"clip",parentTrackIndex:activeTrackIndex,
+            parentFrame:activeFrameIndex,parentLayerPath:activeLayerPath.slice(),entryLocal:0,
+            mapping:{kind:"frozen",parentAtEntry:activeFrameIndex,localAtEntry:0,speed:1},chainMatrix:matIdentity()});
+        activeTrackIndex = activeFrameIndex = 0;
+        resolveActiveLayer();
+        EventBus.trigger(EVENT.editContextChanged);
+        timelineStructureChanged();
+        return true;
+    };
+
+    // Opens parameter `paramId` of the clip being edited, one level deeper (spec 026 D9, R18).
+    // The playhead lands on the parameter's last frame (its maximum / last option).
+    me.enterParam = function(paramId){
+        let top = editStack[editStack.length - 1];
+        if (!top || top.kind === "param") return false;
+        let clip = clipById(top.clipId);
+        let param = paramOf(clip, paramId);
+        if (!param) return false;
+        rememberActiveLayer();
+        clearNestedFocus();
+        invalidateParamCtx();
+        editStack.push({
+            kind: "param", clipId: clip.id, paramId, instanceId: null,
+            viewMode: me.getClipEditMode(),
+            parentTrackIndex: activeTrackIndex, parentFrame: activeFrameIndex, parentLayerPath: activeLayerPath.slice(),
+            mapping: {kind: "frozen", parentAtEntry: activeFrameIndex, localAtEntry: 0, speed: 1},
+            chainMatrix: top.chainMatrix
+        });
+        activeFrameIndex = paramLastFrame(param);
+        resolveActiveLayer();
+        EventBus.trigger(EVENT.editContextChanged);
+        timelineStructureChanged();
+        return true;
+    };
+
+    // Opens a parameter of any clip: enters the clip first (through an instance in the active
+    // cel) when it is not the one being edited. Returns true on success.
+    me.enterClipParam = function(clipId, paramId){
+        if (editParamEntry()) me.exitClip();
+        if (editClipId() !== clipId){
+            me.exitToRoot();
+            let path = me.findInstancePath(clipId);
+            if (!path || !me.enterClip(path)) return false;
+        }
+        return me.enterParam(paramId);
+    };
+
+    me.isEditingParam = function(){
+        return !!editParamEntry();
+    };
+
+    // {clipId, paramId, param (a copy), value} of the parameter being edited, or undefined.
+    me.getEditParam = function(){
+        let pe = editParamEntry();
+        if (!pe) return undefined;
+        let param = paramOf(clipById(pe.clipId), pe.paramId);
+        if (!param) return undefined;
+        return {clipId: pe.clipId, paramId: pe.paramId, param: copyParams([param])[0],
+            value: paramValueOf(param, activeFrameIndex), localFrame: pe.parentFrame};
+    };
+
+    // Leaves the edited clip; the parent playhead is where the context mapping puts it.
+    me.exitClip = function(){
+        if (!editStack.length) return false;
+        if (editParamEntry()) invalidateParamCtx();
+        let frames = contextFrames();
+        rememberActiveLayer();
+        clearNestedFocus();
+        let entry = editStack.pop();
+        let list = tracks();
+        activeTrackIndex = Math.max(0, Math.min(entry.parentTrackIndex, list.length - 1));
+        activeFrameIndex = frames[editStack.length];
+        resolveActiveLayer();
+        if (me.getLayer(entry.parentLayerPath)) me.activateLayer(entry.parentLayerPath);
+        EventBus.trigger(EVENT.editContextChanged);
+        timelineStructureChanged();
+        return true;
+    };
+
+    me.exitToRoot = function(){
+        let left = false;
+        while (editStack.length) left = me.exitClip() || left;
+        return left;
+    };
+
+    // Leaves levels until `depth` levels remain (breadcrumb: 0 = the document).
+    me.exitToDepth = function(depth){
+        while (editStack.length > Math.max(0, depth)) me.exitClip();
+    };
+
+    // What the canvas shows (spec 024 §3.8): at the root the plain composite; inside a clip the
+    // parent context — every sibling at every level, resolved at the context frames, the edited
+    // instance left out — drawn dimmed through the inverse chain matrix, with the clip itself on
+    // top at identity and full strength. Nothing of the context is editable (N10): every edit API
+    // targets tracks(), which is the clip.
+    const CONTEXT_ALPHA = 0.35;
+    // Only dependencies that actually belong to the dimmed scene affect its cache.
+    // The edited instance is omitted; other instances of its definition still invalidate it.
+    function contextDependencyStamp(hidden){
+        let memoKey = contextRootRevision+"|"+(library().rev || 0)+"|"+JSON.stringify(hidden);
+        if (contextDependencyMemo?.key === memoKey) return contextDependencyMemo.stamp;
+        let dependencies = new Map(), seen = new Set();
+        function visitTimeline(timeline,depth,stack){
+            function visitNodes(nodes){
+                (nodes || []).forEach(node=>{
+                    if (isGroup(node)) visitNodes(node.layers);
+                    if (!isClip(node)) return;
+                    let onChain = depth >= 0 && hidden[depth]?.instanceId === node.id && hidden[depth]?.clipId === node.clipId;
+                    if (onChain && depth === hidden.length-1) return;
+                    let clip = clipById(node.clipId);
+                    if (!clip || stack.has(clip.id) || stack.size >= MAX_CLIP_DEPTH) return;
+                    dependencies.set(clip.id,clip.rev || 0);
+                    let nextDepth = onChain ? depth+1 : -1;
+                    let key = clip.id+":"+nextDepth;
+                    if (seen.has(key)) return;
+                    seen.add(key);
+                    visitTimeline(clip.timeline,nextDepth,new Set([...stack,clip.id]));
+                });
+            }
+            tracksOf(timeline).forEach(track=>(track.keys || []).forEach(key=>visitNodes(key.cel?.layers)));
+        }
+        visitTimeline(rootTimeline(),0,new Set());
+        let stamp = [...dependencies].sort(([a],[b])=>a.localeCompare(b)).map(([id,rev])=>id+":"+rev).join("|");
+        contextDependencyMemo = {key:memoKey,stamp};
+        return stamp;
+    }
+    function getContextSurface(top,hidden,frame,bounds){
+        let key = JSON.stringify([contextRootRevision,frame,hidden,top.chainMatrix,bounds,!!currentFile.smooth,contextDependencyStamp(hidden)]);
+        let entry = contextFramesCache.get(key);
+        if (entry){
+            contextFramesCache.delete(key);contextFramesCache.set(key,entry);
+            return {canvas:entry.canvas,cached:true};
+        }
+        let canvas = document.createElement("canvas");canvas.width=bounds.w;canvas.height=bounds.h;
+        let ctx = canvas.getContext("2d"), inv = matInvert(top.chainMatrix);
+        ctx.setTransform(inv.a,inv.b,inv.c,inv.d,inv.e-bounds.x,inv.f-bounds.y);
+        ctx.imageSmoothingEnabled = !!currentFile.smooth;
+        renderTimeline(tracksOf(rootTimeline()),frame,ctx,Object.assign(rootEnv({library:library()}),{hidden}));
+        let bytes = canvas.width*canvas.height*4;
+        if (bytes <= CONTEXT_CACHE_BUDGET){
+            while(contextCacheBytes+bytes > CONTEXT_CACHE_BUDGET && contextFramesCache.size){
+                let oldestKey=contextFramesCache.keys().next().value,oldest=contextFramesCache.get(oldestKey);
+                contextFramesCache.delete(oldestKey);contextCacheBytes-=oldest.bytes;releaseCanvas(oldest.canvas);
+            }
+            contextFramesCache.set(key,{canvas,bytes});contextCacheBytes+=bytes;
+            return {canvas,cached:true};
+        }
+        return {canvas,cached:false};
+    }
+    EventBus.on(EVENT.paletteChanged,clearContextCache);
+    me.getEditViewKey = ()=>JSON.stringify(editStack.map(entry=>({
+        clipId:entry.clipId,instanceId:entry.instanceId,paramId:entry.paramId,mode:entry.viewMode || "in-place"
+    })));
+    // View geometry only: editing coordinates and saved document dimensions stay unchanged.
+    me.getClipWorkspace = function(){
+        if (!editStack.length) return null;
+        let top = editStack[editStack.length - 1];
+        let corners = b => [{x:b.x,y:b.y},{x:b.x+b.w,y:b.y},
+            {x:b.x+b.w,y:b.y+b.h},{x:b.x,y:b.y+b.h}];
+        let clip = clipById(top.clipId);
+        let boundsEnv = childEnv(clipRenderEnv(), clip);
+        let time = activeFrameIndex;
+        if (top.kind === "param"){
+            time = top.parentFrame;
+            let param = paramOf(clip, top.paramId);
+            let set = param && paramContribution(clip,param,time,paramValueOf(param,activeFrameIndex));
+            if (set) boundsEnv.overrides = resolveSetTimes(set,clip,clipMap(library()));
+        }
+        let clipBox = clipBounds(clip, time, boundsEnv);
+        if (me.getClipEditMode() === "clip"){
+            let b = clipBox || {x:0,y:0,w:1,h:1};
+            return {bounds:{x:b.x-16,y:b.y-16,w:b.w+32,h:b.h+32},clipBounds:clipBox,documentPoints:[]};
+        }
+        let inv = matInvert(top.chainMatrix);
+        let documentPoints = corners({x:0,y:0,w:currentFile.width,h:currentFile.height}).map(p=>matApply(inv,p));
+        let frame = contextFrames()[0];
+        let boundsKey = contextRootRevision+"|"+(library().rev || 0)+"|"+frame;
+        let sceneBox;
+        if (contextBoundsCache.has(boundsKey)) sceneBox=contextBoundsCache.get(boundsKey);
+        else{
+            sceneBox = clipBounds({timeline:rootTimeline()}, frame, rootEnv({library:library()}));
+            contextBoundsCache.set(boundsKey,sceneBox);
+            if (contextBoundsCache.size > 16) contextBoundsCache.delete(contextBoundsCache.keys().next().value);
+        }
+        let points = documentPoints.slice();
+        if (clipBox) points.push(...corners(clipBox));
+        if (sceneBox) points.push(...corners(sceneBox).map(p=>matApply(inv,p)));
+        let x = Math.floor(Math.min(...points.map(p=>p.x))) - 16;
+        let y = Math.floor(Math.min(...points.map(p=>p.y))) - 16;
+        let right = Math.ceil(Math.max(...points.map(p=>p.x))) + 16;
+        let bottom = Math.ceil(Math.max(...points.map(p=>p.y))) + 16;
+        return {bounds:{x,y,w:right-x,h:bottom-y},clipBounds:clipBox,documentPoints};
+    };
+    me.getDisplayCanvas = function(opts){
+        if (!editStack.length) return me.getCanvas(undefined, opts);
+        opts = opts || {};
+        let out = document.createElement("canvas");
+        let bounds = opts.bounds || {x:0,y:0,w:currentFile.width,h:currentFile.height};
+        out.width = bounds.w;
+        out.height = bounds.h;
+        let ctx = out.getContext("2d");
+
+        let top = editStack[editStack.length - 1];
+        let clipLevels = editStack.filter(entry=>entry.kind !== "param");
+        if (me.getClipEditMode() === "in-place"){
+            let frames = contextFrames();
+            let hidden = clipLevels.map(entry=>({clipId: entry.clipId, instanceId: entry.instanceId}));
+            let context = getContextSurface(top,hidden,frames[0],bounds);
+            ctx.globalAlpha = CONTEXT_ALPHA;
+            ctx.drawImage(context.canvas, 0, 0);
+            ctx.globalAlpha = 1;
+            if (!context.cached) releaseCanvas(context.canvas);
+        }
+        ctx.translate(-bounds.x, -bounds.y);
+
+        let env = rootEnv({
+            library: library(),
+            dissolve: Palette.isLockedGlobal(),
+            skipVectorDisplay: !!opts.skipVectorDisplay
+        });
+        env.depth = me.getClipEditMode() === "clip" ? 1 : clipLevels.length;
+        env.stack = new Set(me.getClipEditMode() === "clip" ? [top.clipId] : clipLevels.map(entry=>entry.clipId));
+        let pe = editParamEntry();
+        let pclip = pe && clipById(pe.clipId);
+        let param = pe && paramOf(pclip, pe.paramId);
+        if (param){
+            // a parameter timeline (spec 026): the clip at the entry frame with only this
+            // parameter applied at the playhead's value — exactly what an instance would show
+            let set = paramContribution(pclip, param, pe.parentFrame, paramValueOf(param, activeFrameIndex));
+            if (set) env.overrides = resolveSetTimes(set, pclip, clipMap(library()));
+            renderTimeline(pclip.timeline.tracks, pe.parentFrame, ctx, env);
+            return out;
+        }
+        renderTimeline(tracks(), activeFrameIndex, ctx, env);
+        return out;
+    };
+
+    // imageHistory snapshots also record where the user was editing (not saved files): after a
+    // whole-image undo the context is re-entered level by level while each level still resolves.
+    function editContextSnapshot(){
+        let frames = contextFrames();
+        return editStack.map((entry, i)=>{
+            let deeper = editStack[i + 1];
+            return {
+                kind: entry.kind,
+                viewMode: entry.viewMode,
+                standalone: entry.standalone,
+                paramId: entry.paramId,
+                clipId: entry.clipId,
+                instanceId: entry.instanceId,
+                frame: frames[i + 1],
+                trackIndex: deeper ? deeper.parentTrackIndex : activeTrackIndex,
+                layerPath: (deeper ? deeper.parentLayerPath : activeLayerPath).slice()
+            };
+        });
+    }
+
+    me.cloneForHistory = function(){
+        let struct = me.clone();
+        if (editStack.length) struct.editContext = editContextSnapshot();
+        return struct;
+    };
+
+    // One cel's tree, like findNodeById (ids are unique per cel, spec 025 R2).
+    function findPathById(nodes, id, prefix){
+        prefix = prefix || [];
+        for (let i = 0; i < (nodes || []).length; i++){
+            let node = nodes[i];
+            if (node && node.id === id) return prefix.concat(i);
+            if (isGroup(node)){
+                let inner = findPathById(node.layers, id, prefix.concat(i));
+                if (inner) return inner;
+            }
+        }
+        return undefined;
+    }
+
+    function reenterEditContext(levels){
+        if (!Array.isArray(levels)) return;
+        for (let i = 0; i < levels.length; i++){
+            let level = levels[i];
+            if (level.kind === "param"){
+                if (!me.enterParam(level.paramId)) return;
+            }else{
+                let cel = currentFrame();
+                let path = cel && findPathById(cel.layers, level.instanceId);
+                if (level.standalone){
+                    if (!me.editClipDefinition(level.clipId)) return;
+                }else if (!path || !me.enterClip(path,{mode:level.viewMode}) || editClipId() !== level.clipId) return;
+            }
+            if (level.viewMode) editStack[editStack.length-1].viewMode = level.viewMode;
+            let list = tracks();
+            activeTrackIndex = Math.max(0, Math.min(level.trackIndex || 0, list.length - 1));
+            activeFrameIndex = Math.max(0, Math.min(level.frame || 0, editLength() - 1));
+            resolveActiveLayer();
+            if (level.layerPath && me.getLayer(level.layerPath)) me.activateLayer(level.layerPath);
+        }
+        EventBus.trigger(EVENT.editContextChanged);
+        timelineStructureChanged();
+    }
+
+    // ── clip parameters: definitions and values (spec 026 §3.7) ───────────────────
+
+    function allocParamId(clip, prefix){
+        clip.nextParamId = Math.max(clip.nextParamId || 1, maxParamId(clip.params) + 1);
+        return prefix + (clip.nextParamId++);
+    }
+
+    function uniqueParamName(clip, name, exceptId){
+        let taken = new Set((clip.params || []).filter(p=>p.id !== exceptId).map(p=>p.name));
+        let base = typeof name === "string" && name.trim() ? name.trim() : "Parameter";
+        let out = base, n = 2;
+        while (taken.has(out)) out = base + " " + (n++);
+        return out;
+    }
+
+    // One libraryHistory step around `fn(clip, param?)`; bumps the clip and refreshes.
+    function paramDefinitionEdit(clipId, paramId, fn){
+        let clip = clipById(clipId);
+        if (!clip) return undefined;
+        let param = paramId ? paramOf(clip, paramId) : undefined;
+        if (paramId && !param) return undefined;
+        syncParamTracks();
+        HistoryService.start(EVENT.libraryHistory);
+        let result = fn(clip, param);
+        if (result === false){ HistoryService.neverMind(); return false; }
+        HistoryService.end();
+        paramCtx = null;
+        touchClip(clip);
+        clearDrivenSetMemo();
+        libraryChanged();
+        timelineStructureChanged();
+        return result === undefined ? true : result;
+    }
+
+    me.getClipParams = function(clipId){
+        let clip = clipById(clipId);
+        syncParamTracks();
+        return clip ? copyParams(clip.params) : [];
+    };
+
+    // Adds a parameter (R1–R3): spec = {name, type: "number"|"switch", min, max, rest, default,
+    // frames, options: [names]}. Its timeline starts with an empty rest key on every clip track
+    // (R8). Returns a copy of the new parameter.
+    me.addClipParam = function(clipId, spec){
+        spec = spec || {};
+        let result = paramDefinitionEdit(clipId, null, clip=>{
+            ensureTrackIds(clip.timeline);
+            let type = spec.type === "switch" ? "switch" : "number";
+            let raw = {id: allocParamId(clip, "P"), name: uniqueParamName(clip, spec.name || (type === "switch" ? "Switch" : "Parameter")), type};
+            if (type === "number"){
+                Object.assign(raw, {min: spec.min, max: spec.max, rest: spec.rest, default: spec.default, frames: spec.frames});
+            }else{
+                let names = Array.isArray(spec.options) && spec.options.length ? spec.options : ["Option 1", "Option 2"];
+                raw.options = names.map(n=>({id: allocParamId(clip, "O"), name: n}));
+            }
+            let param = normalizeParams([raw])[0];
+            if (!param) return false;
+            let restAt = Math.round(paramFrameOf(param, param.rest));
+            param.tracks = {};
+            tracksOf(clip.timeline).forEach(track=>{
+                if (track.id) param.tracks[track.id] = [{frame: restAt, type: "property", tween: param.type === "number", props: {}}];
+            });
+            clip.params = (clip.params || []).concat([param]);
+            return copyParams([param])[0];
+        });
+        return result || undefined;
+    };
+
+    me.renameClipParam = function(clipId, paramId, name){
+        return paramDefinitionEdit(clipId, paramId, (clip, param)=>{ param.name = uniqueParamName(clip, name, paramId); });
+    };
+
+    // Range / rest / default / resolution (R5). Keys stay on their frames (R6); keys past a shorter
+    // timeline are dropped.
+    me.setClipParamRange = function(clipId, paramId, spec){
+        return paramDefinitionEdit(clipId, paramId, (clip, param)=>{
+            if (param.type !== "number") return false;
+            let merged = normalizeParams([Object.assign({}, param, spec || {}, {tracks: {}})])[0];
+            if (!merged) return false;
+            ["min", "max", "rest", "default", "frames"].forEach(k=>{ param[k] = merged[k]; });
+            Object.keys(param.tracks || {}).forEach(id=>{
+                param.tracks[id] = param.tracks[id].filter(k=>k.frame <= param.frames);
+                if (!param.tracks[id].length) delete param.tracks[id];
+            });
+        });
+    };
+
+    me.setClipParamDefault = function(clipId, paramId, value){
+        return paramDefinitionEdit(clipId, paramId, (clip, param)=>{
+            if (param.type === "switch"){
+                if (!param.options.some(o=>o.id === value)) return false;
+                param.default = value;
+            }else{
+                if (!Number.isFinite(value)) return false;
+                param.default = Math.min(param.max, Math.max(param.min, value));
+            }
+        });
+    };
+
+    me.setClipParamRest = function(clipId, paramId, value){
+        return paramDefinitionEdit(clipId, paramId, (clip, param)=>{
+            if (param.type === "switch"){
+                if (!param.options.some(o=>o.id === value)) return false;
+                param.rest = value;
+            }else{
+                if (!Number.isFinite(value)) return false;
+                param.rest = Math.min(param.max, Math.max(param.min, value));
+            }
+        });
+    };
+
+    me.moveClipParam = function(clipId, paramId, index){
+        return paramDefinitionEdit(clipId, paramId, (clip, param)=>{
+            let list = clip.params.filter(p=>p !== param);
+            list.splice(Math.max(0, Math.min(list.length, index)), 0, param);
+            clip.params = list;
+        });
+    };
+
+    me.addParamOption = function(clipId, paramId, name){
+        return paramDefinitionEdit(clipId, paramId, (clip, param)=>{
+            if (param.type !== "switch") return false;
+            let taken = new Set(param.options.map(o=>o.name));
+            let base = typeof name === "string" && name.trim() ? name.trim() : "Option";
+            let out = base, n = 2;
+            while (taken.has(out)) out = base + " " + (n++);
+            let option = {id: allocParamId(clip, "O"), name: out};
+            param.options.push(option);
+            return option.id;
+        });
+    };
+
+    me.renameParamOption = function(clipId, paramId, optionId, name){
+        return paramDefinitionEdit(clipId, paramId, (clip, param)=>{
+            let option = param.type === "switch" && param.options.find(o=>o.id === optionId);
+            if (!option || typeof name !== "string" || !name.trim()) return false;
+            if (param.options.some(o=>o !== option && o.name === name.trim())) return false;
+            option.name = name.trim();
+        });
+    };
+
+    // Removes an option and its frame (later options' keys move down one frame).
+    me.removeParamOption = function(clipId, paramId, optionId){
+        return paramDefinitionEdit(clipId, paramId, (clip, param)=>{
+            if (param.type !== "switch" || param.options.length < 2) return false;
+            let index = param.options.findIndex(o=>o.id === optionId);
+            if (index < 0) return false;
+            param.options.splice(index, 1);
+            Object.keys(param.tracks || {}).forEach(id=>{
+                param.tracks[id] = param.tracks[id].filter(k=>k.frame !== index)
+                    .map(k=>{ if (k.frame > index) k.frame--; return k; });
+                if (!param.tracks[id].length) delete param.tracks[id];
+            });
+            if (param.default === optionId) param.default = param.options[0].id;
+            if (param.rest === optionId) param.rest = param.options[0].id;
+        });
+    };
+
+    // Deletes a parameter and strips its values from every instance of the clip — bases, keys
+    // and outer `params` overrides — in one whole-image step (R6).
+    me.removeClipParam = function(clipId, paramId){
+        let clip = clipById(clipId);
+        if (!clip || !paramOf(clip, paramId)) return false;
+        if (editParamEntry() && editParamEntry().paramId === paramId) me.exitClip();
+        HistoryService.start(EVENT.imageHistory);
+        clip.params = clip.params.filter(p=>p.id !== paramId);
+        if (!clip.params.length) delete clip.params;
+        let clips = clipMap(library());
+        let strip = obj=>{ if (obj && obj.params && paramId in obj.params){ obj.params = Object.assign({}, obj.params); delete obj.params[paramId]; if (!Object.keys(obj.params).length) delete obj.params; } };
+        allTimelines().forEach(timeline=>tracksOf(timeline).forEach(track=>(track.keys || []).forEach(key=>{
+            if (key.type === "content" && key.cel){
+                forEachClipNode(key.cel.layers, node=>{ if (node.clipId === clipId) strip(node); });
+            }else if (key.type === "property" && key.props){
+                let gov = governingContentKey(track, key.frame);
+                Object.keys(key.props).forEach(id=>{
+                    let node = gov && gov.cel ? findNodeById(gov.cel.layers || [], id) : undefined;
+                    if (node && node.clipId === clipId && key.props[id]) strip(key.props[id]);
+                });
+            }
+        })));
+        forEachOverride(rec=>{
+            let instClip = rec.instance ? clips.get(rec.instance.clipId) : undefined;
+            if (!instClip) return;
+            let changed = false;
+            let out = Object.assign({}, rec.map);
+            Object.keys(out).forEach(p=>{
+                let e = out[p];
+                if (!e || !e.params || !(paramId in e.params)) return;
+                let walk = walkPath(clips, instClip, p);
+                if (!walk.targetClip || walk.targetClip.id !== clipId) return;
+                let ne = clonePlainData(e);
+                strip(ne);
+                out[p] = ne;
+                changed = true;
+            });
+            if (changed) rec.set(out);
+        });
+        HistoryService.end();
+        paramCtx = null;
+        touchClip(clip);
+        clearDrivenSetMemo();
+        libraryChanged();
+        timelineStructureChanged();
+        return true;
+    };
+
+    // The parameters of the instance at `ref` with their resolved values at the playhead (R21):
+    // [{id, name, type, value, min, max, options, source: "base"|"key"|"default"}].
+    me.getInstanceParams = function(ref){
+        let at = instanceAt(ref);
+        if (!at || !Array.isArray(at.clip.params) || !at.clip.params.length) return [];
+        let state = resolveTrackState(at.track, activeFrameIndex, library());
+        let resolved = state && state.props && state.props[at.node.id] && state.props[at.node.id].params;
+        let key = previousKey(at.track, activeFrameIndex);
+        let keyed = key && key.type === "property" && key.props && key.props[at.node.id] && key.props[at.node.id].params;
+        let values = paramEffectiveValues(at.clip, resolved);
+        return at.clip.params.map(p=>{
+            let out = {id: p.id, name: p.name, type: p.type, value: values.get(p.id)};
+            if (p.type === "number"){ out.min = p.min; out.max = p.max; }
+            else out.options = p.options.map(o=>({id: o.id, name: o.name}));
+            out.source = keyed && p.id in keyed ? "key" : (resolved && p.id in resolved ? "base" : "default");
+            return out;
+        });
+    };
+
+    // Sets a parameter value on the instance at `ref` at the playhead (R15: the held property key,
+    // or the instance base on its content key). One undo step.
+    me.setInstanceParam = function(ref, paramId, value){
+        let at = instanceAt(ref);
+        if (!at) return false;
+        let param = paramOf(at.clip, paramId);
+        if (!param) return false;
+        if (param.type === "switch"){ if (!param.options.some(o=>o.id === value)) return false; }
+        else { value = toFiniteNumber(value); if (typeof value !== "number") return false; value = Math.min(param.max, Math.max(param.min, value)); }
+        let key = previousKey(at.track, activeFrameIndex);
+        if (!key || refusePinned(key)) return false;
+        let ownBracket = !HistoryService.isRecording();
+        if (key.type === "property"){
+            if (ownBracket) HistoryService.start(EVENT.timelineHistory);
+            key.props = key.props || {};
+            let entry = Object.assign({}, key.props[at.node.id]);
+            entry.params = Object.assign({}, entry.params, {[paramId]: value});
+            key.props[at.node.id] = entry;
+        }else{
+            if (ownBracket) HistoryService.start(EVENT.layerHistory, at.path.slice());
+            at.node.params = Object.assign({}, at.node.params, {[paramId]: value});
+        }
+        if (ownBracket) HistoryService.end();
+        if (editStack.length) touchClip(editClip());
+        clearRenderCache();
+        cachedImage = undefined;
+        EventBus.trigger(EVENT.timelineChanged);
+        EventBus.trigger(EVENT.imageContentChanged);
+        return true;
+    };
+
+    // Through a nested focus on an instance (025): the value as an override `params` (R16).
+    me.setNestedParam = function(paramId, value){
+        return me.setNestedOverride({params: {[paramId]: value}});
+    };
+
+    // Frames of the keys on track `trackIndex` that carry parameter values (R22).
+    me.getParamKeyFrames = function(trackIndex){
+        let track = tracks()[typeof trackIndex === "number" ? trackIndex : activeTrackIndex];
+        let frames = [];
+        (track && track.keys || []).forEach(key=>{
+            let has = false;
+            if (key.type === "property") has = Object.keys(key.props || {}).some(id=>key.props[id] && key.props[id].params && Object.keys(key.props[id].params).length);
+            else if (key.cel) forEachClipNode(key.cel.layers, node=>{ if (node.params && Object.keys(node.params).length) has = true; });
+            if (has && key.frame >= 0) frames.push(key.frame);
+        });
+        return frames;
+    };
+
+    // The value a frame of the edited parameter timeline stands for (the ruler labels).
+    me.getParamFrameLabel = function(frame){
+        let pe = editParamEntry();
+        let param = pe && paramOf(clipById(pe.clipId), pe.paramId);
+        if (!param) return undefined;
+        let v = paramValueOf(param, frame);
+        if (param.type === "switch"){ let o = param.options.find(x=>x.id === v); return o ? o.name : ""; }
+        return String(Math.round(v * 100) / 100);
+    };
+
+    // ── markers (spec 024 R22, R28) ───────────────────────────────────────────────
+    // All marker edits validate the resulting set (unique names, no overlap) and are one
+    // libraryHistory step — except a rename, which also rewrites every cue and scrub frame that
+    // references the marker in every timeline, so it is one imageHistory step.
+
+    function uniqueMarkerName(clip, base){
+        let names = new Set((clip.markers || []).map(m=>m.name));
+        base = (typeof base === "string" && base.trim()) ? base.trim() : "Action";
+        if (!names.has(base)) return base;
+        let n = 2;
+        while (names.has(base + " " + n)) n++;
+        return base + " " + n;
+    }
+
+    // Adds a marker at `frame`. Returns {ok, reason?, name?}.
+    me.addClipMarker = function(id, frame, name){
+        if (refuseInParam("Markers")) return {ok: false, reason: "Not in a parameter"};
+        let clip = clipById(id);
+        if (!clip) return {ok: false, reason: "No such clip"};
+        if (!Number.isInteger(frame) || frame < 0) return {ok: false, reason: "Invalid marker frame"};
+        let markerName = uniqueMarkerName(clip, name || "Action " + ((clip.markers || []).length + 1));
+        let result = me.setClipMarkers(id, copyMarkers(clip.markers).concat({frame: frame, name: markerName}));
+        return result.ok ? {ok: true, name: markerName} : result;
+    };
+
+    function editMarker(id, name, change){
+        let clip = clipById(id);
+        if (!clip) return {ok: false, reason: "No such clip"};
+        let markers = copyMarkers(clip.markers);
+        let marker = markers.find(m=>m.name === name);
+        if (!marker) return {ok: false, reason: "No such marker"};
+        change(marker, markers);
+        return me.setClipMarkers(id, markers.filter(m=>!m.remove));
+    }
+
+    me.moveClipMarker = function(id, name, frame){
+        if (refuseInParam("Markers")) return {ok: false, reason: "Not in a parameter"};
+        return editMarker(id, name, marker=>{
+            let delta = frame - marker.frame;
+            marker.frame = frame;
+            // an explicit end moves along, keeping the range's length
+            if (typeof marker.end === "number") marker.end += delta;
+        });
+    };
+
+    // `end` null/undefined clears the explicit end (the range then runs to the next marker).
+    me.setClipMarkerEnd = function(id, name, end){
+        if (refuseInParam("Markers")) return {ok: false, reason: "Not in a parameter"};
+        return editMarker(id, name, marker=>{
+            if (typeof end === "number") marker.end = end; else delete marker.end;
+        });
+    };
+
+    me.removeClipMarker = function(id, name){
+        if (refuseInParam("Markers")) return {ok: false, reason: "Not in a parameter"};
+        return editMarker(id, name, marker=>{ marker.remove = true; });
+    };
+
+    me.renameClipMarker = function(id, oldName, newName){
+        if (refuseInParam("Markers")) return {ok: false, reason: "Not in a parameter"};
+        let clip = clipById(id);
+        if (!clip) return {ok: false, reason: "No such clip"};
+        newName = typeof newName === "string" ? newName.trim() : "";
+        if (!newName) return {ok: false, reason: "A marker needs a name"};
+        if (newName === oldName) return {ok: true};
+        let markers = copyMarkers(clip.markers);
+        let marker = markers.find(m=>m.name === oldName);
+        if (!marker) return {ok: false, reason: "No such marker"};
+        marker.name = newName;
+        let check = validateMarkers(clip, markers);
+        if (!check.ok) return check;
+        HistoryService.start(EVENT.imageHistory);
+        clip.markers = markers;
+        renameMarkerRefs(allTimelines(), library(), id, oldName, newName);
+        renameOverrideMarkerRefs(id, oldName, newName);
+        // string scrub frames in parameter keys that pose an instance of this clip (spec 026 R24)
+        forEachParamKey((k, param, owner)=>{
+            let index = clipNodeIndex(owner);
+            Object.keys(k.props || {}).forEach(nid=>{
+                let e = k.props[nid];
+                let info = index.get(nid);
+                if (e && e.frame === oldName && info && info.clipId === id) e.frame = newName;
+            });
+        });
+        clearDrivenSetMemo();
+        touchClip(clip);
+        HistoryService.end();
+        libraryChanged();
+        timelineStructureChanged();
+        return {ok: true};
+    };
+
+    me.getClipMarkerRanges = function(id){
+        let clip = clipById(id);
+        return clip ? markerRanges(clip) : [];
+    };
+
+    // ── cues and scrub frames (spec 024 R23–R29a) ─────────────────────────────────
+
+    // The instance at `ref` in the active cel with its time at the playhead:
+    //   {local, source: "default"|"cue"|"scrub", keyFrame, cue, frame, onKey, missingMarker, clipId}
+    // `cue`/`frame` are the ones in effect (from `keyFrame`); `onKey` tells whether the playhead
+    // sits on a key of the active track (a write then lands on that key, otherwise D8 inserts one).
+    me.getInstanceTime = function(ref){
+        let at = instanceAt(ref);
+        if (!at) return undefined;
+        let info = resolveInstanceTime(at.track, activeFrameIndex, at.node, at.key, at.clip);
+        let data;
+        if (info.key) data = info.key === at.key ? at.node : (info.key.props && info.key.props[at.node.id]);
+        let cue = info.source === "cue" ? normalizeCue(data && data.cue) : null;
+        let frame = info.source === "scrub" ? normalizeFrame(data && data.frame) : undefined;
+        let missing = false;
+        if (cue && cue.action && !rangeFor(at.clip, cue.action)) missing = true;
+        if (typeof frame === "string" && !rangeFor(at.clip, frame)) missing = true;
+        return {
+            local: info.local,
+            source: info.source,
+            keyFrame: info.key ? info.key.frame : undefined,
+            cue: cue,
+            frame: frame,
+            onKey: !!keyAt(at.track, activeFrameIndex),
+            missingMarker: missing,
+            clipId: at.clip.id
+        };
+    };
+
+    // Where a cue/scrub write at the playhead lands for `at`: the key at the playhead, or — D8 — a
+    // property key inserted there first (copying the resolved state, and the tween, so the frames
+    // look the same). Returns {key} | {refused: reason}. Runs inside the caller's history step.
+    function timeWriteTarget(at){
+        let key = keyAt(at.track, activeFrameIndex);
+        if (key) return {key};
+        if (!canInsertPropertyKey(at.track, activeFrameIndex)) return {refused: "There is no key here to put a cue on"};
+        let state = resolveTrackState(at.track, activeFrameIndex);
+        if (!state) return {refused: "There is no key here to put a cue on"};
+        key = makePropertyKey(activeFrameIndex, withoutTimeCues(clonePlainData(state.props)), !!state.tweening,state.key.easing);
+        insertKey(at.track, key);
+        return {key};
+    }
+
+    // Writes `apply(entry)` into the cue/frame data of the instance at `ref` at the playhead: the
+    // node base on its content key, props[id] on a property key. One undo step. Returns true.
+    function writeInstanceTime(ref, apply){
+        let at = instanceAt(ref);
+        if (!at) return false;
+        let key = keyAt(at.track, activeFrameIndex);
+        let onContentKey = key && key === at.key;
+        if (onContentKey){
+            // base node fields: a layer step, recorded against the instance itself
+            if (!sameRef(activeLayerPath, at.path)) me.activateLayer(at.path);
+            HistoryService.start(EVENT.layerHistory, at.path.slice());
+            apply(at.node);
+            HistoryService.end();
+        }else{
+            HistoryService.start(EVENT.timelineHistory);
+            let target = timeWriteTarget(at);
+            if (target.refused){
+                HistoryService.neverMind();
+                Modal.softAlert(target.refused, "Cue");
+                return false;
+            }
+            target.key.props = target.key.props || {};
+            let entry = Object.assign({}, target.key.props[at.node.id]);
+            apply(entry);
+            target.key.props[at.node.id] = entry;
+            HistoryService.end();
+        }
+        if (editStack.length) touchClip(editClip());
+        timelineStructureChanged();
+        return true;
+    }
+
+    function sameRef(a, b){
+        return Array.isArray(a) && Array.isArray(b) && a.join(",") === b.join(",");
+    }
+
+    // Sets (or with null clears) the cue on the instance at the playhead (R23, R29a). A cue and a
+    // scrub frame never share a key: setting one removes the other there.
+    me.setInstanceCue = function(ref, cue){
+        if (refuseInParam("Cues (a parameter picks poses with Scrub frames instead)")) return false;
+        let normalized = cue === null ? null : normalizeCue(cue || {});
+        return writeInstanceTime(ref, entry=>{
+            if (normalized){ entry.cue = normalized; delete entry.frame; }
+            else delete entry.cue;
+        });
+    };
+
+    // Sets (or with null clears) an explicit scrub frame — a number or a marker name (R26).
+    me.setInstanceScrubFrame = function(ref, frame){
+        let normalized = frame === null ? undefined : normalizeFrame(frame);
+        if (frame !== null && typeof normalized === "undefined") return false;
+        return writeInstanceTime(ref, entry=>{
+            if (typeof normalized !== "undefined"){ entry.frame = normalized; delete entry.cue; }
+            else delete entry.frame;
+        });
+    };
+
+    // The per-instance default-clock offset (R11): a base value, not keyable. One undo step.
+    me.setInstanceOffset = function(ref, offset){
+        if (refuseInParam("The clock offset")) return false;
+        let at = instanceAt(ref);
+        if (!at || !Number.isFinite(offset)) return false;
+        if (!sameRef(activeLayerPath, at.path)) me.activateLayer(at.path);
+        HistoryService.start(EVENT.layerHistory, at.path.slice());
+        at.node.offset = Math.round(offset);
+        HistoryService.end();
+        if (editStack.length) touchClip(editClip());
+        timelineStructureChanged();
+        return true;
+    };
+
+    // ── nested overrides (spec 025 §3.10) ─────────────────────────────────────────
+    // A NESTED FOCUS is a node inside an instance, selected from above: the instance (by its
+    // lineage id, so it survives playhead moves across content keys) plus an override path.
+    // While it is set, the panels and tools edit overrides on the instance instead of anything in
+    // the clip definition (N10). It belongs to one edit context.
+    let nestedFocus = null;   // {instanceId, path, clipId}
+
+    function nestedFocusChanged(){
+        EventBus.trigger(EVENT.nestedFocusChanged);
+        EventBus.trigger(EVENT.layersChanged);
+    }
+
+    function clearNestedFocus(){
+        if (!nestedFocus) return;
+        nestedFocus = null;
+        nestedFocusChanged();
+    }
+
+    function nestedOpts(instancePath, path, excludeOwn){
+        return {library: library(), track: activeTrack(), frame: activeFrameIndex, cel: currentFrame(),
+            instancePath, path, excludeOwn: !!excludeOwn};
+    }
+
+    // The layer path of the focused instance in the active cel, or undefined.
+    function focusInstancePath(){
+        if (!nestedFocus || nestedFocus.clipId !== editClipId()) return undefined;
+        let cel = currentFrame();
+        return cel ? findPathById(cel.layers || [], nestedFocus.instanceId) : undefined;
+    }
+
+    // Sets (path) or clears (null) the nested focus on the instance at `ref` (default: active).
+    // The path must resolve at the playhead. Activates the instance. Returns true on success.
+    me.setNestedFocus = function(ref, path){
+        if (path === null || typeof path === "undefined"){ clearNestedFocus(); return true; }
+        if (refuseInParam("Overriding nested parts")) return false;
+        let at = instanceAt(ref);
+        let p = normalizePath(path);
+        if (!at || !p) return false;
+        let r = resolveNested(nestedOpts(at.path, p));
+        if (!r.node) return false;
+        if (!sameRef(activeLayerPath, at.path)) me.activateLayer(at.path);
+        nestedFocus = {instanceId: at.node.id, path: p, clipId: editClipId()};
+        nestedFocusChanged();
+        return true;
+    };
+
+    // Where a static override write at the playhead lands for the instance at `instPath` (D7, the
+    // setLayerKeyProps rule): the property key the frame is held from, or the instance's base on
+    // its content key. → {kind: "key"|"base", key, node, track} | undefined
+    function overrideTarget(instPath){
+        let track = activeTrack();
+        let cel = currentFrame();
+        if (!track || !cel || !instPath) return undefined;
+        let node = resolveLayerPath(cel.layers, instPath);
+        if (!isClip(node)) return undefined;
+        let key = previousKey(track, activeFrameIndex);
+        if (!key) return undefined;
+        return {kind: key.type === "property" ? "key" : "base", key, node, track};
+    }
+
+    function overrideMapAt(target){
+        if (!target) return undefined;
+        if (target.kind === "base") return target.node.overrides;
+        let entry = target.key.props && target.key.props[target.node.id];
+        return entry && entry.overrides;
+    }
+
+    function plainEntry(entry){
+        let normalized = normalizeEntry(entry);
+        return normalized ? JSON.parse(JSON.stringify(normalized)) : undefined;
+    }
+
+    // Replaces override `path` in `target` with mutate(current copy) — undefined removes it.
+    function putOverride(target, path, mutate){
+        let current = overrideMapAt(target);
+        let next = plainEntry(mutate(current && current[path] ? clonePlainData(current[path]) : {}));
+        let map = Object.assign({}, current || {});
+        if (next) map[path] = next; else delete map[path];
+        let empty = !Object.keys(map).length;
+        if (target.kind === "base"){
+            if (empty) delete target.node.overrides; else target.node.overrides = map;
+        }else{
+            target.key.props = target.key.props || {};
+            let entry = Object.assign({}, target.key.props[target.node.id]);
+            if (empty) delete entry.overrides; else entry.overrides = map;
+            target.key.props[target.node.id] = entry;
+        }
+    }
+
+    function overridesChanged(){
+        if (editStack.length) touchClip(editClip());
+        clearRenderCache();
+        cachedImage = undefined;
+        EventBus.trigger(EVENT.timelineChanged);
+        EventBus.trigger(EVENT.imageContentChanged);
+        nestedFocusChanged();
+    }
+
+    // One undo step (unless a gesture bracket is already open): a base write is a layer step on
+    // the instance, a key write a timeline step — the same history types as the instance's own
+    // props, so undo lands in the right clip (024-R21).
+    function writeOverride(instPath, path, mutate){
+        let target = overrideTarget(instPath);
+        if (!target) return false;
+        let ownBracket = !HistoryService.isRecording();
+        if (ownBracket){
+            if (target.kind === "base") HistoryService.start(EVENT.layerHistory, instPath.slice());
+            else HistoryService.start(EVENT.timelineHistory);
+        }
+        putOverride(target, path, mutate);
+        if (ownBracket) HistoryService.end();
+        overridesChanged();
+        return true;
+    }
+
+    const OVERRIDE_NUMERIC = ["x", "y", "scaleX", "scaleY", "rotation", "opacity"];
+
+    // Merges `values` into the focused override at the playhead: x, y, scaleX, scaleY, rotation,
+    // opacity, visible, mode ("absolute" | "relative"), bones {id: {angle, x, y, scale}}. A null value
+    // removes that component. One undo step.
+    me.setNestedOverride = function(values){
+        let instPath = focusInstancePath();
+        if (!instPath || !values || typeof values !== "object") return false;
+        return writeOverride(instPath, nestedFocus.path, entry=>{
+            OVERRIDE_NUMERIC.forEach(c=>{
+                if (!(c in values)) return;
+                if (values[c] === null){ delete entry[c]; return; }
+                let v = toFiniteNumber(values[c]);
+                if (typeof v === "number") entry[c] = v;
+            });
+            if ("visible" in values){
+                if (values.visible === null) delete entry.visible; else entry.visible = !!values.visible;
+            }
+            if ("mode" in values){
+                if (values.mode === "absolute") entry.mode = "absolute"; else delete entry.mode;
+            }
+            // parameter values for a focused nested instance (spec 026 R16); null removes one
+            if (values.params && typeof values.params === "object"){
+                let params = Object.assign({}, entry.params);
+                Object.keys(values.params).forEach(id=>{ if (values.params[id] === null) delete params[id]; else params[id] = values.params[id]; });
+                if (Object.keys(params).length) entry.params = params; else delete entry.params;
+            }
+            if (values.bones && typeof values.bones === "object"){
+                let bones = Object.assign({}, entry.bones);
+                Object.keys(values.bones).forEach(id=>{
+                    if (values.bones[id] === null) delete bones[id];
+                    else bones[id] = Object.assign({}, bones[id], values.bones[id]);
+                });
+                if (Object.keys(bones).length) entry.bones = bones; else delete entry.bones;
+            }
+            return entry;
+        });
+    };
+
+    // Resolved values of the focused target: with every override (`now`) and without this level's
+    // own entry for the path (`under`, what a relative entry is measured against).
+    function focusResolved(){
+        let instPath = focusInstancePath();
+        if (!instPath) return undefined;
+        let now = resolveNested(nestedOpts(instPath, nestedFocus.path));
+        let under = resolveNested(nestedOpts(instPath, nestedFocus.path, true));
+        if (!now.node || !under.node) return undefined;
+        return {instPath, now, under};
+    }
+
+    function posedBonesMap(node, resolved){
+        let map = {};
+        if (!node || !node.armature) return map;
+        applyPoseOverlay(node.armature.bones || [], resolved && resolved.bones).forEach(b=>{
+            let p = b.pose || {};
+            map[b.id] = {angle: p.angle || 0, x: p.x || 0, y: p.y || 0, scale: typeof p.scale === "number" ? p.scale : 1};
+        });
+        return map;
+    }
+
+    const ADDITIVE_COMPONENT = {x: true, y: true, rotation: true, angle: true};
+    function relativeOf(c, target, under){
+        if (ADDITIVE_COMPONENT[c]) return target - under;
+        if (c === "opacity") return under ? target / under * 100 : 100;
+        return under ? target / under : 1;
+    }
+
+    // Switches the focused override between relative and absolute, converting the components it
+    // sets so the frame looks the same. One undo step.
+    me.setNestedOverrideMode = function(mode){
+        let f = focusResolved();
+        if (!f) return false;
+        let absolute = mode === "absolute";
+        let R = f.now.resolved || {}, U = f.under.resolved || {};
+        let rb = posedBonesMap(f.now.node, R), ub = posedBonesMap(f.under.node, U);
+        let transformable = isGroup(f.now.node) || isClip(f.now.node);
+        let base = c=>typeof U[c] === "number" ? U[c] : (c === "opacity" ? 100 : (c === "scaleX" || c === "scaleY" ? 1 : 0));
+        let value = c=>typeof R[c] === "number" ? R[c] : base(c);
+        return writeOverride(f.instPath, nestedFocus.path, entry=>{
+            if ((entry.mode === "absolute") === absolute) return entry;
+            OVERRIDE_NUMERIC.forEach(c=>{
+                if (typeof entry[c] !== "number") return;
+                if (!transformable && (c === "scaleX" || c === "scaleY" || c === "rotation")) return;
+                entry[c] = absolute ? value(c) : relativeOf(c, value(c), base(c));
+            });
+            if (entry.bones){
+                Object.keys(entry.bones).forEach(id=>{
+                    let e = entry.bones[id], r = rb[id], u = ub[id];
+                    if (!r || !u) return;
+                    Object.keys(e).forEach(c=>{ e[c] = absolute ? r[c] : relativeOf(c, r[c], u[c]); });
+                });
+            }
+            if (absolute) entry.mode = "absolute"; else delete entry.mode;
+            return entry;
+        });
+    };
+
+    // Poses the focused nested bone layer: `absMap` = {boneId: absolute pose}. Stored as deltas
+    // against the un-overridden pose at the playhead (relative) so the clip's own animation keeps
+    // playing underneath, or as-is in absolute mode (R24). One undo step (or part of a gesture).
+    me.setNestedBonePoses = function(absMap){
+        let f = focusResolved();
+        if (!f || !absMap || !isBones(f.now.node)) return false;
+        let ub = posedBonesMap(f.under.node, f.under.resolved);
+        return writeOverride(f.instPath, nestedFocus.path, entry=>{
+            let absolute = entry.mode === "absolute";
+            let bones = Object.assign({}, entry.bones);
+            Object.keys(absMap).forEach(id=>{
+                let a = absMap[id], u = ub[id];
+                if (!a || !u) return;
+                let pose = {angle: a.angle || 0, x: a.x || 0, y: a.y || 0, scale: typeof a.scale === "number" ? a.scale : 1};
+                bones[id] = absolute ? pose : {
+                    angle: pose.angle - u.angle, x: pose.x - u.x, y: pose.y - u.y,
+                    scale: relativeOf("scale", pose.scale, u.scale)
+                };
+            });
+            entry.bones = bones;
+            return entry;
+        });
+    };
+
+    // The focused nested bone layer's poses as shown (every override applied): {boneId: pose}.
+    me.getNestedBonePoses = function(){
+        let instPath = focusInstancePath();
+        if (!instPath) return undefined;
+        let r = resolveNested(nestedOpts(instPath, nestedFocus.path));
+        return r.node && isBones(r.node) ? posedBonesMap(r.node, r.resolved) : undefined;
+    };
+
+    // A document-space delta → the focused target's parent space (where its x/y apply), so a move
+    // gesture lands under the cursor through any rotated/scaled instance chain (R23).
+    me.nestedDocDeltaToLocal = function(dx, dy){
+        let instPath = focusInstancePath();
+        if (!instPath) return undefined;
+        let r = resolveNested(nestedOpts(instPath, nestedFocus.path));
+        if (!r.node) return undefined;
+        let m = r.placeMatrix;
+        let inv = matInvert({a: m.a, b: m.b, c: m.c, d: m.d, e: 0, f: 0});
+        return matApply(inv, {x: dx, y: dy});
+    };
+
+    // Sets the focused target's RESOLVED placement to `T` ({x, y, scaleX, scaleY, rotation}, any
+    // subset): stored relative to the un-overridden values, or as-is in absolute mode (R23).
+    me.setNestedTransform = function(T){
+        let f = focusResolved();
+        if (!f || !T) return false;
+        let U = f.under.resolved || {};
+        let transformable = isGroup(f.now.node) || isClip(f.now.node);
+        return writeOverride(f.instPath, nestedFocus.path, entry=>{
+            let absolute = entry.mode === "absolute";
+            OVERRIDE_NUMERIC.forEach(c=>{
+                if (c === "opacity" || typeof T[c] !== "number") return;
+                if (!transformable && (c === "scaleX" || c === "scaleY" || c === "rotation")) return;
+                let u = typeof U[c] === "number" ? U[c] : (c === "scaleX" || c === "scaleY" ? 1 : 0);
+                entry[c] = absolute ? T[c] : relativeOf(c, T[c], u);
+            });
+            return entry;
+        });
+    };
+
+    // Time overrides (cue / scrub) follow 024-D8: on a keyless frame a property key is inserted
+    // first; on the instance's content key they go to its base. One undo step.
+    function writeNestedTime(apply){
+        let instPath = focusInstancePath();
+        if (!instPath) return false;
+        let track = activeTrack();
+        let node = resolveLayerPath(currentFrame().layers, instPath);
+        let key = keyAt(track, activeFrameIndex);
+        let gov = governingContentKey(track, activeFrameIndex);
+        let path = nestedFocus.path;
+        if (key && key === gov){
+            HistoryService.start(EVENT.layerHistory, instPath.slice());
+            putOverride({kind: "base", key, node, track}, path, apply);
+            HistoryService.end();
+        }else{
+            HistoryService.start(EVENT.timelineHistory);
+            let target = timeWriteTarget({track});
+            if (target.refused){
+                HistoryService.neverMind();
+                Modal.softAlert(target.refused, "Cue");
+                return false;
+            }
+            putOverride({kind: "key", key: target.key, node, track}, path, apply);
+            HistoryService.end();
+        }
+        overridesChanged();
+        timelineStructureChanged();
+        return true;
+    }
+
+    // Cue (or null to clear) on the focused nested instance, as an override (R10, R25).
+    me.setNestedCue = function(cue){
+        let normalized = cue === null ? null : normalizeCue(cue || {});
+        return writeNestedTime(entry=>{
+            if (normalized){ entry.cue = normalized; delete entry.frame; }
+            else delete entry.cue;
+            return entry;
+        });
+    };
+
+    me.setNestedScrubFrame = function(frame){
+        let normalized = frame === null ? undefined : normalizeFrame(frame);
+        if (frame !== null && typeof normalized === "undefined") return false;
+        return writeNestedTime(entry=>{
+            if (typeof normalized !== "undefined"){ entry.frame = normalized; delete entry.cue; }
+            else delete entry.frame;
+            return entry;
+        });
+    };
+
+    // Removes the focused override at the playhead's write target, or (allKeys) from the
+    // instance's base in every content key and from every property key of the track. One step.
+    me.resetNestedOverride = function(opts){
+        let instPath = focusInstancePath();
+        if (!instPath) return false;
+        let path = nestedFocus.path;
+        if (!(opts && opts.allKeys)) return writeOverride(instPath, path, ()=>undefined);
+        let track = activeTrack();
+        let id = nestedFocus.instanceId;
+        HistoryService.start(EVENT.imageHistory);
+        (track.keys || []).forEach(key=>{
+            if (key.type === "content" && key.cel){
+                let p = findPathById(key.cel.layers || [], id);
+                let node = p && resolveLayerPath(key.cel.layers, p);
+                if (isClip(node) && node.overrides && node.overrides[path]) putOverride({kind: "base", key, node, track}, path, ()=>undefined);
+            }else if (key.type === "property" && key.props && key.props[id] && key.props[id].overrides && key.props[id].overrides[path]){
+                putOverride({kind: "key", key, node: {id}, track}, path, ()=>undefined);
+            }
+        });
+        HistoryService.end();
+        overridesChanged();
+        return true;
+    };
+
+    // The focused override for the UI: names, target type, resolved values (with and without this
+    // level's entry), the entry at the write target and where that is. undefined without a focus.
+    me.getNestedFocus = function(){
+        let instPath = focusInstancePath();
+        if (!instPath) return undefined;
+        let r = resolveNested(nestedOpts(instPath, nestedFocus.path));
+        let target = overrideTarget(instPath);
+        let map = overrideMapAt(target);
+        let out = {
+            instanceId: nestedFocus.instanceId, instancePath: instPath, path: nestedFocus.path,
+            names: r.names || [], active: !!r.node, missing: r.missing,
+            writeTarget: target ? target.kind : undefined, keyFrame: target ? target.key.frame : undefined,
+            entry: map && map[nestedFocus.path] ? clonePlainData(map[nestedFocus.path]) : null,
+            dangling: me.getDanglingOverrides(instPath).length
+        };
+        if (!r.node) return out;
+        let node = r.node;
+        out.type = node.type || "pixel";
+        out.targetId = node.id;
+        out.name = node.name;
+        out.transformable = isGroup(node) || isClip(node);
+        out.isClip = isClip(node);
+        out.isBones = isBones(node);
+        if (isClip(node)) out.targetClipId = node.clipId;
+        let resolved = Object.assign({}, r.resolved || {});
+        resolved.visible = isVisibleIn(node, r.props);
+        if (isBones(node)) resolved.bones = posedBonesMap(node, r.resolved);
+        out.resolved = resolved;
+        // a focused nested instance's clip parameters with their values as shown (spec 026 R16)
+        let targetClip = isClip(node) ? clipById(node.clipId) : undefined;
+        if (targetClip && Array.isArray(targetClip.params) && targetClip.params.length){
+            let values = paramEffectiveValues(targetClip, resolved.params);
+            out.params = targetClip.params.map(p=>{
+                let item = {id: p.id, name: p.name, type: p.type, value: values.get(p.id)};
+                if (p.type === "number"){ item.min = p.min; item.max = p.max; }
+                else item.options = p.options.map(o=>({id: o.id, name: o.name}));
+                return item;
+            });
+        }
+        out.local = r.local;
+        return out;
+    };
+
+    // The bone tool's nested target (R24): the focused nested bone layer, the matrix from its scope
+    // to the edit-level document, and its poses as shown. undefined unless the focus is a bone layer.
+    me.getNestedBoneTarget = function(){
+        let instPath = focusInstancePath();
+        if (!instPath) return undefined;
+        let r = resolveNested(nestedOpts(instPath, nestedFocus.path));
+        if (!r.node || !isBones(r.node)) return undefined;
+        return {node: r.node, matrix: r.fullMatrix, poses: posedBonesMap(r.node, r.resolved),
+            key: nestedFocus.instanceId + "|" + nestedFocus.path + "|" + editClipId()};
+    };
+
+    // Snapshot / restore of the focused instance's override data on its track (base in every
+    // content key, props on every property key), so a cancelled bone gesture can roll back what
+    // it wrote live (the bone tool's counterpart of cloneBoneOverlayState).
+    me.cloneNestedOverrideState = function(){
+        if (!nestedFocus) return undefined;
+        let track = activeTrack();
+        if (!track) return undefined;
+        let id = nestedFocus.instanceId;
+        let snap = {id, track, keys: []};
+        (track.keys || []).forEach(key=>{
+            if (key.type === "content" && key.cel){
+                let p = findPathById(key.cel.layers || [], id);
+                let node = p && resolveLayerPath(key.cel.layers, p);
+                if (node) snap.keys.push({key, node, map: node.overrides ? clonePlainData(node.overrides) : null});
+            }else if (key.type === "property"){
+                let entry = key.props && key.props[id];
+                snap.keys.push({key, map: entry && entry.overrides ? clonePlainData(entry.overrides) : null});
+            }
+        });
+        return snap;
+    };
+
+    me.restoreNestedOverrideState = function(snap){
+        if (!snap) return false;
+        snap.keys.forEach(rec=>{
+            if (rec.node){
+                if (rec.map) rec.node.overrides = rec.map; else delete rec.node.overrides;
+            }else{
+                rec.key.props = rec.key.props || {};
+                let entry = Object.assign({}, rec.key.props[snap.id]);
+                if (rec.map) entry.overrides = rec.map; else delete entry.overrides;
+                if (Object.keys(entry).length) rec.key.props[snap.id] = entry; else delete rec.key.props[snap.id];
+            }
+        });
+        overridesChanged();
+        return true;
+    };
+
+    // ── override integrity (spec 025 §3.12) ──────────────────────────────────────────
+
+    // Calls cb({map, set(map|null), instance, instanceId, timeline, track, key}) for every stored
+    // override map: instance bases in every content key, props[id].overrides on every property key.
+    function forEachOverride(cb){
+        allTimelines().forEach(timeline=>{
+            tracksOf(timeline).forEach(track=>{
+                (track.keys || []).forEach(key=>{
+                    if (key.type === "content" && key.cel){
+                        forEachClipNode(key.cel.layers, node=>{
+                            if (!node.overrides) return;
+                            cb({map: node.overrides, instance: node, instanceId: node.id, timeline, track, key,
+                                set: m=>{ if (m && Object.keys(m).length) node.overrides = m; else delete node.overrides; }});
+                        });
+                    }else if (key.type === "property" && key.props){
+                        Object.keys(key.props).forEach(id=>{
+                            let entry = key.props[id];
+                            if (!entry || !entry.overrides) return;
+                            let gov = governingContentKey(track, key.frame);
+                            let node = gov && gov.cel ? findNodeById(gov.cel.layers || [], id) : undefined;
+                            cb({map: entry.overrides, instance: node, instanceId: id, timeline, track, key,
+                                set: m=>{
+                                    let e = Object.assign({}, key.props[id]);
+                                    if (m && Object.keys(m).length) e.overrides = m; else delete e.overrides;
+                                    key.props[id] = e;
+                                }});
+                        });
+                    }
+                });
+            });
+        });
+    }
+
+    // Every parameter-timeline key of every clip: cb(key, param, clip, trackId) (spec 026).
+    function forEachParamKey(cb){
+        syncParamTracks();
+        library().clips.forEach(clip=>(clip.params || []).forEach(p=>{
+            Object.keys(p.tracks || {}).forEach(tid=>(p.tracks[tid] || []).forEach(k=>cb(k, p, clip, tid)));
+        }));
+    }
+
+    // Layer ids alive in one clip's timeline.
+    function clipLiveIds(clip){
+        let live = new Set();
+        forEachCelIn(clip.timeline, cel=>{
+            (function walk(nodes){
+                (nodes || []).forEach(n=>{ if (!n) return; if (n.id) live.add(n.id); if (isGroup(n)) walk(n.layers); });
+            })(cel.layers);
+        });
+        return live;
+    }
+
+    // Drops parameter-key entries for lineages no longer in their clip (spec 026 R24: deleted,
+    // or moved into another clip by Convert to Clip). Returns how many entries went.
+    function pruneParamKeysOf(clip){
+        if (!clip || !Array.isArray(clip.params) || !clip.params.length) return 0;
+        syncParamTracks();
+        let live = clipLiveIds(clip);
+        let removed = 0;
+        clip.params.forEach(p=>Object.keys(p.tracks || {}).forEach(tid=>(p.tracks[tid] || []).forEach(k=>{
+            Object.keys(k.props || {}).forEach(id=>{ if (!live.has(id)){ delete k.props[id]; removed++; } });
+        })));
+        if (removed){ paramCtx = null; touchClip(clip); clearDrivenSetMemo(); }
+        return removed;
+    }
+
+    // Rewrites every stored override path through fn(path, record) → new path | null (drop) | the
+    // same path. An existing entry at the new path wins over a moved one.
+    function rewriteOverridePaths(fn){
+        forEachOverride(rec=>{
+            let changed = false;
+            let out = {};
+            Object.keys(rec.map).forEach(p=>{
+                let np = fn(p, rec);
+                if (np === p){ if (!(p in out)) out[p] = rec.map[p]; return; }
+                changed = true;
+                if (np && !(np in out) && !Object.prototype.hasOwnProperty.call(rec.map, np)) out[np] = rec.map[p];
+            });
+            if (changed) rec.set(out);
+        });
+    }
+
+    // Every layer id alive in a clip timeline (the only possible override targets).
+    function liveClipIds(){
+        let live = new Set();
+        library().clips.forEach(clip=>forEachCelIn(clip.timeline, cel=>{
+            (function walk(nodes){
+                (nodes || []).forEach(n=>{
+                    if (!n) return;
+                    if (n.id) live.add(n.id);
+                    if (isGroup(n)) walk(n.layers);
+                });
+            })(cel.layers);
+        }));
+        return live;
+    }
+
+    // Drops overrides whose path names a lineage that no longer exists anywhere (R29).
+    function pruneVanishedOverrides(){
+        let live = liveClipIds();
+        rewriteOverridePaths(p=>pathSegments(p).every(seg=>live.has(seg)) ? p : null);
+    }
+
+    // Override cues / string scrub frames that target clip `clipId` follow a marker rename (R31).
+    function renameOverrideMarkerRefs(clipId, oldName, newName){
+        let clips = clipMap(library());
+        forEachOverride(rec=>{
+            let instClip = rec.instance ? clips.get(rec.instance.clipId) : undefined;
+            if (!instClip) return;
+            let changed = false;
+            let out = Object.assign({}, rec.map);
+            Object.keys(out).forEach(p=>{
+                let e = out[p];
+                if (!e || (!(e.cue && e.cue.action === oldName) && e.frame !== oldName)) return;
+                let walk = walkPath(clips, instClip, p);
+                if (!walk.targetClip || walk.targetClip.id !== clipId) return;
+                let ne = clonePlainData(e);
+                if (ne.cue && ne.cue.action === oldName) ne.cue.action = newName;
+                if (ne.frame === oldName) ne.frame = newName;
+                out[p] = ne;
+                changed = true;
+            });
+            if (changed) rec.set(out);
+        });
+    }
+
+    // Stored override maps of the instance lineage `id` on `track` (bases + property keys).
+    function instanceOverrideRecords(track, id){
+        let out = [];
+        forEachOverride(rec=>{ if (rec.track === track && rec.instanceId === id) out.push(rec); });
+        return out;
+    }
+
+    const warnedDangling = new Set();
+
+    // Overrides of the instance at `ref` whose path no longer resolves in its clip at all (R28):
+    // [{path, keyFrame, where: "base"|"key"}]. Deduped console warning per path.
+    me.getDanglingOverrides = function(ref){
+        let at = instanceAt(ref);
+        if (!at) return [];
+        let clips = clipMap(library());
+        let out = [];
+        instanceOverrideRecords(at.track, at.node.id).forEach(rec=>{
+            Object.keys(rec.map).forEach(p=>{
+                if (walkPath(clips, at.clip, p).missing === undefined) return;
+                out.push({path: p, keyFrame: rec.key.frame, where: rec.key.type === "content" ? "base" : "key"});
+                let warnKey = at.node.id + "|" + p;
+                if (!warnedDangling.has(warnKey)){
+                    warnedDangling.add(warnKey);
+                    console.warn("Override " + p + " on instance " + at.node.id + " no longer resolves in clip " + at.clip.id + "; it is ignored");
+                }
+            });
+        });
+        return out;
+    };
+
+    // Removes the dangling overrides of the instance at `ref` (every key of its track). One step.
+    me.cleanupOverrides = function(ref){
+        let at = instanceAt(ref);
+        if (!at) return 0;
+        let clips = clipMap(library());
+        let removed = 0;
+        HistoryService.start(EVENT.imageHistory);
+        instanceOverrideRecords(at.track, at.node.id).forEach(rec=>{
+            let out = {};
+            Object.keys(rec.map).forEach(p=>{
+                if (walkPath(clips, at.clip, p).missing === undefined) out[p] = rec.map[p];
+                else removed++;
+            });
+            if (Object.keys(out).length !== Object.keys(rec.map).length) rec.set(out);
+        });
+        if (removed) HistoryService.end(); else HistoryService.neverMind();
+        if (removed) overridesChanged();
+        return removed;
+    };
+
+    // The Free Transform box of the focused nested group / instance (R23), shaped like
+    // getNodeTransformBox, in the target's parent space. The resizer carries the parent matrix
+    // so scaled/rotated ancestors (including shear from nested transforms) remain editable.
+    me.getNestedTransformBox = function(){
+        let instPath = focusInstancePath();
+        if (!instPath) return undefined;
+        let r = resolveNested(nestedOpts(instPath, nestedFocus.path));
+        let node = r.node;
+        if (!node || !(isGroup(node) || isClip(node))) return undefined;
+        let m = r.placeMatrix;
+        if (Math.abs(m.a * m.d - m.b * m.c) < 1e-12) return undefined;
+        let effective = effectiveProps(node, r.props);
+        let bounds = getOpaqueBounds(node.render(r.props));
+        if (!bounds) return undefined;
+        let cx = (node.canvasX || 0) + bounds.x + bounds.w / 2;
+        let cy = (node.canvasY || 0) + bounds.y + bounds.h / 2;
+        let centerX, centerY, pivotDelta, clip;
+        if (isClip(node) && (clip = clipById(node.clipId))){
+            let doc = matApply(instanceMatrix(effective, clip.pivot), {x: cx, y: cy});
+            centerX = doc.x;
+            centerY = doc.y;
+            pivotDelta = {x: cx - clip.pivot.x, y: cy - clip.pivot.y};
+        }else{
+            // a group rotates/scales about its content centre, which therefore only translates
+            centerX = effective.x + cx;
+            centerY = effective.y + cy;
+        }
+        let dispW = bounds.w * effective.scaleX;
+        let dispH = bounds.h * effective.scaleY;
+        let box = {
+            x: centerX - dispW / 2, y: centerY - dispH / 2, w: dispW, h: dispH,
+            rotation: effective.rotation || 0, centerX, centerY, baseW: bounds.w, baseH: bounds.h,
+            start: {x: effective.x, y: effective.y}, nested: true, parentMatrix: m
+        };
+        if (pivotDelta){
+            box.pivotDelta = pivotDelta;
+            box.startTransform = {scaleX: effective.scaleX, scaleY: effective.scaleY, rotation: effective.rotation || 0};
+        }
+        return box;
+    };
+
+    // Edit in place shows the clip DEFINITION (D8, R27): outer overrides that reach into the edited
+    // clip are not applied to it. → {count, from} — how many there are at the context frames, and the
+    // name of the outermost level holding one — for the breadcrumb notice.
+    me.getContextOverrideCount = function(){
+        if (!editStack.length) return {count: 0};
+        let frames = contextFrames();
+        let count = 0, from;
+        editStack.forEach((entry, i)=>{
+            let parentClip = i === 0 ? undefined : clipById(editStack[i - 1].clipId);
+            let timeline = i === 0 ? rootTimeline() : (parentClip && parentClip.timeline);
+            let track = timeline && tracksOf(timeline)[entry.parentTrackIndex];
+            let state = track ? resolveTrackState(track, frames[i], library()) : null;
+            if (!state) return;
+            let paths = new Set();
+            let own = state.props && state.props[entry.instanceId];
+            if (own && own.overrides) Object.keys(own.overrides).forEach(p=>paths.add(p));
+            let times = state.overrideTimes && state.overrideTimes.get(entry.instanceId);
+            if (times) times.forEach((ti, p)=>paths.add(p));
+            let chain = editStack.slice(i + 1).map(level=>level.instanceId).join("/");
+            let prefix = chain ? chain + "/" : "";
+            paths.forEach(p=>{
+                if (p.length <= prefix.length || p.slice(0, prefix.length) !== prefix) return;
+                count++;
+                if (!from) from = parentClip ? parentClip.name : "the document";
+            });
+        });
+        return {count, from};
+    };
+
+    // The nested tree of the instance at `ref` (default: active) for the Layers panel (R19), each
+    // item flagged `hasOverride` when this level carries an entry for its path at the playhead.
+    me.getNestedTree = function(ref){
+        let at = instanceAt(ref);
+        if (!at) return [];
+        let tree = nestedTree(nestedOpts(at.path));
+        let state = resolveTrackState(at.track, activeFrameIndex, library());
+        let own = new Set();
+        let entry = state && state.props && state.props[at.node.id];
+        if (entry && entry.overrides) Object.keys(entry.overrides).forEach(p=>own.add(p));
+        let times = state && state.overrideTimes && state.overrideTimes.get(at.node.id);
+        if (times) times.forEach((ti, p)=>own.add(p));
+        (function flag(items){
+            items.forEach(item=>{ item.hasOverride = own.has(item.path); flag(item.children || []); });
+        })(tree);
+        return tree;
+    };
+
+    // The override path of the deepest nested node under document point `point` inside the
+    // instance at `ref` (default: active), or undefined (R21).
+    me.getNestedPathAtPoint = function(point, ref){
+        let at = instanceAt(ref);
+        if (!at || !point) return undefined;
+        // inside a clip, tools already work in clip-local space (identity edit space, 024 §3.8)
+        return nestedPathAtPoint(nestedOpts(at.path), point);
+    };
+
+    // Frames of the keys on track `trackIndex` that carry overrides (timeline markers, R26).
+    me.getOverrideKeyFrames = function(trackIndex){
+        let track = tracks()[typeof trackIndex === "number" ? trackIndex : activeTrackIndex];
+        let frames = [];
+        (track && track.keys || []).forEach(key=>{
+            let has = false;
+            if (key.type === "property"){
+                has = Object.keys(key.props || {}).some(id=>key.props[id] && key.props[id].overrides && Object.keys(key.props[id].overrides).length);
+            }else if (key.cel){
+                forEachClipNode(key.cel.layers, node=>{ if (node.overrides && Object.keys(node.overrides).length) has = true; });
+            }
+            if (has) frames.push(key.frame);
+        });
+        return frames;
+    };
+
+    // What an instance on track `trackIndex` plays over parent frames [from, to] (R30), for the
+    // timeline sub-lane: [{frame, local, action, playback, scrub, instanceId, clipId}] with null
+    // entries where the track shows no instance. The instance followed is the active layer when it
+    // is an instance on this track, otherwise the topmost instance of the governing cel.
+    me.getInstanceTimeSeries = function(trackIndex, from, to){
+        let track = tracks()[trackIndex];
+        let out = [];
+        if (!track) return out;
+        let lib = library();
+        let preferId = isClip(activeLayer) && trackIndex === activeTrackIndex ? activeLayer.id : undefined;
+        for (let f = Math.max(0, from | 0); f <= to; f++){
+            let gov = governingContentKey(track, f);
+            if (!gov){ out.push(null); continue; }
+            let candidates = [];
+            forEachClipNode(gov.cel.layers, n=>candidates.push(n));
+            let node = (preferId && candidates.find(n=>n.id === preferId)) || candidates[candidates.length - 1];
+            let clip = node && clipById(node.clipId);
+            if (!clip){ out.push(null); continue; }
+            let info = resolveInstanceTime(track, f, node, gov, clip);
+            let data;
+            if (info.key) data = info.key === gov ? node : (info.key.props && info.key.props[node.id]);
+            let cue = info.source === "cue" ? normalizeCue(data && data.cue) : null;
+            let action = cue && cue.action && rangeFor(clip, cue.action) ? cue.action : undefined;
+            if (info.source === "scrub"){
+                let range = markerRanges(clip).find(r=>info.local >= r.start && info.local <= r.end);
+                action = range ? range.name : undefined;
+            }
+            let item = {
+                frame: f,
+                local: info.local,
+                action: action,
+                playback: info.source === "default" ? "loop" : (cue ? cue.playback : "scrub"),
+                scrub: info.source === "scrub",
+                source: info.source,
+                length: clampLength(clip.length),
+                instanceId: node.id,
+                clipId: clip.id
+            };
+            // inside a cue's blend window (spec 025 R38): the weight of the new action and the
+            // action it fades from (what the previous source plays at this frame)
+            if (info.blend){
+                let prev = resolveInstanceTime(track, f, node, gov, clip, {before: info.key.frame, noBlend: true});
+                let prevData = prev.key ? (prev.key === gov ? node : (prev.key.props && prev.key.props[node.id])) : undefined;
+                let prevCue = prev.source === "cue" ? normalizeCue(prevData && prevData.cue) : null;
+                let from = prevCue && prevCue.action && rangeFor(clip, prevCue.action) ? prevCue.action : undefined;
+                if (prev.source !== "cue"){
+                    let range = markerRanges(clip).find(r=>prev.local >= r.start && prev.local <= r.end);
+                    from = range ? range.name : undefined;
+                }
+                item.blendW = info.blend.w;
+                item.blendFrom = from;
+            }
+            out.push(item);
+        }
+        return out;
+    };
+
+    // Whether any content key of track `trackIndex` holds a clip instance (the sub-lane is shown
+    // only on such tracks).
+    me.trackHasInstances = function(trackIndex){
+        let track = tracks()[trackIndex];
+        let found = false;
+        ((track && track.keys) || []).forEach(key=>{
+            if (!found && key.type === "content" && key.cel) forEachClipNode(key.cel.layers, ()=>{ found = true; });
+        });
+        return found;
+    };
+
+    // ── bone attachment (spec 024 §3.11, R31–R36) ─────────────────────────────────
+
+    // Bone layers a node can attach to (D6): bone layers in the SAME layers[] array, same cel.
+    // [{boneLayerId, boneId, name, layerName, boneName}]
+    me.getAttachTargets = function(ref){
+        let cel = currentFrame();
+        let path = typeof ref === "undefined" ? activeLayerPath : toPath(ref);
+        let p = cel && path && parentOf(cel.layers, path);
+        let node = p && p.parent[p.index];
+        if (!node || isBones(node)) return [];
+        let out = [];
+        p.parent.forEach(sibling=>{
+            if (!isBones(sibling) || sibling === node || !sibling.armature) return;
+            (sibling.armature.bones || []).forEach(bone=>{
+                out.push({boneLayerId: sibling.id, boneId: bone.id, layerName: sibling.name,
+                    boneName: bone.name || String(bone.id), name: (sibling.name || "Bones") + " › " + (bone.name || bone.id)});
+            });
+        });
+        return out;
+    };
+
+    function nodeAt(ref){
+        let cel = currentFrame();
+        let path = typeof ref === "undefined" ? activeLayerPath : toPath(ref);
+        let p = cel && path && parentOf(cel.layers, path);
+        let node = p && p.parent[p.index];
+        return node ? {node, parent: p.parent, path: path.slice()} : undefined;
+    }
+
+    // Attaches the node at `ref` to bone `boneId` of bone layer `boneLayerId` (same scope, D6).
+    // The attachment is recorded against the rest pose — bind = inverse(skin at the playhead's
+    // resolved pose) — so attaching while posed does not make the node jump (R33). Not keyable:
+    // it animates only through the bone (R35). One undo step.
+    me.attachToBone = function(ref, boneLayerId, boneId){
+        if (refuseInParam("Bone attachment")) return false;
+        let at = nodeAt(ref);
+        if (!at || isBones(at.node)) return false;
+        let boneLayer = at.parent.find(n=>isBones(n) && n.id === boneLayerId);
+        if (!boneLayer) return false;
+        let skin = boneSkinMatrix(boneLayer, boneId, me.getResolvedProps());
+        if (!skin) return false;
+        if (activeLayerPath.join(",") !== at.path.join(",")) me.activateLayer(at.path);
+        HistoryService.start(EVENT.layerHistory, at.path.slice());
+        at.node.attach = {boneLayerId: boneLayerId, boneId: boneId, bind: matInvert(skin)};
+        HistoryService.end();
+        attachmentChanged();
+        return true;
+    };
+
+    function attachmentChanged(){
+        if (editStack.length) touchClip(editClip());
+        clearRenderCache();
+        cachedImage = undefined;
+        EventBus.trigger(EVENT.layersChanged);
+        EventBus.trigger(EVENT.imageContentChanged);
+        EventBus.trigger(EVENT.bonesChanged);
+    }
+
+    // What detaching `node` (under attach matrix A, resolved `props`) bakes into its own values:
+    // groups and instances get their full placement back as x/y/scale/rotation (a polar
+    // decomposition — `lossy` when a stretch along a non-axis bone leaves a skew); a leaf can only
+    // carry a translation, so it keeps A at its content centre and is `lossy` when A rotates or
+    // scales (spec 024 §3.11 refines R33).
+    function detachPlan(node, A, props){
+        let eff = effectiveProps(node, props);
+        let isIdentityLinear = Math.abs(A.a - 1) < 1e-6 && Math.abs(A.b) < 1e-6 && Math.abs(A.c) < 1e-6 && Math.abs(A.d - 1) < 1e-6;
+        if (isGroup(node) || isClip(node)){
+            // the pivot the node's own transform turns about, in its parent scope
+            let local;
+            if (isClip(node)){
+                let clip = clipById(node.clipId);
+                local = clip ? clip.pivot : {x: 0, y: 0};
+            }else{
+                let b = getOpaqueBounds(node.render(props));
+                local = b ? {x: b.x + b.w / 2, y: b.y + b.h / 2} : {x: 0, y: 0};
+            }
+            let placed = matApply(A, {x: eff.x + local.x, y: eff.y + local.y});
+            let L = matMultiply(matRotate(eff.rotation || 0), matScale(eff.scaleX, eff.scaleY));
+            let Lp = matMultiply({a: A.a, b: A.b, c: A.c, d: A.d, e: 0, f: 0}, L);
+            let sx = Math.hypot(Lp.a, Lp.b);
+            let rotation = Math.atan2(Lp.b, Lp.a) * 180 / Math.PI;
+            let sy = sx ? (Lp.a * Lp.d - Lp.b * Lp.c) / sx : 1;
+            let skew = sx && sy ? (Lp.a * Lp.c + Lp.b * Lp.d) / (sx * Math.abs(sy)) : 0;
+            return {
+                values: {x: Math.round(placed.x - local.x), y: Math.round(placed.y - local.y),
+                    scaleX: sx, scaleY: sy, rotation: rotation},
+                lossy: Math.abs(skew) > 1e-3
+            };
+        }
+        let canvas = node.getCanvasType ? node.getCanvasType() : undefined;
+        let b = canvas ? getOpaqueBounds(node.render(props)) : null;
+        let q = b ? {x: eff.x + (node.canvasX || 0) + b.x + b.w / 2, y: eff.y + (node.canvasY || 0) + b.y + b.h / 2}
+                  : {x: eff.x, y: eff.y};
+        let moved = matApply(A, q);
+        return {values: {x: Math.round(eff.x + moved.x - q.x), y: Math.round(eff.y + moved.y - q.y)}, lossy: !isIdentityLinear};
+    }
+
+    function attachMatrixOf(node, parent, props){
+        let map = buildAttachMap(parent, props);
+        return (map && map.get(node)) || matIdentity();
+    }
+
+    // For the bone overlay (R35): every node attached to `boneLayer` in its scope, as
+    // [{boneId, x, y}] — the node's (pivot or content) centre where it currently shows, in scope
+    // coordinates.
+    me.getAttachmentLinks = function(boneLayer){
+        let cel = currentFrame();
+        if (!cel || !boneLayer) return [];
+        let props = me.getResolvedProps();
+        let out = [];
+        (function walk(nodes){
+            if (nodes.indexOf(boneLayer) >= 0){
+                let map = buildAttachMap(nodes, props);
+                nodes.forEach(n=>{
+                    if (!n.attach || n.attach.boneLayerId !== boneLayer.id) return;
+                    let eff = effectiveProps(n, props);
+                    let local;
+                    if (isClip(n)){
+                        let clip = clipById(n.clipId);
+                        local = clip ? {x: eff.x + clip.pivot.x, y: eff.y + clip.pivot.y} : {x: eff.x, y: eff.y};
+                    }else{
+                        let b = getOpaqueBounds(n.render(props));
+                        local = b ? {x: eff.x + (n.canvasX || 0) + b.x + b.w / 2, y: eff.y + (n.canvasY || 0) + b.y + b.h / 2}
+                                  : {x: eff.x, y: eff.y};
+                    }
+                    let m = map && map.get(n);
+                    let p = m ? matApply(m, local) : local;
+                    out.push({boneId: n.attach.boneId, x: p.x, y: p.y});
+                });
+                return;
+            }
+            nodes.forEach(n=>{ if (isGroup(n)) walk(n.layers || []); });
+        })(cel.layers);
+        return out;
+    };
+
+    // Would detaching the node at `ref` keep it exactly where it is? (the UI warns when not)
+    me.canDetachExactly = function(ref){
+        let at = nodeAt(ref);
+        if (!at || !at.node.attach) return true;
+        let props = me.getResolvedProps();
+        return !detachPlan(at.node, attachMatrixOf(at.node, at.parent, props), props).lossy;
+    };
+
+    // Detaches, baking the current resolved placement into the node (no jump where the node type
+    // can represent it). One undo step. Returns {ok, lossy}.
+    me.detach = function(ref){
+        if (refuseInParam("Bone attachment")) return {ok: false};
+        let at = nodeAt(ref);
+        if (!at || !at.node.attach) return {ok: false};
+        let props = me.getResolvedProps();
+        let plan = detachPlan(at.node, attachMatrixOf(at.node, at.parent, props), props);
+        if (activeLayerPath.join(",") !== at.path.join(",")) me.activateLayer(at.path);
+        HistoryService.start(EVENT.imageHistory);
+        delete at.node.attach;
+        me.setLayerKeyProps(at.path, plan.values);
+        HistoryService.end();
+        attachmentChanged();
+        return {ok: true, lossy: plan.lossy};
+    };
+
+    // Detaches every node attached to bone layer `boneLayerId` (to bone `boneId` when given) in
+    // every cel that holds that bone layer, baking each placement into its base values (R36).
+    // Runs inside the caller's history step (deleting the bone / the bone layer).
+    // `onlyCel` (default: the active cel) limits the sweep to one cel: an id names a lineage
+    // (spec 025 R1), so the same rig lives on — with its bones — in the other content keys of the
+    // track, and their attachments must stay. Pass `false` to sweep every cel.
+    me.detachAllFor = function(boneLayerId, boneId, onlyCel){
+        let count = 0;
+        let scope = onlyCel === false ? undefined : (onlyCel || currentFrame());
+        allTimelines().forEach(timeline=>forEachCelIn(timeline, (cel, key, track)=>{
+            if (scope && cel !== scope) return;
+            let active = cel === currentFrame();
+            let props = active ? me.getResolvedProps() : (resolveTrackState(track, key.frame) || {}).props;
+            (function walk(nodes){
+                if (nodes.some(n=>isBones(n) && n.id === boneLayerId)){
+                    nodes.forEach(n=>{
+                        if (!n.attach || n.attach.boneLayerId !== boneLayerId) return;
+                        if (typeof boneId !== "undefined" && n.attach.boneId !== boneId) return;
+                        let plan = detachPlan(n, attachMatrixOf(n, nodes, props), props);
+                        delete n.attach;
+                        Object.assign(n, plan.values);
+                        count++;
+                    });
+                }
+                nodes.forEach(n=>{ if (isGroup(n)) walk(n.layers || []); });
+            })(cel.layers);
+        }));
+        if (count) attachmentChanged();
+        return count;
+    };
+
+    // Drops edit-stack levels whose clip no longer exists (undo of a create, crafted files).
+    function validateEditStack(){
+        let i = editStack.findIndex(entry=>!clipById(entry.clipId)
+            || (entry.kind === "param" && !paramOf(clipById(entry.clipId), entry.paramId)));
+        if (i < 0) return;
+        editStack.length = i;
+        EventBus.trigger(EVENT.editContextChanged);
     };
 
     me.activateTrack = function(index){
         if (typeof index !== "number" || index < 0 || index >= tracks().length) return;
         if (index === activeTrackIndex) return;
         rememberActiveLayer();
+        clearNestedFocus();
         activeTrackIndex = index;
         cachedImage = undefined;
         resolveActiveLayer();
@@ -1561,7 +5014,8 @@ let ImageFile = function(){
     }
 
     me.addTrack = function(name){
-        if (!currentFile.timeline) return;
+        if (refuseInParam("Adding a track")) return;
+        if (!editTimeline()) return;
         HistoryService.start(EVENT.timelineHistory);
         let index = tracks().length;
         let track = makeTrack(name || uniqueTrackName(),
@@ -1578,15 +5032,77 @@ let ImageFile = function(){
     // Rewrites every id in a cloned layer struct to a freshly allocated one, recording
     // old → new as it goes. withFreshIds() is enough when the copy has no property keys to
     // repoint; a duplicated TRACK does, so it needs the mapping rather than just the strip.
+    // Points copied `attach.boneLayerId`s at the copied bone layers (spec 024 §3.11): every copy
+    // path that refreshes ids must do this, or an attachment keeps following the ORIGINAL rig.
+    // `map` is old id → new id; an id that was not copied is left alone (a duplicate of one node
+    // keeps following its sibling rig).
+    function remapAttachIds(nodes, map){
+        (nodes || []).forEach(node=>{
+            if (!node) return;
+            if (node.attach && map[node.attach.boneLayerId]) node.attach.boneLayerId = map[node.attach.boneLayerId];
+            if (isGroup(node)) remapAttachIds(node.layers, map);
+        });
+    }
+
+    // The old → new id map of a copy made by a fresh-id clone/restore, by walking the source and
+    // the copy in parallel (same structure).
+    function copyIdMap(sources, copies, map){
+        map = map || {};
+        (sources || []).forEach((source, i)=>{
+            let copy = copies && copies[i];
+            if (!source || !copy) return;
+            if (source.id && copy.id) map[source.id] = copy.id;
+            if (isGroup(source) && isGroup(copy)) copyIdMap(source.layers, copy.layers, map);
+        });
+        return map;
+    }
+
+    // One copy operation maps each source id to ONE fresh id: the same id in several content keys
+    // is one lineage (spec 025 R1), and its copies must form one lineage too.
     function remapIds(struct,map){
         if (!struct) return struct;
         if (struct.id){
-            let fresh = Layer.nextId();
+            let fresh = map[struct.id] || Layer.nextId();
             map[struct.id] = fresh;
             struct.id = fresh;
         }
         if (Array.isArray(struct.layers)) struct.layers.forEach(child=>remapIds(child,map));
         return struct;
+    }
+
+    // Deep copies of `list` (tracks): every cel copied through Layer.clone/restore with fresh
+    // layer ids (recorded old → new in `idMap`) and every property key repointed at the copies.
+    // Returns a Promise for the new track array.
+    function copyTracks(list, idMap){
+        let pending = [];
+        let copied = (list || []).map(source=>({
+            id: source.id,
+            name: source.name,
+            visible: source.visible !== false,
+            locked: !!source.locked,
+            mask: !!source.mask,
+            keys: (source.keys || []).map(key=>{
+                if (key.type !== "content") return makePropertyKey(key.frame, clonePlainData(key.props), key.tween,key.easing);
+                let cel = makeCel();
+                cel.activeLayerIndex = (key.cel && key.cel.activeLayerIndex) || 0;
+                ((key.cel && key.cel.layers) || []).forEach(node=>{
+                    let copy = Layer(currentFile.width, currentFile.height, node.name);
+                    cel.layers.push(copy);
+                    pending.push(copy.restore(remapIds(node.clone(false), idMap)));
+                });
+                return makeContentKey(key.frame, cel, key.tween,key.easing);
+            })
+        }));
+        return Promise.all(pending).then(()=>{
+            copied.forEach(track=>track.keys.forEach(key=>{
+                if (key.type === "content" && key.cel) remapAttachIds(key.cel.layers, idMap);
+                if (key.type !== "property" || !key.props) return;
+                let props = {};
+                Object.keys(key.props).forEach(id=>{ props[idMap[id] || id] = key.props[id]; });
+                key.props = props;
+            }));
+            return copied;
+        });
     }
 
     // A full copy of a track — every cel deep-copied, every key kept at its own frame —
@@ -1601,6 +5117,7 @@ let ImageFile = function(){
     // directly above whatever is at that index). That follows from "right above" and is one
     // undo away.
     me.duplicateTrack = function(trackIndex){
+        if (refuseInParam("Duplicating a track")) return;
         let index = typeof trackIndex === "number" ? trackIndex : activeTrackIndex;
         let source = tracks()[index];
         if (!source) return;
@@ -1609,7 +5126,7 @@ let ImageFile = function(){
         let pending = [];
         let keys = (source.keys || []).map(key=>{
             if (key.type !== "content"){
-                return makePropertyKey(key.frame, clonePlainData(key.props), key.tween);
+                return makePropertyKey(key.frame, clonePlainData(key.props), key.tween,key.easing);
             }
             let cel = makeCel();
             cel.activeLayerIndex = (key.cel && key.cel.activeLayerIndex) || 0;
@@ -1622,11 +5139,12 @@ let ImageFile = function(){
                 cel.layers.push(copy);
                 pending.push(copy.restore(remapIds(node.clone(false), idMap)));
             });
-            return makeContentKey(key.frame, cel, key.tween);
+            return makeContentKey(key.frame, cel, key.tween,key.easing);
         });
 
         return Promise.all(pending).then(()=>{
             keys.forEach(key=>{
+                if (key.type === "content" && key.cel) remapAttachIds(key.cel.layers, idMap);
                 if (key.type !== "property" || !key.props) return;
                 let props = {};
                 Object.keys(key.props).forEach(id=>{ props[idMap[id] || id] = key.props[id]; });
@@ -1641,6 +5159,22 @@ let ImageFile = function(){
                 keys: keys
             };
             tracks().splice(index + 1, 0, copy);
+            // the clip's parameters pose the copy like the source (spec 026 R23)
+            let owner = editClip();
+            if (owner && Array.isArray(owner.params) && owner.params.length && source.id){
+                ensureTrackIds(editTimeline());
+                syncParamTracks();
+                owner.params.forEach(p=>{
+                    let keys = p.tracks && p.tracks[source.id];
+                    if (!keys || !copy.id) return;
+                    p.tracks[copy.id] = keys.map(k=>{
+                        let props = {};
+                        Object.keys(k.props || {}).forEach(oldId=>{ props[idMap[oldId] || oldId] = clonePlainData(k.props[oldId]); });
+                        return {frame: k.frame, type: "property", tween: k.tween, ...easingData(k.easing), props};
+                    });
+                });
+                clearDrivenSetMemo();
+            }
             rememberActiveLayer();
             activeTrackIndex = index + 1;
             resolveActiveLayer();
@@ -1652,6 +5186,7 @@ let ImageFile = function(){
 
     // Removing the last remaining track is refused, like removing the last layer today.
     me.removeTrack = function(index){
+        if (refuseInParam("Removing a track")) return;
         if (typeof index !== "number") index = activeTrackIndex;
         let list = tracks();
         if (list.length <= 1 || index < 0 || index >= list.length) return false;
@@ -1666,6 +5201,7 @@ let ImageFile = function(){
 
     // Track order IS the global z-order (decision 7), so this is a z-order operation.
     me.moveTrack = function(from,to){
+        if (refuseInParam("Moving a track")) return;
         let list = tracks();
         if (list.length <= 1) return false;
         if (from < 0 || from >= list.length) return false;
@@ -1701,6 +5237,7 @@ let ImageFile = function(){
     // Turns a track into a mask for the track directly beneath it (and back). The bottom-most
     // track has nothing to mask, so it is refused — a mask there would only hide itself.
     me.toggleTrackMask = function(index){
+        if (refuseInParam("Mask tracks")) return;
         if (typeof index !== "number") index = activeTrackIndex;
         let track = tracks()[index];
         if (!track) return false;
@@ -1727,7 +5264,14 @@ let ImageFile = function(){
         EventBus.trigger(EVENT.layersChanged);
     };
 
+    let timelineBatch = false;
+    let timelineSelectionProvider;
+    me.setTimelineSelectionProvider = provider=>{ timelineSelectionProvider = provider; };
+
     function timelineStructureChanged(){
+        if (timelineBatch) return;
+        syncParamTracks();
+        ensureAllTrackIds();
         clearRenderCache();
         cachedImage = undefined;
         EventBus.trigger(EVENT.timelineChanged);
@@ -1738,9 +5282,136 @@ let ImageFile = function(){
 
     // ── keyframes ─────────────────────────────────────────────────────────────────
 
+    me.applyTimelineSelection = async function(operation, frame, options){
+        if (timelineBatch) return false;
+        options = options || {};
+        if (typeof frame !== "number") frame = activeFrameIndex;
+        const range = options.selection || (timelineSelectionProvider && timelineSelectionProvider());
+        const selected = range && activeTrackIndex >= (range.trackFrom ?? range.trackIndex)
+            && activeTrackIndex <= (range.trackTo ?? range.trackIndex);
+        const indices = selected
+            ? Array.from({length:(range.trackTo ?? range.trackIndex) - (range.trackFrom ?? range.trackIndex) + 1}, (_,i)=>(range.trackFrom ?? range.trackIndex)+i)
+            : [activeTrackIndex];
+        if (operation === "remove") indices.reverse();
+        const from = selected ? range.from : frame;
+        const to = selected ? range.to : frame;
+        if ((operation === "key" || operation === "insert" || operation === "deleteFrames") && refuseInParam("Content keys")) return false;
+        if (operation === "tween" && refuseInParam("Tweening (parameter keys always interpolate)")) return false;
+        if (operation !== "insert" && operation !== "deleteFrames" && !indices.some(index=>{
+            const track = tracks()[index];
+            if (!track) return false;
+            for (let at = from; at <= to; at++){
+                const key = keyAt(track,at);
+                if (operation === "key" && !key) return true;
+                if (operation === "property" && canInsertPropertyKey(track,at)) return true;
+                if (operation === "tween" && key && canTween(track,key)) return true;
+                if (operation === "easing"){
+                    const source = key || previousKey(track,at);
+                    if (source && source.tween && canTween(track,source)) return true;
+                }
+                if (operation === "remove" && key) return true;
+            }
+            return false;
+        })) return false;
+        const originalTrack = activeTrackIndex;
+        const originalTrackObject = activeTrack();
+        const originalFrame = activeFrameIndex;
+        const tweenState = options.state ?? !keyAt(activeTrack(), frame)?.tween;
+        await HistoryService.groupTimeline(async ()=>{
+            timelineBatch = true;
+            try {
+                for (const index of indices){
+                    if (!tracks()[index]) continue;
+                    me.activateTrack(index);
+                    const targetTrack = activeTrack();
+                    if (operation === "insert"){
+                        me.insertFrame(from, to - from + 1);
+                        continue;
+                    }
+                    if (operation === "deleteFrames"){
+                        await me.removeFrames(from,to-from+1);
+                        continue;
+                    }
+                    const frames = Array.from({length:to-from+1}, (_,i)=>from+i);
+                    if (operation === "remove") frames.reverse();
+                    for (const at of frames){
+                        if (!tracks().includes(targetTrack)) break;
+                        const key = keyAt(activeTrack(), at);
+                        if (operation === "key" && !key){
+                            if (options.copy) activeFrameIndex = originalFrame;
+                            await me.addKeyframe(at, options);
+                        }
+                        if (operation === "property") me.addPropertyKeyframe(at);
+                        if (operation === "tween") me.setKeyTween(at, tweenState);
+                        if (operation === "easing") me.setTweenEasing(at,options.easing);
+                        if (operation === "remove" && key) me.removeKeyframe(at);
+                    }
+                }
+            } finally {
+                activeTrackIndex = tracks().includes(originalTrackObject) ? tracks().indexOf(originalTrackObject) : Math.min(originalTrack, tracks().length - 1);
+                activeFrameIndex = Math.min(originalFrame, editLength() - 1);
+                resolveActiveLayer();
+                timelineBatch = false;
+            }
+        });
+        timelineStructureChanged();
+        return true;
+    };
+
+    // Validate every row before committing so a blocked row refuses the whole rectangle.
+    me.canMoveTimelineSelection = function(indices, frames, delta, copy, propertiesOnly){
+        if (!Number.isInteger(delta) || !delta || frames.some(frame=>frame + delta < 0)) return false;
+        let hasKeys = false;
+        for (const index of indices){
+            const track = tracks()[index];
+            if (!track) return false;
+            const sources = track.keys.filter(key=>frames.includes(key.frame));
+            if (!sources.length) continue;
+            hasKeys = true;
+            if (copy){
+                if (!propertiesOnly && editParamEntry() && sources.some(key=>key.type === "content")) return false;
+                if (sources.some(key=>keyAt(track, key.frame + delta))) return false;
+                if (sources.some(key=>(propertiesOnly || key.type === "property") &&
+                    !track.keys.some(content=>content.type === "content" && content.frame <= key.frame + delta) &&
+                    !( !propertiesOnly && sources.some(content=>content.type === "content" && content.frame <= key.frame)))) return false;
+            } else {
+                const trial = {...track, keys:track.keys.map(key=>({...key}))};
+                if (!moveKeys(trial, frames, delta)) return false;
+            }
+        }
+        return hasKeys;
+    };
+
+    me.moveTimelineSelection = async function(indices, frames, delta, copy, propertiesOnly){
+        if (timelineBatch || !me.canMoveTimelineSelection(indices, frames, delta, copy, propertiesOnly)) return false;
+        await HistoryService.groupTimeline(async ()=>{
+            timelineBatch = true;
+            try {
+                for (const index of indices){
+                    if (!tracks()[index].keys.some(key=>frames.includes(key.frame))) continue;
+                    if (copy) await me.copyKeyframes(frames, delta, index, propertiesOnly);
+                    else me.moveKeyframes(frames, delta, index);
+                }
+            } finally {
+                timelineBatch = false;
+            }
+        });
+        timelineStructureChanged();
+        return true;
+    };
+
+    function extendEditedClipForKey(frame){
+        if (editParamEntry()) return;
+        const clip = editClip();
+        if (clip && frame >= clip.length){
+            clip.length = clampLength(frame + 1);
+            touchClip(clip);
+        }
+    }
+
     // A deep copy of what the track currently shows at `frame`: the governing cel's layer
     // tree with the RESOLVED (possibly tweened) values baked into the copies' base
-    // x/y/opacity, and fresh layer ids so the copy is an independent node set.
+    // x/y/opacity. The copies keep the source layer ids (the same lineage, spec 025 R1).
     function copyResolvedCel(track,frame){
         let state = resolveTrackState(track, frame);
         if (!state) return Promise.resolve(makeCel([Layer(currentFile.width, currentFile.height, "Layer 1")]));
@@ -1751,23 +5422,37 @@ let ImageFile = function(){
             let copy = isGroup(node)
                 ? Layer.makeGroup(currentFile.width, currentFile.height, node.name)
                 : Layer(currentFile.width, currentFile.height, node.name);
-            let struct = withFreshIds(node.clone(false));
-            // bake the resolved overlay into the copy's own base values
-            let resolvedValues = state.props && state.props[node.id];
-            if (resolvedValues){
-                struct.x = resolvedValues.x;
-                struct.y = resolvedValues.y;
-                struct.opacity = resolvedValues.opacity;
-            }
+            // A content-key copy CONTINUES the layer over time, so it keeps the source ids: an id
+            // names a lineage, not one node object (spec 025 R1). The copy is still an
+            // independent node with its own pixels.
+            let struct = withResolvedProps(node.clone(false),node,state.props);
+            // Preserve the visible pose and nested overlays in the copied content key.
+            (function bake(s,n){
+                const entry = state.props && state.props[n.id];
+                if (entry){
+                    if (isBones(n) && s.armature && entry.bones){
+                        s.armature.bones.forEach(b=>{ if (entry.bones[b.id]) b.pose = {...b.pose,...entry.bones[b.id]}; });
+                    }
+                    if (isVector(n) && s.vector && (entry.nodes || entry.curves)) s.vector = poseVector(s.vector,entry.nodes,entry.curves);
+                    if (isClip(n)){
+                        ["cue","frame","overrides","params"].forEach(prop=>{ if (entry[prop] !== undefined) s[prop] = clonePlainData(entry[prop]); });
+                    }
+                }
+                if (isGroup(n) && s.layers) s.layers.forEach((child,index)=>bake(child,n.layers[index]));
+            })(struct,node);
             cel.layers.push(copy);
             pending.push(copy.restore(struct));
         });
-        return Promise.all(pending).then(()=>cel);
+        return Promise.all(pending).then(()=>{
+            remapAttachIds(cel.layers, copyIdMap(state.cel.layers, cel.layers));
+            return cel;
+        });
     }
 
     // Content key on the active track. Returns a Promise when `copy` is set (the deep copy
     // of the cel is asynchronous), so callers can sequence history around it.
     me.addKeyframe = function(frame,options){
+        if (refuseInParam("Content keys")) return;
         options = options || {};
         let track = activeTrack();
         if (!track) return;
@@ -1777,6 +5462,7 @@ let ImageFile = function(){
         let finish = (cel)=>{
             HistoryService.start(EVENT.timelineHistory);
             insertKey(track, makeContentKey(frame, cel));
+            extendEditedClipForKey(frame);
             activeFrameIndex = frame;
             resolveActiveLayer();
             HistoryService.end();
@@ -1789,8 +5475,58 @@ let ImageFile = function(){
         finish(makeCel([Layer(currentFile.width, currentFile.height, "Layer 1")]));
     };
 
+    // Insert timeline space without creating a key or changing the existing cels.
+    me.insertFrame = function(frame,count){
+        if (refuseInParam("Insert Frame")) return false;
+        let track = activeTrack();
+        if (!track) return false;
+        if (typeof frame !== "number") frame = activeFrameIndex;
+        if (!Number.isInteger(frame) || frame < 0) return false;
+        if (typeof count !== "number") count = 1;
+        if (!Number.isInteger(count) || count < 1) return false;
+        HistoryService.start(EVENT.timelineHistory);
+        track.keys.forEach(key=>{
+            if (key.frame >= frame) key.frame += count;
+        });
+        extendEditedClipForKey(Math.max(frame + count - 1, track.keys[track.keys.length - 1]?.frame || 0));
+        activeFrameIndex = frame;
+        resolveActiveLayer();
+        HistoryService.end();
+        timelineStructureChanged();
+        return true;
+    };
+
+    // Delete timeline cells and close the gap, retaining a surviving held cel when its key
+    // was inside the deleted range. Property keys to the right keep their original lineage.
+    me.removeFrames = async function(frame,count = 1){
+        if (refuseInParam("Remove Frame")) return false;
+        const track = activeTrack();
+        if (!track || !Number.isInteger(frame) || frame < 0 || !Number.isInteger(count) || count < 1) return false;
+        const end = frame + count;
+        const length = editLength();
+        if (frame >= length) return false;
+        count = Math.min(count,length-frame);
+        const resumeFrame = frame + count;
+        const state = resolveTrackState(track,resumeFrame);
+        const governing = governingContentKey(track,resumeFrame);
+        const resume = resumeFrame < length && governing && governing.frame >= frame && governing.frame < end
+            ? makeContentKey(frame,await copyResolvedCel(track,resumeFrame),state.tweening,state.key.easing) : undefined;
+        HistoryService.start(EVENT.timelineHistory);
+        track.keys = track.keys.filter(key=>key.frame < frame || key.frame >= resumeFrame);
+        track.keys.forEach(key=>{ if (key.frame >= resumeFrame) key.frame -= count; });
+        if (resume) insertKey(track,resume);
+        if (!contentKeys(track).length){
+            insertKey(track,makeContentKey(0,makeCel([Layer(currentFile.width,currentFile.height,"Layer 1")])));
+        }
+        activeFrameIndex = Math.min(frame,editLength()-1);
+        resolveActiveLayer();
+        HistoryService.end();
+        timelineStructureChanged();
+        return true;
+    };
+
     // Property key on the active track. Its initial props are the resolved state at `frame`,
-    // so inserting one mid-tween freezes exactly what you see.
+    // so inserting one mid-tween preserves what you see and continues that tween.
     me.addPropertyKeyframe = function(frame){
         let track = activeTrack();
         if (!track) return false;
@@ -1799,7 +5535,8 @@ let ImageFile = function(){
         let state = resolveTrackState(track, frame);
         if (!state) return false;
         HistoryService.start(EVENT.timelineHistory);
-        insertKey(track, makePropertyKey(frame, clonePlainData(state.props)));
+        insertKey(track, makePropertyKey(frame, withoutTimeCues(clonePlainData(state.props)), !!state.tweening,state.key.easing));
+        extendEditedClipForKey(frame);
         activeFrameIndex = frame;
         resolveActiveLayer();
         HistoryService.end();
@@ -1829,7 +5566,7 @@ let ImageFile = function(){
                 insertKey(track, makeContentKey(0, makeCel([Layer(currentFile.width, currentFile.height, "Layer 1")])));
             }
         }
-        if (activeFrameIndex >= me.getFrameCount()) activeFrameIndex = me.getFrameCount() - 1;
+        if (activeFrameIndex >= editLength()) activeFrameIndex = editLength() - 1;
         resolveActiveLayer();
         HistoryService.end();
         timelineStructureChanged();
@@ -1858,7 +5595,7 @@ let ImageFile = function(){
             return false;
         }
         HistoryService.end();
-        if (activeFrameIndex >= me.getFrameCount()) activeFrameIndex = me.getFrameCount() - 1;
+        if (activeFrameIndex >= editLength()) activeFrameIndex = editLength() - 1;
         resolveActiveLayer();
         timelineStructureChanged();
         return true;
@@ -1876,13 +5613,56 @@ let ImageFile = function(){
             return false;
         }
         HistoryService.end();
-        if (activeFrameIndex >= me.getFrameCount()) activeFrameIndex = me.getFrameCount() - 1;
+        if (activeFrameIndex >= editLength()) activeFrameIndex = editLength() - 1;
         resolveActiveLayer();
         timelineStructureChanged();
         return true;
     };
 
+    // Copies a dragged selection without replacing occupied destinations. Resolve properties
+    // at the source, before inserting anything that could change the timeline's resolution.
+    me.copyKeyframes = async function(frames,delta,trackIndex,propertiesOnly){
+        let track = tracks()[typeof trackIndex === "number" ? trackIndex : activeTrackIndex];
+        if (!track || !Number.isInteger(delta) || !delta) return false;
+        let sources = track.keys.filter(key => frames.includes(key.frame));
+        if (!sources.length) return false;
+        if (!propertiesOnly && sources.some(key => key.type === "content") && refuseInParam("Content keys")) return false;
+        let copies = sources.map(key => {
+            let frame = key.frame + delta;
+            if (propertiesOnly){
+                let state = resolveTrackState(track, key.frame);
+                return makePropertyKey(frame, withoutTimeCues(clonePlainData(state.props)), key.tween,key.easing);
+            }
+            return Object.assign({}, key, {frame, props: clonePlainData(key.props)});
+        });
+        let valid = () => copies.every(key => Number.isInteger(key.frame) && key.frame >= 0 &&
+            !keyAt(track, key.frame) && (key.type === "content" ||
+                track.keys.concat(copies).some(content => content.type === "content" && content.frame <= key.frame)));
+        if (!valid()) return false;
+        await Promise.all(copies.map(async (key,index) => {
+            if (key.type !== "content") return;
+            let source = sources[index].cel;
+            let cel = makeCel();
+            cel.activeLayerIndex = source.activeLayerIndex || 0;
+            await Promise.all(source.layers.map(async node => {
+                let copy = isGroup(node) ? Layer.makeGroup(currentFile.width, currentFile.height, node.name)
+                    : Layer(currentFile.width, currentFile.height, node.name);
+                cel.layers.push(copy);
+                await copy.restore(node.clone(false));
+            }));
+            key.cel = cel;
+        }));
+        if (!valid() || !tracks().includes(track)) return false;
+        HistoryService.start(EVENT.timelineHistory);
+        copies.sort((a,b) => a.frame - b.frame).forEach(key => insertKey(track, key));
+        resolveActiveLayer();
+        HistoryService.end();
+        timelineStructureChanged();
+        return true;
+    };
+
     me.setKeyTween = function(frame,state){
+        if (refuseInParam("Tweening (parameter keys always interpolate)")) return false;
         let track = activeTrack();
         if (!track) return false;
         if (typeof frame !== "number") frame = activeFrameIndex;
@@ -1906,6 +5686,29 @@ let ImageFile = function(){
         if (!track) return false;
         let key = keyAt(track, typeof frame === "number" ? frame : activeFrameIndex);
         return canTween(track, key);
+    };
+
+    me.getTweenSettings = function(frame){
+        const track = activeTrack();
+        if (!track) return;
+        if (typeof frame !== "number") frame = activeFrameIndex;
+        const key = previousKey(track,frame);
+        if (!key || !key.tween || !canTween(track,key)) return;
+        return {frame:key.frame, endFrame:nextKey(track,key.frame).frame, easing:normalizeEasing(key.easing)};
+    };
+
+    me.setTweenEasing = function(frame,easing){
+        const settings = me.getTweenSettings(frame);
+        if (!settings) return false;
+        const key = keyAt(activeTrack(),settings.frame);
+        easing = normalizeEasing(easing);
+        if (normalizeEasing(key.easing) === easing) return false;
+        HistoryService.start(EVENT.timelineHistory);
+        if (easing === "linear") delete key.easing;
+        else key.easing = easing;
+        HistoryService.end();
+        timelineStructureChanged();
+        return true;
     };
 
     // ── animatable layer properties ───────────────────────────────────────────────
@@ -1938,6 +5741,7 @@ let ImageFile = function(){
         // frame it is the key the state is held from.
         let key = previousKey(track, activeFrameIndex);
         if (!key) return false;
+        if (refusePinned(key)) return false;
 
         // Coerce first: UI controls hand over strings ("75" from a range input), and an
         // unparsable or absent value must leave that property alone rather than write NaN.
@@ -1946,9 +5750,10 @@ let ImageFile = function(){
         let nextOpacity = toFiniteNumber(values.opacity);
         if (typeof nextOpacity === "number") nextOpacity = Math.max(0, Math.min(100, nextOpacity));
 
-        // A group additionally carries a runtime transform (spec 007). scaleX/scaleY/rotation are
-        // NOT rounded — they are continuous and animate; only x/y snap to whole pixels.
-        let group = isGroup(node);
+        // A group additionally carries a runtime transform (spec 007), and so does a clip
+        // instance (spec 024 R9). scaleX/scaleY/rotation are NOT rounded — they are continuous
+        // and animate; only x/y snap to whole pixels.
+        let group = isGroup(node) || isClip(node);
         let nextScaleX = group ? toFiniteNumber(values.scaleX) : undefined;
         let nextScaleY = group ? toFiniteNumber(values.scaleY) : undefined;
         let nextRotation = group ? toFiniteNumber(values.rotation) : undefined;
@@ -1980,7 +5785,9 @@ let ImageFile = function(){
                 to.scaleY = typeof nextScaleY === "number" ? nextScaleY : cur.scaleY;
                 to.rotation = typeof nextRotation === "number" ? nextRotation : cur.rotation;
             }
-            key.props[node.id] = to;
+            // Merge, don't replace: the entry may also carry a bone pose, vector nodes/curves or a
+            // clip cue / scrub frame for this layer, none of which an x/y/opacity edit may drop.
+            key.props[node.id] = Object.assign({}, key.props[node.id], to);
         }else{
             from = {x: node.x || 0, y: node.y || 0, opacity: node.opacity};
             if (typeof nextX === "number") node.x = Math.round(nextX);
@@ -2003,8 +5810,8 @@ let ImageFile = function(){
         // stand-alone edit records itself.
         if (!HistoryService.isRecording()){
             HistoryService.add(EVENT.keyPropsHistory,
-                {trackIndex: tracks().indexOf(track), keyFrame: key.frame, layerId: node.id, values: from},
-                {trackIndex: tracks().indexOf(track), keyFrame: key.frame, layerId: node.id, values: to});
+                {clipId: editContextKey(), trackIndex: tracks().indexOf(track), keyFrame: key.frame, layerId: node.id, values: from},
+                {clipId: editContextKey(), trackIndex: tracks().indexOf(track), keyFrame: key.frame, layerId: node.id, values: to});
         }
 
         clearRenderCache();
@@ -2023,6 +5830,28 @@ let ImageFile = function(){
     me.getLayerDissolve = function(ref){
         let layer = typeof ref === "undefined" ? activeLayer : me.getLayer(ref);
         return (layer && layer.dissolve) || DEFAULT_DISSOLVE_PATTERN;
+    };
+
+    // Effects belong to this layer/instance, and leave the source pixels untouched.
+    me.setLayerEffects = function(effects){
+        if (!activeLayer || isBones(activeLayer) || nestedFocus) return false;
+        HistoryService.start(EVENT.layerHistory, activeLayerPath.slice());
+        activeLayer.effects = normalizeEffects(effects);
+        HistoryService.end();
+        if (editStack.length) touchClip(editClip());
+        clearRenderCache();
+        cachedImage = undefined;
+        EventBus.trigger(EVENT.imageContentChanged);
+        EventBus.trigger(EVENT.layersChanged);
+        return true;
+    };
+
+    me.hasActiveEffects = function(){
+        function hasEffects(nodes){
+            return (nodes || []).some(node=>activeStroke(node) || (node.layers && hasEffects(node.layers)));
+        }
+        return allTimelines().some(timeline=>(timeline.tracks || []).some(track=>
+            (track.keys || []).some(key=>key.cel && hasEffects(key.cel.layers))));
     };
 
     me.setLayerDissolve = function(pattern,ref){
@@ -2134,7 +5963,7 @@ let ImageFile = function(){
         return {
             canApply: partial,
             animated: animated,
-            frameCount: animated ? me.getFrameCount() : 0,
+            frameCount: animated ? editLength() : 0,
             // "if lighter" layers are reported so the UI can say they are staying as they are
             comparison: comparison,
             trackName: track.name
@@ -2171,7 +6000,7 @@ let ImageFile = function(){
         // Animated: the stencil changes from frame to frame, so each frame becomes its own
         // content keyframe. copyResolvedCel already bakes the resolved x/y/opacity into the
         // copy's base values, so the motion survives; only the tween stops being editable.
-        let count = me.getFrameCount();
+        let count = editLength();
         let frames = [];
         for (let i = 0; i < count; i++) frames.push(i);
         return frames.reduce((chain,frame)=>chain.then(cels=>
@@ -2210,13 +6039,15 @@ let ImageFile = function(){
         }
         let out = {x: values.x, y: values.y, opacity: values.opacity};
         // A group also brackets its runtime transform, so an undo/redo of a group free-transform
-        // (or a Properties-panel edit) restores scaleX/scaleY/rotation too (spec 007).
-        if (isGroup(node)){
+        // (or a Properties-panel edit) restores scaleX/scaleY/rotation too (spec 007). Same for
+        // a clip instance (spec 024).
+        if (isGroup(node) || isClip(node)){
             out.scaleX = typeof values.scaleX === "number" ? values.scaleX : (typeof node.scaleX === "number" ? node.scaleX : 1);
             out.scaleY = typeof values.scaleY === "number" ? values.scaleY : (typeof node.scaleY === "number" ? node.scaleY : 1);
             out.rotation = typeof values.rotation === "number" ? values.rotation : (typeof node.rotation === "number" ? node.rotation : 0);
         }
         return {
+            clipId: editClipId(),
             trackIndex: tracks().indexOf(track),
             keyFrame: key.frame,
             layerId: node.id,
@@ -2268,6 +6099,42 @@ let ImageFile = function(){
             // Timeline-wide (not animatable) smooth-resampling toggle — see setGroupSmooth.
             result.smooth = !!node.smooth;
         }
+        // A clip instance reports its transform like a group (spec 024), with pixel sizes from the
+        // opaque bounds of its current composite, plus which clip it shows.
+        if (isClip(node)){
+            let effective = effectiveProps(node, state && state.props);
+            let clip = clipById(node.clipId);
+            result.isClip = true;
+            result.clipId = node.clipId;
+            result.clipName = clip ? clip.name : undefined;
+            result.missingClip = !clip;
+            result.offset = node.offset || 0;
+            result.scaleX = effective.scaleX;
+            result.scaleY = effective.scaleY;
+            result.rotation = effective.rotation;
+            let bounds = getOpaqueBounds(node.render(state && state.props));
+            result.baseWidth = bounds ? bounds.w : 0;
+            result.baseHeight = bounds ? bounds.h : 0;
+            result.width = Math.round(result.baseWidth * effective.scaleX);
+            result.height = Math.round(result.baseHeight * effective.scaleY);
+            let bx = typeof node.scaleX === "number" ? node.scaleX : 1;
+            let by = typeof node.scaleY === "number" ? node.scaleY : 1;
+            let br = typeof node.rotation === "number" ? node.rotation : 0;
+            if (effective.scaleX !== bx || effective.scaleY !== by || effective.rotation !== br){
+                result.overridden = true;
+            }
+            result.smooth = typeof node.smooth === "boolean" ? node.smooth : !!currentFile.smooth;
+        }
+        // Bone attachment (spec 024 R35): the targets this node could attach to, and its current one.
+        if (!isBones(node)){
+            let targets = me.getAttachTargets(path);
+            result.canAttach = targets.length > 0 || !!node.attach;
+            if (node.attach){
+                let target = targets.find(t=>t.boneLayerId === node.attach.boneLayerId && t.boneId === node.attach.boneId);
+                result.attach = {boneLayerId: node.attach.boneLayerId, boneId: node.attach.boneId,
+                    name: target ? target.name : "(missing)", missing: !target};
+            }
+        }
         // A vector layer reports its display mode so the Properties panel can offer the selector.
         if (isVector(node)){
             result.isVector = true;
@@ -2286,22 +6153,27 @@ let ImageFile = function(){
         return !!(node && node.smooth);
     };
 
-    // Sets the group's "smooth" toggle. Unlike scaleX/scaleY/rotation this is NOT animatable — it
+    // Sets a group or clip instance's "smooth" toggle. Unlike scaleX/scaleY/rotation this is NOT animatable — it
     // is a single timeline-wide setting, so it is written onto the matching group node in EVERY cel
     // of the timeline (a group's id is stable across cels) rather than onto a key/base at the
     // playhead. Modelled on setFps: no per-key history entry; the flag rides along in cel snapshots.
     me.setGroupSmooth = function(ref, value){
+        if (refuseInParam("This setting")) return false;
         let cel = currentFrame();
         if (!cel) return false;
         let path = typeof ref === "undefined" ? activeLayerPath : toPath(ref);
         if (!path) return false;
         let node = resolveLayerPath(cel.layers, path) || cel.layers[path[0]];
-        if (!isGroup(node)) return false;
+        if (!isGroup(node) && !isClip(node)) return false;
         let id = node.id;
         let smooth = !!value;
         forEachCel(c=>{
-            forEachNode(c.layers, n=>{ if (isGroup(n) && n.id === id) n.smooth = smooth; });
+            forEachNode(c.layers, n=>{ if ((isGroup(n) || isClip(n)) && n.id === id) n.smooth = smooth; });
         });
+        // Preserve the legacy document default for groups. A clip's explicit setting is local
+        // to its instance; older instances without a setting inherit the document default.
+        if (isGroup(node)) currentFile.smooth = smooth;
+        clearClipCache();
         clearRenderCache();
         cachedImage = undefined;
         EventBus.trigger(EVENT.imageContentChanged);
@@ -2313,6 +6185,7 @@ let ImageFile = function(){
     // is a single per-layer (not animatable) setting, so it is written onto the matching vector node
     // in EVERY cel and the raster cache is invalidated so render() re-rasterizes in the new mode.
     me.setVectorDisplayMode = function(ref, value){
+        if (refuseInParam("This setting")) return false;
         let cel = currentFrame();
         if (!cel) return false;
         let path = typeof ref === "undefined" ? activeLayerPath : toPath(ref);
@@ -2368,11 +6241,11 @@ let ImageFile = function(){
                 let ny = oy + eff.y;
                 let op = opacityFactor * ((typeof eff.opacity === "number" ? eff.opacity : 100) / 100);
                 if (isGroup(node)){
-                    if (hasGroupTransform(eff)) return; // can't fold a scale/rotation into an offset
+                    if (hasGroupTransform(eff) || activeStroke(node)) return; // transformed/effected groups render as pixels
                     walk(node.layers || [], props, nx, ny, op);
                     return;
                 }
-                if (isVector(node) && node.vector && getDisplayMode(node.vector) === "vector"){
+                if (isVector(node) && node.vector && getDisplayMode(node.vector) === "vector" && !activeStroke(node)){
                     // Apply this frame's node + curve overlay (spec 012) so the on-screen true-SVG
                     // shape shows the tween live; poseVector returns the base document when nothing moved.
                     let p = props && node.id ? props[node.id] : null;
@@ -2392,19 +6265,21 @@ let ImageFile = function(){
     // place via compositeNodes. `x`/`y` are each node's own offset relative to its parent, so the
     // serializer's nested <g transform> composes the offsets for free — see fileformats/svg.js.
     me.getSvgExportModel = function(frameIndex){
-        let f = typeof frameIndex === "number" ? frameIndex : activeFrameIndex;
-        let list = tracks();
+        // An export: always the ROOT timeline, at the root playhead by default (spec 024).
+        let f = typeof frameIndex === "number" ? frameIndex : me.getRootFrameIndex();
+        let list = tracksOf(rootTimeline());
         let root = [];
         if (!list || !list.length) return root;
         list.forEach(track=>{
             if (track.mask || !track.visible) return;
-            let state = resolveTrackState(track, f);
+            let state = resolveTrackState(track, f, library());
             if (!state) return;
-            walk(state.cel.layers, state.props, root);
+            walk(state.cel.layers, state.props, root, trackOptionsFor(undefined, state));
         });
         return root;
 
-        function walk(nodes, props, out){
+        // `trackOpts`: the cel's instance times / blends / override times (trackOptionsFor).
+        function walk(nodes, props, out, trackOpts){
             nodes.forEach(node=>{
                 if (!node.visible || isBones(node)) return;
                 let eff = effectiveProps(node, props);
@@ -2412,18 +6287,27 @@ let ImageFile = function(){
                 let y = eff.y || 0;
                 let opacity = (typeof eff.opacity === "number" ? eff.opacity : 100) / 100;
                 let blend = node.blendMode || "normal";
+                if (activeStroke(node)){
+                    out.push(rasterNode(node, props, trackOpts));
+                    return;
+                }
                 if (isGroup(node)){
                     if (hasGroupTransform(eff)){
                         // A scale/rotation can't be reduced to a translate — bake the whole group in
                         // place. compositeNodes applies its transform/offset/opacity/blend, so the op
                         // is a full-document image with neutral placement.
-                        let op = rasterNode(node, props);
+                        let op = rasterNode(node, props, trackOpts);
                         if (op) out.push(op);
                     }else{
                         let children = [];
-                        walk(node.layers || [], props, children);
+                        walk(node.layers || [], props, children, trackOpts);
                         if (children.length) out.push({kind:"group", x:x, y:y, opacity:opacity, blend:blend, children:children});
                     }
+                    return;
+                }
+                // A clip instance is rasterized in place at its composite position (R16).
+                if (isClip(node)){
+                    out.push(rasterNode(node, props, trackOpts));
                     return;
                 }
                 if (isVector(node) && node.vector){
@@ -2441,11 +6325,11 @@ let ImageFile = function(){
             });
         }
 
-        function rasterNode(node, props){
+        function rasterNode(node, props, trackOpts){
             let canvas = document.createElement("canvas");
             canvas.width = currentFile.width;
             canvas.height = currentFile.height;
-            compositeNodes([node], canvas.getContext("2d"), props);
+            compositeNodes([node], canvas.getContext("2d"), props, trackOpts);
             return {kind:"image", x:0, y:0, width:canvas.width, height:canvas.height, opacity:1, blend:"normal", dataUrl:canvas.toDataURL("image/png")};
         }
     };
@@ -2508,6 +6392,49 @@ let ImageFile = function(){
     // current transform, positioned in document space, with the current rotation. The resizer is
     // seeded from this and its scale/rotation map straight back (decision 1). Returns null for a
     // non-group or an empty group.
+    // The same box for a group OR a clip instance (spec 024 §3.7). A clip rotates/scales about its
+    // stored pivot rather than its content centre, so its box also carries `pivotDelta` (content
+    // centre − pivot, clip-local) and the transform at gesture start; Free Transform uses them to
+    // keep the pivot fixed while the box's centre moves (see editor updateGroupTransform).
+    me.getNodeTransformBox = function(ref){
+        let frame = currentFrame();
+        if (!frame) return null;
+        let path = typeof ref === "undefined" ? activeLayerPath : toPath(ref);
+        let node = resolveLayerPath(frame.layers, path);
+        if (isGroup(node)) return me.getGroupTransformBox(ref);
+        if (!isClip(node)) return null;
+        let clip = clipById(node.clipId);
+        if (!clip) return null;
+        let props = me.getResolvedProps();
+        let effective = effectiveProps(node, props);
+        let composite = node.render(props);
+        let bounds = getOpaqueBounds(composite);
+        if (!bounds) return null;
+        // content centre in clip-local space
+        let cx = (node.canvasX || 0) + bounds.x + bounds.w / 2;
+        let cy = (node.canvasY || 0) + bounds.y + bounds.h / 2;
+        // …and in document space: the parent-scope offset of the node plus the instance matrix
+        let own = me.getLayerOffset(ref);
+        let parentX = own.x - effective.x, parentY = own.y - effective.y;
+        let doc = matApply(instanceMatrix(effective, clip.pivot), {x: cx, y: cy});
+        let centerX = parentX + doc.x, centerY = parentY + doc.y;
+        let dispW = bounds.w * effective.scaleX;
+        let dispH = bounds.h * effective.scaleY;
+        return {
+            x: centerX - dispW / 2,
+            y: centerY - dispH / 2,
+            w: dispW,
+            h: dispH,
+            rotation: effective.rotation || 0,
+            centerX: centerX,
+            centerY: centerY,
+            baseW: bounds.w,
+            baseH: bounds.h,
+            pivotDelta: {x: cx - clip.pivot.x, y: cy - clip.pivot.y},
+            startTransform: {scaleX: effective.scaleX, scaleY: effective.scaleY, rotation: effective.rotation || 0}
+        };
+    };
+
     me.getGroupTransformBox = function(ref){
         let frame = currentFrame();
         if (!frame) return null;
@@ -2606,6 +6533,8 @@ let ImageFile = function(){
         if (!bone) return undefined;
         let track = activeTrack();
         let key = track ? previousKey(track, activeFrameIndex) : undefined;
+        // inside a parameter timeline a keyless frame must not pose the clip's own rig (spec 026)
+        if (key && key.pinned){ refusePinned(key); return undefined; }
         if (key && key.type === "property"){
             key.props = key.props || {};
             let entry = key.props[node.id] || (key.props[node.id] = {});
@@ -2663,6 +6592,7 @@ let ImageFile = function(){
         if (!node || !node.armature) return false;
         let track = activeTrack();
         let key = track ? previousKey(track, activeFrameIndex) : undefined;
+        if (refusePinned(key)) return false;
 
         let ownBracket = !HistoryService.isRecording();
         if (ownBracket) HistoryService.start(EVENT.imageHistory);
@@ -2693,11 +6623,13 @@ let ImageFile = function(){
     // Snapshot / restore the active bone layer's pose OVERLAYS across the active track's property
     // keys, so the bone tool can roll back a cancelled gesture (the armature snapshot covers only
     // the base pose; the overlay lives in the timeline keys). Deep-copied to survive later edits.
+    // Lineage-safe (spec 025 R4): with a stable id the snapshot spans every content range of the
+    // bone layer on this track, and restoring all of them is exactly the pre-gesture state.
     me.cloneBoneOverlayState = function(ref){
         let node = resolveBoneLayerNode(ref);
         let track = activeTrack();
         if (!node || !track) return undefined;
-        let snap = {layerId: node.id, trackIndex: tracks().indexOf(track), keys: []};
+        let snap = {layerId: node.id, clipId: editContextKey(), trackIndex: tracks().indexOf(track), keys: []};
         (track.keys || []).forEach(k=>{
             if (k.type === "property"){
                 let entry = k.props && k.props[node.id];
@@ -2709,7 +6641,8 @@ let ImageFile = function(){
 
     me.restoreBoneOverlayState = function(snap){
         if (!snap) return false;
-        let track = tracks()[snap.trackIndex];
+        if (snap.clipId) touchClip(clipById(snap.clipId));
+        let track = trackListFor(snap.clipId)[snap.trackIndex];
         if (!track) return false;
         snap.keys.forEach(rec=>{
             let k = (track.keys || []).find(x=>x.frame === rec.frame && x.type === "property");
@@ -2785,7 +6718,7 @@ let ImageFile = function(){
         let track = activeTrack();
         let id = ref && ref.id;
         if (!track || !id) return undefined;
-        let snap = {layerId: id, trackIndex: tracks().indexOf(track), keys: []};
+        let snap = {layerId: id, clipId: editContextKey(), trackIndex: tracks().indexOf(track), keys: []};
         (track.keys || []).forEach(k=>{
             if (k.type === "property"){
                 let entry = k.props && k.props[id];
@@ -2801,7 +6734,8 @@ let ImageFile = function(){
 
     me.restoreVectorOverlayState = function(snap){
         if (!snap) return false;
-        let track = tracks()[snap.trackIndex];
+        if (snap.clipId) touchClip(clipById(snap.clipId));
+        let track = trackListFor(snap.clipId)[snap.trackIndex];
         if (!track) return false;
         let restoreSub = function(entry, k, layerId, sub, value){
             if (value === null){
@@ -2838,16 +6772,18 @@ let ImageFile = function(){
         struct.image.name = currentFile.name;
         struct.image.width = currentFile.width;
         struct.image.height = currentFile.height;
-        struct.image.activeLayerIndex = activeLayerIndex;
-        struct.image.activeLayerPath = activeLayerPath;
-        struct.image.activeFrameIndex = activeFrameIndex;
-        struct.image.activeTrackIndex = activeTrackIndex;
+        struct.image.activeLayerIndex = editStack.length ? 0 : activeLayerIndex;
+        struct.image.activeLayerPath = editStack.length ? editStack[0].parentLayerPath : activeLayerPath;
+        // The saved playhead is the ROOT one: inside a clip the active indices are clip-local,
+        // and the root values wait in the bottom edit-stack entry (spec 024 §3.7).
+        struct.image.activeFrameIndex = me.getRootFrameIndex();
+        struct.image.activeTrackIndex = editStack.length ? (editStack[0].parentTrackIndex || 0) : activeTrackIndex;
         struct.image.nextLayerId = syncNextLayerId();
         struct.errorCount = 0;
 
-        struct.image.timeline = {
-            fps: me.getFps(),
-            tracks: tracks().map(track=>({
+        function serializeTracks(list){
+            return (list || []).map(track=>({
+                id: track.id,
                 name: track.name,
                 visible: track.visible !== false,
                 locked: !!track.locked,
@@ -2860,13 +6796,45 @@ let ImageFile = function(){
                             struct.errorCount += (_layer.conversionErrors || 0);
                             cel.layers.push(_layer);
                         });
-                        return {frame: key.frame, type: "content", tween: !!key.tween, cel: cel};
+                        return {frame: key.frame, type: "content", tween: !!key.tween, ...easingData(key.easing), cel: cel};
                     }
-                    return {frame: key.frame, type: "property", tween: !!key.tween,
+                    return {frame: key.frame, type: "property", tween: !!key.tween, ...easingData(key.easing),
                         props: clonePlainData(key.props) || {}};
                 })
-            }))
+            }));
+        }
+
+        // Serialization is of the ROOT timeline, whatever is being edited (spec 024).
+        struct.image.timeline = {
+            fps: me.getFps(),
+            tracks: serializeTracks(tracksOf(rootTimeline()))
         };
+        // The clip library (spec 024, D5: format stays "2", extended in place). Written whenever
+        // the document ever had a clip, so the id allocator never hands out a deleted clip's id.
+        let lib = currentFile.library;
+        syncParamTracks();
+        if (lib && (lib.clips.length || (lib.nextClipId || 1) > 1)){
+            struct.image.library = {
+                nextClipId: lib.nextClipId || 1,
+                clips: lib.clips.map(clip=>{
+                    let out = {
+                        id: clip.id,
+                        name: clip.name,
+                        length: clip.length,
+                        pivot: {x: clip.pivot.x, y: clip.pivot.y},
+                        markers: copyMarkers(clip.markers),
+                        timeline: {tracks: serializeTracks(clip.timeline && clip.timeline.tracks)}
+                    };
+                    // clip parameters and their timelines (spec 026 R25)
+                    if (Array.isArray(clip.params) && clip.params.length){
+                        out.params = copyParams(clip.params);
+                        out.nextParamId = clip.nextParamId || 1;
+                    }
+                    return out;
+                })
+            };
+        }
+        if (currentFile.smooth) struct.image.smooth = true;
 
         if (currentFile.colorRange) struct.image.colorRange = currentFile.colorRange;
         if (currentFile.meta) struct.image.meta = clonePlainData(currentFile.meta);
@@ -2878,6 +6846,74 @@ let ImageFile = function(){
 
         return struct;
     };
+
+    function maxParamId(params){
+        let max = 0;
+        (params || []).forEach(p=>{
+            [p.id].concat((p.options || []).map(o=>o.id)).forEach(id=>{
+                let n = parseInt(String(id).replace(/^[A-Z]/, ""), 10);
+                if (Number.isFinite(n) && n > max) max = n;
+            });
+        });
+        return max;
+    }
+
+    function restoreLibrary(source, restoreTracks){
+        let lib = emptyLibrary();
+        if (!source || !Array.isArray(source.clips)) return lib;
+        let finite = v=>typeof v === "number" && Number.isFinite(v);
+        let maxId = 0;
+        let names = new Set();
+        let ids = new Set();
+        source.clips.forEach(c=>{
+            if (!c || typeof c.id !== "string" || !c.id || ids.has(c.id)) return;
+            ids.add(c.id);
+            maxId = Math.max(maxId, clipIdNumber(c.id));
+            let name = typeof c.name === "string" && c.name.trim() ? c.name : "Clip";
+            if (names.has(name)){
+                let n = 2;
+                while (names.has(name + " " + n)) n++;
+                name = name + " " + n;
+            }
+            names.add(name);
+            let clip = {
+                id: c.id,
+                name: name,
+                length: clampLength(c.length),
+                pivot: {x: finite(c.pivot && c.pivot.x) ? c.pivot.x : 0, y: finite(c.pivot && c.pivot.y) ? c.pivot.y : 0},
+                markers: [],
+                timeline: {tracks: restoreTracks(c.timeline && c.timeline.tracks)},
+                rev: ++clipRevCounter
+            };
+            let markers = copyMarkers(Array.isArray(c.markers) ? c.markers.filter(m=>m && typeof m.name === "string") : []);
+            if (validateMarkers(clip, markers).ok) clip.markers = markers;
+            // parameters (spec 026): data, normalized; the id allocator stays above every id
+            let params = normalizeParams(c.params);
+            if (params.length){
+                clip.params = params;
+                clip.nextParamId = Math.max(finite(c.nextParamId) ? Math.floor(c.nextParamId) : 1, maxParamId(params) + 1);
+            }
+            // a clip always has at least one track to edit
+            if (!clip.timeline.tracks.length) clip.timeline.tracks.push(makeTrack("Track 1", makeCel([])));
+            lib.clips.push(clip);
+        });
+        lib.nextClipId = Math.max(1, maxId + 1, (finite(source.nextClipId) ? Math.floor(source.nextClipId) : 1));
+        lib.rev = ++clipRevCounter;
+        return lib;
+    }
+
+    // Nested overrides in restored key props are data (spec 025 R39): normalized, invalid parts
+    // dropped, never thrown.
+    function sanitizeKeyOverrides(props){
+        Object.keys(props || {}).forEach(id=>{
+            let entry = props[id];
+            if (!entry || typeof entry !== "object" || !("overrides" in entry)) return;
+            let normalized = normalizeOverrides(entry.overrides);
+            if (normalized) entry.overrides = JSON.parse(JSON.stringify(normalized));
+            else delete entry.overrides;
+        });
+        return props;
+    }
 
     // Detection is by SHAPE, not by version number: `image.timeline` → v2, `image.frames` →
     // v1 migration. The v1 reader path stays permanently (feasibility section 6) and covers
@@ -2920,10 +6956,20 @@ let ImageFile = function(){
         // Restored ids must survive, so raise the allocator above everything stored before
         // any Layer() is created for the restored tree.
         Layer.setIdCounter(image.nextLayerId);
+        // An id names one layer lineage on one track (spec 025 R2). Repair files that break that
+        // (crafted, or edited outside the app) before anything is rebuilt; sane data is untouched.
+        let lineageSources = [source].concat(image.library && Array.isArray(image.library.clips)
+            ? image.library.clips.map(c=>c && c.timeline).filter(t=>t && typeof t === "object") : []);
+        lineageIds(lineageSources).forEach(id=>Layer.observeId(id));
+        let lineageRepairs = sanitizeLineages(lineageSources, ()=>Layer.nextId());
+        if (lineageRepairs.length){
+            console.warn("Repaired " + lineageRepairs.length + " conflicting layer id(s): " + lineageRepairs.map(r=>r.from + "→" + r.to).join(", "));
+        }
 
-        currentFile.timeline = {
-            fps: source.fps || 12,
-            tracks: (source.tracks || []).map(_track=>({
+        function restoreTracks(list){
+            return (Array.isArray(list) ? list : []).map(_track=>({
+                // stable track id (spec 026 D10); missing / duplicate ones are repaired below
+                id: typeof _track.id === "string" && _track.id ? _track.id : undefined,
                 name: _track.name || "Track 1",
                 visible: _track.visible !== false,
                 locked: !!_track.locked,
@@ -2931,8 +6977,8 @@ let ImageFile = function(){
                 mask: !!_track.mask,
                 keys: (_track.keys || []).map(_key=>{
                     if (_key.type === "property"){
-                        return {frame: _key.frame, type: "property", tween: !!_key.tween,
-                            props: clonePlainData(_key.props) || {}};
+                        return {frame: _key.frame, type: "property", tween: !!_key.tween, ...easingData(_key.easing),
+                            props: sanitizeKeyOverrides(clonePlainData(_key.props) || {})};
                     }
                     // Rebuild each cel's layer list from scratch so structural changes
                     // (added/removed/regrouped nodes) restore correctly. Layer.restore owns
@@ -2946,10 +6992,22 @@ let ImageFile = function(){
                             EventBus.trigger(EVENT.imageSizeChanged);
                         }));
                     });
-                    return {frame: _key.frame, type: "content", tween: !!_key.tween, cel: cel};
+                    return {frame: _key.frame, type: "content", tween: !!_key.tween, ...easingData(_key.easing), cel: cel};
                 })
-            }))
+            }));
+        }
+
+        currentFile.timeline = {
+            fps: source.fps || 12,
+            tracks: restoreTracks(source.tracks)
         };
+        // The clip library (spec 024). Everything read from the file is treated as data: ids and
+        // names are opaque strings, lengths clamped, pivots and markers sanitized (§8). v1 files
+        // and v2 files without clips simply have none.
+        currentFile.library = restoreLibrary(image.library, restoreTracks);
+        currentFile.smooth = !!image.smooth;
+        ensureAllTrackIds();
+        clearClipCache();
         if (!currentFile.timeline.tracks.length){
             currentFile.timeline = makeTimeline([makeCel([Layer(currentFile.width,currentFile.height,"Layer 1")])]);
         }
@@ -2957,7 +7015,9 @@ let ImageFile = function(){
         clearRenderCache();
         syncNextLayerId();
 
-        Promise.all(restorePromises).then(()=>{
+        // Resolves once every layer (root and clip timelines) is rebuilt and reactivated.
+        let ready = Promise.all(restorePromises).then(()=>{
+            clearClipCache();
             // Reactivate after the whole tree exists, by path (falls back to flat index).
             me.activateFrame(image.activeFrameIndex || 0);
             if (Array.isArray(image.activeLayerPath)){
@@ -2969,6 +7029,7 @@ let ImageFile = function(){
             clearRenderCache();
             EventBus.trigger(EVENT.timelineChanged);
             EventBus.trigger(EVENT.framesChanged);
+            if (data.editContext) reenterEditContext(data.editContext);
         });
 
         if (image.colorRange) currentFile.colorRange = image.colorRange;
@@ -2979,7 +7040,7 @@ let ImageFile = function(){
             Palette.setPaletteList(data.paletteList);
             Palette.setPaletteIndex(data.paletteIndex);
         }
-
+        return ready;
     };
 
     // ── timeline structure history (cheap snapshots) ───────────────────────────────
@@ -2989,56 +7050,107 @@ let ImageFile = function(){
 
     me.cloneTimelineStructure = function(){
         return {
+            // Which timeline this snapshot is of: null = root, else the edited clip (spec 024), or
+            // "clipId#paramId" for a parameter timeline (spec 026).
+            clipId: editContextKey(),
+            clipLength: !editParamEntry() && editClip() ? editClip().length : undefined,
             fps: me.getFps(),
             activeTrackIndex: activeTrackIndex,
             activeFrameIndex: activeFrameIndex,
             tracks: tracks().map(track=>({
+                id: track.id,
                 name: track.name,
                 visible: track.visible !== false,
                 locked: !!track.locked,
                 mask: !!track.mask,
                 keys: (track.keys || []).map(key=>key.type === "content"
-                    ? {frame: key.frame, type: "content", tween: !!key.tween, cel: key.cel}
-                    : {frame: key.frame, type: "property", tween: !!key.tween, props: clonePlainData(key.props) || {}})
+                    ? {frame: key.frame, type: "content", tween: !!key.tween, ...easingData(key.easing), cel: key.cel}
+                    : {frame: key.frame, type: "property", tween: !!key.tween, ...easingData(key.easing), props: clonePlainData(key.props) || {}})
             }))
         };
     };
 
     me.restoreTimelineStructure = function(snapshot){
         if (!snapshot || !Array.isArray(snapshot.tracks)) return;
-        currentFile.timeline = {
-            fps: snapshot.fps || 12,
+        let clipId = typeof snapshot.clipId === "undefined" ? editContextKey() : snapshot.clipId;
+        let clip = clipId === null ? undefined : clipById(clipId);
+        if (clipId !== null && !clip) return; // the clip was deleted since: no-op (N8)
+        // a parameter timeline (spec 026): only its property keys are restored, per track id
+        let pctx = parseContextKey(clipId);
+        if (pctx.paramId){
+            let param = paramOf(clip, pctx.paramId);
+            if (!param) return;
+            let tracksMap = {};
+            snapshot.tracks.forEach(track=>{
+                let keys = (track.keys || []).filter(k=>k.type === "property" && k.frame >= 0)
+                    .map(k=>({frame: k.frame, type: "property", tween: param.type === "number", ...easingData(k.easing), props: clonePlainData(k.props) || {}}));
+                if (track.id && keys.length) tracksMap[track.id] = keys;
+            });
+            if (paramCtx && paramCtx.param === param) paramCtx = null;
+            param.tracks = tracksMap;
+            touchClip(clip);
+            if (clipId === editContextKey()){
+                activeTrackIndex = Math.min(snapshot.activeTrackIndex || 0, Math.max(0, tracks().length - 1));
+                activeFrameIndex = Math.min(snapshot.activeFrameIndex || 0, editLength() - 1);
+            }
+            resolveActiveLayer();
+            timelineStructureChanged();
+            return;
+        }
+        let restored = {
             tracks: snapshot.tracks.map(track=>({
+                id: track.id,
                 name: track.name,
                 visible: track.visible !== false,
                 locked: !!track.locked,
                 mask: !!track.mask,
                 keys: track.keys.map(key=>key.type === "content"
-                    ? {frame: key.frame, type: "content", tween: !!key.tween, cel: key.cel}
-                    : {frame: key.frame, type: "property", tween: !!key.tween, props: clonePlainData(key.props) || {}})
+                    ? {frame: key.frame, type: "content", tween: !!key.tween, ...easingData(key.easing), cel: key.cel}
+                    : {frame: key.frame, type: "property", tween: !!key.tween, ...easingData(key.easing), props: clonePlainData(key.props) || {}})
             }))
         };
-        activeTrackIndex = Math.min(snapshot.activeTrackIndex || 0, currentFile.timeline.tracks.length - 1);
-        activeFrameIndex = Math.min(snapshot.activeFrameIndex || 0, me.getFrameCount() - 1);
+        if (clip){
+            clip.timeline = restored;
+            if (typeof snapshot.clipLength === "number") clip.length = clampLength(snapshot.clipLength);
+            touchClip(clip);
+        }else{
+            restored.fps = snapshot.fps || 12;
+            currentFile.timeline = restored;
+        }
+        // The playhead/active track only follow when the restored timeline is the one being
+        // edited; an undo that lands in another clip leaves the current context alone (R21).
+        if (clipId === editContextKey()){
+            activeTrackIndex = Math.min(snapshot.activeTrackIndex || 0, restored.tracks.length - 1);
+            activeFrameIndex = Math.min(snapshot.activeFrameIndex || 0, editLength() - 1);
+        }
         resolveActiveLayer();
         timelineStructureChanged();
     };
 
     // ── history targeting ─────────────────────────────────────────────────────────
     // A layer history step is recorded against the cel that owned the edit. The playhead and
-    // the active track can move before undo runs, so the step carries {trackIndex, keyFrame}
-    // and resolves its layer through that instead of through "whatever is active now".
+    // the active track can move before undo runs, so the step carries {clipId, trackIndex,
+    // keyFrame} and resolves its layer through that instead of through "whatever is active now".
+    // clipId (spec 024) is null at the root, so undo lands in the right clip even after leaving it.
 
     me.getHistoryTarget = function(){
         let track = activeTrack();
         if (!track) return undefined;
         let gov = governingContentKey(track, activeFrameIndex) || contentKeys(track)[0];
-        return {trackIndex: activeTrackIndex, keyFrame: gov ? gov.frame : 0};
+        return {clipId: editContextKey(), trackIndex: activeTrackIndex, keyFrame: gov ? gov.frame : 0};
     };
 
     me.getLayerInTarget = function(target,ref){
         if (!target) return me.getLayer(ref);
-        let track = tracks()[target.trackIndex];
+        // A target inside a clip that no longer exists resolves to nothing (N8).
+        if (target.clipId !== null && typeof target.clipId !== "undefined"){
+            let clip = clipById(target.clipId);
+            if (!clip) return undefined;
+            // resolving a layer inside a clip is how every undo/redo reaches it: whatever it
+            // does next changes that clip's definition, wherever the user is editing now
+            touchClip(clip);
+        }
+        let track = trackListFor(target.clipId)[target.trackIndex];
         if (!track) return me.getLayer(ref);
         let key = keyAt(track, target.keyFrame);
         if (!key || key.type !== "content" || !key.cel) return me.getLayer(ref);
@@ -3050,7 +7162,8 @@ let ImageFile = function(){
     // Applies a keyPropsHistory record (used by undo/redo).
     me.applyKeyProps = function(record){
         if (!record) return;
-        let track = tracks()[record.trackIndex];
+        if (record.clipId) touchClip(clipById(record.clipId));
+        let track = trackListFor(record.clipId)[record.trackIndex];
         if (!track) return;
         let key = keyAt(track, record.keyFrame);
         if (!key) return;
@@ -3064,14 +7177,15 @@ let ImageFile = function(){
                 if (typeof v.scaleY === "number") entry.scaleY = v.scaleY;
                 if (typeof v.rotation === "number") entry.rotation = v.rotation;
             }
-            key.props[record.layerId] = entry;
+            // merge: keep any pose/vector/cue data the entry carries alongside x/y/opacity
+            key.props[record.layerId] = Object.assign({}, key.props[record.layerId], entry);
         }else{
             let node = findNodeById(key.cel.layers, record.layerId);
             if (!node) return;
             node.x = v.x;
             node.y = v.y;
             node.opacity = v.opacity;
-            if (isGroup(node) && hasTransform){
+            if ((isGroup(node) || isClip(node)) && hasTransform){
                 if (typeof v.scaleX === "number") node.scaleX = v.scaleX;
                 if (typeof v.scaleY === "number") node.scaleY = v.scaleY;
                 if (typeof v.rotation === "number") node.rotation = v.rotation;
@@ -3083,6 +7197,14 @@ let ImageFile = function(){
         EventBus.trigger(EVENT.layersChanged);
     };
 
+    // True when layer `id` also lives in a cel of `track` other than `cel` (the lineage continues
+    // in another content key, spec 025 R1).
+    function lineageElsewhere(track, cel, id){
+        return (track && track.keys || []).some(k=>k.type === "content" && k.cel && k.cel !== cel
+            && !!findNodeById(k.cel.layers || [], id));
+    }
+
+    // Searches ONE cel's tree: ids are unique within a cel (a lineage id may recur in other cels).
     function findNodeById(nodes,id){
         for (let i = 0; i < nodes.length; i++){
             let node = nodes[i];
@@ -3117,6 +7239,20 @@ let ImageFile = function(){
         console.log(struct);
         return struct;
     }
+
+    function preservePreviousDocument(){
+        if (!currentFile?.timeline || !me.getActiveLayer()) return;
+        // Serialize before the incoming file changes the palette, metadata or layer tree.
+        rememberPreviousDocument(structuredClone(me.export()));
+    }
+
+    me.restorePreviousDocument = async function(){
+        const previous = getPreviousDocument();
+        if (!previous?.data) return;
+        preservePreviousDocument();
+        setCurrentFileHandle();
+        await me.restore(previous.data);
+    };
 
     me.autoSave = function(){
         let data = me.export();
@@ -3289,6 +7425,7 @@ let ImageFile = function(){
     // front of it without any of this having happened yet. `images` overrides result.image,
     // which is how a frame range is applied.
     function openDetected(result,fileName,target,startTime,images){
+        if (target !== "frame" && target !== "brush") preservePreviousDocument();
         let meta = extractFileMeta(result.type,result.data);
         currentFile.originalType = result.type;
         currentFile.originalData = result.data;
@@ -3316,7 +7453,7 @@ let ImageFile = function(){
                 );
             }
         }
-        handleOpenedImage(images || result.image,fileName,target,meta);
+        handleOpenedImage(images || result.image,fileName,target,meta,true);
 
         if (typeof startTime === "number"){
             console.log("File loaded in " + (performance.now() - startTime) + "ms");
@@ -3483,6 +7620,7 @@ let ImageFile = function(){
 
     me.handleJSON = function(data,target){
         if (data.type === "dpaint" || data.image || data.layers) {
+            if (target !== "frame" && target !== "brush" && data.image) preservePreviousDocument();
 
             if (target==="file"){
                 if (data.palette) Palette.set(data.palette);
@@ -3524,19 +7662,21 @@ let ImageFile = function(){
                 onOk: (options)=>{
                     let canvas = PLANES.toCanvas(data,options);
                     if (!canvas) return;
+                    if (target !== "frame" && target !== "brush") preservePreviousDocument();
                     // The palette is not part of the file: the planes are indexed against
                     // whatever palette is loaded, which is exactly how they were exported.
                     currentFile.originalType = "PLANES";
                     currentFile.originalData = undefined;
                     currentFile.meta = undefined;
-                    handleOpenedImage(canvas,fileName,target);
+                    handleOpenedImage(canvas,fileName,target,undefined,true);
                     onOpened?.();
                 }
             });
         });
     }
 
-    function handleOpenedImage(image,fileName,target,meta){
+    function handleOpenedImage(image,fileName,target,meta,previousPreserved){
+        if (!previousPreserved && target !== "frame" && target !== "brush") preservePreviousDocument();
         switch (target){
             case "frame":
                 if (Array.isArray(image)) {
@@ -3594,7 +7734,7 @@ let ImageFile = function(){
         struct.x = effective.x;
         struct.y = effective.y;
         struct.opacity = effective.opacity;
-        if (isGroup(node)){
+        if (isGroup(node) || isClip(node)){
             struct.scaleX = effective.scaleX;
             struct.scaleY = effective.scaleY;
             struct.rotation = effective.rotation;
@@ -3613,6 +7753,7 @@ let ImageFile = function(){
     me.getNextLayerId = syncNextLayerId;
 
     function newFile(image,fileName,type,originalData,meta){
+        nestedFocus = null;
         Historyservice.clear();
         getRecorderIfLoaded()?.clear();
         cachedImage = undefined;
@@ -3631,9 +7772,12 @@ let ImageFile = function(){
             // one track, one content key at frame 0 — the degenerate case of the timeline
             // model, which is exactly what a still image is
             timeline: makeTimeline(),
+            library: emptyLibrary(),
             nextLayerId: 1,
             colorRange:[]
         }
+        if (editStack.length){ editStack = []; EventBus.trigger(EVENT.editContextChanged); }
+        clearClipCache();
         activeTrackIndex = 0;
         if (type) currentFile.originalType = type;
         if (originalData){
@@ -3708,9 +7852,12 @@ let ImageFile = function(){
             height: h,
             name: fileName || "Untitled",
             timeline: makeTimeline(),
+            library: emptyLibrary(),
             nextLayerId: 1,
             colorRange:[]
         };
+        if (editStack.length){ editStack = []; EventBus.trigger(EVENT.editContextChanged); }
+        clearClipCache();
         activeTrackIndex = 0;
 
         if (type) currentFile.originalType = type;
@@ -3934,6 +8081,7 @@ let ImageFile = function(){
     // project/documentation/timeline-animation.md — nothing may assume a layer canvas matches
     // the document, serialization included.
     function addLayer(index,name,options){
+        if (refuseInParam("Adding a layer")) return;
         let newLayer = Layer(
             Math.max(currentFile.width, (options && options.width) || 0),
             Math.max(currentFile.height, (options && options.height) || 0),
@@ -3966,17 +8114,36 @@ let ImageFile = function(){
 
     // A property key entry for a layer that no longer exists is harmless but dead weight,
     // and would resurrect if the id were ever reused. Prune it in the same step.
-    function prunePropsForIds(ids){
+    // Scoped to the property keys governed by the cel the layers were removed FROM (spec 025 R3):
+    // an id names a lineage, so the same layer can live on in other content keys of the track,
+    // and their property keys still animate it. Defaults to the active track and cel.
+    function prunePropsForIds(ids, track, cel){
         if (!ids.length) return;
-        forEachPropertyKey(key=>{
+        track = track || activeTrack();
+        cel = cel || currentFrame();
+        if (!track || !cel) return;
+        let gov = (track.keys || []).find(k=>k.type === "content" && k.cel === cel);
+        if (!gov) return;
+        propertyKeysGovernedBy(track, gov).forEach(key=>{
             if (!key.props) return;
             ids.forEach(id=>{ delete key.props[id]; });
         });
+        // Removing the last cel of a lineage inside a clip: overrides that address it are dead
+        // (spec 025 R29). Only clip content can be an override target, and edits inside a clip
+        // are whole-image history steps, so undo brings them back.
+        if (editStack.length){
+            pruneVanishedOverrides();
+            pruneParamKeysOf(editClip());
+        }
     }
 
     function removeLayer(ref){
+        if (refuseInParam("Removing a layer")) return;
         let path = typeof ref === "undefined" ? activeLayerPath : toPath(ref);
         if (!path) return;
+        // removing a bone layer detaches every node attached to it, baking their placement (R36)
+        let doomed = resolveLayerPath((currentFrame() || {layers: []}).layers, path);
+        if (isBones(doomed)) me.detachAllFor(doomed.id);
         let frame = currentFrame();
         let p = parentOf(frame.layers, path);
         if (!p) return;
@@ -4072,6 +8239,7 @@ let ImageFile = function(){
         let blank = document.createElement("canvas");
         blank.width = parsed.width;
         blank.height = parsed.height;
+        preservePreviousDocument();
         setCurrentFileHandle();
         newFile(blank, fileName, "SVG");
 
@@ -4343,7 +8511,28 @@ let ImageFile = function(){
         return true;
     };
 
+    // Reparenting changes the coordinate system, so carry the translation into the
+    // node's local offsets. Shift absolute animation entries too, otherwise a property
+    // key would override the compensation and make the layer jump again.
+    function preserveLayerPosition(node, path, offset, props){
+        if (!path) return;
+        let next = resolvedOffset(currentFrame().layers, path, props);
+        let dx = offset.x - next.x, dy = offset.y - next.y;
+        if (!dx && !dy) return;
+        node.x = (node.x || 0) + dx;
+        node.y = (node.y || 0) + dy;
+        let track = activeTrack();
+        let gov = governingContentKey(track, activeFrameIndex);
+        if (gov) propertyKeysGovernedBy(track, gov).forEach(key=>{
+            let entry = key.props && key.props[node.id];
+            if (!entry) return;
+            if (typeof entry.x === "number") entry.x += dx;
+            if (typeof entry.y === "number") entry.y += dy;
+        });
+    }
+
     function moveLayer(from,to){
+        if (refuseInParam("Moving a layer")) return;
         let frame = currentFrame();
         let fromPath = toPath(from);
         let toP = toPath(to);
@@ -4368,9 +8557,13 @@ let ImageFile = function(){
         // Tree move: moveAtPath rejects moving a group into its own subtree.
         let node = resolveLayerPath(frame.layers, fromPath);
         if (!node) return;
+        let props = me.getResolvedProps();
+        let offset = resolvedOffset(frame.layers, fromPath, props);
         moveAtPath(frame.layers, fromPath, toP);
         // Re-find the moved node to set the active path correctly post-mutation.
-        me.activateLayer(pathOfNode(frame.layers, node) || [0]);
+        let movedPath = pathOfNode(frame.layers, node);
+        preserveLayerPosition(node, movedPath, offset, props);
+        me.activateLayer(movedPath || [0]);
         EventBus.trigger(EVENT.imageContentChanged);
     }
 
@@ -4378,6 +8571,7 @@ let ImageFile = function(){
     // expressed in POST-REMOVAL coordinates (i.e. after fromPath has been spliced out).
     // This is the contract resolveDropPath() produces. Returns true if a move happened.
     me.moveLayerToParent = function(fromPath, parentPath, index){
+        if (refuseInParam("Moving a layer")) return false;
         let frame = currentFrame();
         if (!Array.isArray(fromPath) || !Array.isArray(parentPath)) return false;
         // Reject moving a group into itself or its own subtree.
@@ -4397,13 +8591,17 @@ let ImageFile = function(){
             : (resolveLayerPath(frame.layers, parentPath) || {}).layers;
         if (!parentArr) return false;
 
+        let props = me.getResolvedProps();
+        let offset = resolvedOffset(frame.layers, fromPath, props);
         removeAtPath(frame.layers, fromPath);
 
         if (index < 0) index = 0;
         if (index > parentArr.length) index = parentArr.length;
         parentArr.splice(index, 0, node);
 
-        me.activateLayer(pathOfNode(frame.layers, node) || [0]);
+        let movedPath = pathOfNode(frame.layers, node);
+        preserveLayerPosition(node, movedPath, offset, props);
+        me.activateLayer(movedPath || [0]);
         EventBus.trigger(EVENT.imageContentChanged);
         return true;
     };
@@ -4450,7 +8648,7 @@ let ImageFile = function(){
         if (skipHistory) HistoryService.setEnabled(false);
         me.removeKeyframe(activeFrameIndex);
         if (skipHistory) HistoryService.setEnabled(true);
-        me.activateFrame(Math.min(activeFrameIndex, me.getFrameCount()-1));
+        me.activateFrame(Math.min(activeFrameIndex, editLength()-1));
         EventBus.trigger(EVENT.imageSizeChanged);
     }
 
@@ -4465,6 +8663,7 @@ let ImageFile = function(){
     // drawFrame): they overhang the canvas rather than being cropped, and the document is not
     // resized under the user.
     function importFramesAsTrack(images,fileName){
+        if (refuseInParam("Importing")) return;
         let frames = (images || []).filter(Boolean);
         if (!frames.length) return;
         let start = activeFrameIndex;
@@ -4512,6 +8711,7 @@ let ImageFile = function(){
     // DUPLICATEFRAME: insert a copy of the current state at playhead+1, shifting every key
     // at or after that position on the SAME track one frame to the right (design 3.4).
     me.duplicateFrame = function(index){
+        if (refuseInParam("Duplicate Frame")) return;
         let track = activeTrack();
         if (!track) return;
         if (typeof index !== "number") index = activeFrameIndex;
@@ -4539,11 +8739,12 @@ let ImageFile = function(){
         if (toIndex < 0) toIndex = 0;
         if (toIndex > last + 1) toIndex = last + 1;
         if (me.moveKeyframe(fromIndex,toIndex)){
-            me.activateFrame(Math.min(toIndex, me.getFrameCount()-1));
+            me.activateFrame(Math.min(toIndex, editLength()-1));
         }
     };
 
     me.mergeDown = function (ref,skipHistory){
+        if (refuseInParam("Merge Down")) return;
         let frame = currentFrame();
         let path = typeof ref === "undefined" ? activeLayerPath : toPath(ref);
         if (!path) return;
@@ -4553,8 +8754,9 @@ let ImageFile = function(){
         if (p.index <= 0) return; // nothing below in this scope (group-boundary guard)
         let layer = p.parent[p.index];
         let belowLayer = p.parent[p.index - 1];
-        // A group can't be merged into (you'd lose its structure); only leaf targets below.
-        if (!layer || !belowLayer || isGroup(belowLayer)) return;
+        // A group can't be merged into (you'd lose its structure); only leaf targets below. The same
+        // goes for a clip instance: its pixels belong to its library clip (spec 024).
+        if (!layer || !belowLayer || isGroup(belowLayer) || isClip(belowLayer)) return;
 
         if (!skipHistory) HistoryService.start(EVENT.imageHistory);
         if (!isGroup(layer) && layer.hasMask) {
@@ -4600,6 +8802,33 @@ let ImageFile = function(){
 
         let blendMode = layer.blendMode || "normal";
         if (blendMode === "normal") blendMode = "source-over";
+        // Merging a clip instance DOWN bakes what it shows right now: its composite drawn through
+        // the full instance transform into a scope-sized scratch, then into the layer below at the
+        // below layer's on-screen offset (R15).
+        if (isClip(layer)){
+            let props = me.getResolvedProps();
+            let eff = effectiveProps(layer, props);
+            let scratch = document.createElement("canvas");
+            scratch.width = currentFile.width;
+            scratch.height = currentFile.height;
+            let solo = Object.assign({}, props, {[layer.id]: Object.assign({}, eff, {opacity: 100})});
+            let savedBlend = layer.blendMode;
+            layer.blendMode = "normal"; // opacity + blend go with the draw below, like any leaf
+            compositeNodes([layer], scratch.getContext("2d"), solo);
+            layer.blendMode = savedBlend;
+            let below = effectiveProps(belowLayer, props);
+            belowLayer.drawImage(scratch, -below.x, -below.y,
+                {alpha: (typeof mergedOpacity === "number" ? mergedOpacity : 100) / 100, blendMode: blendMode});
+            releaseCanvas(scratch);
+            p.parent.splice(p.index, 1);
+            if (!skipHistory) HistoryService.end();
+            let belowPathC = path.slice();
+            belowPathC[belowPathC.length-1] = p.index - 1;
+            me.activateLayer(belowPathC);
+            EventBus.trigger(EVENT.layerContentChanged);
+            EventBus.trigger(EVENT.libraryChanged);
+            return;
+        }
         // render() returns unshifted content, so draw it at the offset DIFFERENCE: the result
         // must land where the merged layer showed it, expressed in belowLayer's local space.
         // The opacity/blend mode go WITH the draw call (see Layer.drawImage): setting them on
@@ -4671,7 +8900,14 @@ let ImageFile = function(){
 
     // Every timeline frame becomes a layer of a single content key. Baked, so tweens and
     // multi-track z-order are flattened into the layer stack in the order they played.
+    function refuseInsideClip(what){
+        if (!editStack.length) return false;
+        Modal.softAlert(what + " works on the document timeline: leave the clip first.", what);
+        return true;
+    }
+
     me.framesToLayers = function(){
+        if (refuseInsideClip("Frames to Layers")) return;
         let canvases = me.getBakedFrames().map(canvas=>duplicateCanvas(canvas,true));
         if (!canvases.length) return;
         HistoryService.start(EVENT.imageHistory);
@@ -4693,6 +8929,7 @@ let ImageFile = function(){
     // Every layer of the active track's governing cel becomes its own content key on that
     // track, one frame apart. Existing keys on the track are replaced.
     me.layersToFrames = function(){
+        if (refuseInsideClip("Layers to Frames")) return;
         let track = activeTrack();
         let cel = currentFrame();
         if (!track || !cel || cel.layers.length < 2) return;
@@ -4715,9 +8952,11 @@ let ImageFile = function(){
         let canvas = document.createElement("canvas");
         canvas.width = currentFile.width;
         canvas.height = currentFile.height;
-        let state = resolveTrackState(track, frame);
+        let state = resolveTrackState(track, frame, library());
         if (state){
-            compositeNodes(state.cel.layers, canvas.getContext("2d"), state.props, me.getCompositeOptions());
+            let options = me.getCompositeOptions();
+            options = trackOptionsFor(options, state);
+            compositeNodes(state.cel.layers, canvas.getContext("2d"), state.props, options);
         }
         return canvas;
     }
@@ -4727,7 +8966,7 @@ let ImageFile = function(){
     // The frame window a convert covers: the whole timeline, or the `from`..`to` range the
     // caller asked for, clamped into it.
     function convertRange(options){
-        let last = me.getFrameCount() - 1;
+        let last = editLength() - 1;
         let from = options && typeof options.from === "number" ? options.from : 0;
         let to = options && typeof options.to === "number" ? options.to : last;
         from = Math.max(0, Math.min(from, last));
@@ -4802,6 +9041,7 @@ let ImageFile = function(){
     // selection); without them the whole timeline is baked. Keys outside the range are left
     // alone, apart from the property keys the bake would orphan (see orphanedByConvert).
     me.convertTrackToFrames = function(trackIndex,options){
+        if (refuseInParam("Convert to Frames")) return false;
         let index = typeof trackIndex === "number" ? trackIndex : activeTrackIndex;
         let track = tracks()[index];
         if (!track) return false;
@@ -4812,9 +9052,12 @@ let ImageFile = function(){
             canvases.push(compositeTrackCanvas(track, frame));
         }
 
+        // The baked frames are ONE layer continued over time: one lineage id (spec 025 R1).
+        let lineage;
         let baked = canvases.map((canvas,offset)=>{
             let frame = range.from + offset;
             let layer = Layer(currentFile.width, currentFile.height, "Frame " + (frame+1));
+            if (lineage) layer.id = lineage; else lineage = layer.id;
             layer.drawImage(canvas);
             releaseCanvas(canvas);
             return makeContentKey(frame, makeCel([layer]));
@@ -4825,7 +9068,7 @@ let ImageFile = function(){
         // orphanedByConvert for why they are reported rather than removed.
         let kept = (track.keys || []).filter(key=>key.frame < range.from || key.frame > range.to);
         track.keys = kept.concat(baked).sort((a,b)=>a.frame-b.frame);
-        if (activeFrameIndex >= me.getFrameCount()) activeFrameIndex = me.getFrameCount() - 1;
+        if (activeFrameIndex >= editLength()) activeFrameIndex = editLength() - 1;
         resolveActiveLayer();
         HistoryService.end();
         timelineStructureChanged();
@@ -4835,6 +9078,7 @@ let ImageFile = function(){
     // Stacks the active cel's layers vertically into one taller layer (a sprite sheet).
     // The new layer's canvas is created at the new document size, so nothing is clipped.
     me.layersToSheet = function(){
+        if (refuseInsideClip("Layers to Sheet")) return;
         let cel = currentFrame();
         if (!cel || cel.layers.length < 2) return;
         HistoryService.start(EVENT.imageHistory);
@@ -4877,7 +9121,8 @@ let ImageFile = function(){
                     if (isGroup(node)){
                         if (node.invalidateCache) node.invalidateCache();
                         walk(node.layers || []);
-                    }else{
+                    }else if (!isClip(node)){
+                        // (a clip instance has no pixels: its clip's own cels rotate via forEachCel)
                         ImageProcessing.rotate(node.getCanvas());
                     }
                 });
@@ -4887,6 +9132,7 @@ let ImageFile = function(){
         currentFile.width = currentFile.height;
         currentFile.height = w;
         HistoryService.end();
+        clearClipCache();
         clearRenderCache();
         EventBus.trigger(EVENT.imageSizeChanged);
     };
@@ -4948,6 +9194,43 @@ let ImageFile = function(){
 
     EventBus.on(COMMAND.INFO, function(){
         NativePanels.showInfo(currentFile);
+    });
+
+    // ── clip commands (spec 024) ──
+    // NEWCLIP: an empty clip in the library (placed nowhere yet). CONVERTTOCLIP: the payload
+    // selection ({layerPaths} | {trackIndices}), else the Layer panel's multi-selection, else the
+    // active layer. PLACECLIP: payload {clipId, at?}. BREAKAPART: payload path (default active).
+    EventBus.on(COMMAND.NEWCLIP, function(name){
+        let clip = me.createClip(typeof name === "string" ? name : "Clip");
+        PanelManager.reveal("library", true);
+        return clip;
+    });
+    EventBus.on(COMMAND.CONVERTTOCLIP, function(sel){
+        if (!sel || (!sel.layerPaths && !sel.trackIndices)) sel = {layerPaths: [activeLayerPath.slice()]};
+        me.convertToClip(sel);
+    });
+    EventBus.on(COMMAND.PLACECLIP, function(data){
+        if (!data || !data.clipId) return;
+        me.placeClip(data.clipId, data.at);
+    });
+    EventBus.on(COMMAND.BREAKAPART, function(path){
+        me.breakApart(Array.isArray(path) && path.length ? path : undefined);
+    });
+    EventBus.on(COMMAND.FLATTENCLIPTOIMAGE, function(path){
+        me.flattenClipToImage(Array.isArray(path) && path.length ? path : undefined);
+    });
+    // EDITCLIP: payload path of an instance (default: the active layer). EXITCLIP: payload depth
+    // to leave to (breadcrumb; default: one level up).
+    EventBus.on(COMMAND.EDITCLIP, function(path){
+        me.enterClip(Array.isArray(path) && path.length ? path : undefined,{mode:"in-place"});
+    });
+    EventBus.on(COMMAND.EDITCLIPONLY, function(payload){
+        if (payload?.clipId) me.editClipDefinition(payload.clipId);
+        else me.enterClip(Array.isArray(payload) && payload.length ? payload : undefined,{mode:"clip"});
+    });
+    EventBus.on(COMMAND.EXITCLIP, function(depth){
+        if (typeof depth === "number") me.exitToDepth(depth);
+        else me.exitClip();
     });
 
     EventBus.on(COMMAND.NEWLAYER, function(){
@@ -5079,6 +9362,7 @@ let ImageFile = function(){
     });
 
     EventBus.on(COMMAND.FLATTEN, function(){
+        if (refuseInParam("Flatten")) return;
         HistoryService.start(EVENT.imageHistory);
         currentFrame().layers.forEach((layer) => {
             if (layer.hasMask) {
@@ -5119,6 +9403,7 @@ let ImageFile = function(){
     // ── frame commands, remapped onto the active track (design 3.4) ────────────────
 
     EventBus.on(COMMAND.ADDFRAME, function(){
+        if (refuseInParam("Content keys")) return;
         HistoryService.start(EVENT.timelineHistory);
         PanelManager.showContainer("left");
         addFrame();
@@ -5131,6 +9416,7 @@ let ImageFile = function(){
     });
 
     EventBus.on(COMMAND.CLEARFRAME, function(){
+        if (refuseInParam("Clear Frame")) return;
         HistoryService.start(EVENT.imageHistory)
         // clear all layers of the governing cel except the first one
         let cel = currentFrame();
@@ -5193,23 +9479,23 @@ let ImageFile = function(){
     });
 
     EventBus.on(COMMAND.ADDKEYFRAME, function(frame){
-        me.addKeyframe(typeof frame === "number" ? frame : undefined);
+        me.applyTimelineSelection("key", typeof frame === "number" ? frame : undefined);
     });
 
     EventBus.on(COMMAND.ADDKEYFRAMECOPY, function(frame){
-        me.addKeyframe(typeof frame === "number" ? frame : undefined,{copy:true});
+        me.applyTimelineSelection("key", typeof frame === "number" ? frame : undefined,{copy:true});
     });
 
     EventBus.on(COMMAND.ADDPROPERTYKEYFRAME, function(frame){
-        me.addPropertyKeyframe(typeof frame === "number" ? frame : undefined);
+        me.applyTimelineSelection("property", typeof frame === "number" ? frame : undefined);
     });
 
     EventBus.on(COMMAND.REMOVEKEYFRAME, function(frame){
-        me.removeKeyframe(typeof frame === "number" ? frame : undefined);
+        me.applyTimelineSelection("remove", typeof frame === "number" ? frame : undefined);
     });
 
     EventBus.on(COMMAND.TOGGLETWEEN, function(frame){
-        me.setKeyTween(typeof frame === "number" ? frame : undefined);
+        me.applyTimelineSelection("tween", typeof frame === "number" ? frame : undefined);
     });
 
     EventBus.on(COMMAND.IMPORTLAYER, function(){

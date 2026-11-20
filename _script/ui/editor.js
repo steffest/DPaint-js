@@ -22,6 +22,8 @@ import UI from "./ui.js";
 import UserSettings from "../userSettings.js";
 import PanelManager from "./panelManager.js";
 import LayerPanel from "./toolPanels/layerPanel.js";
+import CenterPanel from "./centerPanel.js";
+import renderPreferences from "./preferencesPanel.js";
 
 var Editor = function(){
     var me = {};
@@ -99,6 +101,8 @@ var Editor = function(){
             touchData.startX = parseInt(divider.style.marginLeft) || -3;
         })
         panels.push(EditPanel(container,"right"));
+        CenterPanel.init(container);
+        EventBus.on(COMMAND.PREFERENCES, ()=>CenterPanel.toggle("preferences", "Preferences", renderPreferences));
         activePanel = panels[0];
         resizer = activePanel.getResizer();
 
@@ -210,10 +214,10 @@ var Editor = function(){
             let clearOffset = ImageFile.getLayerCanvasOffset();
             if (s){
                 if (s.canvas || s.points){
-                    let canvas = Selection.getCanvas();
+                    let canvas = Selection.getCanvas({x:s.left,y:s.top,w:s.width,h:s.height});
                     let layerCtx = layer.getContext();
                     layerCtx.globalCompositeOperation = "destination-out";
-                    layerCtx.drawImage(canvas,-clearOffset.x,-clearOffset.y);
+                    layerCtx.drawImage(canvas,s.left-clearOffset.x,s.top-clearOffset.y);
                     layerCtx.globalCompositeOperation = "source-over";
                     releaseCanvas(canvas);
                 }else{
@@ -267,6 +271,7 @@ var Editor = function(){
             resizer.setOnUpdate(undefined);
             touchData.transformLayer = undefined;
             touchData.transformGroup = false;
+            touchData.transformNested = undefined;
             touchData.transformVector = undefined;
             touchData.transformVectorSelection = undefined;
             touchData.transformMultiPaths = undefined;
@@ -302,7 +307,7 @@ var Editor = function(){
                     currentTool = COMMAND.TRANSFORMLAYER;
                     resizer.init({
                         x: b.x, y: b.y, width: b.width, height: b.height,
-                        rotation: 0, aspect: (b.width / b.height) || 1, canRotate: true, round: round
+                        rotation: 0, aspect: (b.width / b.height) || 1, canRotate: true, canSkew: true, round: round
                     });
                     let target = ImageFile.getHistoryTarget();
                     touchData.transformVectorSelection = scope.groups.map(g=>{
@@ -332,7 +337,7 @@ var Editor = function(){
                             let b = combined.bounds;
                             resizer.init({
                                 x: b.x, y: b.y, width: b.width, height: b.height,
-                                rotation: 0, aspect: (b.width / b.height) || 1, canRotate: true, round: round
+                                rotation: 0, aspect: (b.width / b.height) || 1, canRotate: true, canSkew: true, round: round
                             });
                             touchData.transformVectorSelection = combined.groups;
                             touchData.transformVectorBox = b;
@@ -355,7 +360,7 @@ var Editor = function(){
                 currentTool = COMMAND.TRANSFORMLAYER;
                 resizer.init({
                     x: dbox.x, y: dbox.y, width: dbox.w, height: dbox.h,
-                    rotation: 0, aspect: (dbox.w / dbox.h) || 1, canRotate: true, round: round
+                    rotation: 0, aspect: (dbox.w / dbox.h) || 1, canRotate: true, canSkew: true, round: round
                 });
                 touchData.transformVector = node;
                 touchData.transformVectorSnapshot = cloneVector(node.vector);
@@ -370,9 +375,32 @@ var Editor = function(){
             // runtime scale/rotation (which the compositor applies on the fly and which animate
             // through property keyframes). The resizer is seeded from the group's oriented box and
             // its scale/rotation map straight back onto the group node via setLayerKeyProps.
+            // A clip instance (spec 024) takes the same path, pivoting about its clip's pivot.
             let activeNode = ImageFile.getActiveLayer();
-            if (activeNode && activeNode.type === "group"){
-                let gbox = ImageFile.getGroupTransformBox();
+            // A node focused INSIDE an instance (spec 025 R23): the same group-style box, but the
+            // result is written as an override on the instance, never into the clip definition.
+            let focus = ImageFile.getNestedFocus ? ImageFile.getNestedFocus() : undefined;
+            if (focus){
+                let nbox = focus.transformable ? ImageFile.getNestedTransformBox() : undefined;
+                if (!nbox) return;
+                previousTool = currentTool;
+                currentTool = COMMAND.TRANSFORMLAYER;
+                resizer.init({
+                    x: nbox.x, y: nbox.y, width: nbox.w, height: nbox.h, rotation: nbox.rotation,
+                    aspect: (nbox.w / nbox.h) || 1, canRotate: true, parentMatrix: nbox.parentMatrix,
+                    round: false
+                });
+                touchData.transformGroup = true;
+                touchData.transformNested = ImageFile.cloneNestedOverrideState();
+                touchData.transformGroupBox = nbox;
+                touchData.transformLayer = activeNode;
+                touchData.transformStartProps = nbox.start;
+                HistoryService.start(EVENT.imageHistory);
+                resizer.setOnUpdate(updateGroupTransform);
+                return;
+            }
+            if (activeNode && (activeNode.type === "group" || activeNode.type === "clip")){
+                let gbox = ImageFile.getNodeTransformBox();
                 if (!gbox) return;
                 previousTool = currentTool;
                 currentTool = COMMAND.TRANSFORMLAYER;
@@ -407,7 +435,8 @@ var Editor = function(){
                 height: box.h,
                 rotation: 0,
                 aspect: box.w/box.h,
-                canRotate: true
+                canRotate: true,
+                canSkew: true
             });
 
             touchData.transformBox = box;
@@ -422,7 +451,6 @@ var Editor = function(){
             ctx.drawImage(ImageFile.getActiveContext().canvas,
                 box.x - transformOffset.x - (activeLayer?.canvasX || 0),box.y - transformOffset.y - (activeLayer?.canvasY || 0),box.w,box.h,0,0,box.w,box.h);
 
-            HistoryService.start(EVENT.layerContentHistory);
             touchData.transformLayer = ImageFile.getActiveLayer();
             touchData.transformIsMove = false;
             // the node's OWN animatable x/y (base value or property-key entry) at gesture start
@@ -441,6 +469,11 @@ var Editor = function(){
                 }
             }
 
+            // Keep the original canvas size/origin as well as pixels. A transform
+            // can grow its canvas after earlier previews have already repainted it.
+            let propsRefs = [ImageFile.getActiveLayerPath().slice()]
+                .concat((touchData.transformMultiPaths || []).map(entry=>entry.path));
+            HistoryService.start(EVENT.layerHistory, {propsRefs});
             resizer.setOnUpdate(updateTransform);
         });
 
@@ -752,17 +785,19 @@ var Editor = function(){
         }
     }
 
+    // Returns true when something was actually reset (a modal tool, a transform), so Escape can
+    // fall through to leaving an edited clip only when nothing else wanted it (spec 024 R17).
     me.reset = function(){
         let BoneTool = getBoneToolIfLoaded();
         let VectorTool = getVectorToolIfLoaded();
         let MeshWarp = getMeshWarpIfLoaded();
         if (BoneTool?.isActive()){
             BoneTool.cancel();
-            return;
+            return true;
         }
         if (VectorTool?.isActive()){
             VectorTool.cancel();
-            return;
+            return true;
         }
         if (MeshWarp?.isActive()){
             MeshWarp.cancel();
@@ -771,9 +806,11 @@ var Editor = function(){
             previousTool = undefined;
             EventBus.trigger(COMMAND.CLEARSELECTION);
             if (p) EventBus.trigger(p);
-            return;
+            return true;
         }
+        let consumed = false;
         if (currentTool === COMMAND.TRANSFORMLAYER){
+            consumed = true;
             let resume = (touchData.transformVector || touchData.transformVectorSelection) ? touchData.transformVectorResume : undefined;
             resizer.commit();
             resetTransform();
@@ -784,6 +821,7 @@ var Editor = function(){
             if (resume){ previousTool = undefined; EventBus.trigger(resume); }
         }
         EventBus.trigger(COMMAND.CLEARSELECTION);
+        return consumed;
     }
 
     me.arrowKey = function(direction){
@@ -821,7 +859,7 @@ var Editor = function(){
             y*=10;
         }
         if (me.canDrawColor()){
-            if (Input.isMetaDown() && ImageFile.hasMultipleFrames()){
+            if (Input.isMetaDown() && ImageFile.getEditFrameCount() > 1){
                 if (x>0) ImageFile.nextFrame();
                 if (x<0) ImageFile.nextFrame(-1);
                 return;
@@ -847,6 +885,7 @@ var Editor = function(){
             currentTool === COMMAND.CIRCLE ||
             currentTool === COMMAND.SQUARE ||
             currentTool === COMMAND.LINE ||
+            currentTool === COMMAND.ARC ||
             currentTool === COMMAND.TEXT ||
             currentTool === COMMAND.SPRAY ||
             currentTool === COMMAND.FLOOD);
@@ -873,14 +912,33 @@ var Editor = function(){
         let newCenterY = d.top + d.height / 2;
         let scaleX = g.baseW ? d.width / g.baseW : 1;
         let scaleY = g.baseH ? d.height / g.baseH : 1;
-        ImageFile.setLayerKeyProps(undefined,{
-            // The group's own offset shifts by however far its content centre moved.
-            x: sp.x + (newCenterX - g.centerX),
-            y: sp.y + (newCenterY - g.centerY),
+        // The node's own offset shifts by however far its content centre moved. A group pivots
+        // about that centre, so that is all. A clip instance pivots about its clip pivot, which
+        // sits `pivotDelta` away from the content centre: changing the scale/rotation swings the
+        // centre around the pivot by (L' − L)·pivotDelta, which the offset must cancel.
+        let dx = newCenterX - g.centerX;
+        let dy = newCenterY - g.centerY;
+        if (g.pivotDelta && g.startTransform){
+            let swing = (t, v)=>{
+                let r = (t.rotation || 0) * Math.PI / 180, cos = Math.cos(r), sin = Math.sin(r);
+                let x = v.x * t.scaleX, y = v.y * t.scaleY;
+                return {x: x * cos - y * sin, y: x * sin + y * cos};
+            };
+            let before = swing(g.startTransform, g.pivotDelta);
+            let after = swing({scaleX: scaleX, scaleY: scaleY, rotation: d.rotation}, g.pivotDelta);
+            dx -= after.x - before.x;
+            dy -= after.y - before.y;
+        }
+        let values = {
+            x: sp.x + dx,
+            y: sp.y + dy,
             scaleX: scaleX,
             scaleY: scaleY,
             rotation: d.rotation
-        });
+        };
+        // a nested focus (spec 025 R23): the resolved placement becomes an override
+        if (touchData.transformNested){ ImageFile.setNestedTransform(values); return; }
+        ImageFile.setLayerKeyProps(undefined, values);
     }
 
     // A vector free-transform: map the resizer box to an affine and bake it into the GEOMETRY
@@ -906,6 +964,9 @@ var Editor = function(){
             // scale about the original box's top-left into the new box position/size
             let qx = d.left + (px - b0.x) * sx;
             let qy = d.top  + (py - b0.y) * sy;
+            const dx = qx - cx, dy = qy - cy;
+            qx += (d.skewX || 0) * dy;
+            qy += (d.skewY || 0) * dx;
             // rotate about the new box centre
             let rx = cx + (qx - cx) * cos - (qy - cy) * sin;
             let ry = cy + (qx - cx) * sin + (qy - cy) * cos;
@@ -975,6 +1036,9 @@ var Editor = function(){
                 let px = gx + off.x, py = gy + off.y;
                 let qx = d.left + (px - b0.x) * sx;
                 let qy = d.top + (py - b0.y) * sy;
+                const dx = qx - cx, dy = qy - cy;
+                qx += (d.skewX || 0) * dy;
+                qy += (d.skewY || 0) * dx;
                 let rx = cx + (qx - cx) * cos - (qy - cy) * sin;
                 let ry = cy + (qx - cx) * sin + (qy - cy) * cos;
                 return { x: rx - off.x, y: ry - off.y };
@@ -1005,20 +1069,9 @@ var Editor = function(){
         // Pure translation (no scale, no rotation): move the layer through its ANIMATABLE
         // OFFSET instead of copying pixels. On a property key that writes props, so the move
         // becomes part of the animation rather than a destructive edit (spec 004 decision 2).
-        if (!d.rotation && box && d.width === box.w && d.height === box.h && touchData.transformStartProps){
+        if (!d.rotation && !d.skewX && !d.skewY && box && d.width === box.w && d.height === box.h && touchData.transformStartProps){
             let hasMulti = touchData.transformMultiPaths && touchData.transformMultiPaths.length;
-            if (!touchData.transformIsMove){
-                touchData.transformIsMove = true;
-                // swap the pixel snapshot for a property snapshot, before the first write
-                HistoryService.neverMind();
-                if (hasMulti){
-                    let allPaths = [ImageFile.getActiveLayerPath().slice()]
-                        .concat(touchData.transformMultiPaths.map(entry => entry.path));
-                    HistoryService.start(EVENT.keyPropsGroupHistory, allPaths);
-                }else{
-                    HistoryService.start(EVENT.keyPropsHistory);
-                }
-            }
+            touchData.transformIsMove = true;
             let dx = d.left - box.x;
             let dy = d.top - box.y;
             ImageFile.setLayerKeyProps(undefined,{
@@ -1038,6 +1091,18 @@ var Editor = function(){
 
         touchData.transformLayer.clear();
         if (d.width === 0 || d.height === 0) return;
+        // Imported raster layers can be smaller than the document. Grow their backing
+        // canvas before baking the transform, including rotated corners and negative origins.
+        let offset = ImageFile.getLayerOffset();
+        let angle = (d.rotation || 0)*Math.PI/180;
+        let cos = Math.cos(angle), sin = Math.sin(angle);
+        let extentW = Math.abs(d.width*(cos-sin*(d.skewY || 0))) + Math.abs(d.height*(cos*(d.skewX || 0)-sin));
+        let extentH = Math.abs(d.width*(sin+cos*(d.skewY || 0))) + Math.abs(d.height*(sin*(d.skewX || 0)+cos));
+        let minX = Math.floor(d.left-offset.x+(d.width-extentW)/2);
+        let minY = Math.floor(d.top-offset.y+(d.height-extentH)/2);
+        touchData.transformLayer.ensureLocalRect(minX,minY,
+            Math.ceil(d.left-offset.x+(d.width+extentW)/2)-minX,
+            Math.ceil(d.top-offset.y+(d.height+extentH)/2)-minY);
         let ctx = touchData.transformLayer.getContext();
 
         let smooth = ToolOptions.isSmooth();
@@ -1048,7 +1113,7 @@ var Editor = function(){
 
 
         let angled = d.rotation && (d.rotation % 90 !== 0);
-        let useHQ = final && pixelOptimized && angled && touchData.transformCanvas.width<=512 && touchData.transformCanvas.height<=512;
+        let useHQ = d.width > 0 && d.height > 0 && !d.skewX && !d.skewY && final && pixelOptimized && angled && touchData.transformCanvas.width<=512 && touchData.transformCanvas.height<=512;
 
         if (useHQ){
             if (!rotSprite){
@@ -1063,8 +1128,12 @@ var Editor = function(){
             let h = d.height / rotateScaleY;
 
             let moveOffset = ImageFile.getLayerOffset();
-            let x = d.left - moveOffset.x - (touchData.transformLayer?.canvasX || 0) + (d.width - w) / 2;
-            let y = d.top - moveOffset.y - (touchData.transformLayer?.canvasY || 0) + (d.height - h) / 2;
+            let localX = d.left - moveOffset.x + (d.width - w) / 2;
+            let localY = d.top - moveOffset.y + (d.height - h) / 2;
+            touchData.transformLayer.ensureLocalRect(Math.floor(localX),Math.floor(localY),
+                Math.ceil(localX+w)-Math.floor(localX),Math.ceil(localY+h)-Math.floor(localY));
+            let x = localX - (touchData.transformLayer.canvasX || 0);
+            let y = localY - (touchData.transformLayer.canvasY || 0);
 
             if (Palette.isLocked()){
                 // rotated is a WEBGL canvas
@@ -1077,20 +1146,18 @@ var Editor = function(){
             let drawOffset = ImageFile.getLayerOffset();
             let localLeft = d.left - drawOffset.x - (touchData.transformLayer?.canvasX || 0);
             let localTop = d.top - drawOffset.y - (touchData.transformLayer?.canvasY || 0);
-            if (d.rotation){
-                console.log("rotate " + d.rotation);
-
-                let dw = (localLeft + d.width/2);
-                let dh = (localTop + d.height/2);
-                ctx.translate(dw,dh);
-                ctx.rotate((d.rotation * Math.PI) / 180);
-                ctx.translate(-dw,-dh);
-            }
-
-            ctx.drawImage(touchData.transformCanvas,localLeft,localTop,d.width,d.height);
+            const dw = localLeft + d.width/2, dh = localTop + d.height/2;
+            ctx.translate(dw,dh);
+            ctx.rotate((d.rotation || 0) * Math.PI / 180);
+            ctx.transform(1,d.skewY || 0,d.skewX || 0,1,0,0);
+            // Negative drawImage dimensions extend the rectangle without mirroring pixels.
+            // Apply the signs explicitly, before rotation/skew, around the signed centre.
+            ctx.scale(Math.sign(d.width),Math.sign(d.height));
+            ctx.drawImage(touchData.transformCanvas,-Math.abs(d.width)/2,-Math.abs(d.height)/2,
+                Math.abs(d.width),Math.abs(d.height));
             ctx.setTransform(1, 0, 0, 1, 0, 0);
 
-            if (angled && final && Palette.isLocked()){
+            if ((angled || d.skewX || d.skewY) && final && Palette.isLocked()){
                 Palette.applyToCanvas(ctx.canvas,true);
             }
         }
@@ -1121,6 +1188,11 @@ var Editor = function(){
                 EventBus.trigger(EVENT.vectorChanged);
                 EventBus.trigger(EVENT.layerContentChanged);
             }
+            return;
+        }
+        // Cancelling a nested free-transform (spec 025): put the override data back.
+        if (touchData.transformNested){
+            ImageFile.restoreNestedOverrideState(touchData.transformNested);
             return;
         }
         // Cancelling a group free-transform (spec 007): restore the transform props captured at
@@ -1157,7 +1229,8 @@ var Editor = function(){
         let box = touchData.transformBox;
         ctx.imageSmoothingEnabled = false;
         let resetOffset = ImageFile.getLayerOffset();
-        ctx.drawImage(touchData.transformCanvas,box.x - resetOffset.x,box.y - resetOffset.y,box.w,box.h);
+        ctx.drawImage(touchData.transformCanvas,box.x - resetOffset.x - (touchData.transformLayer.canvasX || 0),
+            box.y - resetOffset.y - (touchData.transformLayer.canvasY || 0),box.w,box.h);
         ctx.setTransform(1, 0, 0, 1, 0, 0);
         EventBus.trigger(EVENT.layerContentChanged);
     }
@@ -1170,6 +1243,7 @@ var Editor = function(){
         touchData.transformStartProps = undefined;
         touchData.transformGroup = false;
         touchData.transformGroupBox = undefined;
+        touchData.transformNested = undefined;
         touchData.transformVector = undefined;
         touchData.transformVectorSnapshot = undefined;
         touchData.transformVectorSelection = undefined;

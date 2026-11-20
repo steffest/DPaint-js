@@ -13,6 +13,20 @@ let HistoryService = function(){
     let future = [];
     let currentHistory;
     let enabled = true;
+    let grouping = false;
+
+    // Several timeline operations form one user action and one undo entry.
+    me.groupTimeline = async function(action){
+        if (grouping) return action();
+        me.start(EVENT.timelineHistory);
+        grouping = true;
+        try {
+            return await action();
+        } finally {
+            grouping = false;
+            me.end();
+        }
+    };
 
     // TODO: maybe add a "framehistory" type to store the current frame instead of the whole image?
 
@@ -36,6 +50,7 @@ let HistoryService = function(){
     }
 
     me.start = function(type,data){
+        if (grouping) return;
         if (!enabled) return;
         console.log("start his");
         currentHistory={type,data:{}};
@@ -100,9 +115,16 @@ let HistoryService = function(){
             case EVENT.layerHistory:
                 currentHistory.data.layerIndex = index;
                 currentHistory.data.from = ImageFile.getActiveLayer().clone();
+                // A raster transform can change both pixels and animatable offsets.
+                if (data && data.propsRefs){
+                    currentHistory.data.propsRefs = data.propsRefs;
+                    currentHistory.data.propsFrom = data.propsRefs.map(ref=>ImageFile.getKeyPropsTarget(ref));
+                }
                 break;
             case EVENT.imageHistory:
-                currentHistory.data.from = ImageFile.clone();
+                // cloneForHistory also records the clip being edited in place (spec 024), so a
+                // whole-image undo returns there instead of dropping the user back at the root
+                currentHistory.data.from = ImageFile.cloneForHistory ? ImageFile.cloneForHistory() : ImageFile.clone();
                 // TODO: this also clears all masks and selections
                 // and it doesn't hold the current layer so future undo actions wont work ...
                 // FIXME
@@ -132,6 +154,11 @@ let HistoryService = function(){
                 // One x/y/opacity edit on one layer, targeted at the key that owns it.
                 currentHistory.data.from = ImageFile.getKeyPropsTarget(index);
                 break;
+            case EVENT.libraryHistory:
+                // Clip library STRUCTURE (spec 024 R39): clip names/lengths/pivots/markers and the
+                // clip list. Clip timelines are captured by reference, like timelineHistory cels.
+                currentHistory.data.from = ImageFile.cloneLibraryStructure();
+                break;
             case EVENT.keyPropsGroupHistory:
                 // A multi-layer free-transform move (Layer panel multi-select, spec-less follow-up
                 // to vectorGroupHistory): `data` is the array of layer paths touched, active layer
@@ -145,6 +172,7 @@ let HistoryService = function(){
     }
 
     me.end=function(){
+        if (grouping) return;
         if (currentHistory){
             console.log("end his");
             switch (currentHistory.type){
@@ -173,9 +201,12 @@ let HistoryService = function(){
                 case EVENT.layerHistory:
                     currentHistory.data.to = ImageFile
                         .getLayerInTarget(currentHistory.data.target,currentHistory.data.layerIndex).clone();
+                    if (currentHistory.data.propsRefs){
+                        currentHistory.data.propsTo = currentHistory.data.propsRefs.map(ref=>ImageFile.getKeyPropsTarget(ref));
+                    }
                     break;
                 case EVENT.imageHistory:
-                    currentHistory.data.to = ImageFile.clone();
+                    currentHistory.data.to = ImageFile.cloneForHistory ? ImageFile.cloneForHistory() : ImageFile.clone();
                     break;
                 case EVENT.vectorHistory:
                     currentHistory.data.to = captureVectorSnapshot(currentHistory.data.target, currentHistory.data.layerIndex);
@@ -186,6 +217,9 @@ let HistoryService = function(){
                     break;
                 case EVENT.timelineHistory:
                     currentHistory.data.to = ImageFile.cloneTimelineStructure();
+                    break;
+                case EVENT.libraryHistory:
+                    currentHistory.data.to = ImageFile.cloneLibraryStructure();
                     break;
                 case EVENT.keyPropsHistory:
                     currentHistory.data.to = ImageFile.getKeyPropsTarget(currentHistory.data.layerIndex);
@@ -204,6 +238,7 @@ let HistoryService = function(){
     }
 
     me.neverMind = function(){
+        if (grouping) return;
         currentHistory = undefined;
     }
 
@@ -301,7 +336,13 @@ let HistoryService = function(){
         }
     }
 
-    EventBus.on(COMMAND.UNDO,()=>{
+    EventBus.on(COMMAND.UNDO,async ()=>{
+        // Free Transform keeps its history step open until it is committed. Finish
+        // that step before choosing what to undo, including asynchronous resampling.
+        if (currentHistory){
+            let Editor = (await import("../ui/editor.js")).default;
+            if (Editor.getCurrentTool() === COMMAND.TRANSFORMLAYER) await Editor.commit();
+        }
         if (history.length){
             let historyStep = history.shift();
             let layer;
@@ -356,12 +397,17 @@ let HistoryService = function(){
                 case EVENT.layerHistory:
                     layer = ImageFile.getLayerInTarget(historyStep.data.target,historyStep.data.layerIndex);
                     if (!layer) break;
-                    layer.restore(historyStep.data.from);
-                    EventBus.trigger(EVENT.layerContentChanged);
-                    EventBus.trigger(EVENT.layersChanged);
+                    layer.restore(historyStep.data.from, {exactSize: true}).then(()=>{
+                        (historyStep.data.propsFrom || []).forEach(record=>ImageFile.applyKeyProps(record));
+                        EventBus.trigger(EVENT.layerContentChanged);
+                        EventBus.trigger(EVENT.layersChanged);
+                    });
                     break;
                 case EVENT.timelineHistory:
                     ImageFile.restoreTimelineStructure(historyStep.data.from);
+                    break;
+                case EVENT.libraryHistory:
+                    ImageFile.restoreLibraryStructure(historyStep.data.from);
                     break;
                 case EVENT.keyPropsHistory:
                     ImageFile.applyKeyProps(historyStep.data.from);
@@ -433,12 +479,17 @@ let HistoryService = function(){
                 case EVENT.layerHistory:
                     layer = ImageFile.getLayerInTarget(historyStep.data.target,historyStep.data.layerIndex);
                     if (!layer) break;
-                    layer.restore(historyStep.data.to);
-                    EventBus.trigger(EVENT.layerContentChanged);
-                    EventBus.trigger(EVENT.layersChanged);
+                    layer.restore(historyStep.data.to, {exactSize: true}).then(()=>{
+                        (historyStep.data.propsTo || []).forEach(record=>ImageFile.applyKeyProps(record));
+                        EventBus.trigger(EVENT.layerContentChanged);
+                        EventBus.trigger(EVENT.layersChanged);
+                    });
                     break;
                 case EVENT.timelineHistory:
                     ImageFile.restoreTimelineStructure(historyStep.data.to);
+                    break;
+                case EVENT.libraryHistory:
+                    ImageFile.restoreLibraryStructure(historyStep.data.to);
                     break;
                 case EVENT.keyPropsHistory:
                     ImageFile.applyKeyProps(historyStep.data.to);

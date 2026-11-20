@@ -9,9 +9,32 @@ import Palette from "./palette.js";
 import ImageFile from "../image.js";
 import EventBus from "../util/eventbus.js";
 import {EVENT} from "../enum.js";
-import {compositeNodes} from "../util/layerUtils.js";
+import {compositeNodes, isVisibleIn} from "../util/layerUtils.js";
 import {DEFAULT_DISSOLVE_PATTERN} from "../util/dissolveUtils.js";
 import {emptyVectorData, cloneVector, rasterizeVector, poseVector} from "../util/vectorUtils.js";
+import {renderClipNode} from "../util/clipRender.js";
+import {normalizeEffects} from "../util/layerEffects.js";
+import {normalizeCue, normalizeFrame} from "../util/clipUtils.js";
+import {normalizeOverrides, normalizeParamValues} from "../util/overrideUtils.js";
+
+// A clip instance's override map as plain JSON data (normalized; undefined when empty).
+function plainOverrides(map){
+    let normalized = normalizeOverrides(map);
+    return normalized ? JSON.parse(JSON.stringify(normalized)) : undefined;
+}
+
+// Bone attachment (spec 024 §3.11) is plain data on any node type: {boneLayerId, boneId, bind}.
+function cloneAttach(attach){
+    if (!attach || typeof attach !== "object") return undefined;
+    let b = attach.bind || {};
+    let num = v => (typeof v === "number" && Number.isFinite(v)) ? v : 0;
+    return {
+        boneLayerId: attach.boneLayerId,
+        boneId: attach.boneId,
+        bind: {a: typeof b.a === "number" ? num(b.a) : 1, b: num(b.b), c: num(b.c),
+            d: typeof b.d === "number" ? num(b.d) : 1, e: num(b.e), f: num(b.f)}
+    };
+}
 
 // Monotonic per-file id allocator (spec 004). Every layer node carries a stable `id` so
 // timeline property keys can address it across frames. The counter lives here so *every*
@@ -70,7 +93,7 @@ let Layer = function(width,height,name){
     let currentColor;
 
     me.getCanvas = function(){
-        if (me.type === "group") return me.render();
+        if (me.type === "group" || me.type === "clip") return me.render();
         // A vector layer in "vector" display mode is drawn on screen as live SVG shapes, so its own
         // raster canvas is never populated by the compositor. Anything asking for the pixels (copy,
         // copy/cut-to-layer, duplicate, export helpers) must trigger the raster now, behind the same
@@ -133,7 +156,8 @@ let Layer = function(width,height,name){
             // The group canvas stays document-sized in v1: a child pushed far outside it can
             // clip at the group boundary even when the group itself is offset back inside the
             // document. Accepted v1 limitation, consistent with decision 4 (spec 004).
-            compositeNodes(me.layers.filter(c=>c.visible), groupCtx, props, options);
+            // visibility may be overridden per frame (spec 025), so filter on the resolved flag
+            compositeNodes(me.layers.filter(c=>isVisibleIn(c, props)), groupCtx, props, options);
             return groupCanvas;
         }
         // A bone layer paints nothing of its own — it deforms its younger siblings at composite
@@ -141,6 +165,20 @@ let Layer = function(width,height,name){
         // stray composite draws nothing.
         if (me.type === "bone"){
             return canvas;
+        }
+        // A clip instance (spec 024) has no pixels of its own: it shows its library clip at its
+        // current local time. The composite is clip-local, so its origin goes into the transient
+        // canvasX/canvasY (never serialized) and every render()+canvasX consumer keeps working.
+        if (me.type === "clip"){
+            let composite = renderClipNode(me, options, props);
+            if (!composite){
+                me.canvasX = 0;
+                me.canvasY = 0;
+                return canvas;
+            }
+            me.canvasX = composite.x;
+            me.canvasY = composite.y;
+            return composite.canvas;
         }
         // A vector layer's real content is geometry (me.vector). Lazily rasterize it into this
         // node's own canvas behind a dirty flag, then return the canvas so compositing, export,
@@ -251,7 +289,7 @@ let Layer = function(width,height,name){
     // more. Kept as part of the Layer API for callers that really do want to re-sample a
     // layer's own canvas.
     me.ensureLocalRect = function(x,y,w,h){
-        if (me.type === "group" || me.type === "bone" || me.type === "vector") return;
+        if (me.type === "group" || me.type === "bone" || me.type === "vector" || me.type === "clip") return;
         w = typeof w === "number" ? w : 1;
         h = typeof h === "number" ? h : 1;
         let curMinX = me.canvasX || 0;
@@ -351,6 +389,7 @@ let Layer = function(width,height,name){
     };
 
     me.resize = function(width,height,x,y){
+        if (me.type === "clip") return; // no pixels of its own
         if (me.type === "group"){
             me.layers.forEach(c=>c.resize(width,height,x,y));
             groupCanvas = undefined;
@@ -390,6 +429,7 @@ let Layer = function(width,height,name){
     // Destructively crops the node's own canvas. See the note on resize() above: the
     // document-level crop is non-destructive and does not go through here.
     me.crop = function(x,y,w,h){
+        if (me.type === "clip") return; // no pixels of its own
         if (me.type === "group"){
             me.layers.forEach(c=>c.crop(x,y,w,h));
             groupCanvas = undefined;
@@ -655,6 +695,37 @@ let Layer = function(width,height,name){
             hasMask: me.hasMask
         };
         if (!forSerialization) indexed=false;
+        let effects = normalizeEffects(me.effects);
+        if (effects.length) struct.effects = effects;
+        // Any node type can be attached to a bone (spec 024 §3.11).
+        let attach = cloneAttach(me.attach);
+        if (attach) struct.attach = attach;
+
+        // A clip instance references its library clip and carries a group-style transform plus
+        // its own time: the per-instance clock offset and an optional cue / scrub frame. Its
+        // canvasX/canvasY are transient (the composite origin), so they are not stored.
+        if (me.type === "clip"){
+            struct.type = "clip";
+            struct.clipId = me.clipId;
+            if (typeof me.smooth === "boolean") struct.smooth = me.smooth;
+            struct.canvasX = 0;
+            struct.canvasY = 0;
+            struct.scaleX = typeof me.scaleX === "number" ? me.scaleX : 1;
+            struct.scaleY = typeof me.scaleY === "number" ? me.scaleY : 1;
+            struct.rotation = typeof me.rotation === "number" ? me.rotation : 0;
+            struct.offset = Number.isFinite(me.offset) ? Math.round(me.offset) : 0;
+            let cue = normalizeCue(me.cue);
+            if (cue) struct.cue = cue;
+            let frame = normalizeFrame(me.frame);
+            if (typeof frame !== "undefined") struct.frame = frame;
+            // nested overrides (spec 025): plain, normalized data
+            let overrides = plainOverrides(me.overrides);
+            if (overrides) struct.overrides = overrides;
+            // clip-parameter values (spec 026)
+            let params = normalizeParamValues(me.params);
+            if (params) struct.params = Object.assign({}, params);
+            return struct;
+        }
 
         if (me.type === "group"){
             struct.type = "group";
@@ -705,7 +776,7 @@ let Layer = function(width,height,name){
         return struct;
     }
 
-    me.restore = (struct)=> {
+    me.restore = (struct, options)=> {
         return new Promise((next)=>{
             me.name = struct.name;
             me.blendMode = struct.blendMode;
@@ -715,6 +786,7 @@ let Layer = function(width,height,name){
             me.visible = !!struct.visible;
             me.locked = !!struct.locked;
             me.hasMask = !!struct.hasMask;
+            me.effects = normalizeEffects(struct.effects);
             // Keep the stored identity (property keys reference it) and make sure the
             // allocator never hands the same id out again. Structs from before spec 004
             // carry no id/offset, so those keep the freshly allocated id and 0/0.
@@ -726,6 +798,34 @@ let Layer = function(width,height,name){
             me.y = struct.y || 0;
             me.canvasX = struct.canvasX || 0;
             me.canvasY = struct.canvasY || 0;
+            let attach = cloneAttach(struct.attach);
+            if (attach) me.attach = attach; else delete me.attach;
+
+            // Clip instance: no pixels to decode. Its own canvas stays a 1×1 blank (render()
+            // returns the library clip's composite instead).
+            if (struct.type === "clip"){
+                me.type = "clip";
+                me.clipId = struct.clipId;
+                if (typeof struct.smooth === "boolean") me.smooth = struct.smooth;
+                else delete me.smooth;
+                me.scaleX = typeof struct.scaleX === "number" ? struct.scaleX : 1;
+                me.scaleY = typeof struct.scaleY === "number" ? struct.scaleY : 1;
+                me.rotation = typeof struct.rotation === "number" ? struct.rotation : 0;
+                me.offset = Number.isFinite(struct.offset) ? Math.round(struct.offset) : 0;
+                let cue = normalizeCue(struct.cue);
+                if (cue) me.cue = cue; else delete me.cue;
+                let frame = normalizeFrame(struct.frame);
+                if (typeof frame !== "undefined") me.frame = frame; else delete me.frame;
+                let overrides = plainOverrides(struct.overrides);
+                if (overrides) me.overrides = overrides; else delete me.overrides;
+                let params = normalizeParamValues(struct.params);
+                if (params) me.params = Object.assign({}, params); else delete me.params;
+                canvas.width = 1;
+                canvas.height = 1;
+                me.invalidateCache();
+                next();
+                return;
+            }
 
             // A stored canvas can be LARGER than the document: crop and resize are
             // non-destructive, so a layer keeps the pixels that now fall outside the document
@@ -741,8 +841,9 @@ let Layer = function(width,height,name){
             // since anything painted outside a layer's own canvas is lost.
             function sizeCanvasTo(width,height){
                 if (!width || !height) return;
-                let w = Math.max(canvas.width, width);
-                let h = Math.max(canvas.height, height);
+                // Undo of a transform must also undo growth of the backing canvas.
+                let w = options?.exactSize ? width : Math.max(canvas.width, width);
+                let h = options?.exactSize ? height : Math.max(canvas.height, height);
                 if (canvas.width === w && canvas.height === h) return;
                 canvas.width = w;
                 canvas.height = h;
@@ -905,6 +1006,21 @@ Layer.makeGroup = function(width,height,name){
     group.rotation = 0;
     group.smooth = false;   // timeline-wide (not animatable) — see ImageFile.setGroupSmooth
     return group;
+}
+
+// Creates a clip instance (spec 024): a node showing library clip `clipId` at a computed local
+// time. Transform like a group (about the clip pivot), a per-instance clock `offset` (D7), and an
+// optional `cue` / scrub `frame` on the base node. It has no pixels of its own (a 1×1 blank canvas,
+// like a bone layer's): render() returns the clip's composite.
+Layer.makeClip = function(clipId,name){
+    let l = Layer(1,1,name || "Clip");
+    l.type = "clip";
+    l.clipId = clipId;
+    l.scaleX = 1;
+    l.scaleY = 1;
+    l.rotation = 0;
+    l.offset = 0;
+    return l;
 }
 
 // Creates a bone layer: a Layer with type "bone" that holds an armature (a tree of bones) and
